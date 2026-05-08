@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sultan POS — Dual Station System</title>
+    <!-- Modern Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Premium Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --bg-primary: #0a0915;
+            --bg-secondary: rgba(255, 255, 255, 0.03);
+            --bg-glass: rgba(15, 12, 30, 0.7);
+            --border-glass: rgba(255, 255, 255, 0.08);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent-purple: #8b5cf6;
+            --accent-pink: #ec4899;
+            --accent-emerald: #10b981;
+            --accent-amber: #f59e0b;
+            --accent-rose: #f43f5e;
+            --gradient-primary: linear-gradient(135deg, #8b5cf6, #ec4899);
+            --gradient-emerald: linear-gradient(135deg, #059669, #10b981);
+            --shadow-premium: 0 10px 30px -10px rgba(139, 92, 246, 0.3);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Plus Jakarta Sans', 'Outfit', sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(139, 92, 246, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(236, 72, 153, 0.15) 0px, transparent 50%);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        /* Header Navigation */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 3rem;
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-glass);
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo-icon {
+            background: var(--gradient-primary);
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: var(--shadow-premium);
+        }
+
+        .logo-icon i {
+            color: #fff;
+            font-size: 1.25rem;
+        }
+
+        .logo-text {
+            font-family: 'Outfit', sans-serif;
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            background: var(--gradient-primary);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Station Switcher */
+        .station-selector {
+            display: flex;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 0.25rem;
+            border-radius: 30px;
+            border: 1px solid var(--border-glass);
+            position: relative;
+        }
+
+        .station-btn {
+            padding: 0.75rem 2rem;
+            border-radius: 25px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            font-weight: 600;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .station-btn.active {
+            background: var(--gradient-primary);
+            color: #fff;
+            box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+        }
+
+        .station-btn:hover:not(.active) {
+            color: var(--text-primary);
+        }
+
+        /* Main Container */
+        .app-container {
+            flex: 1;
+            display: flex;
+            padding: 2rem 3rem;
+            gap: 2rem;
+            max-width: 1800px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        /* Left Content - Menu Grid or Scanning Area */
+        .main-content {
+            flex: 1.6;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        /* Categories Bar */
+        .categories-container {
+            display: flex;
+            gap: 0.75rem;
+            overflow-x: auto;
+            padding-bottom: 0.5rem;
+        }
+
+        .categories-container::-webkit-scrollbar {
+            height: 4px;
+        }
+
+        .categories-container::-webkit-scrollbar-thumb {
+            background: var(--border-glass);
+            border-radius: 10px;
+        }
+
+        .category-pill {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-glass);
+            color: var(--text-secondary);
+            padding: 0.6rem 1.5rem;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.3s ease;
+        }
+
+        .category-pill.active {
+            background: #fff;
+            color: #000;
+            border-color: #fff;
+        }
+
+        /* Items Grid */
+        .items-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .item-card {
+            background: var(--bg-glass);
+            border: 1px solid var(--border-glass);
+            border-radius: 20px;
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .item-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 50% 0%, rgba(139, 92, 246, 0.1), transparent 70%);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+        }
+
+        .item-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--accent-purple);
+            box-shadow: 0 15px 30px -10px rgba(139, 92, 246, 0.2);
+        }
+
+        .item-card:hover::before {
+            opacity: 1;
+        }
+
+        .item-image-placeholder {
+            height: 140px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.05));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            color: rgba(255, 255, 255, 0.2);
+            transition: transform 0.3s ease;
+        }
+
+        .item-card:hover .item-image-placeholder {
+            transform: scale(1.04);
+        }
+
+        .item-badge {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: var(--accent-emerald);
+            color: #fff;
+            padding: 0.25rem 0.6rem;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .item-details h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 0.25rem;
+        }
+
+        .item-details p {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+
+        .item-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: auto;
+        }
+
+        .item-price {
+            font-weight: 700;
+            font-size: 1.2rem;
+            color: #fff;
+        }
+
+        .add-item-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-glass);
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .item-card:hover .add-item-btn {
+            background: var(--gradient-primary);
+            border-color: transparent;
+            color: #fff;
+            box-shadow: 0 4px 10px rgba(139, 92, 246, 0.3);
+        }
+
+        /* Right Content - Cart or Checkout Pane */
+        .cart-panel {
+            flex: 1;
+            background: var(--bg-glass);
+            border: 1px solid var(--border-glass);
+            border-radius: 24px;
+            padding: 1.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            height: calc(100vh - 160px);
+            position: sticky;
+            top: 110px;
+        }
+
+        .cart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-glass);
+            padding-bottom: 1rem;
+        }
+
+        .cart-header h2 {
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+
+        .cart-items {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            padding-right: 0.25rem;
+        }
+
+        .cart-items::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .cart-items::-webkit-scrollbar-thumb {
+            background: var(--border-glass);
+            border-radius: 10px;
+        }
+
+        .cart-item {
+            display: flex;
+            gap: 1rem;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-glass);
+            padding: 1rem;
+            border-radius: 16px;
+            position: relative;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .cart-item-info {
+            flex: 1;
+        }
+
+        .cart-item-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .cart-item-modifiers {
+            font-size: 0.75rem;
+            color: var(--accent-pink);
+            margin-bottom: 0.5rem;
+        }
+
+        .cart-item-price {
+            font-weight: 700;
+            font-size: 1rem;
+        }
+
+        .qty-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            background: rgba(255, 255, 255, 0.04);
+            padding: 0.25rem 0.5rem;
+            border-radius: 10px;
+            align-self: center;
+        }
+
+        .qty-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-primary);
+            cursor: pointer;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .qty-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .remove-item-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: color 0.2s ease;
+        }
+
+        .remove-item-btn:hover {
+            color: var(--accent-rose);
+        }
+
+        .cart-summary {
+            border-top: 1px solid var(--border-glass);
+            padding-top: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+        }
+
+        .summary-row.total {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: #fff;
+            border-top: 1px dashed var(--border-glass);
+            padding-top: 0.75rem;
+            margin-top: 0.25rem;
+        }
+
+        .checkout-btn {
+            background: var(--gradient-primary);
+            border: none;
+            color: #fff;
+            padding: 1.1rem;
+            border-radius: 16px;
+            font-weight: 700;
+            font-size: 1.05rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: var(--shadow-premium);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .checkout-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 30px -5px rgba(139, 92, 246, 0.4);
+        }
+
+        /* Modifiers Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(10px);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-container {
+            background: #0f0c1e;
+            border: 1px solid var(--border-glass);
+            border-radius: 28px;
+            width: 100%;
+            max-width: 500px;
+            padding: 2.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            transform: translateY(20px);
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .modal-overlay.active .modal-container {
+            transform: translateY(0);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-title h2 {
+            font-size: 1.4rem;
+            font-weight: 700;
+        }
+
+        .modal-close {
+            background: rgba(255, 255, 255, 0.05);
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            color: var(--text-primary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s ease;
+        }
+
+        .modal-close:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .modifier-option {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-glass);
+            padding: 1rem 1.25rem;
+            border-radius: 16px;
+            margin-bottom: 0.75rem;
+            transition: all 0.2s ease;
+        }
+
+        .modifier-option:hover {
+            border-color: rgba(139, 92, 246, 0.4);
+            background: rgba(139, 92, 246, 0.02);
+        }
+
+        .modifier-info {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .modifier-checkbox {
+            appearance: none;
+            width: 22px;
+            height: 22px;
+            border: 2px solid var(--text-secondary);
+            border-radius: 6px;
+            outline: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .modifier-checkbox:checked {
+            background: var(--gradient-primary);
+            border-color: transparent;
+        }
+
+        .modifier-checkbox:checked::after {
+            content: "\f00c";
+            font-family: "Font Awesome 5 Free";
+            font-weight: 900;
+            color: #fff;
+            font-size: 0.75rem;
+        }
+
+        .modifier-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .modifier-price {
+            font-size: 0.9rem;
+            color: var(--accent-pink);
+            font-weight: 700;
+        }
+
+        /* Cashier Scanning Layout */
+        .cashier-view {
+            display: none;
+            flex-direction: column;
+            gap: 2rem;
+            width: 100%;
+        }
+
+        .scan-card {
+            background: var(--bg-glass);
+            border: 1px solid var(--border-glass);
+            border-radius: 24px;
+            padding: 2.5rem;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.5rem;
+            max-width: 600px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .scan-pulse-icon {
+            width: 100px;
+            height: 100px;
+            background: rgba(139, 92, 246, 0.1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            color: var(--accent-purple);
+            position: relative;
+            animation: pulse 2s infinite;
+        }
+
+        .barcode-input-container {
+            display: flex;
+            gap: 0.75rem;
+            width: 100%;
+            max-width: 450px;
+        }
+
+        .barcode-input {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            padding: 1rem;
+            color: #fff;
+            font-size: 1.1rem;
+            outline: none;
+            text-align: center;
+            font-family: monospace;
+            letter-spacing: 2px;
+            transition: all 0.3s ease;
+        }
+
+        .barcode-input:focus {
+            border-color: var(--accent-purple);
+            box-shadow: 0 0 15px rgba(139, 92, 246, 0.2);
+        }
+
+        .scan-submit-btn {
+            background: var(--gradient-primary);
+            border: none;
+            color: #fff;
+            padding: 0 1.5rem;
+            border-radius: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .receipt-card {
+            background: var(--bg-glass);
+            border: 1px solid var(--border-glass);
+            border-radius: 20px;
+            padding: 1.5rem;
+            text-align: center;
+            display: none;
+        }
+
+        /* Keyframes Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0.4); }
+            70% { box-shadow: 0 0 0 20px rgba(139, 92, 246, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(139, 92, 246, 0); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header>
+        <div class="logo-section">
+            <div class="logo-icon">
+                <i class="fa-solid fa-crown"></i>
+            </div>
+            <div>
+                <span class="logo-text">Sultan POS</span>
+                <p style="font-size: 0.75rem; color: var(--text-secondary); letter-spacing: 0.5px;">DUAL STATION WORKFLOW</p>
+            </div>
+        </div>
+
+        <!-- Station Toggle -->
+        <div class="station-selector">
+            <button class="station-btn active" id="btn-order" onclick="switchStation('order')">
+                <i class="fa-solid fa-utensils"></i> Order Station
+            </button>
+            <button class="station-btn" id="btn-cashier" onclick="switchStation('cashier')">
+                <i class="fa-solid fa-cash-register"></i> Cashier Station
+            </button>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 1rem;">
+            <div style="text-align: right; font-size: 0.85rem;">
+                <span style="display: block; font-weight: 600;">Main Branch</span>
+                <span style="color: var(--accent-emerald)"><i class="fa-solid fa-circle" style="font-size: 6px; vertical-align: middle; margin-right: 4px;"></i> Terminal 1</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- App Container -->
+    <div class="app-container">
+        
+        <!-- ================= ORDER STATION VIEW ================= -->
+        <div class="main-content" id="order-station-view">
+            <!-- Categories Pill Bar -->
+            <div class="categories-container">
+                <div class="category-pill active">All Items</div>
+                <div class="category-pill">Burgers</div>
+                <div class="category-pill">Pizzas</div>
+                <div class="category-pill">Add-ons</div>
+                <div class="category-pill">Drinks</div>
+            </div>
+
+            <!-- Items Grid -->
+            <div class="items-grid">
+                <div class="item-card" onclick="openModifiers('Sultan Royal Burger', 8.50, ['Extra Cheese', 'Extra Patty', 'Remove Onions'])">
+                    <span class="item-badge">Fresh</span>
+                    <div class="item-image-placeholder">
+                        <i class="fa-solid fa-burger"></i>
+                    </div>
+                    <div class="item-details">
+                        <h3>Sultan Royal Burger</h3>
+                        <p>With pre-built BOM & modifiers</p>
+                    </div>
+                    <div class="item-footer">
+                        <span class="item-price">$8.50</span>
+                        <button class="add-item-btn"><i class="fa-solid fa-plus"></i></button>
+                    </div>
+                </div>
+
+                <div class="item-card" onclick="openModifiers('Sultan Feast Pizza', 12.00, ['Extra Cheese', 'Premium Mushrooms', 'Gluten Free'])">
+                    <span class="item-badge">Fresh</span>
+                    <div class="item-image-placeholder">
+                        <i class="fa-solid fa-pizza-slice"></i>
+                    </div>
+                    <div class="item-details">
+                        <h3>Sultan Feast Pizza</h3>
+                        <p>Fully customizable ingredients</p>
+                    </div>
+                    <div class="item-footer">
+                        <span class="item-price">$12.00</span>
+                        <button class="add-item-btn"><i class="fa-solid fa-plus"></i></button>
+                    </div>
+                </div>
+
+                <div class="item-card" onclick="addToCart('Imported Cheddar Cheese', 1.50, [])">
+                    <div class="item-image-placeholder">
+                        <i class="fa-solid fa-cheese"></i>
+                    </div>
+                    <div class="item-details">
+                        <h3>Cheddar Cheese Block</h3>
+                        <p>Scannable barcode item</p>
+                    </div>
+                    <div class="item-footer">
+                        <span class="item-price">$1.50</span>
+                        <button class="add-item-btn"><i class="fa-solid fa-plus"></i></button>
+                    </div>
+                </div>
+
+                <div class="item-card" onclick="addToCart('Sultan Passion Soda', 2.00, [])">
+                    <div class="item-image-placeholder">
+                        <i class="fa-solid fa-glass-water"></i>
+                    </div>
+                    <div class="item-details">
+                        <h3>Sultan Passion Soda</h3>
+                        <p>Chilled signature drink</p>
+                    </div>
+                    <div class="item-footer">
+                        <span class="item-price">$2.00</span>
+                        <button class="add-item-btn"><i class="fa-solid fa-plus"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ================= CASHIER STATION VIEW ================= -->
+        <div class="cashier-view" id="cashier-station-view">
+            <div class="scan-card">
+                <div class="scan-pulse-icon">
+                    <i class="fa-solid fa-barcode"></i>
+                </div>
+                <div>
+                    <h2>Scan Customer Receipt Barcode</h2>
+                    <p style="color: var(--text-secondary); margin-top: 0.5rem;">To retrieve the order and complete the payment process.</p>
+                </div>
+                <div class="barcode-input-container">
+                    <input type="text" class="barcode-input" id="barcode-scan-input" placeholder="SCAN BARCODE OR ORDER ID" onkeypress="handleBarcodeKeypress(event)">
+                    <button class="scan-submit-btn" onclick="submitBarcode()"><i class="fa-solid fa-arrow-right"></i></button>
+                </div>
+            </div>
+
+            <!-- Receipt Barcode Generator Mock -->
+            <div class="receipt-card" id="generated-receipt">
+                <h3 style="margin-bottom: 0.5rem;"><i class="fa-solid fa-circle-check" style="color: var(--accent-emerald);"></i> Order Successfully Processed</h3>
+                <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">Printed order receipt with barcode below:</p>
+                <div style="background: white; color: black; padding: 1.5rem; display: inline-block; border-radius: 8px; font-family: monospace;">
+                    <p style="font-weight: bold; letter-spacing: 5px;">*SO-2026-00042*</p>
+                    <p style="font-size: 0.75rem; margin-top: 0.5rem; letter-spacing: 1px;">SULTAN ORDER STATION RECEIPT</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Side Panel (Cart / Checkout summary) -->
+        <div class="cart-panel" id="cart-pane">
+            <div class="cart-header">
+                <h2>Cart Items</h2>
+                <span id="cart-count" style="background: rgba(255,255,255,0.05); padding: 0.25rem 0.6rem; border-radius: 20px; font-size: 0.85rem; font-weight: 600;">0</span>
+            </div>
+
+            <div class="cart-items" id="cart-items-list">
+                <div style="text-align: center; color: var(--text-secondary); margin-top: 4rem;">
+                    <i class="fa-solid fa-shopping-basket" style="font-size: 3rem; opacity: 0.15; margin-bottom: 1rem; display: block;"></i>
+                    <span>Cart is empty. Select an item to start.</span>
+                </div>
+            </div>
+
+            <div class="cart-summary">
+                <div class="summary-row">
+                    <span>Subtotal</span>
+                    <span id="summary-subtotal">$0.00</span>
+                </div>
+                <div class="summary-row">
+                    <span>VAT (16%)</span>
+                    <span id="summary-vat">$0.00</span>
+                </div>
+                <div class="summary-row total">
+                    <span>Total Amount</span>
+                    <span id="summary-total">$0.00</span>
+                </div>
+                <button class="checkout-btn" onclick="triggerCheckout()">
+                    <i class="fa-solid fa-receipt"></i> <span id="checkout-action-btn">Print Order Ticket</span>
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Modifiers Popup Modal -->
+    <div class="modal-overlay" id="modifiers-modal">
+        <div class="modal-container">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <h2 id="modal-item-name">Customize Ingredients</h2>
+                    <p style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.25rem;">Select active BOM components & premium add-ons.</p>
+                </div>
+                <button class="modal-close" onclick="closeModifiers()"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div id="modal-modifiers-list">
+                <!-- Populated dynamically -->
+            </div>
+
+            <button class="checkout-btn" onclick="confirmModifiers()">
+                <i class="fa-solid fa-circle-check"></i> Add to Cart with Modifiers
+            </button>
+        </div>
+    </div>
+
+    <!-- Javascript Logical State Handling -->
+    <script>
+        let currentStation = 'order';
+        let cart = [];
+        let tempItem = null;
+
+        const modifierPrices = {
+            'Extra Cheese': 1.50,
+            'Extra Patty': 2.50,
+            'Premium Mushrooms': 1.75,
+            'Gluten Free': 2.00,
+            'Remove Onions': 0.00
+        };
+
+        function switchStation(station) {
+            currentStation = station;
+            document.getElementById('btn-order').classList.toggle('active', station === 'order');
+            document.getElementById('btn-cashier').classList.toggle('active', station === 'cashier');
+            
+            if (station === 'order') {
+                document.getElementById('order-station-view').style.display = 'flex';
+                document.getElementById('cashier-station-view').style.display = 'none';
+                document.getElementById('checkout-action-btn').textContent = 'Print Order Ticket';
+                document.getElementById('cart-pane').style.opacity = '1';
+                document.getElementById('cart-pane').style.pointerEvents = 'auto';
+            } else {
+                document.getElementById('order-station-view').style.display = 'none';
+                document.getElementById('cashier-station-view').style.display = 'flex';
+                document.getElementById('checkout-action-btn').textContent = 'Process Payment';
+            }
+        }
+
+        function openModifiers(name, price, modifiers) {
+            tempItem = { name, price, modifiers: [] };
+            document.getElementById('modal-item-name').textContent = name;
+            const container = document.getElementById('modal-modifiers-list');
+            container.innerHTML = '';
+
+            modifiers.forEach(mod => {
+                const addPrice = modifierPrices[mod] ? `(+$${modifierPrices[mod].toFixed(2)})` : '';
+                container.innerHTML += `
+                    <div class="modifier-option">
+                        <div class="modifier-info">
+                            <input type="checkbox" class="modifier-checkbox" value="${mod}" onchange="updateModalPrice('${mod}', this.checked)">
+                            <span class="modifier-name">${mod}</span>
+                        </div>
+                        <span class="modifier-price">${addPrice}</span>
+                    </div>
+                `;
+            });
+
+            document.getElementById('modifiers-modal').classList.add('active');
+        }
+
+        function updateModalPrice(modifier, isChecked) {
+            if (isChecked) {
+                tempItem.modifiers.push(modifier);
+            } else {
+                tempItem.modifiers = tempItem.modifiers.filter(m => m !== modifier);
+            }
+        }
+
+        function confirmModifiers() {
+            let finalPrice = tempItem.price;
+            tempItem.modifiers.forEach(mod => {
+                finalPrice += modifierPrices[mod] || 0;
+            });
+
+            addToCart(tempItem.name, finalPrice, tempItem.modifiers);
+            closeModifiers();
+        }
+
+        function closeModifiers() {
+            document.getElementById('modifiers-modal').classList.remove('active');
+            tempItem = null;
+        }
+
+        function addToCart(name, price, modifiers) {
+            const existing = cart.find(item => item.name === name && JSON.stringify(item.modifiers) === JSON.stringify(modifiers));
+            if (existing) {
+                existing.qty += 1;
+            } else {
+                cart.push({ name, price, qty: 1, modifiers });
+            }
+            renderCart();
+        }
+
+        function updateQty(index, delta) {
+            cart[index].qty += delta;
+            if (cart[index].qty <= 0) {
+                cart.splice(index, 1);
+            }
+            renderCart();
+        }
+
+        function removeItem(index) {
+            cart.splice(index, 1);
+            renderCart();
+        }
+
+        function renderCart() {
+            const container = document.getElementById('cart-items-list');
+            document.getElementById('cart-count').textContent = cart.reduce((acc, item) => acc + item.qty, 0);
+
+            if (cart.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; color: var(--text-secondary); margin-top: 4rem;">
+                        <i class="fa-solid fa-shopping-basket" style="font-size: 3rem; opacity: 0.15; margin-bottom: 1rem; display: block;"></i>
+                        <span>Cart is empty. Select an item to start.</span>
+                    </div>
+                `;
+                updateSummary(0);
+                return;
+            }
+
+            container.innerHTML = '';
+            let subtotal = 0;
+
+            cart.forEach((item, index) => {
+                const modifiersHtml = item.modifiers.length > 0 ? `<div class="cart-item-modifiers">+ ${item.modifiers.join(', ')}</div>` : '';
+                subtotal += item.price * item.qty;
+
+                container.innerHTML += `
+                    <div class="cart-item">
+                        <button class="remove-item-btn" onclick="removeItem(${index})"><i class="fa-solid fa-trash"></i></button>
+                        <div class="cart-item-info">
+                            <div class="cart-item-name">${item.name}</div>
+                            ${modifiersHtml}
+                            <div class="cart-item-price">$${(item.price * item.qty).toFixed(2)}</div>
+                        </div>
+                        <div class="qty-controls">
+                            <button class="qty-btn" onclick="updateQty(${index}, -1)"><i class="fa-solid fa-minus"></i></button>
+                            <span>${item.qty}</span>
+                            <button class="qty-btn" onclick="updateQty(${index}, 1)"><i class="fa-solid fa-plus"></i></button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            updateSummary(subtotal);
+        }
+
+        function updateSummary(subtotal) {
+            const vat = subtotal * 0.16;
+            const total = subtotal + vat;
+
+            document.getElementById('summary-subtotal').textContent = `$${subtotal.toFixed(2)}`;
+            document.getElementById('summary-vat').textContent = `$${vat.toFixed(2)}`;
+            document.getElementById('summary-total').textContent = `$${total.toFixed(2)}`;
+        }
+
+        function triggerCheckout() {
+            if (cart.length === 0) {
+                alert('Please add items to your cart first.');
+                return;
+            }
+
+            if (currentStation === 'order') {
+                // Mock printed order ticket & barcode
+                document.getElementById('generated-receipt').style.display = 'block';
+                switchStation('cashier');
+                document.getElementById('barcode-scan-input').value = 'SO-2026-00042';
+                alert('Order Ticket printed! Scan or input the barcode "SO-2026-00042" at the Cashier Station.');
+            } else {
+                alert('Payment processed successfully! Inventory levels adjusted, and Work Orders successfully submitted.');
+                cart = [];
+                renderCart();
+                document.getElementById('generated-receipt').style.display = 'none';
+                switchStation('order');
+            }
+        }
+
+        function handleBarcodeKeypress(event) {
+            if (event.key === 'Enter') {
+                submitBarcode();
+            }
+        }
+
+        function submitBarcode() {
+            const val = document.getElementById('barcode-scan-input').value.trim();
+            if (val === 'SO-2026-00042') {
+                // Populate cart with the order
+                cart = [
+                    { name: 'Sultan Royal Burger', price: 11.00, qty: 1, modifiers: ['Extra Cheese', 'Extra Patty'] },
+                    { name: 'Sultan Passion Soda', price: 2.00, qty: 1, modifiers: [] }
+                ];
+                renderCart();
+                alert('Order SO-2026-00042 successfully retrieved from Order Station! Process payment below.');
+            } else if (val.includes('|')) {
+                // Delimited Barcode Scan Simulation (Item|Batch|Expiry|Weight)
+                const parts = val.split('|');
+                const item = parts[0];
+                const weight = parseFloat(parts[3] || 1.0);
+                const price = 1.50 * weight; // Cheddar Cheese Block base price
+                addToCart('Imported Cheddar Cheese (' + weight + 'kg)', price, []);
+                alert('Successfully scanned weight-based item: ' + item + ' (' + weight + 'kg)');
+            } else {
+                alert('Unrecognized barcode. Try scanning "SO-2026-00042" or a custom delimited barcode like "CheddarBlock|B-402|2026-12-31|1.35".');
+            }
+        }
+    </script>
+</body>
+</html>

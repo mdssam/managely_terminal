@@ -137,13 +137,14 @@ app_license = "mit"
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-# 	"*": {
-# 		"on_update": "method",
-# 		"on_cancel": "method",
-# 		"on_trash": "method"
-# 	}
-# }
+doc_events = {
+	"POS Invoice": {
+		"on_submit": "sultan.sultan.api.generate_production_order"
+	},
+	"Sales Order": {
+		"on_submit": "sultan.sultan.api.generate_production_order"
+	}
+}
 
 # Scheduled Tasks
 # ---------------
