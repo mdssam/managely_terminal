@@ -3,6 +3,32 @@ from frappe import _
 from frappe.utils import flt, getdate, add_days
 
 @frappe.whitelist()
+def setup_custom_fields():
+    """
+    Bootstraps all required custom fields in ERPNext for Sultan customizations.
+    Run via console or bench: bench execute sultan.sultan.api.setup_custom_fields
+    """
+    fields = [
+        {"dt": "Item", "fieldname": "is_fresh_produce", "label": "Is Fresh Produce", "fieldtype": "Check", "insert_after": "allow_negative_stock"},
+        {"dt": "Item", "fieldname": "supports_weight_price", "label": "Supports Weight Price", "fieldtype": "Check", "insert_after": "is_fresh_produce"},
+        {"dt": "POS Invoice Item", "fieldname": "custom_ingredients", "label": "Custom Ingredients", "fieldtype": "Small Text", "insert_after": "item_code"},
+        {"dt": "Sales Order Item", "fieldname": "custom_ingredients", "label": "Custom Ingredients", "fieldtype": "Small Text", "insert_after": "item_code"},
+        {"dt": "Work Order", "fieldname": "custom_pos_invoice", "label": "Source POS Invoice", "fieldtype": "Link", "options": "POS Invoice", "insert_after": "sales_order"},
+        {"dt": "Work Order", "fieldname": "custom_sales_order", "label": "Source Sales Order", "fieldtype": "Link", "options": "Sales Order", "insert_after": "custom_pos_invoice"}
+    ]
+    
+    count = 0
+    for f in fields:
+        if not frappe.db.exists("Custom Field", {"dt": f["dt"], "fieldname": f["fieldname"]}):
+            doc = frappe.new_doc("Custom Field")
+            doc.update(f)
+            doc.insert(ignore_permissions=True)
+            count += 1
+            
+    frappe.db.commit()
+    return f"Created {count} custom fields successfully!"
+
+@frappe.whitelist()
 def generate_production_order(doc_name, doctype="POS Invoice"):
     """
     Called via hooks on POS Invoice or Sales Order submission.
