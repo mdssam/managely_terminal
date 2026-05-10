@@ -29,13 +29,11 @@ def setup_custom_fields():
     return f"Created {count} custom fields successfully!"
 
 @frappe.whitelist()
-def generate_production_order(doc_name, doctype="POS Invoice"):
+def generate_production_order(doc, method=None):
     """
     Called via hooks on POS Invoice or Sales Order submission.
     Loops through items and creates an instant Work Order for fresh items.
     """
-    doc = frappe.get_doc(doctype, doc_name)
-    
     for item in doc.items:
         # Check if item is marked as fresh produce / needs instant manufacturing
         is_fresh_produce = frappe.db.get_value("Item", item.item_code, "is_fresh_produce")
@@ -51,16 +49,16 @@ def generate_production_order(doc_name, doctype="POS Invoice"):
         # Create a new Work Order
         wo = frappe.get_doc({
             "doctype": "Work Order",
-            "item_code": item.item_code,
+            "production_item": item.item_code,
             "bom_no": bom_no,
             "qty": item.qty,
             "source_warehouse": item.warehouse or doc.set_warehouse,
-            "wip_warehouse": doc.get("wip_warehouse") or frappe.db.get_single_value("Manufacturing Settings", "default_wip_warehouse"),
+            "wip_warehouse": doc.get("wip_warehouse") or frappe.db.get_single_value("Manufacturing Settings", "default_wip_warehouse") or (item.warehouse or doc.set_warehouse),
             "fg_warehouse": item.warehouse or doc.set_warehouse,
             "company": doc.company,
             "planned_start_date": frappe.utils.now_datetime(),
-            "custom_pos_invoice": doc.name if doctype == "POS Invoice" else None,
-            "custom_sales_order": doc.name if doctype == "Sales Order" else None,
+            "custom_pos_invoice": doc.name if doc.doctype == "POS Invoice" else None,
+            "custom_sales_order": doc.name if doc.doctype == "Sales Order" else None,
         })
         
         # Save Work Order to generate standard required items child table
@@ -74,6 +72,12 @@ def generate_production_order(doc_name, doctype="POS Invoice"):
         # Submit Work Order so it is instantly queued in the kitchen/production station
         try:
             wo.submit()
+            from frappe.utils import get_link_to_form
+            frappe.msgprint(
+                msg=f"✅ Work Order has been dispatched to the kitchen!<br><br><strong>{get_link_to_form('Work Order', wo.name)}</strong>",
+                title="Manufacturing Initiated",
+                indicator="green"
+            )
         except Exception as e:
             frappe.log_error(f"Failed to submit Work Order for {item.item_code}: {str(e)}", "Sultan Manufacturing")
 
@@ -95,15 +99,15 @@ def apply_custom_ingredients(wo, custom_ingredients_data):
     else:
         modifiers = custom_ingredients_data
 
-    # Reload required items
-    wo.create_required_items()
+    # Ensure required items are fully calculated and available
+    wo.set_required_items()
     
     required_items_map = {d.item_code: d for d in wo.required_items}
     
     for mod in modifiers:
         item_code = mod.get("item_code")
         action = mod.get("action")
-        qty = flt(mod.get("qty", 0))
+        qty = flt(mod.get("qty") or 1.0) # Default to 1.0 if not explicitly defined
         
         if action == "remove":
             # Remove or set quantity to 0
@@ -191,3 +195,49 @@ def get_pending_orders_for_cashier():
         filters={"docstatus": 0, "status": "Draft"}, 
         fields=["name", "customer", "grand_total", "transaction_date"]
     )
+
+def check_batch_expiry():
+    """
+    Scheduled daily task to find batches expiring soon and trigger system alerts.
+    """
+    # Configuration: Warn 7 days before expiry
+    warning_days = frappe.db.get_single_value("Stock Settings", "expiry_warning_days") or 7
+    warning_date = add_days(frappe.utils.nowdate(), warning_days)
+    
+    expiring_batches = frappe.db.get_all("Batch", 
+        filters={
+            "expiry_date": ["<=", warning_date],
+            "expiry_date": [">=", frappe.utils.nowdate()],
+            "disabled": 0
+        },
+        fields=["name", "item_code", "expiry_date"]
+    )
+    
+    if not expiring_batches:
+        return
+        
+    for batch in expiring_batches:
+        # Check if there is actually stock available for this expiring batch
+        actual_qty = frappe.db.sql("""
+            SELECT sum(actual_qty) FROM tabBin 
+            WHERE item_code=%s AND name IN (SELECT parent FROM `tabBatch` WHERE name=%s)
+        """, (batch.item_code, batch.name))
+        
+        # Create a standard frappe Notification / Log for system admins
+        subject = f"⚠️ Expiry Warning: Batch {batch.name} of {batch.item_code} expires on {batch.expiry_date}"
+        
+        # Post an urgent direct system notification to all System Managers
+        frappe.get_doc({
+            "doctype": "Notification Log",
+            "for_user": "Administrator", # In production iterate through active users
+            "subject": subject,
+            "type": "Alert",
+            "email_content": f"Immediate action required: {subject}",
+            "document_type": "Batch",
+            "document_name": batch.name
+        }).insert(ignore_permissions=True)
+        
+        # Also create an error log record for audit persistence
+        frappe.log_error(message=subject, title="Sultan Batch Expiry Alert")
+
+    frappe.db.commit()
