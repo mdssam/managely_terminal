@@ -26,7 +26,7 @@ app_license = "mit"
 
 # include js, css files in header of desk.html
 # app_include_css = "/assets/sultan/css/sultan.css"
-# app_include_js = "/assets/sultan/js/sultan.js"
+app_include_js = "/assets/sultan/js/sultan_pos_modifier.js"
 
 # include js, css files in header of web template
 # web_include_css = "/assets/sultan/css/sultan.css"
@@ -149,23 +149,11 @@ doc_events = {
 # Scheduled Tasks
 # ---------------
 
-# scheduler_events = {
-# 	"all": [
-# 		"sultan.tasks.all"
-# 	],
-# 	"daily": [
-# 		"sultan.tasks.daily"
-# 	],
-# 	"hourly": [
-# 		"sultan.tasks.hourly"
-# 	],
-# 	"weekly": [
-# 		"sultan.tasks.weekly"
-# 	],
-# 	"monthly": [
-# 		"sultan.tasks.monthly"
-# 	],
-# }
+scheduler_events = {
+	"daily": [
+		"sultan.sultan.api.check_batch_expiry"
+	]
+}
 
 # Testing
 # -------

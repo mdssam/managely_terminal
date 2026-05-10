@@ -738,72 +738,42 @@
         <div class="main-content" id="order-station-view">
             <!-- Categories Pill Bar -->
             <div class="categories-container">
-                <div class="category-pill active">All Items</div>
-                <div class="category-pill">Burgers</div>
-                <div class="category-pill">Pizzas</div>
-                <div class="category-pill">Add-ons</div>
-                <div class="category-pill">Drinks</div>
+                <div class="category-pill active" onclick="filterCategory('all')">All Items</div>
+                {% for cat in categories %}
+                <div class="category-pill" onclick="filterCategory('{{ cat | replace("'", "\\'") }}')">{{ cat }}</div>
+                {% endfor %}
             </div>
 
             <!-- Items Grid -->
-            <div class="items-grid">
-                <div class="item-card" onclick="openModifiers('Sultan Royal Burger', 8.50, ['Extra Cheese', 'Extra Patty', 'Remove Onions'])">
+            <div class="items-grid" id="items-grid-container">
+                {% for item in items %}
+                <div class="item-card" data-category="{{ item.item_group }}" onclick="handleItemInteraction('{{ item.item_code | replace("'", "\\'") }}', '{{ item.item_name | replace("'", "\\'") }}', {{ item.standard_rate or 0 }}, {{ 'true' if item.is_fresh_produce else 'false' }})">
+                    {% if item.is_fresh_produce %}
                     <span class="item-badge">Fresh</span>
+                    {% endif %}
                     <div class="item-image-placeholder">
-                        <i class="fa-solid fa-burger"></i>
+                        {% if item.image %}
+                        <img src="{{ item.image }}" style="width:100%; height:100%; object-fit:cover; border-radius:12px;" />
+                        {% else %}
+                        <i class="fa-solid fa-utensils"></i>
+                        {% endif %}
                     </div>
                     <div class="item-details">
-                        <h3>Sultan Royal Burger</h3>
-                        <p>With pre-built BOM & modifiers</p>
+                        <h3>{{ item.item_name or item.item_code }}</h3>
+                        <p>{{ item.description | striptags | truncate(60) if item.description else "No description provided" }}</p>
                     </div>
                     <div class="item-footer">
-                        <span class="item-price">$8.50</span>
+                        <span class="item-price">{{ currency_symbol }} {{ "{:,.2f}".format(item.standard_rate or 0) }}</span>
                         <button class="add-item-btn"><i class="fa-solid fa-plus"></i></button>
                     </div>
                 </div>
-
-                <div class="item-card" onclick="openModifiers('Sultan Feast Pizza', 12.00, ['Extra Cheese', 'Premium Mushrooms', 'Gluten Free'])">
-                    <span class="item-badge">Fresh</span>
-                    <div class="item-image-placeholder">
-                        <i class="fa-solid fa-pizza-slice"></i>
-                    </div>
-                    <div class="item-details">
-                        <h3>Sultan Feast Pizza</h3>
-                        <p>Fully customizable ingredients</p>
-                    </div>
-                    <div class="item-footer">
-                        <span class="item-price">$12.00</span>
-                        <button class="add-item-btn"><i class="fa-solid fa-plus"></i></button>
-                    </div>
+                {% else %}
+                <div style="text-align: center; padding: 3rem; color: var(--text-secondary); grid-column: 1/-1;">
+                    <i class="fa-regular fa-face-frown" style="font-size: 3rem; margin-bottom: 1rem; display: block;"></i>
+                    <h3>No selling items found.</h3>
+                    <p>Ensure items have "Is Sales Item" checked and a Standard Selling price.</p>
                 </div>
-
-                <div class="item-card" onclick="addToCart('Imported Cheddar Cheese', 1.50, [])">
-                    <div class="item-image-placeholder">
-                        <i class="fa-solid fa-cheese"></i>
-                    </div>
-                    <div class="item-details">
-                        <h3>Cheddar Cheese Block</h3>
-                        <p>Scannable barcode item</p>
-                    </div>
-                    <div class="item-footer">
-                        <span class="item-price">$1.50</span>
-                        <button class="add-item-btn"><i class="fa-solid fa-plus"></i></button>
-                    </div>
-                </div>
-
-                <div class="item-card" onclick="addToCart('Sultan Passion Soda', 2.00, [])">
-                    <div class="item-image-placeholder">
-                        <i class="fa-solid fa-glass-water"></i>
-                    </div>
-                    <div class="item-details">
-                        <h3>Sultan Passion Soda</h3>
-                        <p>Chilled signature drink</p>
-                    </div>
-                    <div class="item-footer">
-                        <span class="item-price">$2.00</span>
-                        <button class="add-item-btn"><i class="fa-solid fa-plus"></i></button>
-                    </div>
-                </div>
+                {% endfor %}
             </div>
         </div>
 
@@ -892,6 +862,7 @@
 
     <!-- Javascript Logical State Handling -->
     <script>
+        const currencySymbol = "{{ currency_symbol }}";
         let currentStation = 'order';
         let cart = [];
         let tempItem = null;
@@ -903,6 +874,36 @@
             'Gluten Free': 2.00,
             'Remove Onions': 0.00
         };
+
+        function filterCategory(cat) {
+            // Update UI state of pills
+            document.querySelectorAll('.category-pill').forEach(el => {
+                el.classList.remove('active');
+                if (el.textContent.trim() === cat || (cat === 'all' && el.textContent.trim() === 'All Items')) {
+                    el.classList.add('active');
+                }
+            });
+            
+            // Filter items grid
+            const cards = document.querySelectorAll('.item-card');
+            cards.forEach(card => {
+                if (cat === 'all' || card.getAttribute('data-category') === cat) {
+                    card.style.display = 'flex';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
+
+        function handleItemInteraction(code, name, price, isFresh) {
+            if (isFresh) {
+                // For fresh goods, launch custom ingredient modal
+                openModifiers(name, price, ['Extra Cheese', 'Extra Patty', 'Remove Onions']);
+            } else {
+                // Standard item, direct add
+                addToCart(name, price, []);
+            }
+        }
 
         function switchStation(station) {
             currentStation = station;
@@ -929,7 +930,7 @@
             container.innerHTML = '';
 
             modifiers.forEach(mod => {
-                const addPrice = modifierPrices[mod] ? `(+$${modifierPrices[mod].toFixed(2)})` : '';
+                const addPrice = modifierPrices[mod] ? `(+${currencySymbol}${modifierPrices[mod].toFixed(2)})` : '';
                 container.innerHTML += `
                     <div class="modifier-option">
                         <div class="modifier-info">
@@ -1018,7 +1019,7 @@
                         <div class="cart-item-info">
                             <div class="cart-item-name">${item.name}</div>
                             ${modifiersHtml}
-                            <div class="cart-item-price">$${(item.price * item.qty).toFixed(2)}</div>
+                            <div class="cart-item-price">${currencySymbol}${(item.price * item.qty).toFixed(2)}</div>
                         </div>
                         <div class="qty-controls">
                             <button class="qty-btn" onclick="updateQty(${index}, -1)"><i class="fa-solid fa-minus"></i></button>
@@ -1036,9 +1037,9 @@
             const vat = subtotal * 0.16;
             const total = subtotal + vat;
 
-            document.getElementById('summary-subtotal').textContent = `$${subtotal.toFixed(2)}`;
-            document.getElementById('summary-vat').textContent = `$${vat.toFixed(2)}`;
-            document.getElementById('summary-total').textContent = `$${total.toFixed(2)}`;
+            document.getElementById('summary-subtotal').textContent = `${currencySymbol}${subtotal.toFixed(2)}`;
+            document.getElementById('summary-vat').textContent = `${currencySymbol}${vat.toFixed(2)}`;
+            document.getElementById('summary-total').textContent = `${currencySymbol}${total.toFixed(2)}`;
         }
 
         function triggerCheckout() {
