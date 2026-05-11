@@ -410,18 +410,25 @@ def get_work_orders_for_pos_invoice(invoice_name):
     return work_orders
 
 
+def _resolve_invoice(invoice_name):
+    """Return (doctype, doc) trying POS Invoice then Sales Invoice."""
+    for doctype in ("POS Invoice", "Sales Invoice"):
+        if frappe.db.exists(doctype, invoice_name):
+            return doctype, frappe.get_doc(doctype, invoice_name)
+    return None, None
+
+
 @frappe.whitelist()
 def get_invoice_for_cashier(invoice_name):
     """
-    Fetches a Sales Invoice for the Cashier Terminal to review and pay.
-    Returns items, totals, customer, and payment status.
+    Fetches a POS Invoice or Sales Invoice for the Cashier Terminal.
+    Auto-detects the doctype from the invoice name.
     """
     if not invoice_name:
         frappe.throw(_("Invoice name is required"))
 
-    try:
-        inv = frappe.get_doc("Sales Invoice", invoice_name)
-    except frappe.DoesNotExistError:
+    doctype, inv = _resolve_invoice(invoice_name)
+    if not inv:
         return {"success": False, "message": _("Invoice not found: {0}").format(invoice_name)}
 
     items = []
@@ -438,6 +445,7 @@ def get_invoice_for_cashier(invoice_name):
         "success": True,
         "invoice": {
             "name": inv.name,
+            "doctype": doctype,
             "customer": inv.customer,
             "customer_name": inv.customer_name,
             "grand_total": inv.grand_total,
@@ -455,20 +463,21 @@ def get_invoice_for_cashier(invoice_name):
 @frappe.whitelist()
 def pay_draft_invoice(invoice_name, mode_of_payment, amount=None):
     """
-    Collects payment on a draft Sales Invoice and submits it.
+    Collects payment on a draft POS Invoice or Sales Invoice and submits it.
     Called from the Cashier Terminal PaymentPage.
     """
     if not invoice_name or not mode_of_payment:
         frappe.throw(_("Invoice name and mode of payment are required"))
 
-    inv = frappe.get_doc("Sales Invoice", invoice_name)
+    doctype, inv = _resolve_invoice(invoice_name)
+    if not inv:
+        frappe.throw(_("Invoice not found: {0}").format(invoice_name))
 
     if inv.docstatus != 0:
         frappe.throw(_("Invoice {0} is not a draft — it may already be paid.").format(invoice_name))
 
     pay_amount = flt(amount) if amount else inv.grand_total
 
-    # Clear existing payments and set the new one
     inv.set("payments", [])
     inv.append("payments", {
         "mode_of_payment": mode_of_payment,
@@ -482,7 +491,7 @@ def pay_draft_invoice(invoice_name, mode_of_payment, amount=None):
 
     try:
         inv.submit()
-        return {"success": True, "invoice": inv.name, "status": "Paid"}
+        return {"success": True, "invoice": inv.name, "doctype": doctype, "status": "Paid"}
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), "Cashier Pay Invoice Error")
         return {"success": False, "message": str(e)}
