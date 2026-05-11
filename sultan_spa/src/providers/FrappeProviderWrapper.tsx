@@ -6,11 +6,13 @@ interface Props {
 }
 
 const FrappeProviderWrapper: React.FC<Props> = ({ children }) => {
-  return (
-    <FrappeProvider
-      url="http://localhost:8000"
-      enableSocket={false}
-    >
+    const baseUrl = import.meta.env.VITE_ERPNEXT_BASE_URL || "";
+    
+    return (
+      <FrappeProvider
+        url={baseUrl}
+        enableSocket={false}
+      >
       {children}
     </FrappeProvider>
   );
