@@ -4,7 +4,8 @@ from erpnext.stock.doctype.batch.batch import get_batch_qty
 from erpnext.stock.utils import get_stock_balance
 from frappe import _
 
-from sultan.sultan.utils import get_current_pos_opening_entry, get_current_pos_profile
+from sultan.sultan.api.sales_invoice import get_current_pos_opening_entry
+from sultan.sultan.utils import get_current_pos_profile
 
 
 def get_price_list_with_customer_priority(customer=None):
