@@ -30,7 +30,7 @@ def get_user_roles():
 		return {"success": False, "error": str(e)}
 
 
-@frappe.whitelist()
+@frappe.whitelist(allow_guest=True)
 def get_current_user_info():
 	"""
 	Get comprehensive current user information including roles and POS profile.
@@ -41,6 +41,18 @@ def get_current_user_info():
 		start_time = time.time()
 
 		user = frappe.session.user
+		if user == "Guest":
+			return {
+				"success": True,
+				"data": {
+					"user": "Guest",
+					"full_name": "Guest",
+					"logged_in": False,
+					"is_admin_user": False,
+					"roles": []
+				}
+			}
+
 		user_roles = frappe.get_roles(user)
 
 		# Check if user has administrative privileges
