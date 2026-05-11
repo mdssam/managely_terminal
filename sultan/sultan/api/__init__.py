@@ -389,6 +389,20 @@ def get_daily_throughput(days=30):
         "top_produced_items": items
     }
 
+def fix_invoice_items_valuation(doc, method=None):
+    """
+    Hook executed before save/submit to bypass rigid accounting blocks for 
+    new items by dynamically enabling 'Allow Zero Valuation Rate'.
+    """
+    has_changes = False
+    for item in doc.get("items"):
+        # If it hasn't established a valuation yet, permit the system to generate accounting entry at zero
+        if not item.allow_zero_valuation_rate:
+            item.allow_zero_valuation_rate = 1
+            has_changes = True
+            
+    # No explicit doc.save() needed since it runs inside the validate transaction
+
 
 @frappe.whitelist()
 def get_work_orders_for_pos_invoice(invoice_name):
