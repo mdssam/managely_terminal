@@ -108,7 +108,7 @@ export const useCartStore = create<CartState>()(
 
         if (existingItem) {
           // Check if adding the quantity would exceed available stock
-          if (item.available !== undefined && (existingItem.quantity + quantity) > item.available) {
+          if (item.available !== undefined && (existingItem.quantity + quantity) > item.available && !(item as any).is_fresh_produce) {
             toast.error(`Only ${item.available} ${item.uom || 'units'} of ${item.name} available`);
             return;
           }
@@ -166,7 +166,7 @@ export const useCartStore = create<CartState>()(
         }
 
         const item = state.cartItems.find((cartItem) => cartItem.id === id);
-        if (item && item.available !== undefined && quantity > item.available) {
+        if (item && item.available !== undefined && quantity > item.available && !item.is_fresh_produce) {
           toast.error(`Only ${item.available} ${item.uom || 'units'} of ${item.name} available`);
           return;
         }
