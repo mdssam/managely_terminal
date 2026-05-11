@@ -15,6 +15,7 @@ interface InvoiceItem {
 
 interface InvoiceData {
   name: string;
+  doctype: string;
   customer: string;
   customer_name: string;
   grand_total: number;
@@ -151,7 +152,7 @@ export default function PaymentPage() {
             {sym}{invoice?.grand_total.toFixed(2)}
           </p>
           <a
-            href={`/app/sales-invoice/${invoice?.name}`}
+            href={`/app/${invoice?.doctype === "POS Invoice" ? "pos-invoice" : "sales-invoice"}/${invoice?.name}`}
             target="_blank"
             rel="noopener noreferrer"
             className="block w-full py-2.5 mb-3 border border-emerald-300 text-emerald-700 rounded-xl font-medium text-sm hover:bg-emerald-50 transition-colors"
