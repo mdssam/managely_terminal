@@ -1,6 +1,6 @@
 {
  "category": "Modules",
- "content": "[]",
+ "content": "[{\"id\":\"sp-header-01\",\"type\":\"header\",\"data\":{\"text\":\"<span class=\\\"h4\\\"><b>Your Shortcuts</b></span>\",\"col\":12}},{\"id\":\"sp-pos-01\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Open Sultan POS\",\"col\":3}},{\"id\":\"sp-si-01\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Sales Invoice\",\"col\":3}},{\"id\":\"sp-wo-01\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Work Order\",\"col\":3}},{\"id\":\"sp-poe-01\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"POS Opening Entry\",\"col\":3}},{\"id\":\"sp-it-01\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Items\",\"col\":3}},{\"id\":\"sp-bom-01\",\"type\":\"shortcut\",\"data\":{\"shortcut_name\":\"Bill of Materials\",\"col\":3}}]",
  "doctype": "Workspace",
  "extends": "",
  "extends_another_page": 0,
@@ -22,7 +22,6 @@
    "icon": "cart",
    "label": "Open Sultan POS",
    "link_to": "sultan-pos",
-   "name": "sultan-shortcut-0",
    "restrict_to_domain": "",
    "type": "Page"
   },
@@ -33,7 +32,6 @@
    "icon": "file",
    "label": "Sales Invoice",
    "link_to": "Sales Invoice",
-   "name": "sultan-shortcut-1",
    "restrict_to_domain": "",
    "type": "DocType"
   },
@@ -44,7 +42,6 @@
    "icon": "tools",
    "label": "Work Order",
    "link_to": "Work Order",
-   "name": "sultan-shortcut-2",
    "restrict_to_domain": "",
    "type": "DocType"
   },
@@ -55,7 +52,6 @@
    "icon": "open",
    "label": "POS Opening Entry",
    "link_to": "POS Opening Entry",
-   "name": "sultan-shortcut-3",
    "restrict_to_domain": "",
    "type": "DocType"
   },
@@ -66,7 +62,6 @@
    "icon": "stock",
    "label": "Items",
    "link_to": "Item",
-   "name": "sultan-shortcut-4",
    "restrict_to_domain": "",
    "type": "DocType"
   },
@@ -77,7 +72,6 @@
    "icon": "manufacturing",
    "label": "Bill of Materials",
    "link_to": "BOM",
-   "name": "sultan-shortcut-5",
    "restrict_to_domain": "",
    "type": "DocType"
   }

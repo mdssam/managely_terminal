@@ -75,8 +75,10 @@ async function clearBackendCache(): Promise<void> {
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
+        'X-Frappe-CSRF-Token': (window as any).csrf_token || '',
       },
-      credentials: 'include'
+      credentials: 'include',
+      body: '{}',
     });
 
     const data = await response.json();
