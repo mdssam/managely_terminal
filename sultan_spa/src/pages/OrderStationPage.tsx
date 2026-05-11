@@ -70,9 +70,9 @@ export default function OrderStationPage() {
                 href={`/app/work-order/${woName}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-1 inline-block text-xs bg-white/20 hover:bg-white/30 text-white px-2 py-1 rounded text-center transition-colors border border-white/30 font-medium backdrop-blur-sm w-fit"
+                className="mt-1 inline-flex items-center gap-1 text-xs bg-white text-emerald-700 hover:bg-emerald-50 font-bold px-3 py-1.5 rounded-lg border border-emerald-200 shadow-sm transition-colors w-fit"
               >
-                View work order
+                👁 View Work Order
               </a>
             </div>
           ),

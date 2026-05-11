@@ -21,7 +21,7 @@
    "format": "Link",
    "icon": "cart",
    "label": "Open Sultan POS",
-   "link_to": "sultan-pos",
+   "link_to": "sultan_pos",
    "restrict_to_domain": "",
    "type": "Page"
   },
