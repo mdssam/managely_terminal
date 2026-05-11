@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, CreditCard, Banknote, Smartphone, CheckCircle2, Loader2, AlertCircle } from "lucide-react";
+import { ArrowLeft, CreditCard, Banknote, Smartphone, CheckCircle2, Loader2, AlertCircle, ShoppingCart } from "lucide-react";
 import { toast } from "react-toastify";
 import { usePaymentModes } from "../hooks/usePaymentModes";
 import { usePOSDetails } from "../hooks/usePOSProfile";
@@ -34,6 +34,8 @@ function getPaymentIcon(label: string) {
   if (l.includes("mobile") || l.includes("mpesa") || l.includes("phone")) return <Smartphone className="w-5 h-5" />;
   return <CreditCard className="w-5 h-5" />;
 }
+
+const DEFAULT_MODES = ["Cash", "Card"];
 
 export default function PaymentPage() {
   const { invoiceId } = useParams<{ invoiceId: string }>();
@@ -105,10 +107,14 @@ export default function PaymentPage() {
   };
 
   const sym = invoice?.currency_symbol || "";
-  const paymentModeNames: string[] =
-    modes.length > 0
-      ? modes.map((m: any) => m.mode_of_payment || m.name).filter(Boolean)
-      : ["Cash", "Card"];
+
+  // Always show at least Cash + Card; merge with POS profile modes
+  const apiModes = modes.map((m: any) => m.mode_of_payment || m.name).filter(Boolean) as string[];
+  const paymentModeNames: string[] = apiModes.length > 0
+    ? Array.from(new Set([...apiModes, ...DEFAULT_MODES]))
+    : DEFAULT_MODES;
+
+  const invoiceUrl = `/app/${invoice?.doctype === "POS Invoice" ? "pos-invoice" : "sales-invoice"}/${invoice?.name}`;
 
   if (loading) {
     return (
@@ -152,7 +158,7 @@ export default function PaymentPage() {
             {sym}{invoice?.grand_total.toFixed(2)}
           </p>
           <a
-            href={`/app/${invoice?.doctype === "POS Invoice" ? "pos-invoice" : "sales-invoice"}/${invoice?.name}`}
+            href={invoiceUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="block w-full py-2.5 mb-3 border border-emerald-300 text-emerald-700 rounded-xl font-medium text-sm hover:bg-emerald-50 transition-colors"
@@ -173,12 +179,13 @@ export default function PaymentPage() {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       {/* Header */}
-      <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center gap-4 sticky top-0 z-10">
+      <div className="bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-3 sticky top-0 z-10">
         <button
           onClick={() => navigate("/cashier-station")}
-          className="p-2 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors text-sm font-medium"
         >
-          <ArrowLeft className="w-5 h-5" />
+          <ArrowLeft className="w-4 h-4" />
+          Back
         </button>
         <div className="flex-1 min-w-0">
           <h1 className="text-base font-bold text-slate-900 truncate">{invoice?.name}</h1>
@@ -196,11 +203,12 @@ export default function PaymentPage() {
       </div>
 
       <div className="flex-1 overflow-auto">
-        <div className="max-w-2xl mx-auto w-full p-6 space-y-5">
+        <div className="max-w-2xl mx-auto w-full p-4 space-y-4">
           {/* Items */}
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-            <div className="px-5 py-3 border-b border-slate-100">
+            <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-slate-700">Order Items</h2>
+              <span className="text-xs text-slate-400">{invoice?.items.length} item{(invoice?.items.length ?? 0) !== 1 ? "s" : ""}</span>
             </div>
             <div className="divide-y divide-slate-50">
               {invoice?.items.map((item, idx) => (
@@ -228,7 +236,7 @@ export default function PaymentPage() {
           {/* Payment Methods */}
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
             <div className="px-5 py-3 border-b border-slate-100">
-              <h2 className="text-sm font-semibold text-slate-700">Payment Method</h2>
+              <h2 className="text-sm font-semibold text-slate-700">Select Payment Method</h2>
             </div>
             <div className="p-4 grid grid-cols-2 gap-3">
               {paymentModeNames.map((mode) => (
@@ -250,21 +258,30 @@ export default function PaymentPage() {
             </div>
           </div>
 
-          {/* Confirm */}
-          <button
-            onClick={handlePay}
-            disabled={!selectedMode || processing}
-            className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-2xl font-bold text-lg shadow-lg shadow-emerald-200/50 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
-          >
-            {processing ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                Processing…
-              </>
-            ) : (
-              `Confirm Payment · ${sym}${invoice?.grand_total.toFixed(2)}`
-            )}
-          </button>
+          {/* Actions */}
+          <div className="flex gap-3">
+            <button
+              onClick={() => navigate("/cashier-station")}
+              className="flex items-center gap-2 px-5 py-4 bg-white border border-slate-200 text-slate-700 rounded-2xl font-semibold text-sm hover:bg-slate-50 transition-colors"
+            >
+              <ShoppingCart className="w-4 h-4" />
+              Back to Cart
+            </button>
+            <button
+              onClick={handlePay}
+              disabled={!selectedMode || processing}
+              className="flex-1 py-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-2xl font-bold text-base shadow-lg shadow-emerald-200/50 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+            >
+              {processing ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Processing…
+                </>
+              ) : (
+                `Confirm Payment · ${sym}${invoice?.grand_total.toFixed(2)}`
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </div>
