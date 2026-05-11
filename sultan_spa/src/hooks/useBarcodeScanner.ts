@@ -26,28 +26,40 @@ export function useBarcodeScanner(onAddToCart: (item: MenuItem, quantity?: numbe
     setError(null)
 
     try {
-      // First try to find by barcode in the products list
-      // Note: This assumes barcode is stored in the item data
-      // You may need to modify the API to include barcode information
-      const foundItem = products.find(item => {
-        // For now, we'll search by item ID or name
-        // In a real implementation, you'd have a barcode field
-        return item.id === barcode ||
-               item.name.toLowerCase().includes(barcode.toLowerCase())
-      })
+      console.log('Starting scan logic for:', barcode)
 
-      if (foundItem) {
-        onAddToCart(foundItem)
-        return true
+      // IF barcode is composite (|), force skip local search to engage server-side deconstructor directly
+      if (barcode.includes('|')) {
+        console.log('Composite barcode detected - bypassing local cache searching to hit API...')
+      } else {
+        // First try to find by barcode in the products list
+        const foundItem = products.find(item => {
+          const idStr = String(item.id || '').toLowerCase()
+          const nameStr = String(item.name || '').toLowerCase()
+          const checkStr = barcode.toLowerCase()
+          
+          return idStr === checkStr || nameStr.includes(checkStr)
+        })
+
+        if (foundItem) {
+          console.log('Locally resolved item:', foundItem.name)
+          onAddToCart(foundItem)
+          return true
+        }
       }
 
       // If not found in local products, try API call
       try {
+        console.log('Dispatching API request for identifier:', barcode)
         // First try combined identifier endpoint (barcode/batch/serial)
         const response = await fetch(`/api/method/sultan.sultan.api.item.get_item_by_identifier?code=${encodeURIComponent(barcode)}`)
+        console.log('API response received. Status:', response.status)
+        
         const data = await response.json()
+        console.log('API parsed data payload:', data)
 
         if (data.message && data.message.item_code) {
+          console.log('Success! Item resolved:', data.message.item_code)
           // Convert API response to MenuItem format
           const item = {
             id: data.message.item_code,
@@ -59,23 +71,26 @@ export function useBarcodeScanner(onAddToCart: (item: MenuItem, quantity?: numbe
             sold: 0
           }
           // Add to cart, optionally providing returned weight/quantity
+          console.log('Executing onAddToCart for weight:', data.message.weight || 1)
           onAddToCart(item, data.message.weight || 1)
           return true
         } else {
+          console.warn('API responded but lacked item_code in payload.', data)
           setError('Product not found for this barcode')
           return false
         }
       } catch (apiError) {
-        console.error('API error:', apiError)
+        console.error('CRITICAL API EXCEPTION TRAPPED:', apiError)
         setError('Product not found for this barcode')
         return false
       }
     } catch (err) {
-      console.error('Barcode scanning error:', err)
+      console.error('TOP-LEVEL SCAN EXCEPTION:', err)
       setError('Error processing barcode')
       return false
     } finally {
       setIsScanning(false)
+      console.log('Scan transaction finalized.')
     }
   }
 

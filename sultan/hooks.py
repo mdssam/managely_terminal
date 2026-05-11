@@ -142,12 +142,14 @@ website_route_rules = [
 
 doc_events = {
 	"POS Invoice": {
+		"validate": "sultan.sultan.api.fix_invoice_items_valuation",
 		"on_submit": "sultan.sultan.api.generate_production_order"
 	},
 	"Sales Order": {
 		"on_submit": "sultan.sultan.api.generate_production_order"
 	},
 	"Sales Invoice": {
+		"validate": "sultan.sultan.api.fix_invoice_items_valuation",
 		"on_submit": "sultan.sultan.api.generate_production_order"
 	}
 }

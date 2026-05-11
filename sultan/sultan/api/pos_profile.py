@@ -134,8 +134,30 @@ def get_pos_details():
 	else:
 		pos = get_current_pos_profile()
 
-	business_type = pos.custom_business_type
-	print_format = pos.custom_pos_printformat
+	# Fallback for non-pos users (like order stations)
+	if not pos:
+		frappe.logger().info(f"Creating synthetic POS context for user {frappe.session.user}")
+		return {
+			"name": "System Default",
+			"business_type": "Retail",
+			"print_format": "Standard",
+			"currency": frappe.db.get_default("currency") or "SAR",
+			"currency_symbol": "",
+			"print_receipt_on_order_complete": 0,
+			"custom_use_scanner_fully": 0,
+			"custom_allow_credit_sales": 0,
+			"custom_allow_return": 0,
+			"custom_hide_expected_amount": 0,
+			"hide_unavailable_items": 0,
+			"is_zatca_enabled": False,
+			"default_customer": None,
+			"current_opening_entry": None,
+			"custom_scale_barcodes_start_with": "",
+			"allow_discount_change": 0
+		}
+
+	business_type = getattr(pos, "custom_business_type", "Retail")
+	print_format = getattr(pos, "custom_pos_printformat", "Standard")
 
 	# Get default customer details if set
 	default_customer = None
@@ -183,8 +205,9 @@ def get_pos_details():
 
 def is_zatca_enabled():
 	pos_profile = get_current_pos_profile()
+	if not pos_profile:
+		return False
 	company = pos_profile.company
-	# meta = frappe.get_meta("Company")  # unused
 	if frappe.db.has_column("Company", "custom_enable_zatca_e_invoicing"):
 		return frappe.db.get_value("Company", company, "custom_enable_zatca_e_invoicing") == 1
 	return False
