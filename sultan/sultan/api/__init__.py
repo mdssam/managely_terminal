@@ -396,10 +396,17 @@ def fix_invoice_items_valuation(doc, method=None):
     """
     has_changes = False
     for item in doc.get("items"):
-        # If it hasn't established a valuation yet, permit the system to generate accounting entry at zero
+        # 1. Enable Zero Valuation to prevent rigid accounting traps for new items
         if not item.allow_zero_valuation_rate:
             item.allow_zero_valuation_rate = 1
-            has_changes = True
+            
+        # 2. Auto-enable Negative Stock on parent item for fresh produce
+        is_fresh = frappe.db.get_value("Item", item.item_code, "is_fresh_produce")
+        if is_fresh:
+            allow_neg = frappe.db.get_value("Item", item.item_code, "allow_negative_stock")
+            if not allow_neg:
+                frappe.db.set_value("Item", item.item_code, "allow_negative_stock", 1)
+                frappe.logger().info(f"Auto-enabled negative stock for fresh item: {item.item_code}")
             
     # No explicit doc.save() needed since it runs inside the validate transaction
 
