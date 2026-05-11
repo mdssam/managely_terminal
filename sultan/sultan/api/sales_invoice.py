@@ -130,34 +130,37 @@ def _build_filters_and_fields(skip_opening_entry_filter=False, cashier_user_ids=
 	user_roles = frappe.get_roles()
 	is_admin_user = "Administrator" in user_roles or "System Manager" in user_roles
 
-	# Base filters: opening entry (and optionally submitted only)
+	# Safely check metadata to prevent SQL crashes on missing custom fields
+	sales_invoice_meta = frappe.get_meta("Sales Invoice")
+	all_fieldnames = {df.fieldname for df in sales_invoice_meta.fields}
+	has_opening_entry = "custom_pos_opening_entry" in all_fieldnames
+	has_zatca_status = "custom_zatca_submit_status" in all_fieldnames
+
+	# Base filters
 	filters = {}
 
-	# Skip opening entry filter if requested (for Invoice History page - show all invoices for cashier)
-	if skip_opening_entry_filter:
-		frappe.logger().info(
-			f"Skipping opening entry filter - showing all invoices for user {frappe.session.user}"
-		)
-	elif is_admin_user:
-		frappe.logger().info(
-			f"Admin user {frappe.session.user} with roles {user_roles} - showing all POS invoices"
-		)
-		filters["custom_pos_opening_entry"] = ["!=", ""]
-	elif current_opening_entry:
-		filters["custom_pos_opening_entry"] = current_opening_entry
-	else:
-		frappe.logger().info("No active POS opening entry found, showing all POS invoices")
-		filters["custom_pos_opening_entry"] = ["!=", ""]
+	# Handle opening entry filter if field exists in DB
+	if has_opening_entry:
+		if skip_opening_entry_filter:
+			frappe.logger().info(
+				f"Skipping opening entry filter - showing all invoices for user {frappe.session.user}"
+			)
+		elif is_admin_user:
+			frappe.logger().info(
+				f"Admin user {frappe.session.user} with roles {user_roles} - showing all POS invoices"
+			)
+			filters["custom_pos_opening_entry"] = ["!=", ""]
+		elif current_opening_entry:
+			filters["custom_pos_opening_entry"] = current_opening_entry
+		else:
+			frappe.logger().info("No active POS opening entry found, showing all POS invoices")
+			filters["custom_pos_opening_entry"] = ["!=", ""]
 
 	# Only submitted invoices (for Sales Dashboard): docstatus 1 = Submitted; 0 = Draft, 2 = Cancelled
 	if submitted_only:
 		filters["docstatus"] = 1
 
-	# Check if ZATCA status field exists
-	sales_invoice_meta = frappe.get_meta("Sales Invoice")
-	has_zatca_status = any(df.fieldname == "custom_zatca_submit_status" for df in sales_invoice_meta.fields)
-
-	# Build fields list
+	# Build base fields list
 	fields = [
 		"name",
 		"posting_date",
@@ -170,10 +173,13 @@ def _build_filters_and_fields(skip_opening_entry_filter=False, cashier_user_ids=
 		"status",
 		"discount_amount",
 		"total_taxes_and_charges",
-		"custom_pos_opening_entry",
 		"pos_profile",
 		"currency",
 	]
+
+	# Inject dynamic custom fields only if present
+	if has_opening_entry:
+		fields.append("custom_pos_opening_entry")
 
 	if has_zatca_status:
 		fields.append("custom_zatca_submit_status")
