@@ -375,11 +375,11 @@ def get_daily_throughput(days=30):
     # Also fetch breakdown by top 5 produced items overall in this period
     items = frappe.db.sql("""
         SELECT 
-            item_code,
+            production_item as item_code,
             SUM(produced_qty) as qty
         FROM `tabWork Order`
         WHERE creation >= %s AND docstatus < 2
-        GROUP BY item_code
+        GROUP BY production_item
         ORDER BY qty DESC
         LIMIT 5
     """, (start_date,), as_dict=True)
