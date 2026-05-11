@@ -14,7 +14,8 @@ def setup_custom_fields():
         {"dt": "POS Invoice Item", "fieldname": "custom_ingredients", "label": "Custom Ingredients", "fieldtype": "Small Text", "insert_after": "item_code"},
         {"dt": "Sales Order Item", "fieldname": "custom_ingredients", "label": "Custom Ingredients", "fieldtype": "Small Text", "insert_after": "item_code"},
         {"dt": "Work Order", "fieldname": "custom_pos_invoice", "label": "Source POS Invoice", "fieldtype": "Link", "options": "POS Invoice", "insert_after": "sales_order"},
-        {"dt": "Work Order", "fieldname": "custom_sales_order", "label": "Source Sales Order", "fieldtype": "Link", "options": "Sales Order", "insert_after": "custom_pos_invoice"}
+        {"dt": "Work Order", "fieldname": "custom_sales_order", "label": "Source Sales Order", "fieldtype": "Link", "options": "Sales Order", "insert_after": "custom_pos_invoice"},
+        {"dt": "Work Order", "fieldname": "custom_sales_invoice", "label": "Source Sales Invoice", "fieldtype": "Link", "options": "Sales Invoice", "insert_after": "custom_sales_order"}
     ]
     
     count = 0
@@ -59,6 +60,7 @@ def generate_production_order(doc, method=None):
             "planned_start_date": frappe.utils.now_datetime(),
             "custom_pos_invoice": doc.name if doc.doctype == "POS Invoice" else None,
             "custom_sales_order": doc.name if doc.doctype == "Sales Order" else None,
+            "custom_sales_invoice": doc.name if doc.doctype == "Sales Invoice" else None,
         })
         
         # Save Work Order to generate standard required items child table
@@ -241,3 +243,246 @@ def check_batch_expiry():
         frappe.log_error(message=subject, title="Sultan Batch Expiry Alert")
 
     frappe.db.commit()
+
+
+@frappe.whitelist()
+def create_instant_work_order(item_code, qty=1, custom_ingredients=None, **kwargs):
+    """
+    Creates an instant Work Order for an item directly from UI interaction.
+    Expects custom_ingredients to be a JSON string or list of modifications.
+    """
+    from frappe.utils import now_datetime
+    
+    # Get active BOM for the item
+    bom_no = frappe.db.get_value("BOM", {"item": item_code, "is_active": 1, "docstatus": 1})
+    if not bom_no:
+        frappe.throw(_("No active BOM found for item {0}").format(item_code))
+        
+    # Get some reasonable defaults for warehouse (company default)
+    # Resilient warehouse resolution
+    default_company = frappe.defaults.get_user_default("Company") or frappe.db.get_single_value("Global Defaults", "default_company")
+    
+    wip_wh = frappe.db.get_single_value("Manufacturing Settings", "default_wip_warehouse")
+    
+    # Fallback approach for finished goods warehouse
+    fg_wh = None
+    
+    # Try 1: Get any valid retail or finished good warehouse from database
+    wh_res = frappe.get_all("Warehouse", filters={"is_group": 0, "company": default_company}, fields=["name"], limit=1)
+    if wh_res:
+        fg_wh = wh_res[0].name
+        
+    if not wip_wh:
+        wip_wh = fg_wh
+        
+    if not fg_wh:
+        frappe.throw(_("No valid warehouse found for company {0}. Please configure a default warehouse.").format(default_company))
+    
+    # Create a new Work Order
+    wo = frappe.get_doc({
+        "doctype": "Work Order",
+        "production_item": item_code,
+        "bom_no": bom_no,
+        "qty": flt(qty),
+        "wip_warehouse": wip_wh or fg_wh,
+        "fg_warehouse": fg_wh,
+        "company": default_company,
+        "planned_start_date": now_datetime(),
+    })
+    
+    wo.insert(ignore_permissions=True)
+    
+    if custom_ingredients:
+        apply_custom_ingredients(wo, custom_ingredients)
+        
+    try:
+        wo.submit()
+        return {"status": "success", "name": wo.name}
+    except Exception as e:
+        frappe.log_error(f"Instant Work Order Error for {item_code}: {str(e)}")
+        return {"status": "error", "message": str(e)}
+
+@frappe.whitelist()
+def get_item_bom_ingredients(item_code):
+    """
+    Retrieves the ingredients list from the active BOM for an item.
+    """
+    bom_no = frappe.db.get_value("BOM", {"item": item_code, "is_active": 1, "docstatus": 1})
+    if not bom_no:
+        return []
+        
+    ingredients = frappe.db.get_all("BOM Item", 
+        filters={"parent": bom_no},
+        fields=["item_code", "item_name", "qty_consumed_per_unit as qty", "uom", "rate"]
+    )
+    return ingredients
+
+@frappe.whitelist()
+def get_batch_nos_with_qty(item_code, warehouse=None):
+    """
+    Returns a list of dicts with batch numbers, actual quantities, and expiry dates
+    for a given item code and warehouse.
+    """
+    from erpnext.stock.doctype.batch.batch import get_batch_qty
+    
+    if not warehouse:
+        # Fallback: avoid direct DB column lookup which fails in this install
+        default_company = frappe.defaults.get_user_default("Company") or frappe.db.get_single_value("Global Defaults", "default_company")
+        warehouse = frappe.db.get_value("Warehouse", {"company": default_company, "is_group": 0}, "name")
+
+    if not item_code or not warehouse:
+        return []
+
+    batches = frappe.get_all("Batch", 
+        filters={"item": item_code, "disabled": 0}, 
+        fields=["name", "batch_id", "expiry_date"]
+    )
+
+    batch_qty_data = []
+    for b in batches:
+        qty = get_batch_qty(batch_no=b.name, warehouse=warehouse)
+        if qty > 0:
+            batch_qty_data.append({
+                "batch_id": b.batch_id or b.name, 
+                "qty": qty,
+                "expiry_date": b.expiry_date
+            })
+
+    return batch_qty_data
+
+@frappe.whitelist()
+def get_daily_throughput(days=30):
+    """
+    Aggregates manufacturing throughput (completed work orders and produced quantities)
+    grouped by day over the last X days.
+    """
+    from frappe.utils import add_days, today
+    
+    start_date = add_days(today(), -int(days))
+    
+    # Query Work Orders created in that period that are not cancelled
+    data = frappe.db.sql("""
+        SELECT 
+            DATE(creation) as date,
+            SUM(produced_qty) as total_qty,
+            COUNT(name) as total_orders
+        FROM `tabWork Order`
+        WHERE creation >= %s AND docstatus < 2
+        GROUP BY DATE(creation)
+        ORDER BY DATE(creation) ASC
+    """, (start_date,), as_dict=True)
+    
+    # Also fetch breakdown by top 5 produced items overall in this period
+    items = frappe.db.sql("""
+        SELECT 
+            item_code,
+            SUM(produced_qty) as qty
+        FROM `tabWork Order`
+        WHERE creation >= %s AND docstatus < 2
+        GROUP BY item_code
+        ORDER BY qty DESC
+        LIMIT 5
+    """, (start_date,), as_dict=True)
+    
+    return {
+        "daily_trends": data,
+        "top_produced_items": items
+    }
+
+
+@frappe.whitelist()
+def get_work_orders_for_pos_invoice(invoice_name):
+    """
+    Returns all Work Orders created for a given invoice (POS Invoice or Sales Invoice).
+    Called from the POS frontend after payment is completed.
+    """
+    if not invoice_name:
+        return []
+
+    work_orders = frappe.db.sql("""
+        SELECT name, production_item, qty, status, planned_start_date
+        FROM `tabWork Order`
+        WHERE custom_pos_invoice = %(name)s
+           OR custom_sales_invoice = %(name)s
+        ORDER BY creation ASC
+    """, {"name": invoice_name}, as_dict=True)
+
+    return work_orders
+
+
+@frappe.whitelist()
+def get_invoice_for_cashier(invoice_name):
+    """
+    Fetches a Sales Invoice for the Cashier Terminal to review and pay.
+    Returns items, totals, customer, and payment status.
+    """
+    if not invoice_name:
+        frappe.throw(_("Invoice name is required"))
+
+    try:
+        inv = frappe.get_doc("Sales Invoice", invoice_name)
+    except frappe.DoesNotExistError:
+        return {"success": False, "message": _("Invoice not found: {0}").format(invoice_name)}
+
+    items = []
+    for item in inv.items:
+        items.append({
+            "item_code": item.item_code,
+            "item_name": item.item_name,
+            "qty": item.qty,
+            "rate": item.rate,
+            "amount": item.amount,
+        })
+
+    return {
+        "success": True,
+        "invoice": {
+            "name": inv.name,
+            "customer": inv.customer,
+            "customer_name": inv.customer_name,
+            "grand_total": inv.grand_total,
+            "outstanding_amount": inv.outstanding_amount,
+            "docstatus": inv.docstatus,
+            "status": inv.status,
+            "posting_date": str(inv.posting_date),
+            "currency": inv.currency,
+            "currency_symbol": frappe.db.get_value("Currency", inv.currency, "symbol") or "",
+            "items": items,
+        }
+    }
+
+
+@frappe.whitelist()
+def pay_draft_invoice(invoice_name, mode_of_payment, amount=None):
+    """
+    Collects payment on a draft Sales Invoice and submits it.
+    Called from the Cashier Terminal PaymentPage.
+    """
+    if not invoice_name or not mode_of_payment:
+        frappe.throw(_("Invoice name and mode of payment are required"))
+
+    inv = frappe.get_doc("Sales Invoice", invoice_name)
+
+    if inv.docstatus != 0:
+        frappe.throw(_("Invoice {0} is not a draft — it may already be paid.").format(invoice_name))
+
+    pay_amount = flt(amount) if amount else inv.grand_total
+
+    # Clear existing payments and set the new one
+    inv.set("payments", [])
+    inv.append("payments", {
+        "mode_of_payment": mode_of_payment,
+        "amount": pay_amount,
+    })
+
+    inv.paid_amount = pay_amount
+    inv.outstanding_amount = flt(inv.grand_total) - pay_amount
+
+    inv.save(ignore_permissions=True)
+
+    try:
+        inv.submit()
+        return {"success": True, "invoice": inv.name, "status": "Paid"}
+    except Exception as e:
+        frappe.log_error(frappe.get_traceback(), "Cashier Pay Invoice Error")
+        return {"success": False, "message": str(e)}

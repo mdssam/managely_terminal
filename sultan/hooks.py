@@ -11,15 +11,14 @@ app_license = "mit"
 # required_apps = []
 
 # Each item in the list will be shown as an app in the apps page
-# add_to_apps_screen = [
-# 	{
-# 		"name": "sultan",
-# 		"logo": "/assets/sultan/logo.png",
-# 		"title": "Sultan",
-# 		"route": "/sultan",
-# 		"has_permission": "sultan.api.permission.has_app_permission"
-# 	}
-# ]
+add_to_apps_screen = [
+	{
+		"name": "sultan_spa",
+		"logo": "/assets/sultan/logo.png",
+		"title": "Sultan POS",
+		"route": "/sultan_spa",
+	}
+]
 
 # Includes in <head>
 # ------------------
@@ -69,6 +68,10 @@ app_include_js = "/assets/sultan/js/sultan_pos_modifier.js"
 
 # automatically create page for each record of this doctype
 # website_generators = ["Web Page"]
+
+website_route_rules = [
+	{"from_route": "/sultan_spa/<path:app_path>", "to_route": "sultan_spa"},
+]
 
 # Jinja
 # ----------
@@ -142,6 +145,9 @@ doc_events = {
 		"on_submit": "sultan.sultan.api.generate_production_order"
 	},
 	"Sales Order": {
+		"on_submit": "sultan.sultan.api.generate_production_order"
+	},
+	"Sales Invoice": {
 		"on_submit": "sultan.sultan.api.generate_production_order"
 	}
 }
@@ -238,5 +244,6 @@ scheduler_events = {
 
 fixtures = [
 	"Custom Field",
-	"Property Setter"
+	"Property Setter",
+	{"dt": "Workspace", "filters": [["name", "=", "Sultan POS"]]}
 ]

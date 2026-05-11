@@ -1,0 +1,86 @@
+{
+ "category": "Modules",
+ "content": "[]",
+ "doctype": "Workspace",
+ "extends": "",
+ "extends_another_page": 0,
+ "hide_custom": 0,
+ "icon": "cart",
+ "is_hidden": 0,
+ "label": "Sultan POS",
+ "module": "Sultan",
+ "name": "Sultan POS",
+ "public": 1,
+ "restrict_to_domain": "",
+ "roles": [],
+ "sequence_id": 1,
+ "shortcuts": [
+  {
+   "color": "Green",
+   "doc_view": "",
+   "format": "Link",
+   "icon": "cart",
+   "label": "Open Sultan POS",
+   "link_to": "sultan-pos",
+   "name": "sultan-shortcut-0",
+   "restrict_to_domain": "",
+   "type": "Page"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "format": "Link",
+   "icon": "file",
+   "label": "Sales Invoice",
+   "link_to": "Sales Invoice",
+   "name": "sultan-shortcut-1",
+   "restrict_to_domain": "",
+   "type": "DocType"
+  },
+  {
+   "color": "Yellow",
+   "doc_view": "",
+   "format": "Link",
+   "icon": "tools",
+   "label": "Work Order",
+   "link_to": "Work Order",
+   "name": "sultan-shortcut-2",
+   "restrict_to_domain": "",
+   "type": "DocType"
+  },
+  {
+   "color": "Blue",
+   "doc_view": "",
+   "format": "Link",
+   "icon": "open",
+   "label": "POS Opening Entry",
+   "link_to": "POS Opening Entry",
+   "name": "sultan-shortcut-3",
+   "restrict_to_domain": "",
+   "type": "DocType"
+  },
+  {
+   "color": "Purple",
+   "doc_view": "",
+   "format": "Link",
+   "icon": "stock",
+   "label": "Items",
+   "link_to": "Item",
+   "name": "sultan-shortcut-4",
+   "restrict_to_domain": "",
+   "type": "DocType"
+  },
+  {
+   "color": "Pink",
+   "doc_view": "",
+   "format": "Link",
+   "icon": "manufacturing",
+   "label": "Bill of Materials",
+   "link_to": "BOM",
+   "name": "sultan-shortcut-5",
+   "restrict_to_domain": "",
+   "type": "DocType"
+  }
+ ],
+ "title": "Sultan POS"
+}

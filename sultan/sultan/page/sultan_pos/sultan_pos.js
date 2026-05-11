@@ -14,12 +14,12 @@ frappe.pages['sultan_pos'].on_page_load = function(wrapper) {
     // Hide standard frappe page header to allow full-screen visual impact
     $(wrapper).find('.page-head').hide();
 
-    // 2. Inject full-height dynamic iframe loading the beautiful view we built
+    // 2. Inject full-height iframe embedding the Sultan POS SPA
     const iframeHtml = `
-        <iframe 
-            src="/sultan_pos" 
-            style="width: 100%; height: calc(100vh - 50px); border: none; background: #0a0915;" 
-            title="Sultan Premium View">
+        <iframe
+            src="/sultan_spa"
+            style="width: 100%; height: calc(100vh - 50px); border: none; background: #ffffff;"
+            title="Sultan POS">
         </iframe>
     `;
 
