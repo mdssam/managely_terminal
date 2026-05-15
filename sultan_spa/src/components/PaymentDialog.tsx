@@ -372,7 +372,7 @@ export default function PaymentDialog({
       customer_name: sharingData.name || 'there',
       invoice_total: formatCurrency(calculations.grandTotal),
       invoice_number: invoiceData?.name || '',
-      company_name: 'Zidi PoS',
+      company_name: 'Sultan POS',
       date: new Date().toLocaleDateString(),
     };
 
@@ -398,7 +398,7 @@ export default function PaymentDialog({
       vehicle: 'Delivery Vehicle',
       invoice_total: formatCurrency(calculations.grandTotal),
       invoice_number: invoiceData?.name || '',
-      company_name: 'Zidi PoS',
+      company_name: 'Sultan POS',
       date: new Date().toLocaleDateString(),
     };
 
@@ -1153,8 +1153,8 @@ export default function PaymentDialog({
             {invoiceSubmitted ? (
               <div className="space-y-4">
                 {/* Action Buttons for Mobile */}
-                <div className="flex items-center justify-center space-x-3 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                  <div className="text-green-600 dark:text-green-400 text-center">
+                <div className="flex items-center justify-center space-x-3 p-4 bg-ziditech-50 dark:bg-ziditech-900/20 rounded-lg border border-ziditech-200 dark:border-ziditech-800">
+                  <div className="text-ziditech-600 dark:text-ziditech-400 text-center">
                     <p className="font-semibold">
                       {isB2B
                         ? "Invoice Submitted Successfully!"
@@ -1169,7 +1169,7 @@ export default function PaymentDialog({
                 {/* Action Buttons Row */}
                 <div className="flex flex-wrap gap-2 justify-center">
                   {isAutoPrinting && (
-                    <div className="flex items-center space-x-2 text-blue-600 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <div className="flex items-center space-x-2 text-ziditech-600 px-3 py-2 bg-ziditech-50 dark:bg-blue-900/20 rounded-lg">
                       <Loader2 size={16} className="animate-spin" />
                       <span className="text-sm">Printing...</span>
                     </div>
@@ -1187,7 +1187,7 @@ export default function PaymentDialog({
                   </button>
 
                   <button
-                    className="flex items-center space-x-2 px-4 py-2 bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/30 transition-colors"
+                    className="flex items-center space-x-2 px-4 py-2 bg-blue-100 dark:bg-blue-900/20 text-ziditech-600 dark:text-blue-400 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/30 transition-colors"
                     title="Email"
                     onClick={() => {
                       const subject = encodeURIComponent("Your Invoice");
@@ -1208,7 +1208,7 @@ export default function PaymentDialog({
                   </button>
 
                   <button
-                    className="flex items-center space-x-2 px-4 py-2 bg-green-100 dark:bg-green-900/20 text-ziditech-600 dark:text-green-400 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/30 transition-colors"
+                    className="flex items-center space-x-2 px-4 py-2 bg-ziditech-100 dark:bg-ziditech-900/20 text-ziditech-600 dark:text-ziditech-400 rounded-lg hover:bg-ziditech-200 dark:hover:bg-ziditech-900/30 transition-colors"
                     title="WhatsApp"
                     onClick={() => {
                       const msg = encodeURIComponent(
@@ -1227,7 +1227,7 @@ export default function PaymentDialog({
                   </button>
 
                   <button
-                    className="flex items-center space-x-2 px-4 py-2 bg-purple-100 dark:bg-teal-900/20 text-teal-500 dark:text-teal-400 rounded-lg hover:bg-teal-200 dark:hover:bg-purple-900/30 transition-colors"
+                    className="flex items-center space-x-2 px-4 py-2 bg-ziditech-100 dark:bg-teal-900/20 text-teal-500 dark:text-teal-400 rounded-lg hover:bg-teal-200 dark:hover:bg-ziditech-900/30 transition-colors"
                     title="Text Message"
                     onClick={() =>
                       window.open(`tel:${selectedCustomer?.phone}`)
@@ -1238,7 +1238,7 @@ export default function PaymentDialog({
                   </button>
 
                   <button
-                    className="flex items-center space-x-2 px-4 py-2 bg-purple-100 dark:bg-purple-900/20 text-p-600 dark:text-purple-400 rounded-lg hover:bg-purple-200 dark:hover:bg-purple-900/30 transition-colors"
+                    className="flex items-center space-x-2 px-4 py-2 bg-ziditech-100 dark:bg-ziditech-900/20 text-p-600 dark:text-ziditech-400 rounded-lg hover:bg-ziditech-200 dark:hover:bg-ziditech-900/30 transition-colors"
                     title="View Full Invoice"
                     onClick={() => handleViewInvoice(invoiceData)}
                   >
@@ -1384,7 +1384,7 @@ export default function PaymentDialog({
                     </span>
                   </div>
                   {calculations.couponDiscount > 0 && (
-                    <div className="flex justify-between text-green-600 dark:text-green-400">
+                    <div className="flex justify-between text-ziditech-600 dark:text-ziditech-400">
                       <span>Discount</span>
                       <span>
                         -{formatCurrency(calculations.couponDiscount)}
@@ -1481,8 +1481,8 @@ export default function PaymentDialog({
                     disabled={isActionButtonDisabled()}
                     className={`w-full py-4 rounded-lg font-semibold disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2 ${
                       isB2B
-                        ? "bg-blue-600 hover:bg-blue-700 text-white"
-                        : "bg-green-600 hover:bg-green-700 text-white"
+                        ? "bg-ziditech-600 hover:bg-ziditech-700 text-white"
+                        : "bg-ziditech-600 hover:bg-ziditech-700 text-white"
                     }`}
                   >
                     {isProcessingPayment ? (
@@ -1542,7 +1542,7 @@ export default function PaymentDialog({
           {invoiceSubmitted ? (
             <div className="flex items-center space-x-3">
               {isAutoPrinting && (
-                <div className="flex items-center space-x-2 text-blue-600">
+                <div className="flex items-center space-x-2 text-ziditech-600">
                   <Loader2 size={16} className="animate-spin" />
                   <span className="text-sm">Printing...</span>
                 </div>
@@ -1561,8 +1561,8 @@ export default function PaymentDialog({
               <button
                 className={`p-2 rounded-lg ${
                   sharingMode === "email"
-                    ? "bg-blue-100 text-blue-700"
-                    : "text-blue-600 hover:bg-blue-100"
+                    ? "bg-blue-100 text-ziditech-700"
+                    : "text-ziditech-600 hover:bg-blue-100"
                 } dark:text-blue-400 dark:hover:bg-blue-900`}
                 title="Email"
                 onClick={() =>
@@ -1575,9 +1575,9 @@ export default function PaymentDialog({
               <button
                 className={`p-2 rounded-lg ${
                   sharingMode === "whatsapp"
-                    ? "bg-blue-100 text-green-700"
-                    : "text-green-600 hover:bg-green-100"
-                } dark:text-green-400 dark:hover:bg-green-900`}
+                    ? "bg-blue-100 text-ziditech-700"
+                    : "text-ziditech-600 hover:bg-ziditech-100"
+                } dark:text-ziditech-400 dark:hover:bg-ziditech-900`}
                 title="WhatsApp"
                 onClick={() =>
                   setSharingMode(sharingMode === "whatsapp" ? null : "whatsapp")
@@ -1590,8 +1590,8 @@ export default function PaymentDialog({
               <button
                 className={`p-2 rounded-lg ${
                   sharingMode === "sms"
-                    ? "bg-blue-100 text-blue-700"
-                    : "text-blue-600 hover:bg-blue-100"
+                    ? "bg-blue-100 text-ziditech-700"
+                    : "text-ziditech-600 hover:bg-blue-100"
                 } dark:text-blue-400 dark:hover:bg-blue-900`}
                 title="SMS"
                 onClick={() =>
@@ -1603,7 +1603,7 @@ export default function PaymentDialog({
               </button>
 
               <button
-                className="p-2 text-purple-600 hover:bg-purple-100 dark:text-purple-400 dark:hover:bg-purple-900 rounded-lg"
+                className="p-2 text-ziditech-600 hover:bg-ziditech-100 dark:text-ziditech-400 dark:hover:bg-ziditech-900 rounded-lg"
                 title="View Full"
                 onClick={() => handleViewInvoice(invoiceData)}
               >
@@ -1741,9 +1741,9 @@ export default function PaymentDialog({
                         </div>
                       )}
 
-                      <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+                      <div className="bg-ziditech-50 dark:bg-blue-900/20 rounded-lg p-4 border border-ziditech-200 dark:border-blue-800">
                         <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                          Subject: Your Invoice from Zidi PoS
+                          Subject: Your Invoice from Sultan POS
                         </p>
                         <div className="text-sm text-gray-900 dark:text-white">
                           <div
@@ -1775,7 +1775,7 @@ export default function PaymentDialog({
                         }
                       }}
                       disabled={!sharingData.email || isSendingEmail}
-                      className="w-full py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                      className="w-full py-3 bg-ziditech-600 text-white rounded-lg font-medium hover:bg-ziditech-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
                     >
                       {isSendingEmail ? "Sending..." : "Send Email"}
                     </button>
@@ -1881,7 +1881,7 @@ export default function PaymentDialog({
                         </div>
                       )}
 
-                      <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4 border border-green-200 dark:border-green-800">
+                      <div className="bg-ziditech-50 dark:bg-ziditech-900/20 rounded-lg p-4 border border-ziditech-200 dark:border-ziditech-800">
                         <div className="text-sm text-gray-900 dark:text-white">
                           <div className="whitespace-pre-wrap">
                             {getProcessedMessage()}
@@ -1910,7 +1910,7 @@ export default function PaymentDialog({
                         }
                       }}
                       disabled={!sharingData.phone || isSendingWhatsapp}
-                      className="w-full py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                      className="w-full py-3 bg-ziditech-600 text-white rounded-lg font-medium hover:bg-ziditech-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
                     >
                       {isSendingWhatsapp
                         ? "Sending..."
@@ -1963,7 +1963,7 @@ export default function PaymentDialog({
                         <div className="text-sm text-gray-900 dark:text-white">
                           <p>Hi {sharingData.name || "Customer"}!</p>
                           <p className="mt-1">
-                            Thank you for your purchase at Zidi PoS.
+                            Thank you for your purchase at Sultan POS.
                           </p>
                           <p className="mt-1">
                             Invoice Total:{" "}
@@ -1979,7 +1979,7 @@ export default function PaymentDialog({
                           await sendSMSMessage({
                             mobile_no: sharingData.phone,
                             customer_name: sharingData.name,
-                            message: `Thank you for your purchase at Zidi PoS.\nInvoice Total: ${formatCurrency(calculations.grandTotal)}\nThank you!`
+                            message: `Thank you for your purchase at Sultan POS.\nInvoice Total: ${formatCurrency(calculations.grandTotal)}\nThank you!`
                           });
                           toast.success("SMS sent successfully!");
                           setSharingMode(null);
@@ -2125,7 +2125,7 @@ export default function PaymentDialog({
                       <div
                         className={`px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg font-medium ${
                           calculations.isInclusive
-                            ? "text-blue-600 dark:text-blue-400"
+                            ? "text-ziditech-600 dark:text-blue-400"
                             : "text-gray-900 dark:text-white"
                         }`}
                       >
@@ -2189,7 +2189,7 @@ export default function PaymentDialog({
                         </span>
                       </div>
                       {calculations.couponDiscount > 0 && (
-                        <div className="flex justify-between text-green-600 dark:text-green-400">
+                        <div className="flex justify-between text-ziditech-600 dark:text-ziditech-400">
                           <span>Coupon Discount</span>
                           <span>
                             -{formatCurrency(calculations.couponDiscount)}
@@ -2204,7 +2204,7 @@ export default function PaymentDialog({
                         <span
                           className={`font-medium ${
                             calculations.isInclusive
-                              ? "text-blue-600 dark:text-blue-400"
+                              ? "text-ziditech-600 dark:text-blue-400"
                               : "text-gray-900 dark:text-white"
                           }`}
                         >
@@ -2240,7 +2240,7 @@ export default function PaymentDialog({
                             <span className="text-gray-600 dark:text-gray-400">
                               Total Paid
                             </span>
-                            <span className="font-medium text-blue-600 dark:text-blue-400">
+                            <span className="font-medium text-ziditech-600 dark:text-blue-400">
                               {formatCurrency(totalPaidAmount)}
                             </span>
                           </div>
@@ -2252,7 +2252,7 @@ export default function PaymentDialog({
                               className={`font-bold ${
                                 outstandingAmount > 0
                                   ? "text-red-600 dark:text-red-400"
-                                  : "text-green-600 dark:text-green-400"
+                                  : "text-ziditech-600 dark:text-ziditech-400"
                               }`}
                             >
                               {formatCurrency(outstandingAmount)}
@@ -2263,7 +2263,7 @@ export default function PaymentDialog({
                               <span className="text-gray-600 dark:text-gray-400">
                                 Change
                               </span>
-                              <span className="font-bold text-green-600 dark:text-green-400">
+                              <span className="font-bold text-ziditech-600 dark:text-ziditech-400">
                                 {formatCurrency(
                                   subtractCurrency(totalPaidAmount, calculations.grandTotal)
                                 )}
@@ -2296,7 +2296,7 @@ export default function PaymentDialog({
               <>
                 <div className="text-center mb-4">
                   <h4 className="font-bold text-lg text-gray-900 dark:text-white">
-                    Zidi PoS
+                    Sultan POS
                   </h4>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
                     {isB2B ? "Sales Invoice" : "Sales Invoice"}
@@ -2407,7 +2407,7 @@ export default function PaymentDialog({
                     </span>
                   </div>
                   {calculations.couponDiscount > 0 && (
-                    <div className="flex justify-between text-green-600 dark:text-green-400">
+                    <div className="flex justify-between text-ziditech-600 dark:text-ziditech-400">
                       <span>Discount</span>
                       <span>
                         -{formatCurrency(calculations.couponDiscount)}
@@ -2422,7 +2422,7 @@ export default function PaymentDialog({
                     <span
                       className={`${
                         calculations.isInclusive
-                          ? "text-blue-600 dark:text-blue-400"
+                          ? "text-ziditech-600 dark:text-blue-400"
                           : "text-gray-900 dark:text-white"
                       }`}
                     >
@@ -2581,7 +2581,7 @@ export default function PaymentDialog({
                         href={`/app/work-order/${woName}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-ziditech-300 dark:border-ziditech-700 text-ziditech-700 dark:text-ziditech-400 bg-ziditech-50 dark:bg-ziditech-900/20 hover:bg-ziditech-100 dark:hover:bg-ziditech-900/40 transition-colors"
                       >
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -2595,7 +2595,7 @@ export default function PaymentDialog({
                         href={`/app/work-order/${wo.name}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-emerald-300 dark:border-emerald-700 text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-colors"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-ziditech-300 dark:border-ziditech-700 text-ziditech-700 dark:text-ziditech-400 bg-ziditech-50 dark:bg-ziditech-900/20 hover:bg-ziditech-100 dark:hover:bg-ziditech-900/40 transition-colors"
                         title={`${wo.production_item} × ${wo.qty}`}
                       >
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -2611,7 +2611,7 @@ export default function PaymentDialog({
                   {invoiceSubmitted && (
                     <button
                       onClick={() => onClose(true)}
-                      className="bg-ziditech-500 px-6 py-2 border border-gray-300 dark:border-gray-600 text-white dark:text-gray-300 rounded-lg font-medium hover:bg-green-700 dark:hover:bg-gray-800 transition-colors"
+                      className="bg-ziditech-500 px-6 py-2 border border-gray-300 dark:border-gray-600 text-white dark:text-gray-300 rounded-lg font-medium hover:bg-ziditech-700 dark:hover:bg-gray-800 transition-colors"
                     >
                       New Order
                     </button>
@@ -2682,7 +2682,7 @@ export default function PaymentDialog({
                   disabled={isActionButtonDisabled()}
                   className={`px-8 py-2 rounded-lg font-semibold disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center space-x-2 ${
                     isB2B
-                      ? "bg-ziditech-500 hover:bg-blue-700 text-white"
+                      ? "bg-ziditech-500 hover:bg-ziditech-700 text-white"
                       : "bg-ziditech-600 hover:bg-ziditech-700 text-white"
                   }`}
                 >

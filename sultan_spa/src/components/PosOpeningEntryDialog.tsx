@@ -66,9 +66,9 @@ const POSOpeningModal: React.FC<POSOpeningModalProps> = ({
   const getPaymentIcon = (type: string) => {
     switch (type.toLowerCase()) {
       case 'cash':
-        return <Banknote className="w-5 h-5 text-green-600" />;
+        return <Banknote className="w-5 h-5 text-ziditech-600" />;
       case 'bank':
-        return <CreditCard className="w-5 h-5 text-blue-600" />;
+        return <CreditCard className="w-5 h-5 text-ziditech-600" />;
       default:
         return <Wallet className="w-5 h-5 text-gray-600" />;
     }
@@ -254,7 +254,7 @@ const POSOpeningModal: React.FC<POSOpeningModalProps> = ({
                 <select
                   value={selectedProfile}
                   onChange={(e) => handleProfileChange(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ziditech-500 focus:border-ziditech-500"
                   disabled={!!profilesLoading || !!isLoadingPaymentModes}
                 >
                   {(!posProfiles || posProfiles.length === 0) && (
@@ -309,7 +309,7 @@ const POSOpeningModal: React.FC<POSOpeningModalProps> = ({
                           step="0.01"
                           value={method.opening_amount || ''}
                           onChange={(e) => updatePaymentAmount(index, parseFloat(e.target.value) || 0)}
-                          className="w-24 px-2 py-1 border border-gray-300 rounded text-right focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          className="w-24 px-2 py-1 border border-gray-300 rounded text-right focus:outline-none focus:ring-1 focus:ring-ziditech-500"
                           placeholder="0.00"
                           disabled={profilesLoading}
                         />
@@ -321,7 +321,7 @@ const POSOpeningModal: React.FC<POSOpeningModalProps> = ({
                   <div className="mt-4 pt-3 border-t border-gray-200">
                     <div className="flex justify-between items-center font-semibold">
                       <span>Total Opening Balance:</span>
-                      <span className="text-green-600">
+                      <span className="text-ziditech-600">
                         {formatCurrency(totalAmount, posDetails?.currency || 'USD')}
                       </span>
                     </div>
@@ -354,7 +354,7 @@ const POSOpeningModal: React.FC<POSOpeningModalProps> = ({
                     !selectedProfile ||
                     paymentMethods.length === 0
                   }
-                  className="flex-1 px-4 py-2 bg-ziditech-700 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                  className="flex-1 px-4 py-2 bg-ziditech-700 text-white rounded-md hover:bg-ziditech-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
                 >
                   {profilesLoading ? 'Loading...' :
                    isCreating ? 'Creating...' :
@@ -379,8 +379,8 @@ const POSOpeningModal: React.FC<POSOpeningModalProps> = ({
 
           {step === 'success' && (
             <div className="text-center py-8">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle2 className="w-8 h-8 text-green-600" />
+              <div className="w-16 h-16 bg-ziditech-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <CheckCircle2 className="w-8 h-8 text-ziditech-600" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">
                 POS Session Started!
@@ -388,7 +388,7 @@ const POSOpeningModal: React.FC<POSOpeningModalProps> = ({
               <p className="text-gray-600 mb-4">
                 Opening entry created successfully. Redirecting to POS...
               </p>
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-green-600 mx-auto"></div>
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-ziditech-600 mx-auto"></div>
             </div>
           )}
 

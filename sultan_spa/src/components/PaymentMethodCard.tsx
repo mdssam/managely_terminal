@@ -65,11 +65,11 @@ export default function PaymentMethodCard({ method, title, icon, selected, onSel
     <div
       onClick={handleClick}
       className={`p-6 border-2 rounded-lg cursor-pointer transition-all bg-card ${
-        selected ? "border-green-500 bg-green-50/10 dark:bg-green-900/20" : "border-border hover:border-muted-foreground/50"
+        selected ? "border-ziditech-500 bg-ziditech-50/10 dark:bg-ziditech-900/20" : "border-border hover:border-muted-foreground/50"
       }`}
     >
       <div className="text-center">
-        <div className={`mx-auto mb-3 ${selected ? "text-green-600 dark:text-green-400" : "text-muted-foreground"}`}>{renderIcon()}</div>
+        <div className={`mx-auto mb-3 ${selected ? "text-ziditech-600 dark:text-ziditech-400" : "text-muted-foreground"}`}>{renderIcon()}</div>
         <h3 className="font-semibold text-foreground">{title}</h3>
       </div>
 
@@ -82,7 +82,7 @@ export default function PaymentMethodCard({ method, title, icon, selected, onSel
                 <input
                   type="number"
                   defaultValue={total}
-                  className="w-full px-3 py-2 bg-background border border-input text-foreground rounded focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="w-full px-3 py-2 bg-background border border-input text-foreground rounded focus:outline-none focus:ring-2 focus:ring-ziditech-500"
                 />
               </div>
               <div className="text-sm text-muted-foreground">{t("CHANGE")}: ₨ 0.00</div>

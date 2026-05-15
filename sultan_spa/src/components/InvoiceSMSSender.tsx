@@ -74,7 +74,7 @@ export const InvoiceSMSSender: React.FC<InvoiceSMSSenderProps> = ({
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ziditech-500"
             placeholder="Enter customer name"
             required
           />
@@ -88,7 +88,7 @@ export const InvoiceSMSSender: React.FC<InvoiceSMSSenderProps> = ({
             type="tel"
             value={phoneNumber}
             onChange={(e) => setPhoneNumber(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ziditech-500"
             placeholder="+1234567890"
             required
           />
@@ -102,7 +102,7 @@ export const InvoiceSMSSender: React.FC<InvoiceSMSSenderProps> = ({
             type="text"
             value={invoiceNo}
             onChange={(e) => setInvoiceNo(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ziditech-500"
             placeholder="Enter invoice number"
             required
           />
@@ -117,7 +117,7 @@ export const InvoiceSMSSender: React.FC<InvoiceSMSSenderProps> = ({
             onChange={(e) => setMessage(e.target.value)}
             placeholder="Your invoice is ready!"
             rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ziditech-500"
           />
         </div>
 
@@ -136,7 +136,7 @@ export const InvoiceSMSSender: React.FC<InvoiceSMSSenderProps> = ({
         )}
 
         {result && (
-          <div className="p-3 bg-green-100 border border-green-400 text-green-700 rounded-md">
+          <div className="p-3 bg-ziditech-100 border border-ziditech-400 text-ziditech-700 rounded-md">
             <h4 className="font-semibold">Success!</h4>
             <p><strong>Recipient:</strong> {result.recipient}</p>
             <p><strong>Invoice:</strong> {result.invoice}</p>

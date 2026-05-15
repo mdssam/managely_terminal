@@ -26,7 +26,7 @@ export default function ProductCard({ item, onAddToCart, isMobile = false, scann
         isDisabled
           ? "border-gray-200 dark:border-gray-700 opacity-60 cursor-not-allowed"
           : canBeManufactured && isOutOfStock
-            ? "border-emerald-300 dark:border-emerald-700 hover:shadow-md hover:scale-[1.02] cursor-pointer active:scale-95"
+            ? "border-ziditech-300 dark:border-ziditech-700 hover:shadow-md hover:scale-[1.02] cursor-pointer active:scale-95"
             : "border-gray-200 dark:border-gray-700 hover:shadow-md hover:scale-[1.02] cursor-pointer active:scale-95"
       } ${isMobile ? "touch-manipulation" : ""}`}
       onClick={() => !isDisabled && onAddToCart(item)}
@@ -50,18 +50,17 @@ export default function ProductCard({ item, onAddToCart, isMobile = false, scann
         )}
 
         {/* Badges — top-right corner */}
-        <div className="absolute top-1.5 right-1.5 flex flex-col gap-1 items-end">
-          {canBeManufactured && (
-            <span className="bg-emerald-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-md shadow-sm leading-tight">
-              Fresh
-            </span>
-          )}
-          {!isOutOfStock && !canBeManufactured && (
-            <span className="bg-slate-700/80 text-white text-[10px] font-medium px-1.5 py-0.5 rounded-md leading-tight">
-              {item.available}
-            </span>
-          )}
-        </div>
+        <div className="absolute top-2 right-2 flex flex-col gap-1.5">
+        {item.available > 0 ? (
+          <div className="bg-ziditech-600/90 text-white px-2 py-1 rounded-md text-[10px] font-bold shadow-sm backdrop-blur-sm">
+            In Stock
+          </div>
+        ) : (
+          <div className="bg-red-500/90 text-white px-2 py-1 rounded-md text-[10px] font-bold shadow-sm backdrop-blur-sm">
+            Out of Stock
+          </div>
+        )}
+      </div>
 
         {/* Discount badge — top-left */}
         {item.discount && (
@@ -80,7 +79,7 @@ export default function ProductCard({ item, onAddToCart, isMobile = false, scann
         {/* Scanner only overlay */}
         {scannerOnly && !isOutOfStock && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-blue-600 dark:text-blue-400 font-semibold text-xs bg-white/90 dark:bg-gray-800/90 px-2 py-1 rounded-md shadow-sm border border-blue-200">
+            <span className="text-ziditech-600 dark:text-blue-400 font-semibold text-xs bg-white/90 dark:bg-gray-800/90 px-2 py-1 rounded-md shadow-sm border border-ziditech-200">
               Scan Only
             </span>
           </div>
@@ -94,11 +93,11 @@ export default function ProductCard({ item, onAddToCart, isMobile = false, scann
         </h3>
         <p className="text-[10px] text-gray-400 dark:text-gray-500 truncate">{item.category}</p>
         <div className="mt-auto pt-1 flex items-center justify-between">
-          <span className={`font-bold text-emerald-700 dark:text-emerald-400 ${isMobile ? "text-xs" : "text-sm"}`}>
+          <span className={`font-bold text-ziditech-700 dark:text-ziditech-400 ${isMobile ? "text-xs" : "text-sm"}`}>
             {formattedPrice}
           </span>
           {canBeManufactured && isOutOfStock && (
-            <span className="text-[10px] text-emerald-600 dark:text-emerald-500 font-medium">Made to order</span>
+            <span className="text-[10px] text-ziditech-600 dark:text-ziditech-500 font-medium">Made to order</span>
           )}
         </div>
       </div>

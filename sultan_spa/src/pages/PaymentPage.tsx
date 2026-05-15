@@ -118,10 +118,10 @@ export default function PaymentPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3 text-slate-400">
-          <Loader2 className="w-8 h-8 animate-spin" />
-          <span className="text-sm font-medium">Loading invoice…</span>
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#0D0033' }}>
+        <div className="flex flex-col items-center gap-3" style={{ color: '#9a88ff' }}>
+          <Loader2 className="w-10 h-10 animate-spin" />
+          <span className="text-sm font-black uppercase tracking-widest">Loading invoice…</span>
         </div>
       </div>
     );
@@ -129,14 +129,16 @@ export default function PaymentPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-        <div className="bg-white rounded-2xl shadow-lg p-8 max-w-sm w-full text-center">
-          <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
-          <h2 className="text-lg font-semibold text-slate-800 mb-2">Invoice Not Found</h2>
-          <p className="text-sm text-slate-500 mb-6">{error}</p>
+      <div className="min-h-screen flex items-center justify-center p-6" style={{ backgroundColor: '#0D0033' }}>
+        <div className="rounded-[32px] p-10 max-w-sm w-full text-center shadow-3xl animate-in zoom-in-95 duration-300" style={{ backgroundColor: '#180855', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <div className="w-20 h-20 bg-red-400/10 rounded-3xl flex items-center justify-center mx-auto mb-6">
+            <AlertCircle className="w-10 h-10 text-red-400" />
+          </div>
+          <h2 className="text-2xl font-black text-white mb-2 uppercase tracking-tight">Invoice Not Found</h2>
+          <p className="text-sm mb-8" style={{ color: '#8878c8' }}>{error}</p>
           <button
             onClick={() => navigate("/cashier-station")}
-            className="w-full py-3 bg-slate-900 text-white rounded-xl font-semibold text-sm hover:bg-slate-800 transition-colors"
+            className="w-full py-4 bg-ziditech-600 hover:bg-ziditech-500 text-white rounded-2xl font-black text-sm uppercase tracking-widest transition-all active:scale-95 shadow-xl shadow-ziditech-600/20"
           >
             Back to Cashier Terminal
           </button>
@@ -147,141 +149,145 @@ export default function PaymentPage() {
 
   if (paid) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-        <div className="bg-white rounded-2xl shadow-lg p-8 max-w-sm w-full text-center">
-          <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <CheckCircle2 className="w-9 h-9 text-emerald-600" />
+      <div className="min-h-screen flex items-center justify-center p-6" style={{ backgroundColor: '#0D0033' }}>
+        <div className="rounded-[32px] p-10 max-w-md w-full text-center shadow-3xl animate-in zoom-in-95 duration-300" style={{ backgroundColor: '#180855', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <div className="w-20 h-20 bg-ziditech-600/20 rounded-3xl flex items-center justify-center mx-auto mb-6">
+            <CheckCircle2 className="w-10 h-10 text-ziditech-500" />
           </div>
-          <h2 className="text-xl font-bold text-slate-800 mb-1">Payment Complete</h2>
-          <p className="text-sm text-slate-500 mb-2">{invoice?.name}</p>
-          <p className="text-3xl font-bold text-emerald-600 mb-6">
+          <h2 className="text-3xl font-black text-white mb-1 uppercase tracking-tight">Payment Complete</h2>
+          <p className="text-sm mb-6" style={{ color: '#8878c8' }}>{invoice?.name}</p>
+          <p className="text-5xl font-black text-white mb-10">
             {sym}{invoice?.grand_total.toFixed(2)}
           </p>
-          <a
-            href={invoiceUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block w-full py-2.5 mb-3 border border-emerald-300 text-emerald-700 rounded-xl font-medium text-sm hover:bg-emerald-50 transition-colors"
-          >
-            View Invoice in ERPNext
-          </a>
-          <button
-            onClick={() => navigate("/cashier-station")}
-            className="w-full py-3 bg-slate-900 text-white rounded-xl font-semibold text-sm hover:bg-slate-800 transition-colors"
-          >
-            Next Customer
-          </button>
+          
+          <div className="space-y-4">
+            <a
+              href={invoiceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 w-full py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all hover:bg-white/5"
+              style={{ border: '1px solid rgba(255,255,255,0.1)', color: '#9a88ff' }}
+            >
+              View in ERPNext
+            </a>
+            <button
+              onClick={() => navigate("/cashier-station")}
+              className="w-full py-4 bg-ziditech-600 hover:bg-ziditech-500 text-white rounded-2xl font-black text-sm uppercase tracking-widest transition-all active:scale-95 shadow-xl shadow-ziditech-600/20"
+            >
+              Next Customer
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#0D0033' }}>
       {/* Header */}
-      <div className="bg-white border-b border-slate-200 px-4 py-3 flex items-center gap-3 sticky top-0 z-10">
+      <header className="px-8 py-5 flex items-center gap-6 sticky top-0 z-30 backdrop-blur-xl border-b" style={{ backgroundColor: 'rgba(24,8,85,0.9)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
         <button
           onClick={() => navigate("/cashier-station")}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors text-sm font-medium"
+          className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/5 transition-all active:scale-90"
         >
-          <ArrowLeft className="w-4 h-4" />
-          Back
+          <ArrowLeft className="w-5 h-5 text-white" />
         </button>
         <div className="flex-1 min-w-0">
-          <h1 className="text-base font-bold text-slate-900 truncate">{invoice?.name}</h1>
-          <p className="text-xs text-slate-500">
+          <h1 className="text-xl font-black text-white tracking-tight truncate uppercase">{invoice?.name}</h1>
+          <p className="text-xs font-bold uppercase tracking-widest mt-0.5" style={{ color: '#8878c8' }}>
             {invoice?.customer_name || invoice?.customer} · {invoice?.posting_date}
           </p>
         </div>
-        <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
-          invoice?.docstatus === 0
-            ? "bg-amber-100 text-amber-700"
-            : "bg-emerald-100 text-emerald-700"
-        }`}>
+        <span className="text-[10px] font-black px-3 py-1.5 rounded-lg uppercase tracking-widest" style={{ backgroundColor: 'rgba(124,96,245,0.15)', color: '#9a88ff', border: '1px solid rgba(124,96,245,0.2)' }}>
           {invoice?.status || "Draft"}
         </span>
-      </div>
+      </header>
 
-      <div className="flex-1 overflow-auto">
-        <div className="max-w-2xl mx-auto w-full p-4 space-y-4">
-          {/* Items */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-            <div className="px-5 py-3 border-b border-slate-100 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-slate-700">Order Items</h2>
-              <span className="text-xs text-slate-400">{invoice?.items.length} item{(invoice?.items.length ?? 0) !== 1 ? "s" : ""}</span>
-            </div>
-            <div className="divide-y divide-slate-50">
-              {invoice?.items.map((item, idx) => (
-                <div key={idx} className="px-5 py-3 flex items-center justify-between">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-slate-800 truncate">{item.item_name}</p>
-                    <p className="text-xs text-slate-400">
-                      {item.qty} × {sym}{item.rate.toFixed(2)}
-                    </p>
+      <div className="flex-1 overflow-auto p-8">
+        <div className="max-w-4xl mx-auto grid grid-cols-1 lg:grid-cols-5 gap-8">
+          
+          {/* Items & Summary */}
+          <div className="lg:col-span-3 space-y-6">
+            <div className="rounded-[32px] overflow-hidden shadow-2xl" style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+              <div className="px-6 py-4 border-b flex items-center justify-between" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
+                <h2 className="text-xs font-black text-white uppercase tracking-widest">Order Items</h2>
+                <span className="text-[10px] font-black text-gray-500 uppercase">{invoice?.items.length} items</span>
+              </div>
+              <div className="divide-y" style={{ divideColor: 'rgba(255,255,255,0.05)' }}>
+                {invoice?.items.map((item, idx) => (
+                  <div key={idx} className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-white truncate">{item.item_name}</p>
+                      <p className="text-[10px] font-black uppercase tracking-wider mt-0.5" style={{ color: '#8878c8' }}>
+                        {item.qty} × {sym}{item.rate.toFixed(2)}
+                      </p>
+                    </div>
+                    <span className="text-sm font-black text-white ml-4 flex-shrink-0">
+                      {sym}{item.amount.toFixed(2)}
+                    </span>
                   </div>
-                  <span className="text-sm font-semibold text-slate-700 ml-4 flex-shrink-0">
-                    {sym}{item.amount.toFixed(2)}
-                  </span>
-                </div>
-              ))}
+                ))}
+              </div>
+              <div className="px-6 py-6 border-t flex items-center justify-between" style={{ backgroundColor: 'rgba(255,255,255,0.02)', borderColor: 'rgba(255,255,255,0.05)' }}>
+                <span className="text-xs font-black text-gray-400 uppercase tracking-widest">Grand Total</span>
+                <span className="text-3xl font-black text-white tracking-tighter">
+                  {sym}{invoice?.grand_total.toFixed(2)}
+                </span>
+              </div>
             </div>
-            <div className="px-5 py-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
-              <span className="text-sm font-semibold text-slate-600">Grand Total</span>
-              <span className="text-2xl font-bold text-slate-900">
-                {sym}{invoice?.grand_total.toFixed(2)}
-              </span>
-            </div>
+
+            <button
+              onClick={() => navigate("/cashier-station")}
+              className="flex items-center justify-center gap-3 w-full py-5 rounded-2xl font-black text-xs uppercase tracking-widest transition-all hover:bg-white/5"
+              style={{ border: '1px solid rgba(255,255,255,0.1)', color: '#9a88ff' }}
+            >
+              <ShoppingCart className="w-5 h-5" />
+              Back to Terminal
+            </button>
           </div>
 
           {/* Payment Methods */}
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-            <div className="px-5 py-3 border-b border-slate-100">
-              <h2 className="text-sm font-semibold text-slate-700">Select Payment Method</h2>
+          <div className="lg:col-span-2 space-y-6">
+            <div className="rounded-[32px] overflow-hidden shadow-2xl" style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+              <div className="px-6 py-4 border-b" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
+                <h2 className="text-xs font-black text-white uppercase tracking-widest">Select Method</h2>
+              </div>
+              <div className="p-6 grid grid-cols-1 gap-3">
+                {paymentModeNames.map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => setSelectedMode(mode)}
+                    className="flex items-center gap-4 p-5 rounded-2xl border-2 transition-all group"
+                    style={{
+                      borderColor: selectedMode === mode ? '#7c60f5' : 'rgba(255,255,255,0.05)',
+                      backgroundColor: selectedMode === mode ? 'rgba(124,96,245,0.15)' : 'rgba(255,255,255,0.02)',
+                    }}
+                  >
+                    <div className="p-3 rounded-xl transition-all" style={{ backgroundColor: selectedMode === mode ? '#7c60f5' : 'rgba(255,255,255,0.05)', color: selectedMode === mode ? 'white' : '#7c60f5' }}>
+                      {getPaymentIcon(mode)}
+                    </div>
+                    <span className="font-black text-xs uppercase tracking-widest" style={{ color: selectedMode === mode ? 'white' : '#8878c8' }}>{mode}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="p-4 grid grid-cols-2 gap-3">
-              {paymentModeNames.map((mode) => (
-                <button
-                  key={mode}
-                  onClick={() => setSelectedMode(mode)}
-                  className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all text-left ${
-                    selectedMode === mode
-                      ? "border-emerald-500 bg-emerald-50 text-emerald-700"
-                      : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
-                  }`}
-                >
-                  <span className={selectedMode === mode ? "text-emerald-600" : "text-slate-400"}>
-                    {getPaymentIcon(mode)}
-                  </span>
-                  <span className="font-medium text-sm">{mode}</span>
-                </button>
-              ))}
-            </div>
-          </div>
 
-          {/* Actions */}
-          <div className="flex gap-3">
-            <button
-              onClick={() => navigate("/cashier-station")}
-              className="flex items-center gap-2 px-5 py-4 bg-white border border-slate-200 text-slate-700 rounded-2xl font-semibold text-sm hover:bg-slate-50 transition-colors"
-            >
-              <ShoppingCart className="w-4 h-4" />
-              Back to Cart
-            </button>
             <button
               onClick={handlePay}
               disabled={!selectedMode || processing}
-              className="flex-1 py-4 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 text-white rounded-2xl font-bold text-base shadow-lg shadow-emerald-200/50 active:scale-[0.98] transition-all flex items-center justify-center gap-2"
+              className="w-full py-6 bg-ziditech-600 hover:bg-ziditech-500 disabled:opacity-40 text-white rounded-[24px] font-black text-lg uppercase tracking-tighter shadow-2xl shadow-ziditech-600/30 active:scale-[0.98] transition-all flex flex-col items-center justify-center"
             >
               {processing ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Processing…
-                </>
+                <Loader2 className="w-8 h-8 animate-spin" />
               ) : (
-                `Confirm Payment · ${sym}${invoice?.grand_total.toFixed(2)}`
+                <>
+                  <span className="text-[10px] opacity-70 mb-1 font-black uppercase tracking-[0.2em]">Complete Transaction</span>
+                  <span>Confirm {sym}{invoice?.grand_total.toFixed(2)}</span>
+                </>
               )}
             </button>
           </div>
+
         </div>
       </div>
     </div>

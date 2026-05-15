@@ -122,7 +122,7 @@ export default function IngredientModifierModal({
                 const isRemoved = currentQty < ing.qty;
 
                 return (
-                  <div key={ing.item_code} className={`flex items-center justify-between p-4 rounded-xl border transition-colors ${isAdded ? 'bg-green-50/50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : isRemoved ? 'bg-red-50/50 dark:bg-red-900/20 border-red-200 dark:border-red-800' : 'border-border bg-white dark:bg-background'}`}>
+                  <div key={ing.item_code} className={`flex items-center justify-between p-4 rounded-xl border transition-colors ${isAdded ? 'bg-ziditech-50/50 dark:bg-ziditech-900/20 border-ziditech-200 dark:border-ziditech-800' : isRemoved ? 'bg-red-50/50 dark:bg-red-900/20 border-red-200 dark:border-red-800' : 'border-border bg-white dark:bg-background'}`}>
                     <div>
                       <div className="font-medium text-gray-900 dark:text-gray-100">{ing.item_name || ing.item_code}</div>
                       <div className="text-xs text-gray-500 dark:text-gray-400">Standard: {ing.qty} {ing.uom}</div>
@@ -164,7 +164,7 @@ export default function IngredientModifierModal({
           <button 
             onClick={handleSave}
             disabled={loading}
-            className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-all inline-flex items-center"
+            className="px-6 py-2.5 bg-ziditech-600 text-white rounded-xl font-medium hover:bg-ziditech-700 transition-all inline-flex items-center"
           >
             <Save className="w-4 h-4 mr-2" /> Save Customization
           </button>

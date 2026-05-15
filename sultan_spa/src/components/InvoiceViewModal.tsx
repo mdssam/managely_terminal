@@ -47,7 +47,7 @@ export default function InvoiceViewModal({
   const getStatusColor = (status: string) => {
     switch (status) {
       case "Completed":
-        return "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400";
+        return "bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900/20 dark:text-ziditech-400";
       case "Pending":
         return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400";
       case "Cancelled":
@@ -195,10 +195,10 @@ export default function InvoiceViewModal({
                               {item.qty}
                             </td>
                             <td className="px-6 py-4 text-gray-900 dark:text-white">
-                              ${Number(item.rate ?? 0).toFixed(2)}
+                              {Number(item.rate ?? 0).toLocaleString()}
                             </td>
                             <td className="px-6 py-4 font-semibold text-gray-900 dark:text-white">
-                              ${Number(item.amount ?? 0).toFixed(2)}
+                              {Number(item.amount ?? 0).toLocaleString()}
                             </td>
                           </tr>
                         ))}
@@ -222,11 +222,12 @@ export default function InvoiceViewModal({
                     Payment Summary
                   </h3>
                   <div className="space-y-3">
-                    <SummaryRow label="Subtotal" value={Number(displayInvoice.subtotal ?? 0)} />
+                    <SummaryRow label="Subtotal" value={Number(displayInvoice.subtotal ?? 0)} currency={displayInvoice.currency} />
                     {displayInvoice.giftCardDiscount > 0 && (
                       <SummaryRow
                         label="Gift Card Discount"
                         value={-displayInvoice.giftCardDiscount}
+                        currency={displayInvoice.currency}
                         color="green"
                       />
                     )}
@@ -234,6 +235,7 @@ export default function InvoiceViewModal({
                       <SummaryRow
                         label="Total"
                         value={Number(displayInvoice.totalAmount ?? 0)}
+                        currency={displayInvoice.currency}
                         bold
                       />
                     </div>
@@ -242,6 +244,7 @@ export default function InvoiceViewModal({
                         <SummaryRow
                           label="Refunded Amount"
                           value={displayInvoice.refundAmount}
+                          currency={displayInvoice.currency}
                           color="red"
                           bold
                         />
@@ -258,14 +261,6 @@ export default function InvoiceViewModal({
                       icon={<RefreshCw />}
                       color="orange"
                       text="Process Returns"
-                    />
-                  )}
-                  {displayInvoice.status === "Pending" && (
-                    <ActionButton
-                      onClick={() => onCancel(displayInvoice.id)}
-                      icon={<XCircle />}
-                      color="red"
-                      text="Cancel Order"
                     />
                   )}
                   <ActionButton icon={<Printer />} text="Print Receipt" />
@@ -315,11 +310,13 @@ function InfoItem({
 function SummaryRow({
   label,
   value,
+  currency,
   color,
   bold,
 }: {
   label: string;
   value: number;
+  currency?: string;
   color?: string;
   bold?: boolean;
 }) {
@@ -330,7 +327,7 @@ function SummaryRow({
   return (
     <div className={base}>
       <span className={bold ? "text-lg font-bold" : ""}>{label}</span>
-      <span className={valueClass}>${Math.abs(value)}</span>
+      <span className={valueClass}>{Number(value).toLocaleString()} {currency}</span>
     </div>
   );
 }
@@ -343,27 +340,27 @@ function GiftCardSection({
   discount: number;
 }) {
   return (
-    <div className="bg-purple-50 dark:bg-purple-900/20 rounded-xl p-6">
+    <div className="bg-ziditech-50 dark:bg-ziditech-900/20 rounded-xl p-6">
       <div className="flex items-center space-x-3 mb-4">
-        <Tag className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-        <h3 className="text-lg font-semibold text-purple-900 dark:text-purple-100">
+        <Tag className="w-5 h-5 text-ziditech-600 dark:text-ziditech-400" />
+        <h3 className="text-lg font-semibold text-ziditech-900 dark:text-ziditech-100">
           Gift Card Applied
         </h3>
       </div>
       <div className="space-y-2">
         <div className="flex justify-between">
-          <span className="text-sm text-purple-700 dark:text-purple-300">
+          <span className="text-sm text-ziditech-700 dark:text-ziditech-300">
             Code
           </span>
-          <span className="font-semibold text-purple-900 dark:text-purple-100">
+          <span className="font-semibold text-ziditech-900 dark:text-ziditech-100">
             {code}
           </span>
         </div>
         <div className="flex justify-between">
-          <span className="text-sm text-purple-700 dark:text-purple-300">
+          <span className="text-sm text-ziditech-700 dark:text-ziditech-300">
             Discount
           </span>
-          <span className="font-semibold text-purple-900 dark:text-purple-100">
+          <span className="font-semibold text-ziditech-900 dark:text-ziditech-100">
             -${discount}
           </span>
         </div>

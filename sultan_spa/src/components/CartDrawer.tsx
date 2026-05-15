@@ -74,7 +74,7 @@
 
 //             <button
 //               onClick={onCheckout}
-//               className="w-full bg-green-700 text-white py-3 rounded hover:bg-green-800 transition-colors"
+//               className="w-full bg-ziditech-700 text-white py-3 rounded hover:bg-ziditech-800 transition-colors"
 //             >
 //               {t("PROCEED_TO_CHECKOUT")}
 //             </button>

@@ -112,7 +112,7 @@ export default function InvoiceViewPage() {
     switch (status) {
       case "Completed":
       case "Paid":
-        return `${baseClasses} bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400`;
+        return `${baseClasses} bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900/20 dark:text-ziditech-400`;
       case "Pending":
       case "Unpaid":
         return `${baseClasses} bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400`;
@@ -254,7 +254,7 @@ export default function InvoiceViewPage() {
             <p className="text-red-600 dark:text-red-400">Error loading invoice: {error}</p>
             <button
               onClick={() => window.location.reload()}
-              className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="mt-4 px-4 py-2 bg-ziditech-600 text-white rounded-lg hover:bg-ziditech-700"
             >
               Retry
             </button>
@@ -326,7 +326,7 @@ export default function InvoiceViewPage() {
                 </button>
 
                 <button
-                  className="group relative p-2 text-blue-600 hover:bg-blue-100 dark:text-blue-400 dark:hover:bg-blue-900 rounded-lg transition-all duration-200"
+                  className="group relative p-2 text-ziditech-600 hover:bg-blue-100 dark:text-blue-400 dark:hover:bg-blue-900 rounded-lg transition-all duration-200"
                   onClick={() => {
                     setSharingMode('email')
                     setShowPaymentDialog(true)
@@ -340,7 +340,7 @@ export default function InvoiceViewPage() {
 
                 {(posDetails?.custom_enable_whatsapp === 1 || posDetails?.custom_enable_whatsapp === '1' || posDetails?.custom_enable_whatsapp === true) ? (
                   <button
-                    className="group relative p-2 text-green-600 hover:bg-green-100 dark:text-green-400 dark:hover:bg-green-900 rounded-lg transition-all duration-200"
+                    className="group relative p-2 text-ziditech-600 hover:bg-ziditech-100 dark:text-ziditech-400 dark:hover:bg-ziditech-900 rounded-lg transition-all duration-200"
                     onClick={() => {
                       setSharingMode('whatsapp')
                       setShowPaymentDialog(true)
@@ -355,7 +355,7 @@ export default function InvoiceViewPage() {
 
                 {(posDetails?.custom_enable_sms === 1 || posDetails?.custom_enable_sms === '1' || posDetails?.custom_enable_sms === true) ? (
                   <button
-                    className="group relative p-2 text-blue-600 hover:bg-blue-100 dark:text-blue-400 dark:hover:bg-blue-900 rounded-lg transition-all duration-200"
+                    className="group relative p-2 text-ziditech-600 hover:bg-blue-100 dark:text-blue-400 dark:hover:bg-blue-900 rounded-lg transition-all duration-200"
                     onClick={() => {
                       setSharingMode('sms')
                       setShowPaymentDialog(true)
@@ -583,7 +583,7 @@ export default function InvoiceViewPage() {
                         {invoice.giftCardDiscount > 0 && (
                           <div className="flex justify-between text-sm">
                             <span className="text-gray-600 dark:text-gray-400">Gift Card Discount:</span>
-                            <span className="text-green-600 dark:text-green-400">-{formatCurrency(invoice.giftCardDiscount, invoice.currency)}</span>
+                            <span className="text-ziditech-600 dark:text-ziditech-400">-{formatCurrency(invoice.giftCardDiscount, invoice.currency)}</span>
                           </div>
                         )}
 
@@ -620,11 +620,11 @@ export default function InvoiceViewPage() {
 
                   {/* Gift Card Section */}
                   {invoice.giftCardCode && (
-                    <div className="px-6 py-4 bg-purple-50 dark:bg-purple-900/20 border-t border-gray-200 dark:border-gray-600">
-                      <h4 className="text-sm font-medium text-purple-900 dark:text-purple-100 mb-2">Gift Card Applied:</h4>
+                    <div className="px-6 py-4 bg-ziditech-50 dark:bg-ziditech-900/20 border-t border-gray-200 dark:border-gray-600">
+                      <h4 className="text-sm font-medium text-ziditech-900 dark:text-ziditech-100 mb-2">Gift Card Applied:</h4>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-purple-700 dark:text-purple-300">Code: {invoice.giftCardCode}</span>
-                        <span className="text-sm font-semibold text-purple-900 dark:text-purple-100">-{formatCurrency(invoice.giftCardDiscount, invoice.currency)}</span>
+                        <span className="text-sm text-ziditech-700 dark:text-ziditech-300">Code: {invoice.giftCardCode}</span>
+                        <span className="text-sm font-semibold text-ziditech-900 dark:text-ziditech-100">-{formatCurrency(invoice.giftCardDiscount, invoice.currency)}</span>
                       </div>
                     </div>
                   )}

@@ -71,7 +71,7 @@ export default function EditDraftInvoiceDialog({
           {onSubmitDirect && (
             <button
               onClick={() => onSubmitDirect(invoice)}
-              className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              className="w-full flex items-center justify-center space-x-2 px-4 py-3 bg-ziditech-600 text-white rounded-lg hover:bg-ziditech-700 transition-colors"
             >
               <Check size={20} />
               <span>Submit</span>

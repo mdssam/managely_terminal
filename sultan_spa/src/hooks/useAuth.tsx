@@ -51,65 +51,67 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!mounted) return
 
-    // Initialize ERPNext API session
-    erpnextAPI.initializeSession()
-
-    // Check if user is already logged in
-    const token = localStorage.getItem("erpnext_token")
-    const userData = localStorage.getItem("user_data")
-
-
-    if (token && userData) {
+    const initAuth = async () => {
       try {
-        const parsedUser = JSON.parse(userData)
+        // Initialize ERPNext API session
+        erpnextAPI.initializeSession()
 
-        // First, set the user from cached data to avoid login redirect
-        setUser(parsedUser)
+        // Check if user has local credentials
+        const token = localStorage.getItem("erpnext_token")
+        const userData = localStorage.getItem("user_data")
 
-        const refreshUserData = async () => {
+        if (token && userData) {
           try {
-            // First validate the session
+            const parsedUser = JSON.parse(userData)
+            
+            // IMMEDIATELY validate session synchronously BEFORE releasing lock
             const isSessionValid = await erpnextAPI.validateSession()
-            if (!isSessionValid) {
-              console.warn("Session is invalid, clearing auth data")
+            
+            if (isSessionValid) {
+              // Session verified, establish safe authenticated state
+              setUser(parsedUser)
+              
+              // Attempt a profile refresh passively to capture updates
+              try {
+                const freshUserData = await erpnextAPI.getCurrentUserProfile()
+                if (freshUserData) {
+                  const updatedUser = {
+                    name: freshUserData.name || parsedUser.name,
+                    email: freshUserData.email || freshUserData.name || parsedUser.email,
+                    full_name: freshUserData.full_name || freshUserData.first_name + ' ' + (freshUserData.last_name || '') || parsedUser.full_name,
+                    role: freshUserData.role_profile_name || freshUserData.role || parsedUser.role || "User",
+                    first_name: freshUserData.first_name,
+                    last_name: freshUserData.last_name,
+                    user_image: freshUserData.user_image
+                  }
+                  setUser(updatedUser)
+                  localStorage.setItem("user_data", JSON.stringify(updatedUser))
+                }
+              } catch (e) {
+                console.warn("Passive user profile sync failed:", e)
+              }
+            } else {
+              // Remote session died, purge cache instantly
+              console.warn("Stale session detected on boot, purging local cache")
               localStorage.removeItem("erpnext_token")
               localStorage.removeItem("user_data")
               localStorage.removeItem("erpnext_sid")
               setUser(null)
-              return
-            }
-
-            const freshUserData = await erpnextAPI.getCurrentUserProfile()
-            if (freshUserData) {
-              const updatedUser = {
-                name: freshUserData.name || parsedUser.name,
-                email: freshUserData.email || freshUserData.name || parsedUser.email,
-                full_name: freshUserData.full_name || freshUserData.first_name + ' ' + (freshUserData.last_name || '') || parsedUser.full_name,
-                role: freshUserData.role_profile_name || freshUserData.role || parsedUser.role || "User",
-                first_name: freshUserData.first_name,
-                last_name: freshUserData.last_name,
-                user_image: freshUserData.user_image
-              }
-
-              setUser(updatedUser)
-              localStorage.setItem("user_data", JSON.stringify(updatedUser))
             }
           } catch (error) {
-            console.warn("Failed to refresh user data, using cached data:", error)
-            // Don't clear the user data if refresh fails - keep using cached data
+            console.error("Malformed cached auth data:", error)
+            localStorage.removeItem("erpnext_token")
+            localStorage.removeItem("user_data")
+            localStorage.removeItem("erpnext_sid")
           }
         }
-
-        // Run refresh in background without blocking authentication
-        refreshUserData()
-      } catch (error) {
-        console.error("Error parsing user data:", error)
-        localStorage.removeItem("erpnext_token")
-        localStorage.removeItem("user_data")
-        localStorage.removeItem("erpnext_sid")
+      } finally {
+        // Safe to unblock UI only after true deterministic state reached
+        setLoading(false)
       }
     }
-    setLoading(false)
+
+    initAuth()
   }, [mounted])
 
   const login = async (username: string, password: string, otp?: string, tmpId?: string) => {

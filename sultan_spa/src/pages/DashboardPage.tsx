@@ -263,9 +263,9 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
     // Match colors used in Invoice History badges
     const colorMapByNormalized: { [key: string]: string } = {
       'pending': '#f59e0b',       // yellow-500
-      'reported': '#3b82f6',      // blue-500
+      'reported': '#3b82f6',      // ziditech-500
       'not reported': '#9ca3af',  // gray-400/500
-      'cleared': '#16a34a',       // green-600
+      'cleared': '#16a34a',       // ziditech-600
       'not cleared': '#ef4444',   // red-500
       'draft': '#6b7280',         // gray-500
     }
@@ -339,7 +339,7 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
   // Mobile layout: full-width content and persistent bottom navigation
   if (isMobile) {
     return (
-      <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900 ">
         {/* Mobile Header */}
         <div className="sticky top-0 z-20 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
           <div className="px-4 py-3">
@@ -450,8 +450,8 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
                     <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">vs last period</span>
                   </div>
                 </div>
-                <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/20 rounded-lg flex items-center justify-center">
-                  <DollarSign className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+                <div className="w-12 h-12 bg-ziditech-100 dark:bg-ziditech-900/20 rounded-lg flex items-center justify-center">
+                  <DollarSign className="w-6 h-6 text-ziditech-600 dark:text-ziditech-400" />
                 </div>
               </div>
             </div>
@@ -464,13 +464,13 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
                     {filteredStats.totalTransactions}
                   </p>
                   <div className="flex items-center mt-2">
-                    <TrendingUp className="w-4 h-4 text-blue-500 mr-1" />
-                    <span className="text-sm text-blue-600 dark:text-blue-400">+8.2%</span>
+                    <TrendingUp className="w-4 h-4 text-ziditech-500 mr-1" />
+                    <span className="text-sm text-ziditech-600 dark:text-ziditech-400">+8.2%</span>
                     <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">vs last period</span>
                   </div>
                 </div>
-                <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
-                  <ShoppingCart className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                <div className="w-12 h-12 bg-ziditech-100 dark:bg-ziditech-900/20 rounded-lg flex items-center justify-center">
+                  <ShoppingCart className="w-6 h-6 text-ziditech-600 dark:text-ziditech-400" />
                 </div>
               </div>
             </div>
@@ -483,13 +483,13 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
                     {formatCurrency(filteredStats.averageOrderValue, posDetails?.currency || 'USD')}
                   </p>
                   <div className="flex items-center mt-2">
-                    <TrendingUp className="w-4 h-4 text-orange-500 mr-1" />
-                    <span className="text-sm text-orange-600 dark:text-orange-400">+3.8%</span>
+                    <TrendingUp className="w-4 h-4 text-ziditech-500 mr-1" />
+                    <span className="text-sm text-ziditech-600 dark:text-ziditech-400">+3.8%</span>
                     <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">vs last period</span>
                   </div>
                 </div>
-                <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/20 rounded-lg flex items-center justify-center">
-                  <BarChart3 className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+                <div className="w-12 h-12 bg-ziditech-100 dark:bg-ziditech-900/20 rounded-lg flex items-center justify-center">
+                  <BarChart3 className="w-6 h-6 text-ziditech-600 dark:text-ziditech-400" />
                 </div>
               </div>
             </div>
@@ -502,13 +502,13 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
                     {filteredStats.totalItems}
                   </p>
                   <div className="flex items-center mt-2">
-                    <TrendingDown className="w-4 h-4 text-red-500 mr-1" />
-                    <span className="text-sm text-red-600 dark:text-red-400">-2.1%</span>
+                    <TrendingUp className="w-4 h-4 text-ziditech-500 mr-1" />
+                    <span className="text-sm text-ziditech-600 dark:text-ziditech-400">+5.1%</span>
                     <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">vs last period</span>
                   </div>
                 </div>
-                <div className="w-12 h-12 bg-orange-100 dark:bg-orange-900/20 rounded-lg flex items-center justify-center">
-                  <Activity className="w-6 h-6 text-orange-600 dark:text-orange-400" />
+                <div className="w-12 h-12 bg-ziditech-100 dark:bg-ziditech-900/20 rounded-lg flex items-center justify-center">
+                  <Activity className="w-6 h-6 text-ziditech-600 dark:text-ziditech-400" />
                 </div>
               </div>
             </div>
@@ -626,7 +626,7 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
               </div>
               <div className="space-y-4">
                 {paymentMethodsData.map((method, index) => {
-                  const colors = ['bg-orange-500', 'bg-ziditech-600', 'bg-green-500', 'bg-purple-500', 'bg-pink-500']
+                  const colors = ['bg-ziditech-500', 'bg-ziditech-600', 'bg-ziditech-500', 'bg-ziditech-400', 'bg-ziditech-300']
                   const color = colors[index % colors.length]
                   return (
                     <div key={method.method} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
@@ -654,7 +654,7 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
               <div className="mt-4">
                 <div className="flex rounded-lg overflow-hidden h-4">
                   {paymentMethodsData.map((method, index) => {
-                    const colors = ['bg-orange-500', 'bg-ziditech-600', 'bg-green-500', 'bg-purple-500', 'bg-pink-500']
+                    const colors = ['bg-orange-500', 'bg-ziditech-600', 'bg-ziditech-500', 'bg-ziditech-500', 'bg-pink-500']
                     const color = colors[index % colors.length]
                     return (
                       <div
@@ -730,10 +730,10 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
             <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Gift Card Usage</h3>
-                <Gift className="w-5 h-5 text-orange-600" />
+                <Gift className="w-5 h-5 text-ziditech-600" />
               </div>
               <div className="space-y-3">
-                <div className="flex justify-between p-2 bg-orange-50 dark:bg-orange-900/20 rounded-lg">
+                <div className="flex justify-between p-2 bg-ziditech-50 dark:bg-ziditech-900/20 rounded-lg">
                   <span className="text-sm text-gray-600 dark:text-gray-400">Total Redeemed</span>
                   <span className="font-semibold text-gray-900 dark:text-white">
                     {formatCurrency(stats.giftCardUsage.totalRedeemed, posDetails?.currency || 'USD')}
@@ -911,7 +911,7 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
                       <div
                         className={`text-xs ${
                           transaction.status === "Completed"
-                            ? "text-green-600 dark:text-green-400"
+                            ? "text-ziditech-600 dark:text-ziditech-400"
                             : transaction.status === "Refunded"
                               ? "text-red-600 dark:text-red-400"
                               : "text-yellow-600 dark:text-yellow-400"
@@ -1073,12 +1073,12 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
                 </p>
                 <div className="flex items-center mt-2">
                   <TrendingUp className="w-4 h-4 text-orange-500 mr-1" />
-                  <span className="text-sm text-orange-600 dark:text-blue-400">+8.2%</span>
+                  <span className="text-sm text-orange-600 dark:text-ziditech-400">+8.2%</span>
                   <span className="text-xs text-gray-500 dark:text-gray-400 ml-1 hidden sm:inline">vs last period</span>
                 </div>
               </div>
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-100 dark:bg-blue-900/20 rounded-lg flex items-center justify-center">
-                <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600 dark:text-blue-400" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-ziditech-100 dark:bg-ziditech-900/20 rounded-lg flex items-center justify-center">
+                <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600 dark:text-ziditech-400" />
               </div>
             </div>
           </div>
@@ -1234,7 +1234,7 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
             </div>
             <div className="space-y-4">
               {paymentMethodsData.map((method, index) => {
-                const colors = ['bg-orange-500', 'bg-ziditech-600', 'bg-green-500', 'bg-purple-500', 'bg-pink-500']
+                const colors = ['bg-orange-500', 'bg-ziditech-600', 'bg-ziditech-500', 'bg-ziditech-500', 'bg-pink-500']
                 const color = colors[index % colors.length]
                 return (
                   <div key={method.method} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
@@ -1262,7 +1262,7 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
             <div className="mt-4">
               <div className="flex rounded-lg overflow-hidden h-4">
                 {paymentMethodsData.map((method, index) => {
-                  const colors = ['bg-orange-500', 'bg-ziditech-600', 'bg-green-500', 'bg-purple-500', 'bg-pink-500']
+                  const colors = ['bg-orange-500', 'bg-ziditech-600', 'bg-ziditech-500', 'bg-ziditech-500', 'bg-pink-500']
                   const color = colors[index % colors.length]
                   return (
                     <div
@@ -1456,7 +1456,7 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
                     <div
                       className={`text-xs ${
                         transaction.status === "Completed"
-                          ? "text-green-600 dark:text-green-400"
+                          ? "text-ziditech-600 dark:text-ziditech-400"
                           : transaction.status === "Refunded"
                             ? "text-red-600 dark:text-red-400"
                             : "text-yellow-600 dark:text-yellow-400"

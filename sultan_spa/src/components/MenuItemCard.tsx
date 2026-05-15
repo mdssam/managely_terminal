@@ -21,7 +21,7 @@ export default function MenuItemCard({ item, onAddToCart }: MenuItemCardProps) {
     >
       {/* Discount Badge - Smaller size */}
       {item.discount && (
-        <div className="absolute top-2 left-2 bg-blue-600 text-white px-1.5 py-0.5 rounded-md text-xs font-medium z-10 text-[10px]">
+        <div className="absolute top-2 left-2 bg-ziditech-600 text-white px-1.5 py-0.5 rounded-md text-xs font-medium z-10 text-[10px]">
           {item.discount}% Off
         </div>
       )}

@@ -74,179 +74,151 @@ export default function LoginPage() {
   }
 
   const getUserFriendlyErrorMessage = (message: string): string => {
-    // Handle common HTTP error codes and convert to user-friendly messages
     if (message.includes('HTTP 401') || message.includes('401')) {
-      return "Invalid username or password. Please check your credentials and try again."
+      return "Invalid username or password."
     }
     if (message.includes('HTTP 403') || message.includes('403')) {
-      return "Access denied. Please contact your administrator."
-    }
-    if (message.includes('HTTP 404') || message.includes('404')) {
-      return "Login service not available. Please contact your administrator."
-    }
-    if (message.includes('HTTP 500') || message.includes('500')) {
-      return "Server error. Please try again later or contact your administrator."
+      return "Access denied."
     }
     if (message.includes('Network error') || message.includes('fetch')) {
-      return "Unable to connect to the server. Please check your internet connection."
+      return "Network error. Check your connection."
     }
-    if (message.includes('timeout')) {
-      return "Connection timeout. Please try again."
-    }
-    if (message.includes('Invalid credentials') || message.includes('incorrect')) {
-      return "Invalid username or password. Please check your credentials and try again."
-    }
-    if (message.includes('User not found')) {
-      return "User not found. Please check your username and try again."
-    }
-    if (message.includes('Account disabled')) {
-      return "Your account has been disabled. Please contact your administrator."
-    }
-    if (message.includes('Too many attempts')) {
-      return "Too many login attempts. Please wait a few minutes before trying again."
-    }
-
-    // If it's already a user-friendly message, return as is
     if (message && !message.includes('HTTP') && !message.includes('Error:')) {
       return message
     }
-
-    // Default fallback
-    return "Login failed. Please check your credentials and try again."
+    return "Login failed. Please try again."
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-ziditech-50 to-ziditech-100 flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: '#0D0033' }}>
       {/* Background Pattern */}
-      <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
+      <div className="fixed inset-0 bg-grid-pattern opacity-5 pointer-events-none"></div>
 
-      <div className="relative z-10 w-full max-w-sm">
+      {/* Decorative Glow */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-ziditech-600/10 rounded-full blur-[120px]" />
+      </div>
+
+      <div className="relative z-10 w-full max-w-sm animate-in fade-in zoom-in-95 duration-500">
         {/* Login Card */}
-        <div className="bg-white/95 rounded-2xl shadow-2xl p-6 backdrop-blur-sm">
+        <div className="rounded-[40px] shadow-3xl p-10 backdrop-blur-xl" style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
           {/* Logo Section */}
-          <div className="text-center mb-6">
-            <div className="flex justify-center mb-4">
-              <img src="/assets/sultan/sultan_spa/bev_logo.jpeg" alt="Sultan POS" className="w-16 h-16 rounded-full shadow-lg" />
+          <div className="text-center mb-10">
+            <div className="flex justify-center mb-6">
+              <div className="p-1 bg-gradient-to-tr from-ziditech-600 to-ziditech-400 rounded-3xl shadow-2xl">
+                <img src="/assets/sultan/sultan_spa/bev_logo.jpeg" alt="Sultan POS" className="w-20 h-20 rounded-[22px] object-cover" />
+              </div>
             </div>
-            <h1 className="text-3xl font-bold text-ziditech-800">Zidi PoS</h1>
+            <h1 className="text-4xl font-black text-white tracking-tighter uppercase">Sultan POS</h1>
+            <p className="text-[10px] font-black text-ziditech-400 uppercase tracking-[0.3em] mt-2">Sign in to Terminal</p>
           </div>
 
-          <form onSubmit={isOtpStep ? handleVerifyOtp : handleLogin} className="space-y-4">
-            <div className="space-y-3">
+          <form onSubmit={isOtpStep ? handleVerifyOtp : handleLogin} className="space-y-5">
+            <div className="space-y-4">
               {!isOtpStep ? (
                 <>
-                  <div className="relative">
+                  <div className="relative group">
                     <input
                       id="username"
                       type="text"
                       value={username}
                       onChange={(e) => setUsername(e.target.value)}
-                      className="w-full px-4 py-2.5 border-2 border-ziditech-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-ziditech-500 focus:border-transparent transition-all duration-200 bg-ziditech-50/50 text-gray-900 dark:text-white"
-                      placeholder="Username or Email"
+                      className="w-full px-6 py-4 rounded-2xl focus:outline-none transition-all duration-300 font-bold"
+                      style={{ 
+                        backgroundColor: 'rgba(255,255,255,0.05)', 
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        color: '#f0eeff'
+                      }}
+                      placeholder="Username"
                       required
                     />
-                    <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-                      <svg className="w-5 h-5 text-ziditech-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
-                        />
-                      </svg>
-                    </div>
-                </div>
+                  </div>
 
-                  <div className="relative">
+                  <div className="relative group">
                     <input
                       id="password"
                       type="password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="w-full px-4 py-2.5 border-2 border-ziditech-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-ziditech-500 focus:border-transparent transition-all duration-200 bg-ziditech-50/50 text-gray-900 dark:text-white"
+                      className="w-full px-6 py-4 rounded-2xl focus:outline-none transition-all duration-300 font-bold"
+                      style={{ 
+                        backgroundColor: 'rgba(255,255,255,0.05)', 
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        color: '#f0eeff'
+                      }}
                       placeholder="Password"
                       required
                     />
-                    <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-                      <svg className="w-5 h-5 text-ziditech-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
-                        />
-                      </svg>
-                    </div>
                   </div>
                 </>
               ) : (
                 <>
-                  <div className="bg-ziditech-50 border border-ziditech-200 rounded-xl p-3">
-                    <p className="text-sm text-ziditech-700 text-center">
-                      {verificationPrompt || "Enter verification code to continue."}
+                  <div className="p-4 rounded-2xl text-center" style={{ backgroundColor: 'rgba(124,96,245,0.1)', border: '1px solid rgba(124,96,245,0.2)' }}>
+                    <p className="text-xs font-bold text-ziditech-300 uppercase tracking-wider">
+                      {verificationPrompt || "Enter code to continue"}
                     </p>
                   </div>
-                  <div className="relative">
-                    <input
-                      id="otp"
-                      type="text"
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      value={otp}
-                      onChange={(e) => setOtp(e.target.value)}
-                      className="w-full px-4 py-2.5 border-2 border-ziditech-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-ziditech-500 focus:border-transparent transition-all duration-200 bg-ziditech-50/50 text-gray-900 dark:text-white"
-                      placeholder="Enter OTP code"
-                      required
-                    />
-                  </div>
+                  <input
+                    id="otp"
+                    type="text"
+                    inputMode="numeric"
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value)}
+                    className="w-full px-6 py-4 rounded-2xl focus:outline-none transition-all duration-300 font-bold text-center text-2xl tracking-[0.5em]"
+                    style={{ 
+                      backgroundColor: 'rgba(255,255,255,0.05)', 
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      color: '#f0eeff'
+                    }}
+                    placeholder="••••••"
+                    required
+                  />
                   <button
                     type="button"
-                    onClick={() => {
-                      setIsOtpStep(false)
-                      setOtp("")
-                      setTmpId("")
-                      setVerificationPrompt("")
-                      setError("")
-                    }}
-                    className="w-full text-sm text-ziditech-700 hover:text-ziditech-900 underline"
+                    onClick={() => setIsOtpStep(false)}
+                    className="w-full text-[10px] font-black text-ziditech-400 hover:text-white uppercase tracking-widest transition-colors"
                   >
-                    Back to username and password
+                    Back to Login
                   </button>
                 </>
               )}
             </div>
 
             {error && (
-              <div className="bg-red-50 border border-red-200 rounded-xl p-3">
-                <p className="text-sm text-red-600 font-medium text-center">{error}</p>
+              <div className="p-4 rounded-2xl text-center animate-shake" style={{ backgroundColor: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)' }}>
+                <p className="text-[10px] text-red-400 font-black uppercase tracking-wider">{error}</p>
               </div>
             )}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-ziditech-600 text-white font-bold py-3 px-4 rounded-xl hover:bg-ziditech-700 focus:outline-none focus:ring-4 focus:ring-ziditech-300 transition-all duration-300 shadow-lg hover:shadow-xl disabled:bg-ziditech-400 disabled:cursor-not-allowed"
+              className="w-full bg-ziditech-600 text-white font-black py-4 px-6 rounded-2xl hover:bg-ziditech-500 transition-all duration-300 shadow-xl shadow-ziditech-600/20 disabled:opacity-50 uppercase tracking-widest text-sm"
             >
               {loading ? (
-                <div className="flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                  <span className="ml-2">{isOtpStep ? "Verifying..." : "Signing In..."}</span>
-                </div>
+                <Loader2 className="w-5 h-5 animate-spin mx-auto" />
               ) : (
-                isOtpStep ? "Verify Code" : "Sign In"
+                isOtpStep ? "Verify" : "Sign In"
               )}
             </button>
           </form>
         </div>
 
         {/* Footer */}
-        <div className="text-center mt-6">
-          <p className="text-sm text-ziditech-600">
-            Powered by{" "}
-            <span className="font-semibold">ZidiTech</span>
+        <div className="text-center mt-8">
+          <p className="text-[10px] font-black text-ziditech-400 uppercase tracking-[0.3em]">
+            © 2026 Powered by <span className="text-ziditech-300">Sultan</span>
           </p>
         </div>
       </div>
     </div>
+  )
+}
+
+function Loader2({ className }: { className?: string }) {
+  return (
+    <svg className={className} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+    </svg>
   )
 }

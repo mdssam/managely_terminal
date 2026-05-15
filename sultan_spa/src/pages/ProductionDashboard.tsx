@@ -87,7 +87,7 @@ export default function ProductionDashboard() {
                 <ClipboardList size={12} className="mr-1"/> {todayStats.total_orders} work orders today
               </p>
             </div>
-            <div className="p-3 bg-green-50 dark:bg-green-900/20 text-green-600 dark:text-green-400 rounded-lg">
+            <div className="p-3 bg-ziditech-50 dark:bg-ziditech-900/20 text-ziditech-600 dark:text-ziditech-400 rounded-lg">
               <Activity size={20} />
             </div>
           </div>
@@ -102,7 +102,7 @@ export default function ProductionDashboard() {
                 <Box size={12} className="mr-1"/> Cumulative item volume
               </p>
             </div>
-            <div className="p-3 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-lg">
+            <div className="p-3 bg-ziditech-50 dark:bg-ziditech-900/20 text-ziditech-600 dark:text-ziditech-400 rounded-lg">
               <Box size={20} />
             </div>
           </div>
@@ -117,7 +117,7 @@ export default function ProductionDashboard() {
                 <Calendar size={12} className="mr-1"/> Last 30 active days
               </p>
             </div>
-            <div className="p-3 bg-orange-50 dark:bg-orange-900/20 text-orange-600 dark:text-orange-400 rounded-lg">
+            <div className="p-3 bg-ziditech-50 dark:bg-ziditech-900/20 text-ziditech-600 dark:text-ziditech-400 rounded-lg">
               <ClipboardList size={20} />
             </div>
           </div>
@@ -132,7 +132,7 @@ export default function ProductionDashboard() {
                 <TrendingUp size={12} className="mr-1"/> Unit conversion metric
               </p>
             </div>
-            <div className="p-3 bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 rounded-lg">
+            <div className="p-3 bg-ziditech-50 dark:bg-ziditech-900/20 text-ziditech-600 dark:text-ziditech-400 rounded-lg">
               <TrendingUp size={20} />
             </div>
           </div>
