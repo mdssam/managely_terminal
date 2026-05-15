@@ -62,10 +62,13 @@ def get_current_user_info():
 		# Get user details
 		user_doc = frappe.get_doc("User", user)
 
-		# Get current POS profile
+		# Get current POS profile (may not exist for all users)
 		from sultan.sultan.utils import get_current_pos_profile
 
-		pos_profile = get_current_pos_profile()
+		try:
+			pos_profile = get_current_pos_profile()
+		except Exception:
+			pos_profile = None
 
 		_total_time = time.time() - start_time
 

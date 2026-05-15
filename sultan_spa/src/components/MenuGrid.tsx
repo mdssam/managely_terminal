@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react"
 import { createPortal } from "react-dom"
-import { Link, useNavigate } from "react-router-dom"
+import { useNavigate } from "react-router-dom"
 import { useAuth } from "../hooks/useAuth"
 import { useTheme } from "../hooks/useTheme"
 import { usePOSDetails } from "../hooks/usePOSProfile"
@@ -52,7 +52,6 @@ export default function MenuGrid({
   const { posDetails, loading: posLoading } = usePOSDetails()
   const navigate = useNavigate()
   const [showUserMenu, setShowUserMenu] = useState(false)
-  const [dropdownPos, setDropdownPos] = useState({ top: 0, right: 0 })
   const buttonRef = useRef<HTMLButtonElement>(null)
 
   // Initialize viewMode based on POS profile
@@ -89,10 +88,10 @@ export default function MenuGrid({
   const handleLogout = async () => {
     try {
       await logout()
-      window.location.href = "/sultan/login"
+      window.location.href = "/sultan_spa/login"
     } catch (error) {
       console.error('Logout error:', error)
-      window.location.href = "/sultan/login"
+      window.location.href = "/sultan_spa/login"
     }
   }
 
@@ -141,13 +140,6 @@ export default function MenuGrid({
                   <button
                     ref={buttonRef}
                     onClick={() => {
-                      if (!showUserMenu && buttonRef.current) {
-                        const rect = buttonRef.current.getBoundingClientRect()
-                        setDropdownPos({
-                          top: rect.bottom + 10,
-                          right: window.innerWidth - rect.right,
-                        })
-                      }
                       setShowUserMenu(!showUserMenu)
                     }}
                     className="w-11 h-11 bg-ziditech-600 rounded-2xl flex items-center justify-center hover:bg-ziditech-500 transition-all focus:outline-none focus:ring-2 focus:ring-ziditech-400/50 cursor-pointer shadow-xl shadow-ziditech-600/30 active:scale-95"
@@ -157,11 +149,15 @@ export default function MenuGrid({
                     <span className="text-white text-sm font-black pointer-events-none">{initials}</span>
                   </button>
 
-                  {/* User dropdown — rendered via Portal so it appears above ALL layers */}
+                  {/* User dropdown — rendered via Portal for absolute top-level priority */}
                   {showUserMenu && createPortal(
                     <div
-                      className="fixed w-80 bg-ziditech-900 rounded-2xl shadow-2xl border border-white/10 overflow-hidden backdrop-blur-xl"
-                      style={{ top: dropdownPos.top, right: dropdownPos.right, zIndex: 999999 }}
+                      className="fixed w-80 bg-ziditech-900 rounded-2xl shadow-2xl border border-white/10 overflow-hidden backdrop-blur-xl z-[9999999]"
+                      style={{
+                        top: buttonRef.current ? buttonRef.current.getBoundingClientRect().bottom + 12 : '80px',
+                        right: buttonRef.current ? window.innerWidth - buttonRef.current.getBoundingClientRect().right : '20px'
+                      }}
+                      onMouseDown={(e) => e.stopPropagation()}
                     >
                       {/* User info header */}
                       <div className="px-5 py-4 border-b border-white/10 bg-gradient-to-r from-ziditech-800 to-ziditech-900">
@@ -178,9 +174,10 @@ export default function MenuGrid({
                               </p>
                             </div>
                              <button
-                              onClick={() => { 
-                                setShowUserMenu(false); 
-                                navigate('/settings?tab=profile');
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setShowUserMenu(false);
+                                navigate('/settings');
                               }}
                               className="text-[10px] text-ziditech-400 hover:text-ziditech-200 mt-1 underline underline-offset-2 transition-colors text-left"
                             >
@@ -193,9 +190,10 @@ export default function MenuGrid({
                       {/* Menu items */}
                       <div className="py-2">
                         <button
-                          onClick={() => {
-                            setShowUserMenu(false)
-                            navigate("/settings")
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setShowUserMenu(false);
+                            navigate('/settings');
                           }}
                           className="flex items-center w-full px-5 py-3 text-sm text-gray-300 hover:bg-white/5 transition-colors"
                           type="button"
@@ -205,7 +203,8 @@ export default function MenuGrid({
                         </button>
 
                         <button
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             toggleTheme()
                             setShowUserMenu(false)
                           }}
@@ -217,7 +216,8 @@ export default function MenuGrid({
                         </button>
 
                         <button
-                          onClick={async () => {
+                          onClick={async (e) => {
+                            e.stopPropagation();
                             setShowUserMenu(false)
                             await clearCacheAndReload()
                           }}
@@ -231,7 +231,8 @@ export default function MenuGrid({
                         <div className="border-t border-white/10 my-1 mx-3"></div>
 
                         <button
-                          onClick={async () => {
+                          onClick={async (e) => {
+                            e.stopPropagation();
                             setShowUserMenu(false)
                             handleLogout()
                           }}
@@ -243,7 +244,7 @@ export default function MenuGrid({
                         </button>
                       </div>
                     </div>,
-                    document.getElementById("root") || document.body
+                    document.body
                   )}
                 </div>
               </div>

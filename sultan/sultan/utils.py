@@ -29,6 +29,13 @@ def get_current_pos_profile():
 		else:
 			pos_profile_name = frappe.get_value("POS Profile User", {"user": user}, "parent")
 			if not pos_profile_name:
+				# Fallback: check User Permissions for POS Profile
+				pos_profile_name = frappe.get_value(
+					"User Permission",
+					{"user": user, "allow": "POS Profile"},
+					"for_value",
+				)
+			if not pos_profile_name:
 				frappe.throw(_("No POS Profile found for user {0}").format(user))
 
 		# Cache identity (name) only

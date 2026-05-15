@@ -132,7 +132,10 @@ def get_pos_details():
 		opening_doc = frappe.get_doc("POS Opening Entry", current_opening_entry)
 		pos = frappe.get_doc("POS Profile", opening_doc.pos_profile)
 	else:
-		pos = get_current_pos_profile()
+		try:
+			pos = get_current_pos_profile()
+		except Exception:
+			pos = None
 
 	# Fallback for non-pos users (like order stations)
 	if not pos:
@@ -204,7 +207,10 @@ def get_pos_details():
 
 
 def is_zatca_enabled():
-	pos_profile = get_current_pos_profile()
+	try:
+		pos_profile = get_current_pos_profile()
+	except Exception:
+		return False
 	if not pos_profile:
 		return False
 	company = pos_profile.company

@@ -548,7 +548,7 @@ const getStatusBadge = (status: string) => {
                     <div className="flex space-x-2">
                       <button
                         onClick={() => handleViewInvoice(invoice)}
-                        className="text-ziditech-600 hover:text-ziditech-900 flex items-center space-x-1"
+                        className="text-ziditech-600 dark:text-ziditech-300 hover:text-ziditech-900 dark:hover:text-white flex items-center space-x-1"
                       >
                         <Eye className="w-4 h-4" />
                         <span>View</span>
@@ -567,7 +567,7 @@ const getStatusBadge = (status: string) => {
 
                         <button
                           onClick={() => handleSingleReturnClick(invoice)}
-                          className="text-orange-600 hover:text-orange-900 flex items-center space-x-1"
+                          className="text-orange-600 dark:text-orange-400 hover:text-orange-900 dark:hover:text-orange-300 flex items-center space-x-1"
                         >
                           <RotateCcw className="w-4 h-4" />
                           <span>Return</span>
@@ -577,7 +577,7 @@ const getStatusBadge = (status: string) => {
                       {invoice.status === "Draft" && (
                         <button
                           onClick={() => handleDeleteClick(invoice)}
-                          className="text-red-600 hover:text-red-900 flex items-center space-x-1"
+                          className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300 flex items-center space-x-1"
                         >
                           <FileMinus className="w-4 h-4" />
                           <span>Delete</span>
