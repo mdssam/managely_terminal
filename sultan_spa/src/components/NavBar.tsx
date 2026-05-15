@@ -162,7 +162,7 @@ export default function NavBar() {
                         handleLogout()
                         setShowUserMenu(false)
                       }}
-                      className="flex items-center w-full px-4 py-3 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"
+                      className="flex items-center w-full px-4 py-3 text-sm text-ziditech-600 hover:bg-ziditech-50 transition-colors"
                       type="button"
                     >
                       <LogOut size={18} className="mr-3" />

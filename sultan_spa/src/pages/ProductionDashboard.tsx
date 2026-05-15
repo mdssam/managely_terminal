@@ -63,8 +63,8 @@ export default function ProductionDashboard() {
   const todayStats = trends.find(t => t.date === todayStr) || { total_qty: 0, total_orders: 0 }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 lg:pl-24 pb-12 text-gray-900 dark:text-white">
-      <header className="px-6 py-8 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+    <div className="min-h-screen bg-gray-50 lg:pl-24 pb-12 text-gray-900">
+      <header className="px-6 py-8 bg-white border-b border-gray-200 shadow-sm">
         <div className="flex items-center space-x-4">
           <div className="p-3 bg-ziditech-100 dark:bg-ziditech-900/30 rounded-xl text-ziditech-600 dark:text-ziditech-400">
             <Factory size={28} />
@@ -78,7 +78,7 @@ export default function ProductionDashboard() {
 
       <main className="px-6 mt-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {/* Overview Cards */}
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all group">
+        <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all group">
           <div className="flex justify-between items-start">
             <div>
               <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">Today's Production</p>
@@ -93,7 +93,7 @@ export default function ProductionDashboard() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all group">
+        <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all group">
           <div className="flex justify-between items-start">
             <div>
               <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">Total Produced (30 Days)</p>
@@ -108,7 +108,7 @@ export default function ProductionDashboard() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all group">
+        <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all group">
           <div className="flex justify-between items-start">
             <div>
               <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">Total Completed Orders</p>
@@ -123,7 +123,7 @@ export default function ProductionDashboard() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-all group">
+        <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm hover:shadow-md transition-all group">
           <div className="flex justify-between items-start">
             <div>
               <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">Avg Yield per Order</p>
@@ -141,7 +141,7 @@ export default function ProductionDashboard() {
 
       <div className="px-6 mt-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Trend Chart Component */}
-        <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
           <div className="flex items-center justify-between mb-8">
             <h3 className="text-lg font-bold">Daily Throughput History</h3>
             <span className="text-xs bg-gray-100 dark:bg-gray-700 px-3 py-1 rounded-full text-gray-500 dark:text-gray-400">Last 30 Days</span>
@@ -177,7 +177,7 @@ export default function ProductionDashboard() {
         </div>
 
         {/* Top Items Breakdown */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm flex flex-col">
+        <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm flex flex-col">
            <h3 className="text-lg font-bold mb-6">Top Produced Assets</h3>
            <div className="space-y-4 flex-1 overflow-y-auto">
              {topItems.length === 0 ? (

@@ -117,12 +117,12 @@ export default function InvoiceHistoryPage() {
   const tabs = [
     { id: "all", name: "All Invoices", icon: FileText, color: "text-gray-600" },
     { id: "Draft", name: "Draft", icon: FilePlus, color: "text-gray-500" },
-    { id: "Unpaid", name: "Unpaid", icon: Clock, color: "text-yellow-600" },
-    { id: "Partly Paid", name: "Partly Paid", icon: AlertTriangle, color: "text-orange-600" },
+    { id: "Unpaid", name: "Unpaid", icon: Clock, color: "text-gray-600" },
+    { id: "Partly Paid", name: "Partly Paid", icon: AlertTriangle, color: "text-gray-600" },
     { id: "Paid", name: "Paid", icon: CheckCircle, color: "text-ziditech-600" },
-    { id: "Overdue", name: "Overdue", icon: XCircle, color: "text-red-600" },
+    { id: "Overdue", name: "Overdue", icon: XCircle, color: "text-ziditech-600" },
     { id: "Return", name: "Returns", icon: RefreshCw, color: "text-ziditech-600" },
-    { id: "Cancelled", name: "Cancelled", icon: XCircle, color: "text-red-500" },
+    { id: "Cancelled", name: "Cancelled", icon: XCircle, color: "text-gray-500" },
   ];
 
   const filterInvoiceByDate = (invoiceDateStr: string) => {
@@ -164,18 +164,18 @@ const getStatusBadge = (status: string) => {
   const normalized = status?.toLowerCase() || "";
 
   switch (normalized) {
-    case "paid":      return `${baseClasses} bg-green-100 text-green-800`;
-    case "unpaid":    return `${baseClasses} bg-yellow-100 text-yellow-800`;
-    case "partly paid": return `${baseClasses} bg-orange-100 text-orange-800`;
-    case "overdue":   return `${baseClasses} bg-red-100 text-red-800`;
+    case "paid":      return `${baseClasses} bg-ziditech-100 text-ziditech-600`;
+    case "unpaid":    return `${baseClasses} bg-gray-100 text-gray-700`;
+    case "partly paid": return `${baseClasses} bg-gray-100 text-gray-700`;
+    case "overdue":   return `${baseClasses} bg-ziditech-100 text-ziditech-700`;
     case "draft":     return `${baseClasses} bg-gray-100 text-gray-700`;
-    case "return":    return `${baseClasses} bg-purple-100 text-purple-800`;
-    case "cancelled": return `${baseClasses} bg-red-100 text-red-700`;
-    case "pending":   return `${baseClasses} bg-yellow-100 text-yellow-800`;
-    case "reported":  return `${baseClasses} bg-blue-100 text-blue-800`;
+    case "return":    return `${baseClasses} bg-ziditech-50 text-ziditech-600`;
+    case "cancelled": return `${baseClasses} bg-gray-100 text-gray-700`;
+    case "pending":   return `${baseClasses} bg-gray-100 text-gray-700`;
+    case "reported":  return `${baseClasses} bg-ziditech-100 text-ziditech-600`;
     case "not reported": return `${baseClasses} bg-gray-100 text-gray-700`;
-    case "cleared":   return `${baseClasses} bg-green-100 text-green-800`;
-    case "not cleared": return `${baseClasses} bg-red-100 text-red-800`;
+    case "cleared":   return `${baseClasses} bg-ziditech-100 text-ziditech-600`;
+    case "not cleared": return `${baseClasses} bg-gray-100 text-gray-700`;
     default:          return `${baseClasses} bg-gray-100 text-gray-700`;
   }
 };

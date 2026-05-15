@@ -70,17 +70,17 @@ export default function ProductGrid({
           <div ref={loadMoreRef} className="py-4 flex justify-center">
             {isLoadingMore && (
               <div className="flex items-center space-x-2">
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-ziditech-600"></div>
-                <span className="text-gray-500 dark:text-gray-400 text-sm">Loading more items...</span>
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2" style={{ borderColor: '#1e2d6b' }}></div>
+                <span className="text-gray-600 text-sm">Loading more items...</span>
               </div>
             )}
             {!isLoadingMore && hasMore && (
-              <span className="text-gray-400 dark:text-gray-500 text-sm">
+              <span className="text-gray-500 text-sm">
                 Showing {items.length} of {totalCount} items
               </span>
             )}
             {!hasMore && items.length > 0 && (
-              <span className="text-gray-400 dark:text-gray-500 text-sm">
+              <span className="text-gray-500 text-sm">
                 All {items.length} items loaded
               </span>
             )}
@@ -96,21 +96,20 @@ export default function ProductGrid({
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="text-6xl mb-4">🔍</div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">No items found</h3>
-          <p className="text-gray-500 dark:text-gray-400">Try adjusting your search or filters</p>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">No items found</h3>
+          <p className="text-gray-500">Try adjusting your search or filters</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className={`${isMobile ? "p-4" : "p-6"} bg-gray-50 dark:bg-gray-900`}>
+    <div className={`${isMobile ? "p-4" : "p-6"}`} style={{ backgroundColor: '#eef1f8' }}>
       <div
-        className={`grid gap-4 ${
-          isMobile
+        className={`grid gap-4 ${isMobile
             ? "grid-cols-2 sm:grid-cols-3"
             : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
-        }`}
+          }`}
       >
         {items.map((item) => (
           <ProductCard key={item.id} item={item} onAddToCart={onAddToCart} isMobile={isMobile} scannerOnly={scannerOnly} />
@@ -122,17 +121,17 @@ export default function ProductGrid({
         <div ref={loadMoreRef} className="py-6 flex justify-center">
           {isLoadingMore && (
             <div className="flex items-center space-x-2">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-ziditech-600"></div>
-              <span className="text-gray-500 dark:text-gray-400 text-sm">Loading more items...</span>
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2" style={{ borderColor: '#1e2d6b' }}></div>
+              <span className="text-gray-600 text-sm">Loading more items...</span>
             </div>
           )}
           {!isLoadingMore && hasMore && (
-            <span className="text-gray-400 dark:text-gray-500 text-sm">
+            <span className="text-gray-500 text-sm">
               Showing {items.length} of {totalCount} items • Scroll for more
             </span>
           )}
           {!hasMore && items.length > 0 && totalCount > 0 && (
-            <span className="text-gray-400 dark:text-gray-500 text-sm">
+            <span className="text-gray-500 text-sm">
               All {items.length} items loaded
             </span>
           )}

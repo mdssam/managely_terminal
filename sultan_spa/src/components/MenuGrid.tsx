@@ -261,22 +261,20 @@ export default function MenuGrid({
                 <div className="flex items-center bg-gray-100 rounded-lg p-1">
                   <button
                     onClick={() => setViewMode('grid')}
-                    className={`p-1.5 rounded-md transition-colors ${
-                      viewMode === 'grid'
+                    className={`p-1.5 rounded-md transition-colors ${viewMode === 'grid'
                         ? 'bg-white text-gray-800 shadow-sm'
                         : 'text-gray-400 hover:text-gray-600'
-                    }`}
+                      }`}
                     title="Grid View"
                   >
                     <Grid3X3 className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => setViewMode('list')}
-                    className={`p-1.5 rounded-md transition-colors ${
-                      viewMode === 'list'
+                    className={`p-1.5 rounded-md transition-colors ${viewMode === 'list'
                         ? 'bg-white text-gray-800 shadow-sm'
                         : 'text-gray-400 hover:text-gray-600'
-                    }`}
+                      }`}
                     title="List View"
                   >
                     <List className="w-4 h-4" />
