@@ -730,7 +730,7 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
             <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Gift Card Usage</h3>
-                <Gift className="w-5 h-5 text-ziditech-600" />
+                <Gift className="w-5 h-5 text-ziditech-600 dark:text-ziditech-400" />
               </div>
               <div className="space-y-3">
                 <div className="flex justify-between p-2 bg-ziditech-50 dark:bg-ziditech-900/20 rounded-lg">
@@ -764,7 +764,7 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
             <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Top Performer</h3>
-                <Users className="w-5 h-5 text-ziditech-600" />
+                <Users className="w-5 h-5 text-ziditech-600 dark:text-ziditech-400" />
               </div>
               {topPerformer ? (
                 <div className="text-center">
@@ -1340,7 +1340,7 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
           <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Top Performer</h3>
-              <Users className="w-5 h-5 text-ziditech-600" />
+              <Users className="w-5 h-5 text-ziditech-600 dark:text-ziditech-400" />
             </div>
             {topPerformer ? (
               <div className="text-center">

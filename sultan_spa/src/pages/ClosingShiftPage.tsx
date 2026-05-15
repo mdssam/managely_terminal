@@ -455,7 +455,7 @@ export default function ClosingShiftPage() {
                     {stat.name.toLowerCase().includes('cash') ? (
                       <div className="text-2xl">💵</div>
                     ) : (
-                      <CreditCard className="w-8 h-8 text-ziditech-600" />
+                      <CreditCard className="w-8 h-8 text-ziditech-600 dark:text-ziditech-400" />
                     )}
                   </div>
                   <div className="space-y-2">
@@ -605,7 +605,7 @@ export default function ClosingShiftPage() {
                         <div className="flex space-x-2">
                           <button
                             onClick={() => handleViewInvoice(invoice)}
-                            className="text-ziditech-600 hover:text-ziditech-900 flex items-center space-x-1"
+                            className="text-ziditech-600 dark:text-ziditech-300 hover:text-ziditech-900 dark:hover:text-white flex items-center space-x-1"
                           >
                             <Eye className="w-4 h-4" />
                             <span>View</span>
@@ -613,7 +613,7 @@ export default function ClosingShiftPage() {
                           {/* {invoice.status === "Draft" && (
                             <button
                               onClick={() => handleEditInvoice(invoice)}
-                              className="text-ziditech-600 hover:text-blue-900 flex items-center space-x-1"
+                              className="text-ziditech-600 dark:text-ziditech-300 hover:text-blue-900 dark:hover:text-white flex items-center space-x-1"
                             >
                               <Edit className="w-4 h-4" />
                               <span>Edit</span>
@@ -671,7 +671,7 @@ export default function ClosingShiftPage() {
                       {stat.name.toLowerCase().includes('cash') ? (
                         <div className="text-xl">💵</div>
                       ) : (
-                        <CreditCard className="w-5 h-5 text-ziditech-600" />
+                        <CreditCard className="w-5 h-5 text-ziditech-600 dark:text-ziditech-400" />
                       )}
                       {/* @ts-expect-error just ignore */}
                       <span className="font-medium text-gray-900 dark:text-white">{stat.name}</span>
@@ -952,7 +952,7 @@ export default function ClosingShiftPage() {
                         <div className="flex space-x-2">
                           <button
                             onClick={() => handleViewInvoice(invoice)}
-                            className="text-ziditech-600 hover:text-ziditech-900 flex items-center space-x-1"
+                            className="text-ziditech-600 dark:text-ziditech-300 hover:text-ziditech-900 dark:hover:text-white flex items-center space-x-1"
                           >
                             <Eye className="w-4 h-4" />
                             <span>View</span>
@@ -1010,7 +1010,7 @@ export default function ClosingShiftPage() {
                       {stat.name.toLowerCase().includes('cash') ? (
                         <div className="text-xl">💵</div>
                       ) : (
-                        <CreditCard className="w-5 h-5 text-ziditech-600" />
+                        <CreditCard className="w-5 h-5 text-ziditech-600 dark:text-ziditech-400" />
                       )}
                       {/* @ts-expect-error just ignore */}
                       <span className="font-medium text-gray-900 dark:text-white">{stat.name}</span>

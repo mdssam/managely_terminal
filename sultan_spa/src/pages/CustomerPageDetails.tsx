@@ -421,7 +421,7 @@ export default function CustomerDetailsPage() {
                     {customerMetrics.totalInvoices}
                   </p>
                 </div>
-                <FileText className="w-6 h-6 text-ziditech-600" />
+                <FileText className="w-6 h-6 text-ziditech-600 dark:text-ziditech-400" />
               </div>
             </div>
 
@@ -433,7 +433,7 @@ export default function CustomerDetailsPage() {
                     {formatCurrency(customerMetrics.totalRevenue, posDetails?.currency || 'USD')}
                   </p>
                 </div>
-                <DollarSign className="w-6 h-6 text-ziditech-600" />
+                <DollarSign className="w-6 h-6 text-ziditech-600 dark:text-ziditech-400" />
               </div>
             </div>
 
@@ -457,7 +457,7 @@ export default function CustomerDetailsPage() {
                     {formatCurrency(customerMetrics.avgOrderValue, posDetails?.currency || 'USD')}
                   </p>
                 </div>
-                <TrendingUp className="w-6 h-6 text-ziditech-600" />
+                <TrendingUp className="w-6 h-6 text-ziditech-600 dark:text-ziditech-400" />
               </div>
             </div>
           </div>
@@ -786,7 +786,7 @@ export default function CustomerDetailsPage() {
                       {customerMetrics.totalInvoices}
                     </p>
                   </div>
-                  <FileText className="w-8 h-8 text-ziditech-600" />
+                  <FileText className="w-8 h-8 text-ziditech-600 dark:text-ziditech-400" />
                 </div>
               </div>
 
@@ -798,7 +798,7 @@ export default function CustomerDetailsPage() {
                       {formatCurrency(customerMetrics.totalRevenue, posDetails?.currency || 'USD')}
                     </p>
                   </div>
-                  <DollarSign className="w-8 h-8 text-ziditech-600" />
+                  <DollarSign className="w-8 h-8 text-ziditech-600 dark:text-ziditech-400" />
                 </div>
               </div>
 
@@ -822,7 +822,7 @@ export default function CustomerDetailsPage() {
                       {formatCurrency(customerMetrics.avgOrderValue, posDetails?.currency || 'USD')}
                     </p>
                   </div>
-                  <TrendingUp className="w-8 h-8 text-ziditech-600" />
+                  <TrendingUp className="w-8 h-8 text-ziditech-600 dark:text-ziditech-400" />
                 </div>
               </div>
             </div>

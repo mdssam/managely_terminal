@@ -85,10 +85,10 @@ export default function MobilePOSLayout({
   const handleLogout = async () => {
     try {
       await logout()
-      window.location.href = "/sultan/login"
+      window.location.href = "/sultan_spa/login"
     } catch (error) {
       console.error('Logout error:', error)
-      window.location.href = "/sultan/login"
+      window.location.href = "/sultan_spa/login"
     }
   }
 

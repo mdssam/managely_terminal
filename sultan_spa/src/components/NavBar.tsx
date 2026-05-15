@@ -31,11 +31,11 @@ export default function NavBar() {
   const handleLogout = async () => {
     try {
       await logout()
-      window.location.href = "/sultan/login"
+      window.location.href = "/sultan_spa/login"
     } catch (error) {
       console.error('Logout error:', error)
       // Still redirect even if logout fails
-      window.location.href = "/sultan/login"
+      window.location.href = "/sultan_spa/login"
     }
   }
 

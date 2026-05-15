@@ -722,7 +722,7 @@ export default function InvoiceViewPage() {
                     {/* Customer Statistics */}
                     <div className="space-y-4">
                       <div className="flex items-center space-x-2">
-                        <TrendingUp className="w-5 h-5 text-ziditech-600" />
+                        <TrendingUp className="w-5 h-5 text-ziditech-600 dark:text-ziditech-400" />
                         <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Customer Statistics</h4>
                       </div>
 

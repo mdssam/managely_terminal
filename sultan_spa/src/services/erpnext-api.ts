@@ -77,8 +77,12 @@ class ERPNextAPI {
       'Accept': 'application/json',
     };
 
-    // Global CSRF Token Retrieval
-    const csrfToken = (window as any).csrf_token || (window as any).frappe?.csrf_token || (window as any).frappe?.boot?.csrf_token;
+    // Global CSRF Token Retrieval — checking all possible Frappe/ERPNext locations
+    const csrfToken = (window as any).csrf_token || 
+                      (window as any).frappe?.csrf_token || 
+                      (window as any).frappe?.boot?.csrf_token ||
+                      (window as any).erpnext?.csrf_token;
+
     if (csrfToken) {
       headers['X-Frappe-CSRF-Token'] = csrfToken;
     } else {

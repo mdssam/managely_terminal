@@ -1169,7 +1169,7 @@ export default function PaymentDialog({
                 {/* Action Buttons Row */}
                 <div className="flex flex-wrap gap-2 justify-center">
                   {isAutoPrinting && (
-                    <div className="flex items-center space-x-2 text-ziditech-600 px-3 py-2 bg-ziditech-50 dark:bg-blue-900/20 rounded-lg">
+                    <div className="flex items-center space-x-2 text-ziditech-600 dark:text-blue-300 px-3 py-2 bg-ziditech-50 dark:bg-blue-900/20 rounded-lg">
                       <Loader2 size={16} className="animate-spin" />
                       <span className="text-sm">Printing...</span>
                     </div>
