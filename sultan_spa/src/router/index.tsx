@@ -3,7 +3,7 @@ import LoginPage from "../pages/LoginPage";
 import POSPage from "../pages/POSPage";
 import DashboardPage from "../pages/DashboardPage";
 import ClosingShiftPage from "../pages/ClosingShiftPage";
-import SettingsPage from "../components/SettingsPage";
+import SettingsPage from "../pages/SettingsPage";
 import PaymentPage from "../pages/PaymentPage";
 import CustomersPage from "../components/CustomersPage";
 import CartPage from "../components/CartPage";

@@ -60,6 +60,7 @@ export function useCreatePOSClosingEntry(): UseCreateClosingReturn {
     } catch (err: any) {
       console.error("Error creating POS Closing Entry:", err);
       setError(err.message || "Unexpected error occurred");
+      throw err; // Re-throw to allow component to handle it
     } finally {
       setIsCreating(false);
     }

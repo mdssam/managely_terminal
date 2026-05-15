@@ -120,7 +120,7 @@ export default function CustomerDetailsPage() {
     switch (normalized) {
       // Payment statuses
       case "paid":
-        return `${baseClasses} bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400`;
+        return `${baseClasses} bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900/20 dark:text-ziditech-400`;
       case "unpaid":
         return `${baseClasses} bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400`;
       case "partly paid":
@@ -130,7 +130,7 @@ export default function CustomerDetailsPage() {
       case "draft":
         return `${baseClasses} bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400`;
       case "return":
-        return `${baseClasses} bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400`;
+        return `${baseClasses} bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900/20 dark:text-ziditech-400`;
       case "cancelled":
         return `${baseClasses} bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400`;
 
@@ -142,7 +142,7 @@ export default function CustomerDetailsPage() {
       case "not reported":
         return `${baseClasses} bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400`;
       case "cleared":
-        return `${baseClasses} bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400`;
+        return `${baseClasses} bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900/20 dark:text-ziditech-400`;
       case "not cleared":
         return `${baseClasses} bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400`;
 
@@ -404,7 +404,7 @@ export default function CustomerDetailsPage() {
                 </div>
               </div>
               <div className="text-right">
-                <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400">
+                <span className="px-2 py-1 rounded-full text-xs font-medium bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900/20 dark:text-ziditech-400">
                   Active
                 </span>
               </div>
@@ -433,7 +433,7 @@ export default function CustomerDetailsPage() {
                     {formatCurrency(customerMetrics.totalRevenue, posDetails?.currency || 'USD')}
                   </p>
                 </div>
-                <DollarSign className="w-6 h-6 text-green-600" />
+                <DollarSign className="w-6 h-6 text-ziditech-600" />
               </div>
             </div>
 
@@ -457,7 +457,7 @@ export default function CustomerDetailsPage() {
                     {formatCurrency(customerMetrics.avgOrderValue, posDetails?.currency || 'USD')}
                   </p>
                 </div>
-                <TrendingUp className="w-6 h-6 text-blue-600" />
+                <TrendingUp className="w-6 h-6 text-ziditech-600" />
               </div>
             </div>
           </div>
@@ -568,7 +568,7 @@ export default function CustomerDetailsPage() {
                             {invoice.status === "Draft" && (
                               <button
                                 onClick={() => handleEditInvoice(invoice)}
-                                className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
+                                className="text-ziditech-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
                               >
                                 Edit
                               </button>
@@ -748,7 +748,7 @@ export default function CustomerDetailsPage() {
                 </div>
                 <div className="text-right space-y-1">
                   <div className="flex items-center space-x-2">
-                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400">
+                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900/20 dark:text-ziditech-400">
                       Active
                     </span>
                   </div>
@@ -798,7 +798,7 @@ export default function CustomerDetailsPage() {
                       {formatCurrency(customerMetrics.totalRevenue, posDetails?.currency || 'USD')}
                     </p>
                   </div>
-                  <DollarSign className="w-8 h-8 text-green-600" />
+                  <DollarSign className="w-8 h-8 text-ziditech-600" />
                 </div>
               </div>
 
@@ -822,7 +822,7 @@ export default function CustomerDetailsPage() {
                       {formatCurrency(customerMetrics.avgOrderValue, posDetails?.currency || 'USD')}
                     </p>
                   </div>
-                  <TrendingUp className="w-8 h-8 text-blue-600" />
+                  <TrendingUp className="w-8 h-8 text-ziditech-600" />
                 </div>
               </div>
             </div>
@@ -939,7 +939,7 @@ export default function CustomerDetailsPage() {
                               {formatCurrency(invoice.totalAmount, invoice.currency)}
                             </div>
                             {invoice.giftCardDiscount > 0 && (
-                              <div className="text-xs text-orange-600 dark:text-green-400">
+                              <div className="text-xs text-orange-600 dark:text-ziditech-400">
                                 -{formatCurrency(invoice.giftCardDiscount, invoice.currency)} gift card
                               </div>
                             )}
@@ -965,7 +965,7 @@ export default function CustomerDetailsPage() {
                               {invoice.status === "Draft" && (
                                 <button
                                   onClick={() => handleEditInvoice(invoice)}
-                                  className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
+                                  className="text-ziditech-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
                                 >
                                   Edit
                                 </button>

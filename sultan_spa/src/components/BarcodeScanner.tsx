@@ -204,14 +204,14 @@ export default function BarcodeScannerModal({ onBarcodeDetected, onClose, isOpen
 
         {/* Success Message */}
         {success && (
-          <div className="mb-4 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+          <div className="mb-4 p-4 bg-ziditech-50 dark:bg-ziditech-900/20 border border-ziditech-200 dark:border-ziditech-800 rounded-lg">
             <div className="flex items-center">
-              <CheckCircle className="text-green-600 dark:text-green-400 mr-2" size={20} />
-              <span className="text-green-800 dark:text-green-200 font-medium">
+              <CheckCircle className="text-ziditech-600 dark:text-ziditech-400 mr-2" size={20} />
+              <span className="text-ziditech-800 dark:text-ziditech-200 font-medium">
                 Barcode detected: {scannedBarcode}
               </span>
             </div>
-            <p className="text-green-600 dark:text-green-400 text-sm mt-1">
+            <p className="text-ziditech-600 dark:text-ziditech-400 text-sm mt-1">
               Adding item to cart...
             </p>
           </div>
@@ -248,8 +248,8 @@ export default function BarcodeScannerModal({ onBarcodeDetected, onClose, isOpen
             />
 
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <div className="border-2 border-green-400 border-dashed rounded-lg w-64 h-32 flex items-center justify-center">
-                <div className="text-green-400 text-center">
+              <div className="border-2 border-ziditech-400 border-dashed rounded-lg w-64 h-32 flex items-center justify-center">
+                <div className="text-ziditech-400 text-center">
                   <Camera size={32} className="mx-auto mb-2 opacity-75" />
                   <p className="text-sm">Point at barcode</p>
                 </div>
@@ -259,7 +259,7 @@ export default function BarcodeScannerModal({ onBarcodeDetected, onClose, isOpen
             <div className="absolute top-4 left-4 bg-black bg-opacity-70 text-white px-3 py-1 rounded text-sm">
               {isBarcodeDetectorSupported ? (
                 <span className="flex items-center">
-                  <div className="w-2 h-2 bg-green-400 rounded-full mr-2 animate-pulse"></div>
+                  <div className="w-2 h-2 bg-ziditech-400 rounded-full mr-2 animate-pulse"></div>
                   Scanning...
                 </span>
               ) : (

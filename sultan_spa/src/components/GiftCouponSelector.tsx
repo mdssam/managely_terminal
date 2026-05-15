@@ -65,11 +65,11 @@ export default function GiftCouponSelector({ onClose, onApplyCoupon, appliedCoup
                 setError("")
               }}
               placeholder="Enter coupon code"
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-ziditech-500"
             />
             <button
               onClick={handleApplyCustomCode}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-4 py-2 bg-ziditech-600 text-white rounded-lg hover:bg-ziditech-700"
             >
               Apply
             </button>
@@ -88,14 +88,14 @@ export default function GiftCouponSelector({ onClose, onApplyCoupon, appliedCoup
                 key={coupon.code}
                 className={`p-3 border rounded-xl ${
                   isApplied
-                    ? "border-green-200 bg-green-50"
-                    : "border-gray-200 hover:border-blue-200 hover:bg-blue-50 cursor-pointer"
+                    ? "border-ziditech-200 bg-ziditech-50"
+                    : "border-gray-200 hover:border-ziditech-200 hover:bg-ziditech-50 cursor-pointer"
                 }`}
                 onClick={() => !isApplied && handleApplyCoupon(coupon)}
               >
                 <div className="flex justify-between items-center">
                   <div className="flex items-center space-x-2">
-                    <Tag size={16} className={isApplied ? "text-green-500" : "text-blue-500"} />
+                    <Tag size={16} className={isApplied ? "text-ziditech-500" : "text-blue-500"} />
                     <div>
                       <h5 className="font-semibold text-sm">{coupon.code}</h5>
                       <p className="text-xs text-gray-500">{coupon.description}</p>
@@ -103,7 +103,7 @@ export default function GiftCouponSelector({ onClose, onApplyCoupon, appliedCoup
                   </div>
                   <div className="flex items-center">
                     <span className="font-bold text-sm mr-2">${coupon.value.toFixed(2)}</span>
-                    {isApplied && <Check size={16} className="text-green-500" />}
+                    {isApplied && <Check size={16} className="text-ziditech-500" />}
                   </div>
                 </div>
               </div>

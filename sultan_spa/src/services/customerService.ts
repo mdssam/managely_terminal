@@ -25,7 +25,20 @@ interface CustomerData {
 }
 
 export const useCustomerActions = () => {
-  const csrfToken = window.csrf_token;
+  const getCSRFToken = () => {
+    // 1. Try global variables
+    const token = (window as any).csrf_token || (window as any).frappe?.csrf_token || (window as any).frappe?.boot?.csrf_token;
+    if (token) return token;
+
+    // 2. Try cookies
+    const cookieToken = document.cookie
+      .split("; ")
+      .find((row) => row.startsWith("frappe_csrf_token="))
+      ?.split("=")[1];
+    if (cookieToken) return decodeURIComponent(cookieToken);
+
+    return "";
+  };
 
   const createCustomer = async (customerData: CustomerData) => {
     try {
@@ -33,8 +46,7 @@ export const useCustomerActions = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-           "X-Frappe-CSRF-Token": csrfToken,
-
+          "X-Frappe-CSRF-Token": getCSRFToken(),
         },
         body: JSON.stringify({ customer_data: customerData }),
         credentials: 'include'
@@ -59,8 +71,7 @@ export const useCustomerActions = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-             "X-Frappe-CSRF-Token": csrfToken,
-
+          "X-Frappe-CSRF-Token": getCSRFToken(),
         },
         body: JSON.stringify({
           customer_id: customerId,

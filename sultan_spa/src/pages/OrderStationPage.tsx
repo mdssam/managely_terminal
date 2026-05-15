@@ -8,6 +8,7 @@ import type { MenuItem } from '../../types';
 import { toast } from 'react-toastify';
 import { ChefHat, LayoutGrid, CheckCircle2 } from 'lucide-react';
 import { useBarcodeScanner } from '../hooks/useBarcodeScanner';
+import SearchBar from '../components/SearchBar';
 
 export default function OrderStationPage() {
   const {
@@ -70,7 +71,7 @@ export default function OrderStationPage() {
                 href={`/app/work-order/${woName}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-1 inline-flex items-center gap-1 text-xs bg-white text-emerald-700 hover:bg-emerald-50 font-bold px-3 py-1.5 rounded-lg border border-emerald-200 shadow-sm transition-colors w-fit"
+                className="mt-1 inline-flex items-center gap-1 text-xs bg-white text-ziditech-700 hover:bg-ziditech-50 font-bold px-3 py-1.5 rounded-lg border border-ziditech-200 shadow-sm transition-colors w-fit"
               >
                 👁 View Work Order
               </a>
@@ -136,33 +137,36 @@ export default function OrderStationPage() {
   );
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-      {/* Custom Header */}
-      <header className="bg-white dark:bg-slate-900 shadow-sm border-b dark:border-slate-800 py-4 px-8 sticky top-0 z-30">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-indigo-100 dark:bg-indigo-950 rounded-xl text-indigo-600 dark:text-indigo-300">
-              <ChefHat className="w-7 h-7" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Order Station</h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400 flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5 text-green-500" /> Live Manufacturing Enabled
-              </p>
-            </div>
+    <div className="min-h-screen" style={{ backgroundColor: '#0D0033' }}>
+      {/* Consolidated Station Header */}
+      <header style={{ backgroundColor: 'rgba(24,8,85,0.9)', borderBottom: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(20px)' }} className="py-4 px-8 sticky top-0 z-30 flex justify-between items-center">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-xl" style={{ backgroundColor: 'rgba(76,40,204,0.25)', color: '#9a88ff' }}>
+            <ChefHat className="w-7 h-7" />
           </div>
+          <div>
+            <h1 className="text-xl font-black text-white tracking-tight">Order Station</h1>
+            <p className="text-sm flex items-center gap-1" style={{ color: '#8878c8' }}>
+              <CheckCircle2 className="w-3.5 h-3.5" style={{ color: '#7c60f5' }} /> Live Manufacturing Enabled
+            </p>
+          </div>
+        </div>
+
+        {/* Search integrated into main header */}
+        <div className="flex-1 max-w-md mx-8">
+          <SearchBar
+            searchQuery={searchStr}
+            onSearchChange={handleSearch}
+            onSearchKeyPress={handleSearchKeyPress}
+            onScanBarcode={() => {}}
+          />
         </div>
       </header>
 
-      <main className="p-6 flex h-[calc(100vh-80px)] gap-6">
-        {/* Products Area */}
-        <div className="flex-1 flex flex-col bg-white dark:bg-slate-900 rounded-2xl shadow-sm border dark:border-slate-800 overflow-hidden">
-          <div className="p-4 border-b dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex items-center gap-2">
-            <LayoutGrid className="w-4 h-4 text-slate-400" />
-            <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">Available Items</span>
-          </div>
-          
-          <div className="flex-1 overflow-y-auto p-4">
+      <main className="p-6">
+        {/* Simplified Items Area */}
+        <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+          <div className="p-6">
             <MenuGrid
               items={filtered}
               selectedCategory={selectedCategory}
@@ -171,13 +175,14 @@ export default function OrderStationPage() {
               onSearchChange={handleSearch}
               onSearchKeyPress={handleSearchKeyPress}
               onAddToCart={handleAddToCartRequest}
-              onScanBarcode={() => {}} // Not strictly necessary for direct order, keep disabled
+              onScanBarcode={() => {}}
               scannerOnly={false}
               hasMore={hasMore}
               isLoadingMore={false}
               onLoadMore={loadMoreProducts}
               totalCount={totalCount}
               isSearching={isSearching}
+              hideHeader={true} // We'll add this prop to MenuGrid to hide redundant header
             />
           </div>
         </div>

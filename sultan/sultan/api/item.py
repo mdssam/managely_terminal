@@ -670,31 +670,29 @@ def get_items_with_balance_and_price(
 			base_query = [
 				f"SELECT DISTINCT {select_fields}",
 				"FROM `tabItem` i",
-				"INNER JOIN `tabBin` b ON i.name = b.item_code",
+				"LEFT JOIN `tabBin` b ON i.name = b.item_code",
 				"WHERE i.disabled = 0",
-				"AND i.is_stock_item = 1",
-				"AND b.actual_qty > 0",
+				"AND (i.is_stock_item = 0 OR (b.actual_qty > 0 AND b.warehouse = %s))",
 			]
 			count_query = [
 				"SELECT COUNT(DISTINCT i.name) as total",
 				"FROM `tabItem` i",
-				"INNER JOIN `tabBin` b ON i.name = b.item_code",
+				"LEFT JOIN `tabBin` b ON i.name = b.item_code",
 				"WHERE i.disabled = 0",
-				"AND i.is_stock_item = 1",
-				"AND b.actual_qty > 0",
+				"AND (i.is_stock_item = 0 OR (b.actual_qty > 0 AND b.warehouse = %s))",
 			]
+			params_list.append(warehouse)
+			count_params.append(warehouse)
 		else:
 			base_query = [
 				f"SELECT DISTINCT {select_fields}",
 				"FROM `tabItem` i",
 				"WHERE i.disabled = 0",
-				"AND i.is_stock_item = 1",
 			]
 			count_query = [
 				"SELECT COUNT(DISTINCT i.name) as total",
 				"FROM `tabItem` i",
 				"WHERE i.disabled = 0",
-				"AND i.is_stock_item = 1",
 			]
 
 		params_list: list[object] = []
@@ -758,7 +756,6 @@ def get_items_with_balance_and_price(
 				"SELECT COUNT(DISTINCT i.name) as total",
 				"FROM `tabItem` i",
 				"WHERE i.disabled = 0",
-				"AND i.is_stock_item = 1",
 			]
 			unfiltered_count_params: list[object] = []
 

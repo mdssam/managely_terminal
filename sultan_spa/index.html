@@ -8,7 +8,7 @@
     <title>Sultan POS</title>
     <meta name="description" content="Modern Point of Sale System - Sultan POS" />
     <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#316294" />
+    <meta name="theme-color" content="#059669" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -16,16 +16,11 @@
       rel="stylesheet"
     />
     <!-- <meta name="csrf-token" content="{{ frappe.session.csrf_token }}"> -->
-
-    <!-- <link rel="stylesheet" href="http://127.0.0.1:8000/assets/frappe/css/printview.css">
-<link rel="stylesheet" href="http://127.0.0.1:8000/assets/css/printview.css"> -->
-
   </head>
   <body>
     <div id="root"></div>
     <script>
-
-  window.csrf_token = "{{ frappe.session.csrf_token }}";
+      window.csrf_token = "{{ frappe.session.csrf_token }}";
     </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>

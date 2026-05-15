@@ -76,7 +76,7 @@ export const InvoiceWhatsAppSender: React.FC<InvoiceWhatsAppSenderProps> = ({
             value={phoneNumber}
             onChange={(e) => setPhoneNumber(e.target.value)}
             placeholder="+254740743521"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ziditech-500"
             required
           />
         </div>
@@ -90,7 +90,7 @@ export const InvoiceWhatsAppSender: React.FC<InvoiceWhatsAppSenderProps> = ({
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="John Doe"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ziditech-500"
             required
           />
         </div>
@@ -104,7 +104,7 @@ export const InvoiceWhatsAppSender: React.FC<InvoiceWhatsAppSenderProps> = ({
             value={invoiceNo}
             onChange={(e) => setInvoiceNo(e.target.value)}
             placeholder="ACC-SINV-2025-001"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ziditech-500"
             required
           />
         </div>
@@ -118,14 +118,14 @@ export const InvoiceWhatsAppSender: React.FC<InvoiceWhatsAppSenderProps> = ({
             onChange={(e) => setMessage(e.target.value)}
             placeholder="Your invoice is ready! Please find the PDF attached."
             rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-ziditech-500"
           />
         </div>
 
         <button
           onClick={handleSendInvoice}
           disabled={loading}
-          className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full px-4 py-2 bg-ziditech-600 text-white rounded-md hover:bg-ziditech-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {loading ? 'Sending Invoice...' : 'Send Invoice via WhatsApp'}
         </button>
@@ -137,7 +137,7 @@ export const InvoiceWhatsAppSender: React.FC<InvoiceWhatsAppSenderProps> = ({
         )}
 
         {result && (
-          <div className="p-3 bg-green-100 border border-green-400 text-green-700 rounded-md">
+          <div className="p-3 bg-ziditech-100 border border-ziditech-400 text-ziditech-700 rounded-md">
             <h4 className="font-semibold">Success!</h4>
             <p><strong>Recipient:</strong> {result.recipient}</p>
             <p><strong>Invoice:</strong> {result.invoice}</p>

@@ -368,7 +368,7 @@ export default function SingleInvoiceReturn({
                           <td className="px-4 py-4">
                             <div className="flex items-center space-x-3">
                               <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
-                                <Package className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                                <Package className="w-4 h-4 text-ziditech-600 dark:text-blue-400" />
                               </div>
                               <div>
                                 <div className="text-sm font-medium text-gray-900 dark:text-white">
@@ -391,7 +391,7 @@ export default function SingleInvoiceReturn({
                           <td className="px-4 py-4 text-center">
                             <span className={`text-sm font-medium ${
                               item.available_qty > 0
-                                ? 'text-green-600 dark:text-green-400'
+                                ? 'text-ziditech-600 dark:text-ziditech-400'
                                 : 'text-gray-500 dark:text-gray-400'
                             }`}>
                               {item.available_qty}
@@ -530,7 +530,7 @@ export default function SingleInvoiceReturn({
             <div className="flex items-center justify-between">
               <div className="text-sm text-gray-600 dark:text-gray-400">
                 <div className="flex items-center space-x-2">
-                  <CheckCircle className="w-4 h-4 text-green-500" />
+                  <CheckCircle className="w-4 h-4 text-ziditech-500" />
                   <span>
                     {returnItems.filter(item => (item.return_qty || 0) > 0).length} item(s) selected for return
                   </span>

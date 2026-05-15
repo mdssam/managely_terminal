@@ -14,77 +14,89 @@ export default function HomePage() {
       setMode('cashier');
       navigate('/cashier-station');
     } else {
-      setMode(null); // Standard POS
+      setMode(null);
       navigate('/pos');
     }
   };
 
+  const stations = [
+    {
+      mode: 'pos' as const,
+      icon: MonitorPlay,
+      title: 'Retail Desktop',
+      subtitle: 'Full POS workspace with product grid, cart, and payments.',
+      cta: 'Launch Workspace',
+    },
+    {
+      mode: 'order-station' as const,
+      icon: ChefHat,
+      title: 'Ordering Station',
+      subtitle: 'Kitchen-facing order terminal for quick order entry.',
+      cta: 'Launch Order Terminal',
+    },
+    {
+      mode: 'cashier-station' as const,
+      icon: Receipt,
+      title: 'Cashier Station',
+      subtitle: 'Scan receipts or enter invoice IDs to process payment.',
+      cta: 'Launch Cashier Console',
+    },
+  ];
+
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-8">
-      <div className="w-full max-w-5xl">
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-600 shadow-xl shadow-blue-500/20 text-white mb-6">
-            <ShoppingBag className="w-8 h-8" />
+    <div className="min-h-screen flex items-center justify-center p-8" style={{ backgroundColor: '#0D0033' }}>
+      {/* Glow background */}
+      <div className="fixed inset-0 pointer-events-none overflow-hidden">
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-ziditech-600/10 rounded-full blur-[120px]" />
+      </div>
+
+      <div className="w-full max-w-5xl relative z-10">
+        {/* Header */}
+        <div className="text-center mb-16">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-ziditech-600 shadow-2xl shadow-ziditech-600/30 text-white mb-6">
+            <ShoppingBag className="w-10 h-10" />
           </div>
-          <h1 className="text-4xl font-black tracking-tight text-slate-900 dark:text-white sm:text-5xl mb-4">
+          <h1 className="text-5xl font-black tracking-tight text-white mb-3">
             Sultan POS
           </h1>
-          <p className="text-lg text-slate-600 dark:text-slate-400">Select your work station to begin operations.</p>
+          <p className="text-lg font-medium" style={{ color: '#9a88ff' }}>
+            Select your work station to begin operations.
+          </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6 lg:gap-8">
-          {/* Terminal 1: POS */}
-          <button 
-            onClick={() => handleSelect('pos')}
-            className="group flex flex-col text-left bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-2xl hover:shadow-slate-200/50 transition-all duration-300 hover:-translate-y-1 active:scale-[0.98]"
-          >
-            <div className="p-4 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 w-fit mb-6 group-hover:scale-110 transition-transform">
-              <MonitorPlay className="w-8 h-8" />
-            </div>
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Retail Desktop</h3>
-            <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed mb-8">
-              Full retail point of sale with standard order, fulfillment, and history views.
-            </p>
-            <div className="mt-auto text-indigo-600 dark:text-indigo-400 font-semibold text-sm inline-flex items-center">
-              Launch Workspace &rarr;
-            </div>
-          </button>
-
-          {/* Terminal 2: Ordering */}
-          <button 
-            onClick={() => handleSelect('order-station')}
-            className="group flex flex-col text-left bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-2xl hover:shadow-slate-200/50 transition-all duration-300 hover:-translate-y-1 active:scale-[0.98]"
-          >
-            <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 w-fit mb-6 group-hover:scale-110 transition-transform">
-              <ChefHat className="w-8 h-8" />
-            </div>
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Ordering Station</h3>
-            <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed mb-8">
-              Optimized UI for standalone order takers. Triggers live kitchen work orders instantly.
-            </p>
-            <div className="mt-auto text-amber-600 dark:text-amber-400 font-semibold text-sm inline-flex items-center">
-              Launch Order Terminal &rarr;
-            </div>
-          </button>
-
-          {/* Terminal 3: Cashier */}
-          <button 
-            onClick={() => handleSelect('cashier-station')}
-            className="group flex flex-col text-left bg-white dark:bg-slate-900 p-8 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm hover:shadow-2xl hover:shadow-slate-200/50 transition-all duration-300 hover:-translate-y-1 active:scale-[0.98]"
-          >
-            <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 w-fit mb-6 group-hover:scale-110 transition-transform">
-              <Receipt className="w-8 h-8" />
-            </div>
-            <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Cashier Station</h3>
-            <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed mb-8">
-              Lightning fast payment-only station. Scan barcode receipts to complete transactions.
-            </p>
-            <div className="mt-auto text-emerald-600 dark:text-emerald-400 font-semibold text-sm inline-flex items-center">
-              Launch Cashier Console &rarr;
-            </div>
-          </button>
+        {/* Station cards */}
+        <div className="grid md:grid-cols-3 gap-6">
+          {stations.map(({ mode, icon: Icon, title, subtitle, cta }) => (
+            <button
+              key={mode}
+              onClick={() => handleSelect(mode)}
+              className="group flex flex-col text-left p-8 rounded-3xl border transition-all duration-300 hover:-translate-y-1 active:scale-[0.97]"
+              style={{
+                backgroundColor: 'rgba(255,255,255,0.04)',
+                borderColor: 'rgba(255,255,255,0.08)',
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(76,40,204,0.15)';
+                (e.currentTarget as HTMLElement).style.borderColor = 'rgba(124,96,245,0.4)';
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(255,255,255,0.04)';
+                (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.08)';
+              }}
+            >
+              <div className="p-4 rounded-2xl mb-6 w-fit transition-transform group-hover:scale-110"
+                style={{ backgroundColor: 'rgba(76,40,204,0.25)', color: '#9a88ff' }}>
+                <Icon className="w-8 h-8" />
+              </div>
+              <h3 className="text-xl font-black text-white mb-2">{title}</h3>
+              <p className="text-sm mb-6 flex-1" style={{ color: '#8878c8' }}>{subtitle}</p>
+              <div className="font-black text-sm inline-flex items-center gap-1" style={{ color: '#7c60f5' }}>
+                {cta} →
+              </div>
+            </button>
+          ))}
         </div>
       </div>
     </div>
-  )
+  );
 }

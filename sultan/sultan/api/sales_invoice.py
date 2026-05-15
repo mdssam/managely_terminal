@@ -1621,67 +1621,65 @@ def create_payment_entry(sales_invoice, mode_of_payment, amount_paid):
 		customer = sales_invoice.customer
 
 		# Create Payment Entry
-		payment_entry = frappe.new_doc("Payment Entry")
-		payment_entry.payment_type = "Receive"
-		payment_entry.party_type = "Customer"
-		payment_entry.party = customer
-		payment_entry.company = company
-		payment_entry.posting_date = frappe.utils.nowdate()
-
-		# Set paid amount
-		payment_entry.paid_amount = amount_paid
-		payment_entry.received_amount = amount_paid
-		payment_entry.source_exchange_rate = 1
-		payment_entry.target_exchange_rate = 1
-
 		company_doc = frappe.get_doc("Company", company)
 
-		payment_entry.party_account = get_customer_receivable_account(customer, company)
-
 		# Handle multiple payment methods
+		payment_methods = []
 		if isinstance(mode_of_payment, list) and len(mode_of_payment) > 0:
-			first_payment = mode_of_payment[0]
-			mode_of_payment_doc = frappe.get_doc("Mode of Payment", first_payment["method"])
+			payment_methods = mode_of_payment
+		else:
+			payment_methods = [{"method": mode_of_payment or "Cash", "amount": amount_paid}]
 
+		created_entries = []
+		for payment in payment_methods:
+			method_name = payment.get("method")
+			method_amount = float(payment.get("amount") or 0)
+
+			if method_amount <= 0:
+				continue
+
+			pe = frappe.new_doc("Payment Entry")
+			pe.payment_type = "Receive"
+			pe.party_type = "Customer"
+			pe.party = customer
+			pe.company = company
+			pe.posting_date = sales_invoice.posting_date
+			pe.mode_of_payment = method_name
+			
+			# Set accounts
+			pe.party_account = get_customer_receivable_account(customer, company)
+			
+			# Get account for mode of payment
+			mode_of_payment_doc = frappe.get_doc("Mode of Payment", method_name)
 			for account in mode_of_payment_doc.accounts:
 				if account.company == company:
-					payment_entry.paid_to = account.default_account
+					pe.paid_to = account.default_account
 					break
+			
+			if not pe.paid_to:
+				pe.paid_to = company_doc.default_cash_account
 
-			if not payment_entry.paid_to:
-				payment_entry.paid_to = company_doc.default_cash_account
+			pe.paid_amount = method_amount
+			pe.received_amount = method_amount
+			pe.source_exchange_rate = 1
+			pe.target_exchange_rate = 1
+			pe.paid_from_account_currency = sales_invoice.currency
+			pe.paid_to_account_currency = sales_invoice.currency
 
-			payment_entry.mode_of_payment = first_payment["method"]
-
-			payment_entry.append(
+			pe.append(
 				"references",
 				{
 					"reference_doctype": "Sales Invoice",
 					"reference_name": sales_invoice.name,
-					"allocated_amount": amount_paid,
+					"allocated_amount": method_amount,
 				},
 			)
 
-		else:
-			payment_entry.paid_to = company_doc.default_cash_account
-			payment_entry.mode_of_payment = "Cash"
+			pe.save()
+			pe.submit()
+			created_entries.append(pe.name)
 
-			payment_entry.append(
-				"references",
-				{
-					"reference_doctype": "Sales Invoice",
-					"reference_name": sales_invoice.name,
-					"allocated_amount": amount_paid,
-				},
-			)
-
-		payment_entry.paid_from_account_currency = sales_invoice.currency
-		payment_entry.paid_to_account_currency = sales_invoice.currency
-
-		payment_entry.save()
-		payment_entry.submit()
-
-		return payment_entry
+		return created_entries
 
 	except Exception as e:
 		frappe.log_error(

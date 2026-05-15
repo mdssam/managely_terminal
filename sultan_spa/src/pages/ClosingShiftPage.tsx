@@ -99,7 +99,7 @@ export default function ClosingShiftPage() {
     switch (normalized) {
       // Payment statuses
       case "paid":
-        return `${baseClasses} bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400`;
+        return `${baseClasses} bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900/20 dark:text-ziditech-400`;
       case "unpaid":
         return `${baseClasses} bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400`;
       case "partly paid":
@@ -109,7 +109,7 @@ export default function ClosingShiftPage() {
       case "draft":
         return `${baseClasses} bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400`;
       case "return":
-        return `${baseClasses} bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400`;
+        return `${baseClasses} bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900/20 dark:text-ziditech-400`;
       case "cancelled":
         return `${baseClasses} bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400`;
 
@@ -121,7 +121,7 @@ export default function ClosingShiftPage() {
       case "not reported":
         return `${baseClasses} bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400`;
       case "cleared":
-        return `${baseClasses} bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400`;
+        return `${baseClasses} bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900/20 dark:text-ziditech-400`;
       case "not cleared":
         return `${baseClasses} bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400`;
 
@@ -354,13 +354,24 @@ export default function ClosingShiftPage() {
   const handleFinalClose = async () => {
 
     try {
+      // Validate that all payment methods have a closing amount entered
+      const paymentMethods = Object.keys(paymentStats);
+      const missingMethods = paymentMethods.filter(method => 
+        closingAmounts[method] === undefined || closingAmounts[method] === null || isNaN(closingAmounts[method] as number)
+      );
+
+      if (missingMethods.length > 0) {
+        toast.error(`Please enter closing amounts for all payment methods: ${missingMethods.join(", ")}`);
+        return;
+      }
+
       // Convert closingAmounts object to array format expected by the service
       const closingBalanceArray = Object.entries(closingAmounts).map(([mode_of_payment, closing_amount]) => ({
         mode_of_payment,
         closing_amount: closing_amount || 0
       }));
 
-            // @ts-expect-error just ignore for now
+      // @ts-expect-error just ignore for now
       await createClosingEntry(closingBalanceArray);
       setShowCloseModal(false);
 
@@ -383,8 +394,10 @@ export default function ClosingShiftPage() {
 
       // Navigate to POS home for a fresh start without full reload
       navigate('/pos');
-    } catch (err) {
+      toast.success("Shift closed successfully");
+    } catch (err: any) {
       console.error("Error closing shift:", err);
+      toast.error(err.message || "Failed to close shift. Please try again.");
     }
   };
 
@@ -568,7 +581,7 @@ export default function ClosingShiftPage() {
                       <td className="px-4 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900 dark:text-white">{invoice.customer}</div>
                         {invoice.giftCardCode && (
-                          <div className="text-xs text-purple-600 dark:text-purple-400">Gift: {invoice.giftCardCode}</div>
+                          <div className="text-xs text-ziditech-600 dark:text-ziditech-400">Gift: {invoice.giftCardCode}</div>
                         )}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
@@ -576,7 +589,7 @@ export default function ClosingShiftPage() {
                           {formatCurrency(invoice.totalAmount, invoice.currency)}
                         </div>
                         {invoice.giftCardDiscount > 0 && (
-                          <div className="text-xs text-green-600 dark:text-green-400">
+                          <div className="text-xs text-ziditech-600 dark:text-ziditech-400">
                             -{formatCurrency(invoice.giftCardDiscount, invoice.currency)} gift
                           </div>
                         )}
@@ -600,7 +613,7 @@ export default function ClosingShiftPage() {
                           {/* {invoice.status === "Draft" && (
                             <button
                               onClick={() => handleEditInvoice(invoice)}
-                              className="text-blue-600 hover:text-blue-900 flex items-center space-x-1"
+                              className="text-ziditech-600 hover:text-blue-900 flex items-center space-x-1"
                             >
                               <Edit className="w-4 h-4" />
                               <span>Edit</span>
@@ -654,37 +667,28 @@ export default function ClosingShiftPage() {
                         // @ts-expect-error just ignore for now
                   <div key={stat.name} className="flex items-center justify-between gap-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
                     <div className="flex items-center space-x-3 flex-shrink-0">
-                                            {/* @ts-expect-error just ignore */}
+                      {/* @ts-expect-error just ignore */}
                       {stat.name.toLowerCase().includes('cash') ? (
                         <div className="text-xl">💵</div>
                       ) : (
-                        <CreditCard className="w-5 h-5 text-orange-600" />
+                        <CreditCard className="w-5 h-5 text-ziditech-600" />
                       )}
-                                            {/* @ts-expect-error just ignore */}
+                      {/* @ts-expect-error just ignore */}
                       <span className="font-medium text-gray-900 dark:text-white">{stat.name}</span>
                     </div>
 
-                    <div className="flex flex-col space-y-2">
-                      <div className="text-sm">
-                        <span className="text-gray-600 dark:text-gray-400">Opening: </span>
-                        <span className="font-medium text-gray-900 dark:text-white">
-                                                {/* @ts-expect-error just ignore */}
-                          {formatCurrency(stat.openingAmount, posDetails?.currency || 'USD')}
-                        </span>
-                      </div>
-
-                      <div className="flex-shrink-0">
-                        <input
-                          type="number"
-                          step="0.01"
-                          placeholder="Closing amount"
-                                // @ts-expect-error just ignore for now
-                          value={closingAmounts[stat.name] || ''}
-                          // @ts-expect-error just ignore for now
-                          onChange={(e) => handleClosingAmountChange(stat.name, e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-ziditech-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                        />
-                      </div>
+                    <div className="flex flex-col space-y-2 flex-1 max-w-[200px]">
+                      <input
+                        type="number"
+                        step="0.01"
+                        placeholder="Enter actual amount"
+                        required
+                        // @ts-expect-error just ignore for now
+                        value={closingAmounts[stat.name] === undefined ? '' : closingAmounts[stat.name]}
+                        // @ts-expect-error just ignore for now
+                        onChange={(e) => handleClosingAmountChange(stat.name, e.target.value)}
+                        className="w-full px-3 py-2 border-2 border-ziditech-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-ziditech-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm font-bold"
+                      />
                     </div>
                   </div>
                 ))}
@@ -930,7 +934,7 @@ export default function ClosingShiftPage() {
                           {formatCurrency(invoice.totalAmount, invoice.currency)}
                         </div>
                         {invoice.giftCardDiscount > 0 && (
-                          <div className="text-xs text-green-600 dark:text-green-400">
+                          <div className="text-xs text-ziditech-600 dark:text-ziditech-400">
                             -{formatCurrency(invoice.giftCardDiscount, invoice.currency)} gift card
                           </div>
                         )}
@@ -1008,31 +1012,22 @@ export default function ClosingShiftPage() {
                       ) : (
                         <CreditCard className="w-5 h-5 text-ziditech-600" />
                       )}
-                                            {/* @ts-expect-error just ignore */}
-
+                      {/* @ts-expect-error just ignore */}
                       <span className="font-medium text-gray-900 dark:text-white">{stat.name}</span>
                     </div>
 
                     <div className="flex items-center space-x-4">
-                      <div className="text-sm">
-                        <span className="text-gray-600 dark:text-gray-400">Opening: </span>
-                        <span className="font-medium text-gray-900 dark:text-white">
-                                                {/* @ts-expect-error just ignore */}
-
-                          {formatCurrency(stat.openingAmount, posDetails?.currency || 'USD')}
-                        </span>
-                      </div>
-
                       <div className="flex-shrink-0">
                         <input
                           type="number"
                           step="0.01"
-                          placeholder="Closing amount"
-                                // @ts-expect-error just ignore for now
-                          value={closingAmounts[stat.name] || ''}
+                          placeholder="Enter actual amount"
+                          required
+                          // @ts-expect-error just ignore for now
+                          value={closingAmounts[stat.name] === undefined ? '' : closingAmounts[stat.name]}
                           // @ts-expect-error just ignore for now
                           onChange={(e) => handleClosingAmountChange(stat.name, e.target.value)}
-                          className="w-32 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-ziditech-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                          className="w-40 px-3 py-2 border-2 border-ziditech-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-ziditech-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm font-bold"
                         />
                       </div>
                     </div>

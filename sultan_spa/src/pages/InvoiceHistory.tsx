@@ -119,9 +119,9 @@ export default function InvoiceHistoryPage() {
     { id: "Draft", name: "Draft", icon: FilePlus, color: "text-gray-500" },
     { id: "Unpaid", name: "Unpaid", icon: Clock, color: "text-yellow-600" },
     { id: "Partly Paid", name: "Partly Paid", icon: AlertTriangle, color: "text-orange-600" },
-    { id: "Paid", name: "Paid", icon: CheckCircle, color: "text-green-600" },
+    { id: "Paid", name: "Paid", icon: CheckCircle, color: "text-ziditech-600" },
     { id: "Overdue", name: "Overdue", icon: XCircle, color: "text-red-600" },
-    { id: "Return", name: "Returns", icon: RefreshCw, color: "text-purple-600" },
+    { id: "Return", name: "Returns", icon: RefreshCw, color: "text-ziditech-600" },
     { id: "Cancelled", name: "Cancelled", icon: XCircle, color: "text-red-500" },
   ];
 
@@ -166,7 +166,7 @@ const getStatusBadge = (status: string) => {
   switch (normalized) {
     // Payment statuses
     case "paid":
-      return `${baseClasses} bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400`;
+      return `${baseClasses} bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900/20 dark:text-ziditech-400`;
     case "unpaid":
       return `${baseClasses} bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400`;
     case "partly paid":
@@ -176,7 +176,7 @@ const getStatusBadge = (status: string) => {
     case "draft":
       return `${baseClasses} bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400`;
     case "return":
-      return `${baseClasses} bg-purple-100 text-purple-800 dark:bg-purple-900/20 dark:text-purple-400`;
+      return `${baseClasses} bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900/20 dark:text-ziditech-400`;
     case "cancelled":
       return `${baseClasses} bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400`;
 
@@ -188,7 +188,7 @@ const getStatusBadge = (status: string) => {
     case "not reported":
       return `${baseClasses} bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400`;
     case "cleared":
-      return `${baseClasses} bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400`;
+      return `${baseClasses} bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900/20 dark:text-ziditech-400`;
     case "not cleared":
       return `${baseClasses} bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400`;
 
@@ -530,7 +530,7 @@ const getStatusBadge = (status: string) => {
                       {formatCurrency(invoice.totalAmount, invoice.currency)}
                     </div>
                     {invoice.giftCardDiscount > 0 && (
-                      <div className="text-xs text-orange-600 dark:text-green-400">
+                      <div className="text-xs text-orange-600 dark:text-ziditech-400">
                         -{formatCurrency(invoice.giftCardDiscount, invoice.currency)} gift card
                       </div>
                     )}
@@ -556,7 +556,7 @@ const getStatusBadge = (status: string) => {
                       {invoice.status === "Draft" && (
                         <button
                           onClick={() => handleEditDraftClick(invoice)}
-                          className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 flex items-center space-x-1"
+                          className="text-ziditech-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 flex items-center space-x-1"
                         >
                           <Edit className="w-4 h-4" />
                           <span>Edit</span>
@@ -629,7 +629,7 @@ const getStatusBadge = (status: string) => {
                 {invoice.status === "Draft" && (
                   <button
                     onClick={() => handleEditDraftClick(invoice)}
-                    className="flex-1 text-xs px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex items-center justify-center space-x-1"
+                    className="flex-1 text-xs px-3 py-2 bg-ziditech-600 text-white rounded hover:bg-ziditech-700 transition-colors flex items-center justify-center space-x-1"
                   >
                     <Edit className="w-3 h-3" />
                     <span>Edit</span>
@@ -916,13 +916,7 @@ const getStatusBadge = (status: string) => {
             <div className="flex items-center justify-between">
               <h1 className="text-lg font-bold text-gray-900 dark:text-white">Invoice History</h1>
               <div className="flex items-center space-x-2">
-                                  <button
-                    onClick={handleMultiReturnClick}
-                    className="flex items-center space-x-2 px-3 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors text-sm"
-                  >
-                  <Users className="w-4 h-4" />
-                  <span>Multi Return</span>
-                </button>
+
                 <button
                   onClick={handleExportInvoices}
                   className="flex items-center space-x-2 px-3 py-2 bg-ziditech-600 text-white rounded-lg hover:bg-ziditech-700 transition-colors text-sm"
@@ -1087,13 +1081,7 @@ const getStatusBadge = (status: string) => {
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Invoice History</h1>
               </div>
               <div className="flex items-center space-x-3">
-                <button
-                  onClick={handleMultiReturnClick}
-                  className="flex items-center space-x-2 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
-                >
-                  <FileMinus className="w-4 h-4" />
-                  <span>Multi-Invoice Return</span>
-                </button>
+
                 <button
                   onClick={handleExportInvoices}
                   className="flex items-center space-x-2 px-4 py-2 bg-ziditech-600 text-white rounded-lg hover:bg-ziditech-700 transition-colors"
@@ -1290,9 +1278,9 @@ const getStatusBadge = (status: string) => {
                 <div className="space-y-3">
                   <button
                     onClick={() => handleGoToCart(selectedDraftInvoice)}
-                    className="w-full flex items-center justify-center space-x-3 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+                    className="w-full flex items-center justify-center space-x-3 p-4 bg-ziditech-50 dark:bg-blue-900/20 border border-ziditech-200 dark:border-blue-700 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
                   >
-                    <ShoppingCart className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    <ShoppingCart className="w-5 h-5 text-ziditech-600 dark:text-blue-400" />
                     <span className="font-medium text-blue-900 dark:text-blue-100">Go to Cart</span>
                   </button>
                   {/* <button
@@ -1304,10 +1292,10 @@ const getStatusBadge = (status: string) => {
                   </button> */}
                   <button
                     onClick={() => handleSubmitDirect(selectedDraftInvoice)}
-                    className="w-full flex items-center justify-center space-x-3 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg hover:bg-green-100 dark:hover:bg-green-900/40 transition-colors"
+                    className="w-full flex items-center justify-center space-x-3 p-4 bg-ziditech-50 dark:bg-ziditech-900/20 border border-ziditech-200 dark:border-ziditech-700 rounded-lg hover:bg-ziditech-100 dark:hover:bg-ziditech-900/40 transition-colors"
                   >
-                    <Check className="w-5 h-5 text-green-600 dark:text-green-400" />
-                    <span className="font-medium text-green-900 dark:text-green-100">Submit</span>
+                    <Check className="w-5 h-5 text-ziditech-600 dark:text-ziditech-400" />
+                    <span className="font-medium text-ziditech-900 dark:text-ziditech-100">Submit</span>
                   </button>
                 </div>
               </div>

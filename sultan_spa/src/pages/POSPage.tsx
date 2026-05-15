@@ -168,7 +168,7 @@ export default function MainPOSScreen() {
             <p className="text-gray-600 mb-4">Please start a POS session to continue.</p>
             <button
               onClick={() => setShowOpeningModal(true)}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              className="px-4 py-2 bg-ziditech-600 text-white rounded-md hover:bg-ziditech-700 transition-colors"
             >
               Start POS Session
             </button>

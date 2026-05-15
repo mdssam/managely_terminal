@@ -20,10 +20,10 @@ function AppLayout() {
 
   if (loading) {
     return (
-      <div className="min-h-screen w-full bg-slate-50 flex flex-col items-center justify-center p-4">
+      <div className="min-h-screen w-full flex flex-col items-center justify-center p-4" style={{ backgroundColor: '#0D0033' }}>
         <div className="relative">
-          <div className="h-16 w-16 rounded-full border-4 border-indigo-100 border-t-indigo-600 animate-spin"></div>
-          <div className="mt-6 text-slate-600 font-medium text-sm animate-pulse">Synchronizing Session...</div>
+          <div className="h-20 w-20 rounded-3xl border-4 border-ziditech-600/20 border-t-ziditech-500 animate-spin shadow-2xl shadow-ziditech-600/20"></div>
+          <div className="mt-8 text-ziditech-400 font-black text-[10px] uppercase tracking-[0.3em] animate-pulse">Syncing Sultan Session</div>
         </div>
       </div>
     );
@@ -42,9 +42,15 @@ function AppLayout() {
   // Authenticated path: Provide Product context and UI Shell
   return (
     <ProductProvider>
-      <RetailSidebar />
-      <Outlet />
-      <Footer />
+      <div className="flex min-h-screen bg-ziditech-950">
+        <RetailSidebar />
+        <main className="flex-1 lg:pl-20 flex flex-col min-h-screen overflow-x-hidden">
+          <div className="flex-1">
+            <Outlet />
+          </div>
+          <Footer />
+        </main>
+      </div>
       <ToastContainer position="top-center" autoClose={3000} aria-label="Notification" />
     </ProductProvider>
   );

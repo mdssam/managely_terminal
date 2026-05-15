@@ -886,11 +886,11 @@
 //   const getCustomerTypeIcon = (customer: Customer) => {
 //     switch (customer.type) {
 //       case "company":
-//         return <Building size={14} className="text-purple-600" />;
+//         return <Building size={14} className="text-ziditech-600" />;
 //       case "walk-in":
 //         return <User size={14} className="text-gray-600" />;
 //       default:
-//         return <User size={14} className="text-blue-600" />;
+//         return <User size={14} className="text-ziditech-600" />;
 //     }
 //   };
 
@@ -1515,9 +1515,9 @@
 //                         }
 //                         className={`${
 //                           isMobile ? "w-8 h-8" : "w-7 h-7"
-//                         } rounded-full bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 flex items-center justify-center hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors`}
+//                         } rounded-full bg-ziditech-50 dark:bg-blue-900/20 border border-ziditech-200 dark:border-blue-800 flex items-center justify-center hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors`}
 //                       >
-//                         <Plus size={isMobile ? 16 : 14} className="text-blue-600 dark:text-blue-400" />
+//                         <Plus size={isMobile ? 16 : 14} className="text-ziditech-600 dark:text-blue-400" />
 //                       </button>
 //                     </div>
 
@@ -1678,12 +1678,12 @@
 //                       {/* Discount Summary */}
 //                       {(itemDiscount.discountPercentage > 0 ||
 //                         itemDiscount.discountAmount > 0) && (
-//                         <div className="mt-3 p-2 bg-green-50 dark:bg-green-900/20 rounded-md border border-green-200 dark:border-green-800">
-//                           <div className="text-xs text-green-800 dark:text-green-300 font-medium">
+//                         <div className="mt-3 p-2 bg-ziditech-50 dark:bg-ziditech-900/20 rounded-md border border-ziditech-200 dark:border-ziditech-800">
+//                           <div className="text-xs text-ziditech-800 dark:text-ziditech-300 font-medium">
 //                             Discount Applied:
 //                           </div>
 //                           <div className="flex justify-between items-center mt-1">
-//                             <span className="text-xs text-green-700 dark:text-green-400">
+//                             <span className="text-xs text-ziditech-700 dark:text-ziditech-400">
 //                               {itemDiscount.discountPercentage > 0 &&
 //                                 `${itemDiscount.discountPercentage}% off`}
 //                               {itemDiscount.discountPercentage > 0 &&
@@ -1692,7 +1692,7 @@
 //                               {itemDiscount.discountAmount > 0 &&
 //                                 `${itemDiscount.discountAmount.toFixed(2)} off`}
 //                             </span>
-//                             <span className="text-xs font-semibold text-green-800 dark:text-green-300">
+//                             <span className="text-xs font-semibold text-ziditech-800 dark:text-ziditech-300">
 //                               Save $
 //                               {(originalTotal - discountedTotal).toFixed(2)}
 //                             </span>
@@ -2695,11 +2695,11 @@ export default function OrderSummary({
   const getCustomerTypeIcon = (customer: Customer) => {
     switch (customer.type) {
       case "company":
-        return <Building size={14} className="text-purple-600" />;
+        return <Building size={14} className="text-ziditech-600" />;
       case "walk-in":
         return <User size={14} className="text-gray-600" />;
       default:
-        return <User size={14} className="text-blue-600" />;
+        return <User size={14} className="text-ziditech-600" />;
     }
   };
 
@@ -3298,9 +3298,9 @@ export default function OrderSummary({
                         }
                         className={`${
                           isMobile ? "w-8 h-8" : "w-7 h-7"
-                        } rounded-full bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 flex items-center justify-center hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors`}
+                        } rounded-full bg-ziditech-50 dark:bg-blue-900/20 border border-ziditech-200 dark:border-blue-800 flex items-center justify-center hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors`}
                       >
-                        <Plus size={isMobile ? 16 : 14} className="text-blue-600 dark:text-blue-400" />
+                        <Plus size={isMobile ? 16 : 14} className="text-ziditech-600 dark:text-blue-400" />
                       </button>
                     </div>
 
@@ -3491,12 +3491,12 @@ export default function OrderSummary({
                       {/* Discount Summary */}
                       {(itemDiscount.discountPercentage > 0 ||
                         itemDiscount.discountAmount > 0) && (
-                        <div className="mt-3 p-2 bg-green-50 dark:bg-green-900/20 rounded-md border border-green-200 dark:border-green-800">
-                          <div className="text-xs text-green-800 dark:text-green-300 font-medium">
+                        <div className="mt-3 p-2 bg-ziditech-50 dark:bg-ziditech-900/20 rounded-md border border-ziditech-200 dark:border-ziditech-800">
+                          <div className="text-xs text-ziditech-800 dark:text-ziditech-300 font-medium">
                             Discount Applied:
                           </div>
                           <div className="flex justify-between items-center mt-1">
-                            <span className="text-xs text-green-700 dark:text-green-400">
+                            <span className="text-xs text-ziditech-700 dark:text-ziditech-400">
                               {itemDiscount.discountPercentage > 0 &&
                                 `${itemDiscount.discountPercentage}% off`}
                               {itemDiscount.discountPercentage > 0 &&
@@ -3505,7 +3505,7 @@ export default function OrderSummary({
                               {itemDiscount.discountAmount > 0 &&
                                 `${itemDiscount.discountAmount.toFixed(2)} off`}
                             </span>
-                            <span className="text-xs font-semibold text-green-800 dark:text-green-300">
+                            <span className="text-xs font-semibold text-ziditech-800 dark:text-ziditech-300">
                               Save $
                               {(originalTotal - discountedTotal).toFixed(2)}
                             </span>

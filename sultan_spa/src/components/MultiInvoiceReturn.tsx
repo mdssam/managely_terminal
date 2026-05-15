@@ -496,11 +496,11 @@ export default function MultiInvoiceReturn({
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-2 sm:p-4">
       <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-7xl h-[95vh] sm:h-[90vh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="px-4 sm:px-6 py-3 sm:py-4 bg-ziditech-100 dark:bg-orange-900/20 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 bg-ziditech-100 dark:bg-ziditech-900/20 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2 sm:space-x-3">
-              <div className="p-1.5 sm:p-2 bg-orange-100 dark:bg-orange-900/40 rounded-lg">
-                <RotateCcw className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600 dark:text-orange-400" />
+              <div className="p-1.5 sm:p-2 bg-ziditech-100 dark:bg-ziditech-900/40 rounded-lg">
+                <RotateCcw className="w-5 h-5 sm:w-6 sm:h-6 text-ziditech-600 dark:text-ziditech-400" />
               </div>
               <div>
                 <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">
@@ -771,7 +771,7 @@ export default function MultiInvoiceReturn({
                     className={`px-4 py-2 text-white rounded-lg transition-colors flex items-center justify-center space-x-2 ${
                       loadingInvoices
                         ? 'bg-gray-400 cursor-not-allowed'
-                        : 'bg-ziditech-600 hover:bg-orange-700'
+                        : 'bg-ziditech-600 hover:bg-ziditech-700'
                     }`}
                   >
                     <Filter className="w-4 h-4" />
@@ -887,7 +887,7 @@ export default function MultiInvoiceReturn({
                           <td className="px-3 py-2 text-center">
                             <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                               selectedItems.some(selected => selected.item_code === item.item_code)
-                                ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400'
+                                ? 'bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900/20 dark:text-ziditech-400'
                                 : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
                             }`}>
                               {selectedItems.some(selected => selected.item_code === item.item_code) ? 'Selected' : 'Available'}
@@ -1100,7 +1100,7 @@ export default function MultiInvoiceReturn({
                             <td className="px-4 py-3 text-center">
                               <span className={`text-sm font-medium ${
                                 item.available_qty > 0
-                                  ? 'text-green-600 dark:text-green-400'
+                                  ? 'text-ziditech-600 dark:text-ziditech-400'
                                   : 'text-gray-500 dark:text-gray-400'
                               }`}>
                                 {item.available_qty}

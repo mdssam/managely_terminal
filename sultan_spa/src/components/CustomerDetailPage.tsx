@@ -121,7 +121,7 @@ export default function CustomerDetailPage() {
       case 'vip':
         return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
       case 'active':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
+        return 'bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900 dark:text-ziditech-300'
       case 'inactive':
         return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
       default:
@@ -141,7 +141,7 @@ export default function CustomerDetailPage() {
         return {
           icon: <Building size={16} />,
           label: 'Company',
-          color: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300'
+          color: 'bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900 dark:text-ziditech-300'
         }
       case 'walk-in':
         return {
@@ -346,7 +346,7 @@ export default function CustomerDetailPage() {
                   <p className="text-sm text-gray-600 dark:text-gray-400">Total Orders</p>
                 </div>
                 <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 text-center">
-                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">{formatCurrency(customer.totalSpent)}</p>
+                  <p className="text-2xl font-bold text-ziditech-600 dark:text-ziditech-400">{formatCurrency(customer.totalSpent)}</p>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Total Spent</p>
                 </div>
                 <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 text-center">
@@ -443,14 +443,14 @@ export default function CustomerDetailPage() {
               </h2>
               <div className="space-y-3">
                 <div className="flex items-center space-x-3 text-sm">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <div className="w-2 h-2 bg-ziditech-500 rounded-full"></div>
                   <span className="text-gray-600 dark:text-gray-400">Last order placed</span>
                   <span className="text-gray-900 dark:text-white font-medium">
                     {customer.lastVisit ? formatDateTime(customer.lastVisit) : 'Never'}
                   </span>
                 </div>
                 <div className="flex items-center space-x-3 text-sm">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                  <div className="w-2 h-2 bg-ziditech-500 rounded-full"></div>
                   <span className="text-gray-600 dark:text-gray-400">Account created</span>
                   <span className="text-gray-900 dark:text-white font-medium">
                     {formatDateTime(customer.createdAt)}

@@ -77,13 +77,29 @@ class ERPNextAPI {
       'Accept': 'application/json',
     };
 
+    // Global CSRF Token Retrieval
+    const csrfToken = (window as any).csrf_token || (window as any).frappe?.csrf_token || (window as any).frappe?.boot?.csrf_token;
+    if (csrfToken) {
+      headers['X-Frappe-CSRF-Token'] = csrfToken;
+    } else {
+      const cookieToken = document.cookie
+        .split("; ")
+        .find((row) => row.startsWith("frappe_csrf_token="))
+        ?.split("=")[1];
+      if (cookieToken) {
+        headers['X-Frappe-CSRF-Token'] = decodeURIComponent(cookieToken);
+      }
+    }
+
     if (includeAuth && this.config.apiKey && this.config.apiSecret) {
       const auth = btoa(`${this.config.apiKey}:${this.config.apiSecret}`);
       headers['Authorization'] = `Basic ${auth}`;
     }
 
     if (this.sessionId) {
-      headers['Cookie'] = `sid=${this.sessionId}`;
+      // Note: In most browser-based Frappe apps, credentials: 'include' handles SID cookies.
+      // We only manually append it if we have it stored and are making cross-origin requests.
+      // headers['Cookie'] = `sid=${this.sessionId}`;
     }
 
     return headers;

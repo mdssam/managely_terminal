@@ -17,7 +17,7 @@ export default function CartSidebar({ cartItems, onUpdateQty, subtotal, vat, tot
   const { t } = useI18n()
 
   return (
-    <div className="bg-green-50 rounded-lg p-4 h-full flex flex-col">
+    <div className="bg-ziditech-50 rounded-lg p-4 h-full flex flex-col">
       <h2 className="text-lg font-bold mb-4">{t("CART")}</h2>
 
       <div className="flex-1 overflow-y-auto">
@@ -57,7 +57,7 @@ export default function CartSidebar({ cartItems, onUpdateQty, subtotal, vat, tot
 
           <button
             onClick={onCheckout}
-            className="mt-4 w-full bg-green-700 text-white py-3 rounded hover:bg-green-800 transition-colors"
+            className="mt-4 w-full bg-ziditech-700 text-white py-3 rounded hover:bg-ziditech-800 transition-colors"
           >
             {t("PROCEED_TO_CHECKOUT")}
           </button>

@@ -158,7 +158,7 @@ const currency_symbol = posDetails?.currency_symbol
                 className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-ziditech-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               />
               {couponAmount && (
-                <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs text-green-600 dark:text-green-400 font-medium">
+                <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs text-ziditech-600 dark:text-ziditech-400 font-medium">
                   -{currency_symbol}{couponAmount.toFixed(2)}
                 </div>
               )}
@@ -191,7 +191,7 @@ const currency_symbol = posDetails?.currency_symbol
                 className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-ziditech-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               />
               {giftCardAmount && (
-                <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs text-green-600 dark:text-green-400 font-medium">
+                <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs text-ziditech-600 dark:text-ziditech-400 font-medium">
                   -{currency_symbol}{giftCardAmount.toFixed(2)}
                 </div>
               )}
@@ -199,7 +199,7 @@ const currency_symbol = posDetails?.currency_symbol
             <button
               onClick={() => handleApplyCoupon(giftCardCode, 'giftcard')}
               disabled={!giftCardCode.trim()}
-              className="px-3 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm font-medium transition-colors"
+              className="px-3 py-2 bg-ziditech-600 text-white rounded-md hover:bg-ziditech-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-sm font-medium transition-colors"
             >
               <Gift size={14} />
             </button>
@@ -226,7 +226,7 @@ const currency_symbol = posDetails?.currency_symbol
                   }`}
                 >
                   <div className="font-medium">{coupon.code}</div>
-                  <div className="text-green-600 dark:text-green-400">-{currency_symbol}{coupon.value.toFixed(2)}</div>
+                  <div className="text-ziditech-600 dark:text-ziditech-400">-{currency_symbol}{coupon.value.toFixed(2)}</div>
                 </button>
               )
             })}
