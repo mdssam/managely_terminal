@@ -137,23 +137,23 @@ export default function OrderStationPage() {
   );
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#0D0033' }}>
+    <div className="min-h-screen" style={{ backgroundColor: '#eef1f8' }}>
       {/* Consolidated Station Header */}
-      <header style={{ backgroundColor: 'rgba(24,8,85,0.9)', borderBottom: '1px solid rgba(255,255,255,0.08)', backdropFilter: 'blur(20px)' }} className="py-4 px-8 sticky top-0 z-30 flex justify-between items-center">
+      <header className="py-4 px-6 sticky top-0 z-30 flex justify-between items-center bg-white border-b border-gray-200">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl" style={{ backgroundColor: 'rgba(76,40,204,0.25)', color: '#9a88ff' }}>
-            <ChefHat className="w-7 h-7" />
+          <div className="p-2 rounded-xl" style={{ backgroundColor: '#eef1f8' }}>
+            <ChefHat className="w-6 h-6" style={{ color: '#1e2d6b' }} />
           </div>
           <div>
-            <h1 className="text-xl font-black text-white tracking-tight">Order Station</h1>
-            <p className="text-sm flex items-center gap-1" style={{ color: '#8878c8' }}>
-              <CheckCircle2 className="w-3.5 h-3.5" style={{ color: '#7c60f5' }} /> Live Manufacturing Enabled
+            <h1 className="text-base font-bold text-gray-900">Order Station</h1>
+            <p className="text-xs flex items-center gap-1 text-gray-500">
+              <CheckCircle2 className="w-3 h-3 text-green-500" /> Live Manufacturing Enabled
             </p>
           </div>
         </div>
 
         {/* Search integrated into main header */}
-        <div className="flex-1 max-w-md mx-8">
+        <div className="flex-1 max-w-md mx-6">
           <SearchBar
             searchQuery={searchStr}
             onSearchChange={handleSearch}
@@ -163,10 +163,10 @@ export default function OrderStationPage() {
         </div>
       </header>
 
-      <main className="p-6">
+      <main className="p-4">
         {/* Simplified Items Area */}
-        <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
-          <div className="p-6">
+        <div className="rounded-2xl overflow-hidden bg-white border border-gray-200 shadow-sm">
+          <div className="p-4">
             <MenuGrid
               items={filtered}
               selectedCategory={selectedCategory}
