@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { X, User, Phone, Save, ChevronDown, ChevronUp } from "lucide-react";
+import { X, User, Save, ChevronDown, ChevronUp } from "lucide-react";
 import { type Customer } from "../types/customer";
 import { useCustomerActions } from "../services/customerService";
 import { toast } from "react-toastify";
@@ -70,7 +70,7 @@ export default function AddCustomerModal({
     try {
       const payload = {
         ...formData,
-        customer_name: formData.name || formData.phone, // Fallback to phone as name if name is empty
+        customer_name: formData.name || formData.phone,
       };
 
       if (isEditing && customer?.id) {
@@ -89,114 +89,93 @@ export default function AddCustomerModal({
   };
 
   return (
-    <div className={isFullPage ? "h-full" : "fixed inset-0 bg-ziditech-950/80 backdrop-blur-md flex items-center justify-center p-4 z-50"}>
-      <div style={{ backgroundColor: '#180855', border: '1px solid rgba(255,255,255,0.1)' }} className="rounded-3xl shadow-2xl w-full max-w-md overflow-hidden">
+    <div className={isFullPage ? "h-full" : "fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 z-50"}>
+      <div className="bg-white rounded-2xl shadow-xl border border-gray-200 w-full max-w-md overflow-hidden">
         {/* Header */}
-        <div style={{ borderBottom: '1px solid rgba(255,255,255,0.08)', backgroundColor: 'rgba(255,255,255,0.04)' }} className="p-6 flex justify-between items-center">
-          <h2 className="text-xl font-black text-white">
-            {isEditing ? "Edit Customer" : "Quick Add Customer"}
+        <div className="px-5 py-4 border-b border-gray-100 flex justify-between items-center">
+          <h2 className="text-base font-bold text-gray-900">
+            {isEditing ? "Edit Customer" : "Add Customer"}
           </h2>
-          <button onClick={onClose} style={{ backgroundColor: 'rgba(255,255,255,0.08)' }} className="p-2 hover:opacity-80 rounded-full transition-all">
-            <X size={20} className="text-white" />
+          <button onClick={onClose} className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors">
+            <X size={18} className="text-gray-500" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
-          <div className="space-y-4">
-            {/* Name */}
-            <div>
-              <label className="block text-[10px] font-black uppercase tracking-widest mb-2 ml-1" style={{ color: '#9a88ff' }}>Customer Name</label>
-              <div className="relative">
-                <User className="absolute left-4 top-1/2 -translate-y-1/2" size={18} style={{ color: '#7c60f5' }} />
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Full Name"
-                  autoFocus
-                  style={{
-                    width: '100%', paddingLeft: '3rem', paddingRight: '1rem',
-                    paddingTop: '1rem', paddingBottom: '1rem',
-                    backgroundColor: 'rgba(255,255,255,0.06)',
-                    border: '1px solid rgba(255,255,255,0.10)',
-                    borderRadius: '1rem', color: '#f0eeff', fontWeight: 600,
-                  }}
-                />
-              </div>
+        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          {/* Name */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">Customer Name</label>
+            <div className="relative">
+              <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="Full Name"
+                autoFocus
+                className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-[#1e2d6b] focus:ring-1 focus:ring-[#1e2d6b]/20"
+              />
             </div>
+          </div>
 
-            {/* Phone */}
-            <div>
-              <label className="block text-[10px] font-black uppercase tracking-widest mb-2 ml-1" style={{ color: '#9a88ff' }}>Mobile Number</label>
-              <div className="quick-add-phone" style={{
-                backgroundColor: 'rgba(255,255,255,0.06)',
-                border: '1px solid rgba(255,255,255,0.10)',
-                borderRadius: '1rem', overflow: 'hidden',
-              }}>
-                <PhoneInput
-                  international
-                  defaultCountry={posDetails?.country_code as any || "SA"}
-                  value={formData.phone}
-                  onChange={(val) => setFormData({ ...formData, phone: val || "" })}
-                  style={{ padding: '0.75rem 1rem', backgroundColor: 'transparent' }}
-                />
-              </div>
+          {/* Phone */}
+          <div>
+            <label className="block text-xs font-semibold text-gray-600 mb-1.5">Mobile Number</label>
+            <div className="border border-gray-200 rounded-xl overflow-hidden bg-gray-50 focus-within:border-[#1e2d6b] focus-within:ring-1 focus-within:ring-[#1e2d6b]/20">
+              <PhoneInput
+                international
+                defaultCountry={posDetails?.country_code as any || "SA"}
+                value={formData.phone}
+                onChange={(val) => setFormData({ ...formData, phone: val || "" })}
+                className="quick-add-phone"
+                style={{ padding: '0.6rem 0.75rem', backgroundColor: 'transparent', fontSize: '0.875rem' }}
+              />
             </div>
           </div>
 
           <button
             type="button"
             onClick={() => setShowAdvanced(!showAdvanced)}
-            className="flex items-center gap-2 text-xs font-black uppercase tracking-widest hover:opacity-80 transition-opacity"
-            style={{ color: '#7c60f5' }}
+            className="flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-700 transition-colors"
           >
             {showAdvanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            {showAdvanced ? "Hide Details" : "More Options"}
+            {showAdvanced ? "Hide details" : "More options"}
           </button>
 
           {showAdvanced && (
-            <div className="space-y-4 pt-2 animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
               <div>
-                <label className="block text-[10px] font-black uppercase tracking-widest mb-2 ml-1" style={{ color: '#9a88ff' }}>Email Address</label>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Email Address</label>
                 <input
                   type="email"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   placeholder="email@example.com"
-                  style={{
-                    width: '100%', padding: '1rem',
-                    backgroundColor: 'rgba(255,255,255,0.06)',
-                    border: '1px solid rgba(255,255,255,0.10)',
-                    borderRadius: '1rem', color: '#f0eeff', fontWeight: 600,
-                  }}
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-[#1e2d6b] focus:ring-1 focus:ring-[#1e2d6b]/20"
                 />
               </div>
               <div>
-                <label className="block text-[10px] font-black uppercase tracking-widest mb-2 ml-1" style={{ color: '#9a88ff' }}>Customer Type</label>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Customer Type</label>
                 <select
                   value={formData.customer_type}
                   onChange={(e) => setFormData({ ...formData, customer_type: e.target.value as any })}
-                  style={{
-                    width: '100%', padding: '1rem',
-                    backgroundColor: 'rgba(255,255,255,0.06)',
-                    border: '1px solid rgba(255,255,255,0.10)',
-                    borderRadius: '1rem', color: '#f0eeff', fontWeight: 600, appearance: 'none',
-                  }}
+                  className="w-full px-3 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-900 bg-gray-50 focus:outline-none focus:border-[#1e2d6b]"
                 >
-                  <option value="Individual" style={{ backgroundColor: '#180855' }}>Individual</option>
-                  <option value="Company" style={{ backgroundColor: '#180855' }}>Company</option>
+                  <option value="Individual">Individual</option>
+                  <option value="Company">Company</option>
                 </select>
               </div>
             </div>
           )}
 
-          <div className="pt-2">
+          <div className="pt-1">
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-4 bg-ziditech-600 hover:bg-ziditech-500 text-white rounded-2xl font-black shadow-xl shadow-ziditech-600/20 flex items-center justify-center gap-3 transition-all active:scale-95 disabled:opacity-50"
+              className="w-full py-2.5 text-white rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+              style={{ backgroundColor: '#1e2d6b' }}
             >
-              <Save size={20} />
+              <Save size={16} />
               {isSubmitting ? "Saving..." : isEditing ? "Update Customer" : "Create Customer"}
             </button>
           </div>

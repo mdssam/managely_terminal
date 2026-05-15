@@ -5,13 +5,67 @@
 
 console.log("🚀 Loading Sultan POS Interceptor...");
 
+// ─── Shortcut Redirect: /app/sultan_pos → /sultan_spa/ ───────────────────────
+// The ERPNext desk shortcut tries to render sultan_pos inline (via AJAX+eval),
+// which throws a SyntaxError from the Jinja template. We intercept the route
+// and hard-redirect to the SPA before the desk renderer gets a chance to eval.
+(function interceptSultanPosRoute() {
+  // If we're already being routed to sultan_pos, redirect now.
+  function checkAndRedirect() {
+    const hash = window.location.hash || "";
+    const path = window.location.pathname || "";
+    if (
+      hash.includes("sultan_pos") ||
+      path.endsWith("/sultan_pos") ||
+      path.includes("/sultan_pos")
+    ) {
+      window.location.href = "/sultan_spa/";
+      return true;
+    }
+    return false;
+  }
+
+  // Check immediately on load
+  if (checkAndRedirect()) return;
+
+  // Also intercept frappe.set_route calls before they fire
+  if (typeof frappe !== "undefined" && frappe.router) {
+    const origSetRoute = frappe.router.push_state || frappe.set_route;
+    if (origSetRoute) {
+      const _orig = origSetRoute.bind(frappe.router || frappe);
+      const _intercept = function(...args) {
+        const route = (args[0] || "").toString();
+        if (route.includes("sultan_pos")) {
+          window.location.href = "/sultan_spa/";
+          return;
+        }
+        return _orig.apply(this, args);
+      };
+      if (frappe.router) frappe.router.push_state = _intercept;
+      if (frappe.set_route) frappe.set_route = _intercept;
+    }
+  }
+
+  // Listen for hashchange (Frappe desk uses hash routing)
+  window.addEventListener("hashchange", checkAndRedirect);
+
+  // Poll briefly on startup in case frappe isn't ready yet
+  let pollCount = 0;
+  const poll = setInterval(function() {
+    if (checkAndRedirect()) { clearInterval(poll); return; }
+    if (++pollCount > 20) clearInterval(poll);
+  }, 200);
+})();
+
+
+// ─── ERPNext POS Controller Patch ────────────────────────────────────────────
 (function() {
     const patchInterval = setInterval(() => {
         if (typeof erpnext !== "undefined" && erpnext.PointOfSale && erpnext.PointOfSale.Controller) {
             setup_sultan_pos_patch();
             clearInterval(patchInterval);
         }
-    }, 500); // Poll every 500ms until core POS JS executes
+    }, 500);
 })();
 
 function setup_sultan_pos_patch() {

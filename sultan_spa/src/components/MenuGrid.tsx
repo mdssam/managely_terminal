@@ -111,94 +111,93 @@ export default function MenuGrid({
   const [showUserDetail, setShowUserDetail] = useState(false)
 
   return (
-    <div className="flex flex-col h-full bg-ziditech-950">
+    <div className="flex flex-col h-full bg-white">
       {!hideHeader && (
-        <div className="sticky top-0 z-10 bg-ziditech-950/90 backdrop-blur-xl border-b border-white/10">
+        <div className="sticky top-0 z-10 bg-white border-b border-gray-200">
           {/* Header content */}
-          <div className="p-4 sm:p-6">
-            <div className="flex flex-col space-y-4">
+          <div className="px-4 py-3 sm:px-6">
+            <div className="flex flex-col space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
-                  <div className="bg-ziditech-600 p-2.5 rounded-xl shadow-lg shadow-ziditech-600/30">
-                    <LayoutGrid className="text-white w-5 h-5 sm:w-6 sm:h-6" />
+                  <div className="p-2 rounded-lg" style={{ backgroundColor: '#eef1f8' }}>
+                    <LayoutGrid className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: '#1e2d6b' }} />
                   </div>
                   <div>
-                    <h2 className="text-lg sm:text-xl font-black text-white tracking-tight">
+                    <h2 className="text-base sm:text-lg font-bold text-gray-900">
                       Available Items
                     </h2>
-                    <p className="text-xs text-ziditech-400 font-bold uppercase tracking-widest">
-                      {totalCount} items in stock
+                    <p className="text-xs text-gray-500 font-medium">
+                      {totalCount} items
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-center space-x-4 relative" ref={dropdownRef}>
+                <div className="flex items-center space-x-3 relative" ref={dropdownRef}>
                   <div className="text-right hidden sm:block">
-                    <div className="text-sm font-bold text-white">{posProfileName}</div>
-                    <div className="text-xs text-ziditech-400 font-medium">{displayName}</div>
+                    <div className="text-sm font-semibold text-gray-800">{posProfileName}</div>
+                    <div className="text-xs text-gray-500">{displayName}</div>
                   </div>
                   <button
                     ref={buttonRef}
                     onClick={() => {
                       setShowUserMenu(!showUserMenu)
                     }}
-                    className="w-11 h-11 bg-ziditech-600 rounded-2xl flex items-center justify-center hover:bg-ziditech-500 transition-all focus:outline-none focus:ring-2 focus:ring-ziditech-400/50 cursor-pointer shadow-xl shadow-ziditech-600/30 active:scale-95"
+                    className="w-10 h-10 rounded-xl flex items-center justify-center cursor-pointer focus:outline-none focus:ring-2 active:scale-95 transition-all"
+                    style={{ backgroundColor: '#1e2d6b' }}
                     aria-label="User menu"
                     type="button"
                   >
-                    <span className="text-white text-sm font-black pointer-events-none">{initials}</span>
+                    <span className="text-white text-sm font-bold pointer-events-none">{initials}</span>
                   </button>
 
-                  {/* User dropdown — rendered via Portal for absolute top-level priority */}
+                  {/* User dropdown — rendered via Portal */}
                   {showUserMenu && createPortal(
                     <div
-                      className="fixed w-80 bg-ziditech-900 rounded-2xl shadow-2xl border border-white/10 overflow-hidden backdrop-blur-xl z-[9999999]"
+                      className="fixed w-72 bg-white rounded-xl shadow-xl border border-gray-200 overflow-hidden z-[9999999]"
                       style={{
-                        top: buttonRef.current ? buttonRef.current.getBoundingClientRect().bottom + 12 : '80px',
+                        top: buttonRef.current ? buttonRef.current.getBoundingClientRect().bottom + 8 : '72px',
                         right: buttonRef.current ? window.innerWidth - buttonRef.current.getBoundingClientRect().right : '20px'
                       }}
                       onMouseDown={(e) => e.stopPropagation()}
                     >
                       {/* User info header */}
-                      <div className="px-5 py-4 border-b border-white/10 bg-gradient-to-r from-ziditech-800 to-ziditech-900">
+                      <div className="px-4 py-4 border-b border-gray-100" style={{ backgroundColor: '#eef1f8' }}>
                         <div className="flex items-center space-x-3">
-                          <div className="w-14 h-14 bg-ziditech-600 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg">
-                            <span className="text-white font-black text-lg">{initials}</span>
+                          <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#1e2d6b' }}>
+                            <span className="text-white font-bold text-base">{initials}</span>
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="font-black text-white truncate text-base">{displayName}</p>
-                            <div className="flex items-center space-x-1.5 mt-1">
-                              <Store size={12} className="text-ziditech-400 flex-shrink-0" />
-                              <p className="text-xs text-ziditech-300 font-bold uppercase tracking-wider truncate">
-                                {posProfileName}
-                              </p>
+                            <p className="font-semibold text-gray-900 truncate text-sm">{displayName}</p>
+                            <div className="flex items-center space-x-1.5 mt-0.5">
+                              <Store size={11} className="text-gray-400 flex-shrink-0" />
+                              <p className="text-xs text-gray-500 truncate">{posProfileName}</p>
                             </div>
-                             <button
+                            <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setShowUserMenu(false);
                                 navigate('/settings');
                               }}
-                              className="text-[10px] text-ziditech-400 hover:text-ziditech-200 mt-1 underline underline-offset-2 transition-colors text-left"
+                              className="text-[10px] text-blue-600 hover:text-blue-700 mt-1 underline underline-offset-2 transition-colors text-left"
                             >
-                              View all profile details →
+                              View profile details →
                             </button>
                           </div>
                         </div>
                       </div>
 
                       {/* Menu items */}
-                      <div className="py-2">
+                      <div className="py-1">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             setShowUserMenu(false);
                             navigate('/settings');
                           }}
-                          className="flex items-center w-full px-5 py-3 text-sm text-gray-300 hover:bg-white/5 transition-colors"
+                          className="flex items-center w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                           type="button"
                         >
-                          <Settings size={16} className="mr-3 text-ziditech-400" />
+                          <Settings size={15} className="mr-3 text-gray-400" />
                           <span className="font-medium">Settings</span>
                         </button>
 
@@ -208,10 +207,10 @@ export default function MenuGrid({
                             toggleTheme()
                             setShowUserMenu(false)
                           }}
-                          className="flex items-center w-full px-5 py-3 text-sm text-gray-300 hover:bg-white/5 transition-colors"
+                          className="flex items-center w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                           type="button"
                         >
-                          {theme === "dark" ? <Sun size={16} className="mr-3 text-ziditech-400" /> : <Moon size={16} className="mr-3 text-ziditech-400" />}
+                          {theme === "dark" ? <Sun size={15} className="mr-3 text-gray-400" /> : <Moon size={15} className="mr-3 text-gray-400" />}
                           <span className="font-medium">{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
                         </button>
 
@@ -221,14 +220,14 @@ export default function MenuGrid({
                             setShowUserMenu(false)
                             await clearCacheAndReload()
                           }}
-                          className="flex items-center w-full px-5 py-3 text-sm text-gray-300 hover:bg-white/5 transition-colors"
+                          className="flex items-center w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                           type="button"
                         >
-                          <RefreshCw size={16} className="mr-3 text-ziditech-400" />
+                          <RefreshCw size={15} className="mr-3 text-gray-400" />
                           <span className="font-medium">Clear Cache</span>
                         </button>
 
-                        <div className="border-t border-white/10 my-1 mx-3"></div>
+                        <div className="border-t border-gray-100 my-1"></div>
 
                         <button
                           onClick={async (e) => {
@@ -236,11 +235,11 @@ export default function MenuGrid({
                             setShowUserMenu(false)
                             handleLogout()
                           }}
-                          className="flex items-center w-full px-5 py-3 text-sm text-red-400 hover:bg-red-400/10 transition-colors"
+                          className="flex items-center w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
                           type="button"
                         >
-                          <LogOut size={16} className="mr-3" />
-                          <span className="font-bold">Logout</span>
+                          <LogOut size={15} className="mr-3" />
+                          <span className="font-semibold">Logout</span>
                         </button>
                       </div>
                     </div>,
@@ -259,25 +258,23 @@ export default function MenuGrid({
                     onScanBarcode={onScanBarcode}
                   />
                 </div>
-                <div className="flex items-center bg-white/5 rounded-xl p-1 border border-white/5">
+                <div className="flex items-center bg-gray-100 rounded-lg p-1">
                   <button
                     onClick={() => setViewMode('grid')}
-                    className={`p-2 rounded-lg transition-colors ${
-                      viewMode === 'grid'
-                        ? 'bg-ziditech-600 text-white shadow-lg'
-                        : 'text-gray-500 hover:text-gray-300'
-                    }`}
+                    className={`p-1.5 rounded-md transition-colors ${viewMode === 'grid'
+                        ? 'bg-white text-gray-800 shadow-sm'
+                        : 'text-gray-400 hover:text-gray-600'
+                      }`}
                     title="Grid View"
                   >
                     <Grid3X3 className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => setViewMode('list')}
-                    className={`p-2 rounded-lg transition-colors ${
-                      viewMode === 'list'
-                        ? 'bg-ziditech-600 text-white shadow-lg'
-                        : 'text-gray-500 hover:text-gray-300'
-                    }`}
+                    className={`p-1.5 rounded-md transition-colors ${viewMode === 'list'
+                        ? 'bg-white text-gray-800 shadow-sm'
+                        : 'text-gray-400 hover:text-gray-600'
+                      }`}
                     title="List View"
                   >
                     <List className="w-4 h-4" />
@@ -290,24 +287,24 @@ export default function MenuGrid({
       )}
 
       {/* Categories Bar */}
-      <div className={`sticky top-0 z-10 bg-ziditech-950/90 backdrop-blur-xl border-b border-white/10 px-6 ${hideHeader ? 'py-2' : 'pb-2'}`}>
+      <div className={`sticky top-0 z-10 bg-white border-b border-gray-200 px-4 ${hideHeader ? 'py-2' : 'pb-2'}`}>
         <CategoryTabs selectedCategory={selectedCategory} onCategoryChange={onCategoryChange} />
       </div>
 
       {/* Products Grid */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto" style={{ backgroundColor: '#eef1f8' }}>
         {posLoading ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-2 border-ziditech-600 border-t-transparent mx-auto mb-4"></div>
-              <p className="text-ziditech-400 font-medium">Loading view preferences...</p>
+              <div className="animate-spin rounded-full h-8 w-8 border-2 border-[#1e2d6b] border-t-transparent mx-auto mb-4"></div>
+              <p className="text-gray-500 font-medium">Loading...</p>
             </div>
           </div>
         ) : isSearching ? (
           <div className="flex items-center justify-center h-32">
             <div className="flex items-center space-x-2">
-              <div className="animate-spin rounded-full h-5 w-5 border-2 border-ziditech-600 border-t-transparent"></div>
-              <span className="text-ziditech-400 font-medium">Searching...</span>
+              <div className="animate-spin rounded-full h-5 w-5 border-2 border-[#1e2d6b] border-t-transparent"></div>
+              <span className="text-gray-500 font-medium">Searching...</span>
             </div>
           </div>
         ) : (
@@ -324,59 +321,45 @@ export default function MenuGrid({
         )}
       </div>
 
-      {/* Full-Screen User Detail Overlay — also in Portal */}
       {showUserDetail && createPortal(
-        <div className="fixed inset-0 bg-ziditech-950/95 backdrop-blur-xl z-[9999] flex items-center justify-center p-6 animate-in fade-in duration-200">
-          <div className="bg-white/5 border border-white/10 rounded-[48px] p-10 w-full max-w-lg shadow-3xl animate-in zoom-in-95 duration-200">
-            {/* Close button */}
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[9999] flex items-center justify-center p-6 animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-8 w-full max-w-md animate-in zoom-in-95 duration-200">
             <div className="flex justify-end mb-4">
               <button
                 onClick={() => setShowUserDetail(false)}
-                className="p-2 bg-white/10 hover:bg-white/20 rounded-xl transition-colors text-white"
+                className="p-2 hover:bg-gray-100 rounded-xl transition-colors text-gray-500"
               >
                 ✕
               </button>
             </div>
-
-            {/* Avatar */}
-            <div className="flex flex-col items-center mb-8">
-              <div className="w-24 h-24 bg-gradient-to-br from-ziditech-500 to-ziditech-700 rounded-3xl flex items-center justify-center shadow-2xl shadow-ziditech-600/30 mb-4">
-                <span className="text-white font-black text-3xl">{initials}</span>
+            <div className="flex flex-col items-center mb-6">
+              <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-3" style={{ backgroundColor: '#1e2d6b' }}>
+                <span className="text-white font-bold text-xl">{initials}</span>
               </div>
-              <h2 className="text-3xl font-black text-white tracking-tight">{displayName}</h2>
-              <div className="flex items-center space-x-2 mt-2">
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-ziditech-400 bg-ziditech-600/20 px-3 py-1 rounded-lg">
-                  {user?.role || 'Operator'}
-                </span>
+              <h2 className="text-xl font-bold text-gray-900">{displayName}</h2>
+              <span className="text-xs text-gray-500 mt-1">{user?.role || 'Operator'}</span>
+            </div>
+            <div className="space-y-3">
+              <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+                <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">Email</div>
+                <div className="text-sm font-medium text-gray-800">{user?.email || user?.name || 'Not set'}</div>
+              </div>
+              <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+                <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">POS Station</div>
+                <div className="text-sm font-medium text-gray-800">{posProfileName}</div>
               </div>
             </div>
-
-            {/* Details */}
-            <div className="space-y-4">
-              <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
-                <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Email Address</div>
-                <div className="text-white font-bold">{user?.email || user?.name || 'Not set'}</div>
-              </div>
-              <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
-                <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">POS Station</div>
-                <div className="text-white font-bold">{posProfileName}</div>
-              </div>
-              <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
-                <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Access Level</div>
-                <div className="text-white font-bold">{user?.role || 'Standard Operator'}</div>
-              </div>
-            </div>
-
-            <div className="mt-8 grid grid-cols-2 gap-4">
+            <div className="mt-6 grid grid-cols-2 gap-3">
               <button
                 onClick={() => { setShowUserDetail(false); handleLogout(); }}
-                className="py-3 rounded-2xl border border-red-400/30 text-red-400 font-black text-xs uppercase tracking-widest hover:bg-red-400/10 transition-all"
+                className="py-2.5 rounded-xl border border-red-200 text-red-600 text-sm font-semibold hover:bg-red-50 transition-colors"
               >
                 Logout
               </button>
               <button
                 onClick={() => setShowUserDetail(false)}
-                className="py-3 rounded-2xl bg-ziditech-600 text-white font-black text-xs uppercase tracking-widest hover:bg-ziditech-500 transition-all shadow-xl shadow-ziditech-600/20"
+                className="py-2.5 rounded-xl text-white text-sm font-semibold transition-colors"
+                style={{ backgroundColor: '#1e2d6b' }}
               >
                 Close
               </button>

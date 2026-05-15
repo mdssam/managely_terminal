@@ -86,10 +86,10 @@ export default function DashboardPage() {
   // Loading state - must be after all hooks
   if (userInfoLoading || invoicesLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#eef1f8' }}>
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-ziditech-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-300">Loading dashboard...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto" style={{ borderColor: '#1e2d6b' }}></div>
+          <p className="mt-4 text-gray-600">Loading dashboard...</p>
         </div>
       </div>
     );
@@ -339,16 +339,16 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
   // Mobile layout: full-width content and persistent bottom navigation
   if (isMobile) {
     return (
-      <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-gray-900 ">
+      <div className="flex flex-col min-h-screen" style={{ backgroundColor: '#eef1f8' }}>
         {/* Mobile Header */}
-        <div className="sticky top-0 z-20 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+        <div className="sticky top-0 z-20 bg-white border-b border-gray-200">
           <div className="px-4 py-3">
             <div className="flex items-center justify-between">
-              <h1 className="text-lg font-bold text-gray-900 dark:text-white">Sales Dashboard</h1>
+              <h1 className="text-lg font-bold text-gray-900">Sales Dashboard</h1>
               <div className="flex items-center space-x-2">
                 <button
                   onClick={() => setShowFilters(!showFilters)}
-                  className="flex items-center space-x-2 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                 >
                   <Filter className="w-4 h-4" />
                   <span className="text-sm">Filters</span>
@@ -366,15 +366,15 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
         <div className="flex-1 overflow-y-auto pb-20 w-[98%] mx-auto px-2 py-4">
           {/* Enhanced Filters */}
           {showFilters && (
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 mb-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Dashboard Filters</h3>
+            <div className="bg-white rounded-xl p-4 border border-gray-200 mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Dashboard Filters</h3>
               <div className="grid grid-cols-1 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Time Range</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Time Range</label>
                   <select
                     value={timeRange}
                     onChange={(e) => setTimeRange(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-ziditech-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 bg-white text-gray-900"
                   >
                     <option value="">Current POS Session</option>
                     <option value="today">Today</option>
@@ -383,12 +383,12 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Cashier</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Cashier</label>
                   <select
                     value={cashierFilter}
                     onChange={(e) => setCashierFilter(e.target.value)}
                     disabled={!isAdminUser}
-                    className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-ziditech-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
+                    className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 bg-white text-gray-900 ${
                       !isAdminUser ? 'opacity-50 cursor-not-allowed' : ''
                     }`}
                   >
@@ -400,19 +400,19 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
                     ))}
                   </select>
                   {!isAdminUser && (
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    <p className="text-xs text-gray-500 mt-1">
                       Showing only your transactions
                     </p>
                   )}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Payment Method
                   </label>
                   <select
                     value={paymentFilter}
                     onChange={(e) => setPaymentFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-ziditech-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 bg-white text-gray-900"
                   >
                     <option value="all">All Methods</option>
                     <option value="Cash">Cash</option>
@@ -426,7 +426,7 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
                       setCashierFilter("all")
                       setPaymentFilter("all")
                     }}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-900"
                   >
                     Reset Filters
                   </button>
@@ -437,78 +437,78 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
 
           {/* Enhanced Key Metrics */}
           <div className="grid grid-cols-1 gap-4 mb-6">
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow">
+            <div className="bg-white rounded-xl p-4 border border-gray-200 hover:shadow-lg transition-shadow">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Total Revenue</p>
-                  <p className="text-xl font-bold text-gray-900 dark:text-white">
+                  <p className="text-sm text-gray-600">Total Revenue</p>
+                  <p className="text-xl font-bold text-gray-900">
                     {formatCurrency(filteredStats.totalRevenue, posDetails?.currency || 'USD')}
                   </p>
                   <div className="flex items-center mt-2">
                     <TrendingUp className="w-4 h-4 text-orange-500 mr-1" />
-                    <span className="text-sm text-orange-600 dark:text-orange-400">+12.5%</span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">vs last period</span>
+                    <span className="text-sm text-orange-600">+12.5%</span>
+                    <span className="text-xs text-gray-500 ml-1">vs last period</span>
                   </div>
                 </div>
-                <div className="w-12 h-12 bg-ziditech-100 dark:bg-ziditech-900/20 rounded-lg flex items-center justify-center">
-                  <DollarSign className="w-6 h-6 text-ziditech-600 dark:text-ziditech-400" />
+                <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#eef1f8' }}>
+                  <DollarSign className="w-6 h-6" style={{ color: '#1e2d6b' }} />
                 </div>
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow">
+            <div className="bg-white rounded-xl p-4 border border-gray-200 hover:shadow-lg transition-shadow">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Transactions</p>
-                  <p className="text-xl font-bold text-gray-900 dark:text-white">
+                  <p className="text-sm text-gray-600">Transactions</p>
+                  <p className="text-xl font-bold text-gray-900">
                     {filteredStats.totalTransactions}
                   </p>
                   <div className="flex items-center mt-2">
-                    <TrendingUp className="w-4 h-4 text-ziditech-500 mr-1" />
-                    <span className="text-sm text-ziditech-600 dark:text-ziditech-400">+8.2%</span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">vs last period</span>
+                    <TrendingUp className="w-4 h-4 text-orange-500 mr-1" />
+                    <span className="text-sm text-orange-600">+8.2%</span>
+                    <span className="text-xs text-gray-500 ml-1">vs last period</span>
                   </div>
                 </div>
-                <div className="w-12 h-12 bg-ziditech-100 dark:bg-ziditech-900/20 rounded-lg flex items-center justify-center">
-                  <ShoppingCart className="w-6 h-6 text-ziditech-600 dark:text-ziditech-400" />
+                <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#eef1f8' }}>
+                  <ShoppingCart className="w-6 h-6" style={{ color: '#1e2d6b' }} />
                 </div>
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow">
+            <div className="bg-white rounded-xl p-4 border border-gray-200 hover:shadow-lg transition-shadow">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Avg Order Value</p>
-                  <p className="text-xl font-bold text-gray-900 dark:text-white">
+                  <p className="text-sm text-gray-600">Avg Order Value</p>
+                  <p className="text-xl font-bold text-gray-900">
                     {formatCurrency(filteredStats.averageOrderValue, posDetails?.currency || 'USD')}
                   </p>
                   <div className="flex items-center mt-2">
-                    <TrendingUp className="w-4 h-4 text-ziditech-500 mr-1" />
-                    <span className="text-sm text-ziditech-600 dark:text-ziditech-400">+3.8%</span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">vs last period</span>
+                    <TrendingUp className="w-4 h-4 text-orange-500 mr-1" />
+                    <span className="text-sm text-orange-600">+3.8%</span>
+                    <span className="text-xs text-gray-500 ml-1">vs last period</span>
                   </div>
                 </div>
-                <div className="w-12 h-12 bg-ziditech-100 dark:bg-ziditech-900/20 rounded-lg flex items-center justify-center">
-                  <BarChart3 className="w-6 h-6 text-ziditech-600 dark:text-ziditech-400" />
+                <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#eef1f8' }}>
+                  <BarChart3 className="w-6 h-6" style={{ color: '#1e2d6b' }} />
                 </div>
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow">
+            <div className="bg-white rounded-xl p-4 border border-gray-200 hover:shadow-lg transition-shadow">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Items Sold</p>
-                  <p className="text-xl font-bold text-gray-900 dark:text-white">
+                  <p className="text-sm text-gray-600">Items Sold</p>
+                  <p className="text-xl font-bold text-gray-900">
                     {filteredStats.totalItems}
                   </p>
                   <div className="flex items-center mt-2">
-                    <TrendingUp className="w-4 h-4 text-ziditech-500 mr-1" />
-                    <span className="text-sm text-ziditech-600 dark:text-ziditech-400">+5.1%</span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400 ml-1">vs last period</span>
+                    <TrendingUp className="w-4 h-4 text-orange-500 mr-1" />
+                    <span className="text-sm text-orange-600">+5.1%</span>
+                    <span className="text-xs text-gray-500 ml-1">vs last period</span>
                   </div>
                 </div>
-                <div className="w-12 h-12 bg-ziditech-100 dark:bg-ziditech-900/20 rounded-lg flex items-center justify-center">
-                  <Activity className="w-6 h-6 text-ziditech-600 dark:text-ziditech-400" />
+                <div className="w-12 h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#eef1f8' }}>
+                  <Activity className="w-6 h-6" style={{ color: '#1e2d6b' }} />
                 </div>
               </div>
             </div>
@@ -518,9 +518,9 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
           <div className="grid grid-cols-1 gap-4 mb-6">
             {/* Sales by Hour Chart - Only show for today */}
             {timeRange === "today" && salesByHourData.length > 0 && (
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+              <div className="bg-white rounded-xl p-4 border border-gray-200">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Sales by Hour (Today)</h3>
+                  <h3 className="text-lg font-semibold text-gray-900">Sales by Hour (Today)</h3>
                   <div className="flex items-center space-x-3">
                     {/* Graph Type Toggle */}
                     <div className="flex items-center space-x-1">
@@ -528,9 +528,10 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
                         onClick={() => setSalesByHourGraphType("bar")}
                         className={`px-2 py-1 text-xs rounded transition-colors ${
                           salesByHourGraphType === "bar"
-                            ? "bg-ziditech-600 text-white"
-                            : "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+                            ? "text-white"
+                            : "bg-gray-200 text-gray-600"
                         }`}
+                        style={salesByHourGraphType === "bar" ? { backgroundColor: '#1e2d6b' } : {}}
                       >
                         Bar
                       </button>
@@ -538,16 +539,17 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
                         onClick={() => setSalesByHourGraphType("line")}
                         className={`px-2 py-1 text-xs rounded transition-colors ${
                           salesByHourGraphType === "line"
-                            ? "bg-ziditech-600 text-white"
-                            : "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+                            ? "text-white"
+                            : "bg-gray-200 text-gray-600"
                         }`}
+                        style={salesByHourGraphType === "line" ? { backgroundColor: '#1e2d6b' } : {}}
                       >
                         Line
                       </button>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Clock className="w-4 h-4 text-gray-400" />
-                      <span className="text-xs text-gray-500 dark:text-gray-400">
+                      <span className="text-xs text-gray-500">
                                                                         {/* @ts-expect-error just ignore */}
                         Peak: {salesByHourData.reduce((max, item) => item.sales > max.sales ? item : max, salesByHourData[0])?.hour || "N/A"}
                       </span>
@@ -564,10 +566,11 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
                         <div className="relative w-full">
                           {salesByHourGraphType === "bar" ? (
                             <div
-                              className="w-full bg-ziditech-600 dark:bg-ziditech-500 rounded-t hover:bg-ziditech-700 dark:hover:bg-ziditech-400 transition-colors cursor-pointer"
+                              className="w-full rounded-t cursor-pointer transition-opacity hover:opacity-80"
                               style={{
                                 height: `${height}px`,
                                 minHeight: "4px",
+                                backgroundColor: '#1e2d6b',
                               }}
                               title={`${item.hour}: ${formatCurrency(item.sales, posDetails?.currency || 'USD')}`}
                             ></div>
@@ -582,26 +585,24 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
                                     y1={`${100 - (salesByHourData[index - 1].sales / maxSales) * 100}`}
                                     x2="100"
                                     y2={`${100 - (item.sales / maxSales) * 100}`}
-                                    stroke="currentColor"
+                                    stroke="#1e2d6b"
                                     strokeWidth="2"
-                                    className="text-ziditech-600 dark:text-ziditech-400"
                                   />
                                 )}
                                 <circle
                                   cx="100"
                                   cy={`${100 - (item.sales / maxSales) * 100}`}
                                   r="2"
-                                  fill="currentColor"
-                                  className="text-ziditech-600 dark:text-ziditech-400"
+                                  fill="#1e2d6b"
                                 />
                               </svg>
                             </div>
                           )}
-                          <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-800 dark:bg-gray-700 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                          <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
                             {formatCurrency(item.sales, posDetails?.currency || 'USD')}
                           </div>
                         </div>
-                        <span className="text-xs text-gray-500 dark:text-gray-400 mt-2 transform -rotate-45 origin-top-left">
+                        <span className="text-xs text-gray-500 mt-2 transform -rotate-45 origin-top-left">
                           {item.hour}
                         </span>
                       </div>
@@ -609,8 +610,8 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
                   })}
                 </div>
                 <div className="mt-3 text-center">
-                  <div className="text-sm text-gray-600 dark:text-gray-400">
-                    Total Revenue: <span className="font-semibold text-ziditech-600 dark:text-ziditech-400">
+                  <div className="text-sm text-gray-600">
+                    Total Revenue: <span className="font-semibold" style={{ color: '#1e2d6b' }}>
                       {formatCurrency(salesByHourData.reduce((sum, item) => sum + item.sales, 0), posDetails?.currency || 'USD')}
                     </span>
                   </div>
@@ -619,26 +620,26 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
             )}
 
             {/* Payment Methods Chart */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+            <div className="bg-white rounded-xl p-4 border border-gray-200">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Payment Methods</h3>
+                <h3 className="text-lg font-semibold text-gray-900">Payment Methods</h3>
                 <PieChart className="w-5 h-5 text-gray-400" />
               </div>
               <div className="space-y-4">
                 {paymentMethodsData.map((method, index) => {
-                  const colors = ['bg-ziditech-500', 'bg-ziditech-600', 'bg-ziditech-500', 'bg-ziditech-400', 'bg-ziditech-300']
-                  const color = colors[index % colors.length]
+                  const hexColors = ['#1e2d6b', '#3b82f6', '#6366f1', '#8b5cf6', '#a78bfa']
+                  const color = hexColors[index % hexColors.length]
                   return (
-                    <div key={method.method} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                    <div key={method.method} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div className="flex items-center space-x-3">
-                        <div className={`w-4 h-4 ${color} rounded`}></div>
-                        <span className="text-sm text-gray-700 dark:text-gray-300">{method.method}</span>
+                        <div className="w-4 h-4 rounded" style={{ backgroundColor: color }}></div>
+                        <span className="text-sm text-gray-700">{method.method}</span>
                       </div>
                       <div className="text-right">
-                        <div className="font-semibold text-gray-900 dark:text-white">
+                        <div className="font-semibold text-gray-900">
                           {formatCurrency(method.amount, posDetails?.currency || 'USD')}
                         </div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                        <div className="text-sm text-gray-500">
                           {method.percentage.toFixed(1)}% • {method.transactions} txns
                         </div>
                       </div>
@@ -646,7 +647,7 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
                   )
                 })}
                 {paymentMethodsData.length === 0 && (
-                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  <div className="text-center py-8 text-gray-500">
                     No payment data available for selected period
                   </div>
                 )}
@@ -654,13 +655,12 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
               <div className="mt-4">
                 <div className="flex rounded-lg overflow-hidden h-4">
                   {paymentMethodsData.map((method, index) => {
-                    const colors = ['bg-orange-500', 'bg-ziditech-600', 'bg-ziditech-500', 'bg-ziditech-500', 'bg-pink-500']
-                    const color = colors[index % colors.length]
+                    const hexColors = ['#f97316', '#1e2d6b', '#6366f1', '#8b5cf6', '#ec4899']
+                    const color = hexColors[index % hexColors.length]
                     return (
                       <div
                         key={method.method}
-                        className={color}
-                        style={{ width: `${method.percentage}%` }}
+                        style={{ width: `${method.percentage}%`, backgroundColor: color }}
                       ></div>
                     )
                   })}
@@ -673,9 +673,9 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
           <div className="grid grid-cols-1 gap-4 mb-6">
             {/* ZATCA Status Bar Chart (mobile) */}
             {posDetails?.is_zatca_enabled && zatcaData.total > 0 && (
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+              <div className="bg-white rounded-xl p-4 border border-gray-200">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">ZATCA Status</h3>
+                  <h3 className="text-lg font-semibold text-gray-900">ZATCA Status</h3>
                   <BarChart3 className="w-5 h-5 text-gray-400" />
                 </div>
                 <div className="h-48 flex items-end justify-between space-x-2 mb-4">
@@ -695,11 +695,11 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
                             }}
                             title={`${segment.status}: ${segment.count} (${Math.round(segment.percentage)}%)`}
                           ></div>
-                          <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-800 dark:bg-gray-700 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                          <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
                             {segment.count}
                           </div>
                         </div>
-                        <span className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center leading-tight">
+                        <span className="text-xs text-gray-500 mt-2 text-center leading-tight">
                           {segment.status}
                         </span>
                       </div>
@@ -711,48 +711,48 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
                     <div key={segment.status} className="flex items-center justify-between text-sm">
                       <div className="flex items-center gap-2">
                         <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: segment.color }}></span>
-                        <span className="text-gray-700 dark:text-gray-300">{segment.status}</span>
+                        <span className="text-gray-700">{segment.status}</span>
                       </div>
-                      <span className="text-gray-600 dark:text-gray-400">
+                      <span className="text-gray-600">
                         {segment.count} ({Math.round(segment.percentage)}%)
                       </span>
                     </div>
                   ))}
                 </div>
-                <div className="mt-4 pt-3 border-t border-gray-200 dark:border-gray-600">
-                  <div className="text-center text-sm text-gray-600 dark:text-gray-400">
-                    Total Invoices: <span className="font-semibold text-ziditech-600 dark:text-ziditech-400">{zatcaData.total}</span>
+                <div className="mt-4 pt-3 border-t border-gray-200">
+                  <div className="text-center text-sm text-gray-600">
+                    Total Invoices: <span className="font-semibold" style={{ color: '#1e2d6b' }}>{zatcaData.total}</span>
                   </div>
                 </div>
               </div>
             )}
             {/* Gift Card Usage */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+            <div className="bg-white rounded-xl p-4 border border-gray-200">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Gift Card Usage</h3>
-                <Gift className="w-5 h-5 text-ziditech-600 dark:text-ziditech-400" />
+                <h3 className="text-lg font-semibold text-gray-900">Gift Card Usage</h3>
+                <Gift className="w-5 h-5" style={{ color: '#1e2d6b' }} />
               </div>
               <div className="space-y-3">
-                <div className="flex justify-between p-2 bg-ziditech-50 dark:bg-ziditech-900/20 rounded-lg">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Total Redeemed</span>
-                  <span className="font-semibold text-gray-900 dark:text-white">
+                <div className="flex justify-between p-2 rounded-lg" style={{ backgroundColor: '#eef1f8' }}>
+                  <span className="text-sm text-gray-600">Total Redeemed</span>
+                  <span className="font-semibold text-gray-900">
                     {formatCurrency(stats.giftCardUsage.totalRedeemed, posDetails?.currency || 'USD')}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Transactions</span>
-                  <span className="font-semibold text-gray-900 dark:text-white">
+                  <span className="text-sm text-gray-600">Transactions</span>
+                  <span className="font-semibold text-gray-900">
                     {stats.giftCardUsage.totalTransactions}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Avg Discount</span>
-                  <span className="font-semibold text-orange-600 dark:text-orange-400">
+                  <span className="text-sm text-gray-600">Avg Discount</span>
+                  <span className="font-semibold text-orange-600">
                     {formatCurrency(stats.giftCardUsage.averageDiscount, posDetails?.currency || 'USD')}
                   </span>
                 </div>
-                <div className="pt-2 border-t border-gray-200 dark:border-gray-600">
-                  <div className="text-xs text-gray-500 dark:text-gray-400">
+                <div className="pt-2 border-t border-gray-200">
+                  <div className="text-xs text-gray-500">
                     {((stats.giftCardUsage.totalTransactions / (filteredStats.totalTransactions || 1)) * 100).toFixed(1)}% of all
                     transactions
                   </div>
@@ -761,14 +761,14 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
             </div>
 
             {/* Top Cashier */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+            <div className="bg-white rounded-xl p-4 border border-gray-200">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Top Performer</h3>
-                <Users className="w-5 h-5 text-ziditech-600 dark:text-ziditech-400" />
+                <h3 className="text-lg font-semibold text-gray-900">Top Performer</h3>
+                <Users className="w-5 h-5" style={{ color: '#1e2d6b' }} />
               </div>
               {topPerformer ? (
                 <div className="text-center">
-                  <div className="w-16 h-16 bg-ziditech-600 rounded-full flex items-center justify-center mx-auto mb-3 relative">
+                  <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 relative" style={{ backgroundColor: '#1e2d6b' }}>
                     <span className="text-white font-bold text-xl">
                       {topPerformer.name
                         .split(" ")
@@ -779,28 +779,28 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
                       <span className="text-xs">👑</span>
                     </div>
                   </div>
-                  <h4 className="font-semibold text-gray-900 dark:text-white">{topPerformer.name}</h4>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                  <h4 className="font-semibold text-gray-900">{topPerformer.name}</h4>
+                  <p className="text-sm text-gray-500 mb-2">
                     {topPerformer.transactions} transactions
                   </p>
-                  <p className="text-lg font-bold text-ziditech-600 dark:text-ziditech-400">
+                  <p className="text-lg font-bold" style={{ color: '#1e2d6b' }}>
                     {formatCurrency(topPerformer.sales, posDetails?.currency || 'USD')}
                   </p>
-                  <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                  <div className="mt-3 text-xs text-gray-500">
                     {filteredStats.totalRevenue > 0 ? ((topPerformer.sales / filteredStats.totalRevenue) * 100).toFixed(1) : 0}% of total sales
                   </div>
                 </div>
               ) : (
-                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                <div className="text-center py-8 text-gray-500">
                   No sales data available for selected period
                 </div>
               )}
             </div>
 
             {/* Weekly Trend */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+            <div className="bg-white rounded-xl p-4 border border-gray-200">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Weekly Trend</h3>
+                <h3 className="text-lg font-semibold text-gray-900">Weekly Trend</h3>
                 <Calendar className="w-5 h-5 text-gray-400" />
               </div>
               <div className="h-24 flex items-end justify-between space-x-1 mb-4">
@@ -808,24 +808,25 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
                   <div key={index} className="flex flex-col items-center flex-1 group">
                     <div className="relative">
                       <div
-                        className="w-full bg-ziditech-600 dark:bg-ziditech-500 rounded-t hover:bg-ziditech-700 dark:hover:bg-ziditech-400 transition-colors cursor-pointer"
+                        className="w-full rounded-t cursor-pointer transition-opacity hover:opacity-80"
                         style={{
                           height: `${(item.sales / Math.max(...stats.salesByDay.map((s: { day: string; sales: number }) => s.sales))) * 60}px`,
                           minHeight: "4px",
+                          backgroundColor: '#1e2d6b',
                         }}
                         title={`${item.day}: ${formatCurrency(item.sales, posDetails?.currency || 'USD')}`}
                       ></div>
-                      <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-gray-800 dark:bg-gray-700 text-white text-xs px-1 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                      <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs px-1 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
                         {formatCurrency(item.sales, posDetails?.currency || 'USD')}
                       </div>
                     </div>
-                    <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">{item.day}</span>
+                    <span className="text-xs text-gray-500 mt-1">{item.day}</span>
                   </div>
                 ))}
               </div>
               <div className="text-center">
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  Best day: <span className="font-semibold text-ziditech-600 dark:text-ziditech-400">Friday</span>
+                <div className="text-sm text-gray-600">
+                  Best day: <span className="font-semibold" style={{ color: '#1e2d6b' }}>Friday</span>
                 </div>
               </div>
             </div>
@@ -834,38 +835,38 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
           {/* Bottom Section */}
           <div className="grid grid-cols-1 gap-4">
             {/* Top Products */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+            <div className="bg-white rounded-xl p-4 border border-gray-200">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Top Selling Products</h3>
-                <button className="text-sm text-ziditech-600 dark:text-ziditech-400 hover:underline">View All</button>
+                <h3 className="text-lg font-semibold text-gray-900">Top Selling Products</h3>
+                <button className="text-sm hover:underline" style={{ color: '#1e2d6b' }}>View All</button>
               </div>
               <div className="space-y-3">
                 {topProducts.map((product, index) => (
                   <div
                     key={product.id}
-                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                   >
                     <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-ziditech-100 dark:bg-ziditech-900/20 rounded-lg flex items-center justify-center">
-                        <span className="text-sm font-bold text-ziditech-600 dark:text-ziditech-400">{index + 1}</span>
+                      <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#eef1f8' }}>
+                        <span className="text-sm font-bold" style={{ color: '#1e2d6b' }}>{index + 1}</span>
                       </div>
                       <div>
-                        <div className="font-medium text-gray-900 dark:text-white">{product.name}</div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400 capitalize">
+                        <div className="font-medium text-gray-900">{product.name}</div>
+                        <div className="text-sm text-gray-500 capitalize">
                           {product.sales} sold
                         </div>
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="font-semibold text-gray-900 dark:text-white">{formatCurrency(product.revenue, posDetails?.currency || 'USD')}</div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
+                      <div className="font-semibold text-gray-900">{formatCurrency(product.revenue, posDetails?.currency || 'USD')}</div>
+                      <div className="text-xs text-gray-500">
                         {formatCurrency(product.sales > 0 ? (product.revenue / product.sales) : 0, posDetails?.currency || 'USD')} avg
                       </div>
                     </div>
                   </div>
                 ))}
                 {topProducts.length === 0 && (
-                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  <div className="text-center py-8 text-gray-500">
                     No product data available for selected period
                   </div>
                 )}
@@ -873,12 +874,13 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
             </div>
 
             {/* Recent Transactions */}
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
+            <div className="bg-white rounded-xl p-4 border border-gray-200">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Recent Transactions</h3>
+                <h3 className="text-lg font-semibold text-gray-900">Recent Transactions</h3>
                 <button
                   onClick={() => navigate("/closing_shift")}
-                  className="text-sm text-ziditech-600 dark:text-ziditech-400 hover:underline"
+                  className="text-sm hover:underline"
+                  style={{ color: '#1e2d6b' }}
                 >
                   View All Reports
                 </button>
@@ -887,35 +889,36 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
                 {recentTransactions.map((transaction) => (
                   <div
                     key={transaction.id}
-                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                   >
                     <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-gray-100 dark:bg-gray-600 rounded-lg flex items-center justify-center">
+                      <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
                         {transaction.paymentMethod === "Cash" ? (
                           <span className="text-lg">💵</span>
                         ) : (
-                          <CreditCard className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                          <CreditCard className="w-4 h-4 text-gray-600" />
                         )}
                       </div>
                       <div>
-                        <div className="font-medium text-gray-900 dark:text-white">{transaction.id}</div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">
+                        <div className="font-medium text-gray-900">{transaction.id}</div>
+                        <div className="text-sm text-gray-500">
                           {transaction.customer} • {transaction.time}
                         </div>
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="font-semibold text-gray-900 dark:text-white">
+                      <div className="font-semibold text-gray-900">
                         {formatCurrency(transaction.totalAmount, transaction.currency || posDetails?.currency || 'USD')}
                       </div>
                       <div
                         className={`text-xs ${
                           transaction.status === "Completed"
-                            ? "text-ziditech-600 dark:text-ziditech-400"
+                            ? ""
                             : transaction.status === "Refunded"
-                              ? "text-red-600 dark:text-red-400"
-                              : "text-yellow-600 dark:text-yellow-400"
+                              ? "text-red-600"
+                              : "text-yellow-600"
                         }`}
+                        style={transaction.status === "Completed" ? { color: '#1e2d6b' } : {}}
                       >
                         {transaction.status}
                       </div>
@@ -923,7 +926,7 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
                   </div>
                 ))}
                 {recentTransactions.length === 0 && (
-                  <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  <div className="text-center py-8 text-gray-500">
                     No transactions available for selected period
                   </div>
                 )}
@@ -939,21 +942,21 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex pb-12">
+    <div className="min-h-screen flex pb-12" style={{ backgroundColor: '#eef1f8' }}>
 
-      <div className="flex-1 flex flex-col overflow-hidden ml-20">
+      <div className="flex-1 flex flex-col overflow-hidden">
       {/* Header */}
-      <div className="fixed top-0 left-20 right-0 z-50 bg-ziditech-50 dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+      <div className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">
         <div className="px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
 
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Sales Dashboard</h1>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Sales Dashboard</h1>
             </div>
             <div className="flex items-center space-x-2 sm:space-x-3">
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className="flex items-center space-x-2 px-3 sm:px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                className="flex items-center space-x-2 px-3 sm:px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 <Filter className="w-4 h-4" />
                 <span className="hidden sm:inline">Filters</span>
@@ -971,18 +974,18 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
         </div>
       </div>
 
-        <div className="flex-1 px-6 py-8 mt-16">
+        <div className="flex-1 px-6 py-8">
         {/* Enhanced Filters */}
         {showFilters && (
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-200 dark:border-gray-700 mb-6 sm:mb-8">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Dashboard Filters</h3>
+          <div className="bg-white rounded-xl p-4 sm:p-6 border border-gray-200 mb-6 sm:mb-8">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Dashboard Filters</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Time Range</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Time Range</label>
                 <select
                   value={timeRange}
                   onChange={(e) => setTimeRange(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-ziditech-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 bg-white text-gray-900"
                 >
                   <option value="">Current POS Session</option>
                   <option value="today">Today</option>
@@ -991,12 +994,12 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Cashier</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Cashier</label>
                 <select
                   value={cashierFilter}
                   onChange={(e) => setCashierFilter(e.target.value)}
                   disabled={!isAdminUser}
-                  className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-ziditech-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
+                  className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 bg-white text-gray-900 ${
                     !isAdminUser ? 'opacity-50 cursor-not-allowed' : ''
                   }`}
                 >
@@ -1008,19 +1011,19 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
                   ))}
                 </select>
                 {!isAdminUser && (
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  <p className="text-xs text-gray-500 mt-1">
                     Showing only your transactions
                   </p>
                 )}
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Payment Method
                 </label>
                 <select
                   value={paymentFilter}
                   onChange={(e) => setPaymentFilter(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-ziditech-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 bg-white text-gray-900"
                 >
                   <option value="all">All Methods</option>
                   <option value="Cash">Cash</option>
@@ -1034,7 +1037,7 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
                     setCashierFilter("all")
                     setPaymentFilter("all")
                   }}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-900"
                 >
                   Reset Filters
                 </button>
@@ -1045,78 +1048,78 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
 
         {/* Enhanced Key Metrics */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow">
+          <div className="bg-white rounded-xl p-4 sm:p-6 border border-gray-200 hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Total Revenue</p>
-                <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+                <p className="text-sm text-gray-600">Total Revenue</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900">
                   {formatCurrency(filteredStats.totalRevenue, posDetails?.currency || 'USD')}
                 </p>
                 <div className="flex items-center mt-2">
                   <TrendingUp className="w-4 h-4 text-orange-500 mr-1" />
-                  <span className="text-sm text-orange-600 dark:text-orange-400">+12.5%</span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400 ml-1 hidden sm:inline">vs last period</span>
+                  <span className="text-sm text-orange-600">+12.5%</span>
+                  <span className="text-xs text-gray-500 ml-1 hidden sm:inline">vs last period</span>
                 </div>
               </div>
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-orange-100 dark:bg-orange-900/20 rounded-lg flex items-center justify-center">
-                <DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600 dark:text-orange-400" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                <DollarSign className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow">
+          <div className="bg-white rounded-xl p-4 sm:p-6 border border-gray-200 hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Transactions</p>
-                <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+                <p className="text-sm text-gray-600">Transactions</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900">
                   {filteredStats.totalTransactions}
                 </p>
                 <div className="flex items-center mt-2">
                   <TrendingUp className="w-4 h-4 text-orange-500 mr-1" />
-                  <span className="text-sm text-orange-600 dark:text-ziditech-400">+8.2%</span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400 ml-1 hidden sm:inline">vs last period</span>
+                  <span className="text-sm text-orange-600">+8.2%</span>
+                  <span className="text-xs text-gray-500 ml-1 hidden sm:inline">vs last period</span>
                 </div>
               </div>
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-ziditech-100 dark:bg-ziditech-900/20 rounded-lg flex items-center justify-center">
-                <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600 dark:text-ziditech-400" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#eef1f8' }}>
+                <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: '#1e2d6b' }} />
               </div>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow">
+          <div className="bg-white rounded-xl p-4 sm:p-6 border border-gray-200 hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Avg Order Value</p>
-                <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+                <p className="text-sm text-gray-600">Avg Order Value</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900">
                   {formatCurrency(filteredStats.averageOrderValue, posDetails?.currency || 'USD')}
                 </p>
                 <div className="flex items-center mt-2">
                   <TrendingUp className="w-4 h-4 text-orange-500 mr-1" />
-                  <span className="text-sm text-orange-600 dark:text-orange-400">+3.8%</span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400 ml-1 hidden sm:inline">vs last period</span>
+                  <span className="text-sm text-orange-600">+3.8%</span>
+                  <span className="text-xs text-gray-500 ml-1 hidden sm:inline">vs last period</span>
                 </div>
               </div>
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-orange-100 dark:bg-orange-900/20 rounded-lg flex items-center justify-center">
-                <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600 dark:text-orange-400" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                <BarChart3 className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-shadow">
+          <div className="bg-white rounded-xl p-4 sm:p-6 border border-gray-200 hover:shadow-lg transition-shadow">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Items Sold</p>
-                <p className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+                <p className="text-sm text-gray-600">Items Sold</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900">
                   {filteredStats.totalItems}
                 </p>
                 <div className="flex items-center mt-2">
                   <TrendingDown className="w-4 h-4 text-red-500 mr-1" />
-                  <span className="text-sm text-red-600 dark:text-red-400">-2.1%</span>
-                  <span className="text-xs text-gray-500 dark:text-gray-400 ml-1 hidden sm:inline">vs last period</span>
+                  <span className="text-sm text-red-600">-2.1%</span>
+                  <span className="text-xs text-gray-500 ml-1 hidden sm:inline">vs last period</span>
                 </div>
               </div>
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-orange-100 dark:bg-orange-900/20 rounded-lg flex items-center justify-center">
-                <Activity className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600 dark:text-orange-400" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-orange-100 rounded-lg flex items-center justify-center">
+                <Activity className="w-5 h-5 sm:w-6 sm:h-6 text-orange-600" />
               </div>
             </div>
           </div>
@@ -1126,9 +1129,9 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
         <div className="grid grid-cols-1 gap-4 sm:gap-6 mb-6 sm:mb-8">
           {/* Sales by Hour Chart - Only show for today */}
           {timeRange === "today" && salesByHourData.length > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
+            <div className="bg-white rounded-xl p-4 sm:p-6 border border-gray-200">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Sales by Hour (Today)</h3>
+                <h3 className="text-lg font-semibold text-gray-900">Sales by Hour (Today)</h3>
                 <div className="flex items-center space-x-4">
                   {/* Graph Type Toggle */}
                   <div className="flex items-center space-x-2">
@@ -1136,9 +1139,10 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
                       onClick={() => setSalesByHourGraphType("bar")}
                       className={`px-3 py-1 text-xs rounded-lg transition-colors ${
                         salesByHourGraphType === "bar"
-                          ? "bg-ziditech-600 text-white"
-                          : "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600"
+                          ? "text-white"
+                          : "bg-gray-200 text-gray-600 hover:bg-gray-300"
                       }`}
+                      style={salesByHourGraphType === "bar" ? { backgroundColor: '#1e2d6b' } : {}}
                     >
                       Bar
                     </button>
@@ -1146,16 +1150,17 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
                       onClick={() => setSalesByHourGraphType("line")}
                       className={`px-3 py-1 text-xs rounded-lg transition-colors ${
                         salesByHourGraphType === "line"
-                          ? "bg-ziditech-600 text-white"
-                          : "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-300 dark:hover:bg-gray-600"
+                          ? "text-white"
+                          : "bg-gray-200 text-gray-600 hover:bg-gray-300"
                       }`}
+                      style={salesByHourGraphType === "line" ? { backgroundColor: '#1e2d6b' } : {}}
                     >
                       Line
                     </button>
                   </div>
                   <div className="flex items-center space-x-2">
                     <Clock className="w-5 h-5 text-gray-400" />
-                    <span className="text-sm text-gray-500 dark:text-gray-400 hidden sm:inline">
+                    <span className="text-sm text-gray-500 hidden sm:inline">
                                                                       {/* @ts-expect-error just ignore */}
                       Peak: {salesByHourData.reduce((max, item) => item.sales > max.sales ? item : max, salesByHourData[0])?.hour || "N/A"}
                     </span>
@@ -1172,10 +1177,11 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
                       <div className="relative w-full">
                         {salesByHourGraphType === "bar" ? (
                           <div
-                            className="w-full bg-ziditech-600 dark:bg-ziditech-500 rounded-t hover:bg-ziditech-700 dark:hover:bg-ziditech-400 transition-colors cursor-pointer"
+                            className="w-full rounded-t cursor-pointer transition-opacity hover:opacity-80"
                             style={{
                               height: `${height}px`,
                               minHeight: "4px",
+                              backgroundColor: '#1e2d6b',
                             }}
                             title={`${item.hour}: ${formatCurrency(item.sales, posDetails?.currency || 'USD')}`}
                           ></div>
@@ -1190,26 +1196,24 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
                                   y1={`${100 - (salesByHourData[index - 1].sales / maxSales) * 100}`}
                                   x2="100"
                                   y2={`${100 - (item.sales / maxSales) * 100}`}
-                                  stroke="currentColor"
+                                  stroke="#1e2d6b"
                                   strokeWidth="2"
-                                  className="text-ziditech-600 dark:text-ziditech-400"
                                 />
                               )}
                               <circle
                                 cx="100"
                                 cy={`${100 - (item.sales / maxSales) * 100}`}
                                 r="3"
-                                fill="currentColor"
-                                className="text-ziditech-600 dark:text-ziditech-400"
+                                fill="#1e2d6b"
                               />
                             </svg>
                           </div>
                         )}
-                        <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-800 dark:bg-gray-700 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                        <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
                           {formatCurrency(item.sales, posDetails?.currency || 'USD')}
                         </div>
                       </div>
-                      <span className="text-xs text-gray-500 dark:text-gray-400 mt-2 transform -rotate-45 origin-top-left">
+                      <span className="text-xs text-gray-500 mt-2 transform -rotate-45 origin-top-left">
                         {item.hour}
                       </span>
                     </div>
@@ -1217,8 +1221,8 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
                 })}
               </div>
               <div className="mt-4 text-center">
-                <div className="text-sm text-gray-600 dark:text-gray-400">
-                  Total Revenue: <span className="font-semibold text-ziditech-600 dark:text-ziditech-400">
+                <div className="text-sm text-gray-600">
+                  Total Revenue: <span className="font-semibold" style={{ color: '#1e2d6b' }}>
                     {formatCurrency(salesByHourData.reduce((sum, item) => sum + item.sales, 0), posDetails?.currency || 'USD')}
                   </span>
                 </div>
@@ -1227,26 +1231,26 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
           )}
 
           {/* Enhanced Payment Methods Chart */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
+          <div className="bg-white rounded-xl p-4 sm:p-6 border border-gray-200">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Payment Methods</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Payment Methods</h3>
               <PieChart className="w-5 h-5 text-gray-400" />
             </div>
             <div className="space-y-4">
               {paymentMethodsData.map((method, index) => {
-                const colors = ['bg-orange-500', 'bg-ziditech-600', 'bg-ziditech-500', 'bg-ziditech-500', 'bg-pink-500']
-                const color = colors[index % colors.length]
+                const hexColors = ['#f97316', '#1e2d6b', '#6366f1', '#8b5cf6', '#ec4899']
+                const color = hexColors[index % hexColors.length]
                 return (
-                  <div key={method.method} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <div key={method.method} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div className="flex items-center space-x-3">
-                      <div className={`w-4 h-4 ${color} rounded`}></div>
-                      <span className="text-sm text-gray-700 dark:text-gray-300">{method.method}</span>
+                      <div className="w-4 h-4 rounded" style={{ backgroundColor: color }}></div>
+                      <span className="text-sm text-gray-700">{method.method}</span>
                     </div>
                     <div className="text-right">
-                      <div className="font-semibold text-gray-900 dark:text-white">
+                      <div className="font-semibold text-gray-900">
                         {formatCurrency(method.amount, posDetails?.currency || 'USD')}
                       </div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                      <div className="text-sm text-gray-500">
                         {method.percentage.toFixed(1)}% • {method.transactions} txns
                       </div>
                     </div>
@@ -1254,7 +1258,7 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
                 )
               })}
               {paymentMethodsData.length === 0 && (
-                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                <div className="text-center py-8 text-gray-500">
                   No payment data available for selected period
                 </div>
               )}
@@ -1262,13 +1266,12 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
             <div className="mt-4">
               <div className="flex rounded-lg overflow-hidden h-4">
                 {paymentMethodsData.map((method, index) => {
-                  const colors = ['bg-orange-500', 'bg-ziditech-600', 'bg-ziditech-500', 'bg-ziditech-500', 'bg-pink-500']
-                  const color = colors[index % colors.length]
+                  const hexColors = ['#f97316', '#1e2d6b', '#6366f1', '#8b5cf6', '#ec4899']
+                  const color = hexColors[index % hexColors.length]
                   return (
                     <div
                       key={method.method}
-                      className={color}
-                      style={{ width: `${method.percentage}%` }}
+                      style={{ width: `${method.percentage}%`, backgroundColor: color }}
                     ></div>
                   )
                 })}
@@ -1281,9 +1284,9 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-6 sm:mb-8">
           {/* ZATCA Status Bar Chart (desktop) */}
           {posDetails?.is_zatca_enabled && zatcaData.total > 0 && (
-            <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
+            <div className="bg-white rounded-xl p-4 sm:p-6 border border-gray-200">
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">ZATCA Status</h3>
+                <h3 className="text-lg font-semibold text-gray-900">ZATCA Status</h3>
                 <BarChart3 className="w-5 h-5 text-gray-400" />
               </div>
               <div className="h-64 flex items-end justify-between space-x-3 mb-6">
@@ -1303,11 +1306,11 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
                           }}
                           title={`${segment.status}: ${segment.count} (${Math.round(segment.percentage)}%)`}
                         ></div>
-                        <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-gray-800 dark:bg-gray-700 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                        <div className="absolute -top-10 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
                           {segment.count}
                         </div>
                       </div>
-                      <span className="text-xs text-gray-500 dark:text-gray-400 mt-3 text-center leading-tight">
+                      <span className="text-xs text-gray-500 mt-3 text-center leading-tight">
                         {segment.status}
                       </span>
                     </div>
@@ -1319,17 +1322,17 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
                   <div key={segment.status} className="flex items-center justify-between text-sm">
                     <div className="flex items-center gap-2">
                       <span className="w-3 h-3 rounded-sm" style={{ backgroundColor: segment.color }}></span>
-                      <span className="text-gray-700 dark:text-gray-300">{segment.status}</span>
+                      <span className="text-gray-700">{segment.status}</span>
                     </div>
-                    <span className="text-gray-600 dark:text-gray-400">
+                    <span className="text-gray-600">
                       {segment.count} ({Math.round(segment.percentage)}%)
                     </span>
                   </div>
                 ))}
               </div>
-              <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-600">
-                <div className="text-center text-sm text-gray-600 dark:text-gray-400">
-                  Total Invoices: <span className="font-semibold text-ziditech-600 dark:text-ziditech-400">{zatcaData.total}</span>
+              <div className="mt-6 pt-4 border-t border-gray-200">
+                <div className="text-center text-sm text-gray-600">
+                  Total Invoices: <span className="font-semibold" style={{ color: '#1e2d6b' }}>{zatcaData.total}</span>
                 </div>
               </div>
             </div>
@@ -1337,14 +1340,14 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
 
 
           {/* Enhanced Top Cashier */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
+          <div className="bg-white rounded-xl p-4 sm:p-6 border border-gray-200">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Top Performer</h3>
-              <Users className="w-5 h-5 text-ziditech-600 dark:text-ziditech-400" />
+              <h3 className="text-lg font-semibold text-gray-900">Top Performer</h3>
+              <Users className="w-5 h-5" style={{ color: '#1e2d6b' }} />
             </div>
             {topPerformer ? (
               <div className="text-center">
-                <div className="w-16 h-16 bg-ziditech-600 rounded-full flex items-center justify-center mx-auto mb-3 relative">
+                <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 relative" style={{ backgroundColor: '#1e2d6b' }}>
                   <span className="text-white font-bold text-xl">
                     {topPerformer.name
                       .split(" ")
@@ -1355,19 +1358,19 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
                     <span className="text-xs">👑</span>
                   </div>
                 </div>
-                <h4 className="font-semibold text-gray-900 dark:text-white">{topPerformer.name}</h4>
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                <h4 className="font-semibold text-gray-900">{topPerformer.name}</h4>
+                <p className="text-sm text-gray-500 mb-2">
                   {topPerformer.transactions} transactions
                 </p>
-                <p className="text-lg font-bold text-ziditech-600 dark:text-ziditech-400">
+                <p className="text-lg font-bold" style={{ color: '#1e2d6b' }}>
                   {formatCurrency(topPerformer.sales, posDetails?.currency || 'USD')}
                 </p>
-                <div className="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                <div className="mt-3 text-xs text-gray-500">
                   {filteredStats.totalRevenue > 0 ? ((topPerformer.sales / filteredStats.totalRevenue) * 100).toFixed(1) : 0}% of total sales
                 </div>
               </div>
             ) : (
-              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+              <div className="text-center py-8 text-gray-500">
                 No sales data available for selected period
               </div>
             )}
@@ -1379,38 +1382,38 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
         {/* Bottom Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
           {/* Enhanced Top Products */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
+          <div className="bg-white rounded-xl p-4 sm:p-6 border border-gray-200">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Top Selling Products</h3>
-              <button className="text-sm text-ziditech-600 dark:text-ziditech-400 hover:underline">View All</button>
+              <h3 className="text-lg font-semibold text-gray-900">Top Selling Products</h3>
+              <button className="text-sm hover:underline" style={{ color: '#1e2d6b' }}>View All</button>
             </div>
             <div className="space-y-4">
               {topProducts.map((product, index) => (
                 <div
                   key={product.id}
-                  className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                 >
                   <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-ziditech-100 dark:bg-ziditech-900/20 rounded-lg flex items-center justify-center">
-                      <span className="text-sm font-bold text-ziditech-600 dark:text-ziditech-400">{index + 1}</span>
+                    <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#eef1f8' }}>
+                      <span className="text-sm font-bold" style={{ color: '#1e2d6b' }}>{index + 1}</span>
                     </div>
                     <div>
-                      <div className="font-medium text-gray-900 dark:text-white">{product.name}</div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400 capitalize">
+                      <div className="font-medium text-gray-900">{product.name}</div>
+                      <div className="text-sm text-gray-500 capitalize">
                         {product.sales} sold
                       </div>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-semibold text-gray-900 dark:text-white">{formatCurrency(product.revenue, posDetails?.currency || 'USD')}</div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400">
+                    <div className="font-semibold text-gray-900">{formatCurrency(product.revenue, posDetails?.currency || 'USD')}</div>
+                    <div className="text-xs text-gray-500">
                       {formatCurrency(product.sales > 0 ? (product.revenue / product.sales) : 0, posDetails?.currency || 'USD')} avg
                     </div>
                   </div>
                 </div>
               ))}
               {topProducts.length === 0 && (
-                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                <div className="text-center py-8 text-gray-500">
                   No product data available for selected period
                 </div>
               )}
@@ -1418,12 +1421,13 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
           </div>
 
           {/* Enhanced Recent Transactions */}
-          <div className="bg-white dark:bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-200 dark:border-gray-700">
+          <div className="bg-white rounded-xl p-4 sm:p-6 border border-gray-200">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Recent Transactions</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Recent Transactions</h3>
               <button
                 onClick={() => navigate("/closing_shift")}
-                className="text-sm text-ziditech-600 dark:text-ziditech-400 hover:underline"
+                className="text-sm hover:underline"
+                style={{ color: '#1e2d6b' }}
               >
                 View All Reports
               </button>
@@ -1432,35 +1436,36 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
               {recentTransactions.map((transaction) => (
                 <div
                   key={transaction.id}
-                  className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                  className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
                 >
                   <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-gray-100 dark:bg-gray-600 rounded-lg flex items-center justify-center">
+                    <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
                       {transaction.paymentMethod === "Cash" ? (
                         <span className="text-lg">💵</span>
                       ) : (
-                        <CreditCard className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+                        <CreditCard className="w-4 h-4 text-gray-600" />
                       )}
                     </div>
                     <div>
-                      <div className="font-medium text-gray-900 dark:text-white">{transaction.id}</div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">
+                      <div className="font-medium text-gray-900">{transaction.id}</div>
+                      <div className="text-sm text-gray-500">
                         {transaction.customer} • {transaction.time}
                       </div>
                     </div>
                   </div>
                   <div className="text-right">
-                    <div className="font-semibold text-gray-900 dark:text-white">
+                    <div className="font-semibold text-gray-900">
                       {formatCurrency(transaction.totalAmount, transaction.currency || posDetails?.currency || 'USD')}
                     </div>
                     <div
                       className={`text-xs ${
                         transaction.status === "Completed"
-                          ? "text-ziditech-600 dark:text-ziditech-400"
+                          ? ""
                           : transaction.status === "Refunded"
-                            ? "text-red-600 dark:text-red-400"
-                            : "text-yellow-600 dark:text-yellow-400"
+                            ? "text-red-600"
+                            : "text-yellow-600"
                       }`}
+                      style={transaction.status === "Completed" ? { color: '#1e2d6b' } : {}}
                     >
                       {transaction.status}
                     </div>
@@ -1468,7 +1473,7 @@ if (Object.prototype.hasOwnProperty.call(hourlySales, hour)) {
                 </div>
               ))}
               {recentTransactions.length === 0 && (
-                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                <div className="text-center py-8 text-gray-500">
                   No transactions available for selected period
                 </div>
               )}

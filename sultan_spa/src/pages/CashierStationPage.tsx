@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ScanBarcode, Search, Receipt, CreditCard, ArrowRight } from 'lucide-react';
+import { ScanBarcode, Receipt, ArrowRight } from 'lucide-react';
 import { toast } from 'react-toastify';
 
 export default function CashierStationPage() {
@@ -29,93 +29,50 @@ export default function CashierStationPage() {
   }, []);
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-center p-6"
-      style={{ backgroundColor: '#0D0033' }}
-    >
-      {/* Glow */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[500px] h-[300px] bg-ziditech-600/15 rounded-full blur-[100px]" />
-      </div>
-
-      <div
-        className="relative z-10 w-full max-w-md rounded-3xl overflow-hidden shadow-2xl"
-        style={{ backgroundColor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
-      >
-        {/* Terminal header */}
-        <div className="bg-ziditech-600 p-8 flex flex-col items-center text-white text-center">
-          <div className="bg-white/20 p-4 rounded-2xl backdrop-blur-sm mb-4">
-            <ScanBarcode className="w-10 h-10" />
+    <div className="min-h-screen flex items-center justify-center p-6" style={{ backgroundColor: '#eef1f8' }}>
+      <div className="w-full max-w-sm">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl mb-4" style={{ backgroundColor: '#1e2d6b' }}>
+            <ScanBarcode className="w-7 h-7 text-white" />
           </div>
-          <h1 className="text-2xl font-black tracking-tight">Cashier Terminal</h1>
-          <p className="mt-1 text-sm opacity-80">Scan receipt or type order ID to start payment</p>
+          <h1 className="text-xl font-bold text-gray-900">Cashier Terminal</h1>
+          <p className="text-sm text-gray-500 mt-1">Scan or enter an invoice ID to process payment</p>
         </div>
 
-        {/* Body */}
-        <div className="p-8">
-          <form onSubmit={handleSearch} className="space-y-5">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+          <form onSubmit={handleSearch} className="space-y-4">
             <div className="relative">
-              <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none" style={{ color: '#9a88ff' }}>
-                <Receipt className="w-5 h-5" />
+              <div className="absolute inset-y-0 left-3.5 flex items-center pointer-events-none">
+                <Receipt className="w-4 h-4 text-gray-400" />
               </div>
               <input
                 id="cashier-barcode-entry"
                 type="text"
                 value={barcodeInput}
                 onChange={(e) => setBarcodeInput(e.target.value)}
-                placeholder="Enter Order / Invoice #"
+                placeholder="Order / Invoice #"
                 autoComplete="off"
-                style={{
-                  width: '100%',
-                  paddingLeft: '3rem',
-                  paddingRight: '1rem',
-                  paddingTop: '1rem',
-                  paddingBottom: '1rem',
-                  backgroundColor: 'rgba(255,255,255,0.06)',
-                  border: '1px solid rgba(255,255,255,0.12)',
-                  borderRadius: '1rem',
-                  fontSize: '1.1rem',
-                  fontWeight: '600',
-                  color: '#f0eeff',
-                  outline: 'none',
-                }}
-                onFocus={e => { e.target.style.borderColor = '#7c60f5'; e.target.style.boxShadow = '0 0 0 3px rgba(124,96,245,0.15)'; }}
-                onBlur={e => { e.target.style.borderColor = 'rgba(255,255,255,0.12)'; e.target.style.boxShadow = 'none'; }}
+                className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm font-medium text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:border-transparent"
+                style={{ '--tw-ring-color': '#1e2d6b' } as any}
+                onFocus={e => { e.target.style.borderColor = '#1e2d6b'; e.target.style.boxShadow = '0 0 0 3px rgba(30,45,107,0.1)'; }}
+                onBlur={e => { e.target.style.borderColor = '#e5e7eb'; e.target.style.boxShadow = 'none'; }}
               />
             </div>
 
             <button
               type="submit"
               disabled={!barcodeInput.trim() || searching}
-              className="w-full flex items-center justify-center gap-2 py-4 bg-ziditech-600 hover:bg-ziditech-500 text-white rounded-2xl text-lg font-black shadow-xl shadow-ziditech-600/20 active:scale-[0.98] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              className="w-full flex items-center justify-center gap-2 py-3 text-white rounded-xl text-sm font-semibold transition-all active:scale-[0.98] disabled:opacity-40"
+              style={{ backgroundColor: '#1e2d6b' }}
             >
               {searching ? (
-                <span className="animate-pulse">Locating...</span>
+                <span>Locating...</span>
               ) : (
-                <>Proceed to Payment <ArrowRight className="w-5 h-5" /></>
+                <>Proceed to Payment <ArrowRight className="w-4 h-4" /></>
               )}
             </button>
           </form>
-
-          {/* Feature chips */}
-          <div
-            className="mt-8 grid grid-cols-2 gap-4 pt-8"
-            style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}
-          >
-            {[
-              { icon: CreditCard, label: 'Supports Cards' },
-              { icon: Search, label: 'Fuzzy Search' },
-            ].map(({ icon: Icon, label }) => (
-              <div
-                key={label}
-                className="flex flex-col items-center p-4 rounded-xl"
-                style={{ backgroundColor: 'rgba(255,255,255,0.04)' }}
-              >
-                <Icon className="w-6 h-6 mb-2" style={{ color: '#7c60f5' }} />
-                <span className="text-xs font-black uppercase tracking-widest" style={{ color: '#8878c8' }}>{label}</span>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
     </div>

@@ -176,46 +176,45 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className={`min-h-screen bg-ziditech-950 text-white ${isRTL ? "rtl" : "ltr"} pb-24 lg:pb-0 lg:pl-20`}>
-      <div className="fixed inset-0 bg-grid-pattern opacity-5 pointer-events-none" />
-
+    <div className={`min-h-screen ${isRTL ? "rtl" : "ltr"} pb-24 lg:pb-0 lg:pl-20`} style={{ backgroundColor: '#eef1f8' }}>
       {/* Header */}
-      <div className="bg-ziditech-950/80 backdrop-blur-xl border-b border-white/10 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-8 py-5 flex items-center justify-between">
-          <div className="flex items-center space-x-5">
-            <button onClick={() => navigate(-1)} className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl border border-white/5 transition-all active:scale-90">
-              <ArrowLeft className="w-5 h-5 text-white" />
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <button onClick={() => navigate(-1)} className="p-2 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all active:scale-90">
+              <ArrowLeft className="w-5 h-5 text-gray-700" />
             </button>
             <div>
-              <h1 className="text-2xl font-black text-white tracking-tight uppercase">Control Center</h1>
-              <p className="text-[10px] font-black text-ziditech-400 uppercase tracking-[0.2em]">Sultan POS Management</p>
+              <h1 className="text-lg font-bold text-gray-900">Settings</h1>
+              <p className="text-xs text-gray-500">Sultan POS Management</p>
             </div>
           </div>
-          <button onClick={handleLogout} className="flex items-center space-x-2 px-5 py-2.5 text-red-400 bg-red-400/10 hover:bg-red-400/20 rounded-2xl font-black border border-red-400/10 transition-all active:scale-95">
+          <button onClick={handleLogout} className="flex items-center space-x-2 px-4 py-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-xl font-semibold text-sm border border-red-100 transition-all active:scale-95">
             <LogOut className="w-4 h-4" />
-            <span className="text-xs uppercase tracking-widest">Sign Out</span>
+            <span>Sign Out</span>
           </button>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-8 py-10 relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-10">
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Sidebar */}
           <div className="lg:col-span-1">
-            <div className="bg-white/5 backdrop-blur-xl rounded-[32px] border border-white/10 p-5 sticky top-28">
-              <nav className="space-y-2">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-3 sticky top-24">
+              <nav className="space-y-1">
                 {sections.map((s) => (
                   <button
                     key={s.id}
                     onClick={() => setActiveSection(s.id)}
-                    className={`w-full flex items-center space-x-3 px-5 py-4 rounded-2xl text-left transition-all duration-200 ${
+                    className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-left transition-all duration-150 ${
                       activeSection === s.id
-                        ? "bg-ziditech-600 text-white shadow-xl shadow-ziditech-600/30"
-                        : "text-gray-400 hover:bg-white/5"
+                        ? "text-white shadow-sm"
+                        : "text-gray-600 hover:bg-gray-50"
                     }`}
+                    style={activeSection === s.id ? { backgroundColor: '#1e2d6b' } : {}}
                   >
-                    <s.icon className={`w-5 h-5 ${activeSection === s.id ? "text-white" : "text-gray-500"}`} />
-                    <span className="font-black text-xs uppercase tracking-widest">{s.name}</span>
+                    <s.icon className={`w-4 h-4 ${activeSection === s.id ? "text-white" : "text-gray-400"}`} />
+                    <span className="font-semibold text-sm">{s.name}</span>
                   </button>
                 ))}
               </nav>
@@ -224,40 +223,38 @@ export default function SettingsPage() {
 
           {/* Content */}
           <div className="lg:col-span-3">
-            <div className="bg-white/5 backdrop-blur-xl rounded-[40px] border border-white/10 p-10 min-h-[600px] relative overflow-hidden">
-              <div className="absolute -top-20 -right-20 w-56 h-56 bg-ziditech-600/10 rounded-full blur-3xl" />
-
-              <div className="mb-10 relative z-10">
-                <h2 className="text-3xl font-black text-white tracking-tight uppercase">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 min-h-[500px]">
+              <div className="mb-8">
+                <h2 className="text-xl font-bold text-gray-900">
                   {sections.find(s => s.id === activeSection)?.name}
                 </h2>
-                <div className="h-1.5 w-12 bg-ziditech-600 rounded-full mt-3" />
+                <div className="h-1 w-10 rounded-full mt-2" style={{ backgroundColor: '#1e2d6b' }} />
               </div>
 
               {/* Profile Section */}
               {activeSection === "profile" && (
                 <div className="space-y-6 animate-in fade-in duration-300">
-                  <div className="flex items-center space-x-5">
-                    <div className="w-20 h-20 bg-gradient-to-br from-ziditech-500 to-ziditech-700 rounded-2xl flex items-center justify-center shadow-xl shadow-ziditech-600/20 shrink-0">
-                      <span className="text-white font-black text-2xl">{authUser?.full_name?.charAt(0) || "U"}</span>
+                  <div className="flex items-center space-x-4">
+                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center shrink-0" style={{ backgroundColor: '#1e2d6b' }}>
+                      <span className="text-white font-bold text-xl">{authUser?.full_name?.charAt(0) || "U"}</span>
                     </div>
                     <div>
-                      <h3 className="text-2xl font-black text-white">{authUser?.full_name || "Sultan User"}</h3>
-                      <span className="text-[10px] font-black uppercase tracking-[0.2em] text-ziditech-400 bg-ziditech-600/20 px-3 py-1 rounded-lg inline-block mt-1">{authUser?.role || "Operator"}</span>
-                      <p className="text-gray-400 mt-1 text-sm">{authUser?.email || "-"}</p>
+                      <h3 className="text-lg font-bold text-gray-900">{authUser?.full_name || "Sultan User"}</h3>
+                      <span className="text-xs font-semibold text-gray-500 bg-gray-100 px-2.5 py-1 rounded-lg inline-block mt-1">{authUser?.role || "Operator"}</span>
+                      <p className="text-sm text-gray-500 mt-1">{authUser?.email || "-"}</p>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
                     {[
                       { label: "Full Name", value: authUser?.full_name },
                       { label: "Email", value: authUser?.email || authUser?.name },
                       { label: "User ID", value: authUser?.name },
                       { label: "Role", value: authUser?.role || "Operator" },
                     ].map(f => (
-                      <div key={f.label} className="space-y-1">
-                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">{f.label}</label>
-                        <div className="px-4 py-3 bg-white/5 border border-white/5 rounded-xl text-white font-medium">{f.value || "—"}</div>
+                      <div key={f.label}>
+                        <label className="block text-xs font-semibold text-gray-500 mb-1.5">{f.label}</label>
+                        <div className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 font-medium">{f.value || "—"}</div>
                       </div>
                     ))}
                   </div>
@@ -266,71 +263,71 @@ export default function SettingsPage() {
 
               {/* User Management */}
               {activeSection === "users" && (
-                <div className="space-y-6 animate-in fade-in duration-300">
-                  <div className="flex justify-between items-center bg-white/5 p-5 rounded-2xl border border-white/10">
+                <div className="space-y-5 animate-in fade-in duration-300">
+                  <div className="flex justify-between items-center p-4 bg-gray-50 rounded-xl border border-gray-200">
                     <div>
-                      <h3 className="font-black text-white">System Operators</h3>
-                      <p className="text-xs text-gray-400 mt-0.5">Manage roles for ERPNext staff accounts</p>
+                      <h3 className="font-semibold text-gray-900 text-sm">System Operators</h3>
+                      <p className="text-xs text-gray-500 mt-0.5">Manage roles for ERPNext staff accounts</p>
                     </div>
-                    <div className="flex items-center space-x-3">
-                      <button onClick={fetchUsers} className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 text-gray-400 transition-all">
-                        <RefreshCw size={16} className={loadingUsers ? "animate-spin" : ""} />
+                    <div className="flex items-center space-x-2">
+                      <button onClick={fetchUsers} className="p-2 bg-white hover:bg-gray-100 rounded-xl border border-gray-200 text-gray-500 transition-all">
+                        <RefreshCw size={15} className={loadingUsers ? "animate-spin" : ""} />
                       </button>
-                      <button onClick={() => setShowAddUserModal(true)} className="px-5 py-2.5 bg-ziditech-600 text-white rounded-xl font-bold flex items-center space-x-2 hover:bg-ziditech-500 transition-all shadow-lg shadow-ziditech-600/20">
-                        <UserPlus size={18} /><span>New User</span>
+                      <button onClick={() => setShowAddUserModal(true)} className="px-4 py-2 text-white rounded-xl font-semibold text-sm flex items-center space-x-2 transition-all shadow-sm" style={{ backgroundColor: '#1e2d6b' }}>
+                        <UserPlus size={15} /><span>New User</span>
                       </button>
                     </div>
                   </div>
 
                   {loadingUsers ? (
                     <div className="flex items-center justify-center py-16">
-                      <div className="animate-spin rounded-full h-8 w-8 border-2 border-ziditech-600 border-t-transparent" />
+                      <div className="animate-spin rounded-full h-7 w-7 border-2 border-t-transparent" style={{ borderColor: '#1e2d6b', borderTopColor: 'transparent' }} />
                     </div>
                   ) : (
-                    <div className="bg-white/5 rounded-2xl border border-white/10 overflow-hidden">
+                    <div className="border border-gray-200 rounded-xl overflow-hidden">
                       <table className="w-full">
                         <thead>
-                          <tr className="bg-white/5">
-                            <th className="py-4 px-5 text-[10px] font-black text-gray-500 uppercase tracking-widest text-left">User</th>
-                            <th className="py-4 px-5 text-[10px] font-black text-gray-500 uppercase tracking-widest text-left">Role</th>
-                            <th className="py-4 px-5 text-[10px] font-black text-gray-500 uppercase tracking-widest text-right">Toggle Role</th>
+                          <tr className="bg-gray-50 border-b border-gray-200">
+                            <th className="py-3 px-4 text-[11px] font-semibold text-gray-500 uppercase tracking-wider text-left">User</th>
+                            <th className="py-3 px-4 text-[11px] font-semibold text-gray-500 uppercase tracking-wider text-left">Role</th>
+                            <th className="py-3 px-4 text-[11px] font-semibold text-gray-500 uppercase tracking-wider text-right">Actions</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-white/5">
+                        <tbody className="divide-y divide-gray-100">
                           {erpUsers.map(u => (
-                            <tr key={u.name} className="hover:bg-white/5 transition-colors">
-                              <td className="py-4 px-5">
+                            <tr key={u.name} className="hover:bg-gray-50 transition-colors">
+                              <td className="py-3 px-4">
                                 <div className="flex items-center space-x-3">
-                                  <div className="w-9 h-9 rounded-xl bg-ziditech-600/20 text-ziditech-400 flex items-center justify-center font-black text-sm shrink-0">
+                                  <div className="w-8 h-8 rounded-lg flex items-center justify-center font-semibold text-sm shrink-0 text-white" style={{ backgroundColor: '#1e2d6b' }}>
                                     {(u.full_name || u.name).charAt(0).toUpperCase()}
                                   </div>
                                   <div>
-                                    <div className="font-bold text-white text-sm">{u.full_name || u.name}</div>
-                                    <div className="text-xs text-gray-500">{u.email}</div>
+                                    <div className="font-medium text-gray-900 text-sm">{u.full_name || u.name}</div>
+                                    <div className="text-xs text-gray-400">{u.email}</div>
                                   </div>
                                 </div>
                               </td>
-                              <td className="py-4 px-5">
-                                <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${roleColors[u.role_profile_name || ""] || "bg-white/5 text-gray-400"}`}>
+                              <td className="py-3 px-4">
+                                <span className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold ${roleColors[u.role_profile_name || ""] || "bg-gray-100 text-gray-500"}`}>
                                   {u.role_profile_name || "No Role"}
                                 </span>
                               </td>
-                              <td className="py-4 px-5 text-right">
+                              <td className="py-3 px-4 text-right">
                                 <div className="flex items-center justify-end space-x-2">
                                   <select
                                     value={u.role_profile_name || ""}
                                     onChange={e => handleChangeRole(u, e.target.value)}
-                                    className="px-2 py-1.5 bg-white/5 border border-white/10 rounded-lg text-[11px] font-bold text-gray-300 focus:border-ziditech-500 outline-none appearance-none cursor-pointer hover:bg-white/10 transition-all"
+                                    className="px-2 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-[12px] font-medium text-gray-700 focus:border-[#1e2d6b] outline-none appearance-none cursor-pointer hover:bg-gray-100 transition-all"
                                     title="Change role"
                                   >
-                                    <option value="" className="bg-ziditech-900">— No Role —</option>
-                                    <option value="Cashier" className="bg-ziditech-900">Cashier</option>
-                                    <option value="Menu User" className="bg-ziditech-900">Menu User</option>
-                                    <option value="Administrator" className="bg-ziditech-900">Administrator</option>
+                                    <option value="">— No Role —</option>
+                                    <option value="Cashier">Cashier</option>
+                                    <option value="Menu User">Menu User</option>
+                                    <option value="Administrator">Administrator</option>
                                   </select>
                                   <button
                                     onClick={() => handleChangeRole(u, "")}
-                                    className="p-1.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 rounded-lg transition-all"
+                                    className="p-1.5 bg-red-50 hover:bg-red-100 border border-red-100 text-red-500 rounded-lg transition-all"
                                     title="Remove role"
                                   >
                                     <Trash2 size={14} />
@@ -340,7 +337,7 @@ export default function SettingsPage() {
                             </tr>
                           ))}
                           {erpUsers.length === 0 && !loadingUsers && (
-                            <tr><td colSpan={3} className="py-10 text-center text-gray-500 text-sm">No users found</td></tr>
+                            <tr><td colSpan={3} className="py-10 text-center text-gray-400 text-sm">No users found</td></tr>
                           )}
                         </tbody>
                       </table>
@@ -351,51 +348,51 @@ export default function SettingsPage() {
 
               {/* Warehouses */}
               {activeSection === "warehouses" && (
-                <div className="space-y-6 animate-in fade-in duration-300">
-                  <div className="flex justify-between items-center bg-white/5 p-5 rounded-2xl border border-white/10">
+                <div className="space-y-5 animate-in fade-in duration-300">
+                  <div className="flex justify-between items-center p-4 bg-gray-50 rounded-xl border border-gray-200">
                     <div>
-                      <h3 className="font-black text-white">Inventory Locations</h3>
-                      <p className="text-xs text-gray-400 mt-0.5">ERPNext warehouses linked to Sultan POS</p>
+                      <h3 className="font-semibold text-gray-900 text-sm">Inventory Locations</h3>
+                      <p className="text-xs text-gray-500 mt-0.5">ERPNext warehouses linked to Sultan POS</p>
                     </div>
-                    <div className="flex items-center space-x-3">
-                      <button onClick={fetchWarehouses} className="p-2.5 bg-white/5 hover:bg-white/10 rounded-xl border border-white/5 text-gray-400 transition-all">
-                        <RefreshCw size={16} className={loadingWarehouses ? "animate-spin" : ""} />
+                    <div className="flex items-center space-x-2">
+                      <button onClick={fetchWarehouses} className="p-2 bg-white hover:bg-gray-100 rounded-xl border border-gray-200 text-gray-500 transition-all">
+                        <RefreshCw size={15} className={loadingWarehouses ? "animate-spin" : ""} />
                       </button>
-                      <button onClick={() => setShowAddWarehouseModal(true)} className="px-5 py-2.5 bg-ziditech-600 text-white rounded-xl font-bold flex items-center space-x-2 hover:bg-ziditech-500 transition-all shadow-lg shadow-ziditech-600/20">
-                        <Plus size={18} /><span>New Warehouse</span>
+                      <button onClick={() => setShowAddWarehouseModal(true)} className="px-4 py-2 text-white rounded-xl font-semibold text-sm flex items-center space-x-2 transition-all shadow-sm" style={{ backgroundColor: '#1e2d6b' }}>
+                        <Plus size={15} /><span>New Warehouse</span>
                       </button>
                     </div>
                   </div>
 
                   {loadingWarehouses ? (
                     <div className="flex items-center justify-center py-16">
-                      <div className="animate-spin rounded-full h-8 w-8 border-2 border-ziditech-600 border-t-transparent" />
+                      <div className="animate-spin rounded-full h-7 w-7 border-2 border-t-transparent" style={{ borderColor: '#1e2d6b', borderTopColor: 'transparent' }} />
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {warehouses.map(w => (
-                        <div key={w.name} className="bg-white/5 border border-white/10 rounded-2xl p-5 hover:border-ziditech-500/40 transition-all group">
-                          <div className="flex items-center space-x-4 mb-4">
-                            <div className="p-3 bg-ziditech-600/20 text-ziditech-400 rounded-xl group-hover:bg-ziditech-600/30 transition-all">
-                              <MapPin size={22} />
+                        <div key={w.name} className="bg-gray-50 border border-gray-200 rounded-xl p-4 hover:border-gray-300 transition-all">
+                          <div className="flex items-center space-x-3 mb-3">
+                            <div className="p-2.5 rounded-xl" style={{ backgroundColor: '#eef1f8' }}>
+                              <MapPin size={18} style={{ color: '#1e2d6b' }} />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <h4 className="font-black text-white truncate">{w.warehouse_name}</h4>
-                              <div className="flex items-center space-x-1.5 mt-0.5">
-                                <Package size={12} className="text-gray-500" />
-                                <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{w.warehouse_type || "General"}</span>
+                              <h4 className="font-semibold text-gray-900 text-sm truncate">{w.warehouse_name}</h4>
+                              <div className="flex items-center space-x-1 mt-0.5">
+                                <Package size={11} className="text-gray-400" />
+                                <span className="text-[11px] text-gray-400">{w.warehouse_type || "General"}</span>
                               </div>
                             </div>
-                            <CheckCircle2 size={18} className="text-ziditech-500 shrink-0" />
+                            <CheckCircle2 size={16} style={{ color: '#1e2d6b' }} className="shrink-0" />
                           </div>
-                          <div className="border-t border-white/5 pt-3 flex items-center justify-between">
-                            <span className="text-xs text-gray-500">{w.city || w.name}</span>
-                            <span className="text-[10px] font-black uppercase tracking-widest text-ziditech-500">Active</span>
+                          <div className="border-t border-gray-200 pt-2.5 flex items-center justify-between">
+                            <span className="text-xs text-gray-400">{w.city || w.name}</span>
+                            <span className="text-[11px] font-semibold text-green-600">Active</span>
                           </div>
                         </div>
                       ))}
                       {warehouses.length === 0 && !loadingWarehouses && (
-                        <div className="col-span-2 py-10 text-center text-gray-500 text-sm">No warehouses found</div>
+                        <div className="col-span-2 py-10 text-center text-gray-400 text-sm">No warehouses found</div>
                       )}
                     </div>
                   )}
@@ -408,45 +405,45 @@ export default function SettingsPage() {
 
       {/* Add User Modal */}
       {showAddUserModal && (
-        <div className="fixed inset-0 bg-ziditech-950/80 backdrop-blur-md flex items-center justify-center z-[100] p-4">
-          <div className="bg-ziditech-900 border border-white/10 rounded-[32px] p-8 w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-            <div className="w-14 h-14 bg-ziditech-600/20 rounded-2xl flex items-center justify-center mb-6 text-ziditech-400">
-              <UserPlus size={28} />
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+          <div className="bg-white border border-gray-200 rounded-2xl p-7 w-full max-w-md shadow-xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-5" style={{ backgroundColor: '#eef1f8' }}>
+              <UserPlus size={22} style={{ color: '#1e2d6b' }} />
             </div>
-            <h3 className="text-2xl font-black text-white mb-1">Register Operator</h3>
-            <p className="text-gray-400 text-sm mb-6">Creates a real ERPNext user account.</p>
+            <h3 className="text-lg font-bold text-gray-900 mb-0.5">Register Operator</h3>
+            <p className="text-sm text-gray-500 mb-5">Creates a real ERPNext user account.</p>
             <div className="space-y-4">
               {[
                 { label: "Full Name", key: "first_name", placeholder: "e.g. Ahmed Ali", type: "text" },
                 { label: "Email Address", key: "email", placeholder: "operator@sultan.com", type: "email" },
               ].map(f => (
-                <div key={f.key} className="space-y-1.5">
-                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">{f.label}</label>
+                <div key={f.key}>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1.5">{f.label}</label>
                   <input
                     type={f.type}
                     placeholder={f.placeholder}
                     value={(newUser as any)[f.key]}
                     onChange={e => setNewUser(p => ({ ...p, [f.key]: e.target.value }))}
-                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-600 focus:border-ziditech-500 outline-none transition-all font-medium"
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:border-[#1e2d6b] outline-none transition-all"
                   />
                 </div>
               ))}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Role Profile</label>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Role Profile</label>
                 <select
                   value={newUser.role_profile_name}
                   onChange={e => setNewUser(p => ({ ...p, role_profile_name: e.target.value }))}
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:border-ziditech-500 outline-none transition-all font-bold appearance-none"
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 focus:border-[#1e2d6b] outline-none transition-all"
                 >
-                  <option value="Cashier" className="bg-ziditech-900">Cashier</option>
-                  <option value="Menu User" className="bg-ziditech-900">Menu User</option>
-                  <option value="Administrator" className="bg-ziditech-900">Administrator</option>
+                  <option value="Cashier">Cashier</option>
+                  <option value="Menu User">Menu User</option>
+                  <option value="Administrator">Administrator</option>
                 </select>
               </div>
             </div>
-            <div className="flex space-x-3 mt-8">
-              <button onClick={() => setShowAddUserModal(false)} className="flex-1 py-3 rounded-xl border border-white/10 font-black text-xs uppercase tracking-widest text-gray-400 hover:bg-white/5 transition-all">Cancel</button>
-              <button onClick={handleAddUser} className="flex-1 py-3 rounded-xl bg-ziditech-600 text-white font-black text-xs uppercase tracking-widest hover:bg-ziditech-500 shadow-xl shadow-ziditech-600/20 transition-all active:scale-95">Create in ERPNext</button>
+            <div className="flex space-x-3 mt-6">
+              <button onClick={() => setShowAddUserModal(false)} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-all">Cancel</button>
+              <button onClick={handleAddUser} className="flex-1 py-2.5 rounded-xl text-white text-sm font-semibold transition-all active:scale-95" style={{ backgroundColor: '#1e2d6b' }}>Create in ERPNext</button>
             </div>
           </div>
         </div>
@@ -454,45 +451,45 @@ export default function SettingsPage() {
 
       {/* Add Warehouse Modal */}
       {showAddWarehouseModal && (
-        <div className="fixed inset-0 bg-ziditech-950/80 backdrop-blur-md flex items-center justify-center z-[100] p-4">
-          <div className="bg-ziditech-900 border border-white/10 rounded-[32px] p-8 w-full max-w-md shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-            <div className="w-14 h-14 bg-ziditech-600/20 rounded-2xl flex items-center justify-center mb-6 text-ziditech-400">
-              <Home size={28} />
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+          <div className="bg-white border border-gray-200 rounded-2xl p-7 w-full max-w-md shadow-xl animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-5" style={{ backgroundColor: '#eef1f8' }}>
+              <Home size={22} style={{ color: '#1e2d6b' }} />
             </div>
-            <h3 className="text-2xl font-black text-white mb-1">Deploy Warehouse</h3>
-            <p className="text-gray-400 text-sm mb-6">Creates a real ERPNext Warehouse document.</p>
+            <h3 className="text-lg font-bold text-gray-900 mb-0.5">Add Warehouse</h3>
+            <p className="text-sm text-gray-500 mb-5">Creates a real ERPNext Warehouse document.</p>
             <div className="space-y-4">
               {[
                 { label: "Warehouse Name", key: "warehouse_name", placeholder: "e.g. Main Cold Storage", type: "text" },
                 { label: "City / Location", key: "city", placeholder: "e.g. Doha", type: "text" },
               ].map(f => (
-                <div key={f.key} className="space-y-1.5">
-                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">{f.label}</label>
+                <div key={f.key}>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1.5">{f.label}</label>
                   <input
                     type={f.type}
                     placeholder={f.placeholder}
                     value={(newWarehouse as any)[f.key]}
                     onChange={e => setNewWarehouse(p => ({ ...p, [f.key]: e.target.value }))}
-                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-600 focus:border-ziditech-500 outline-none transition-all font-medium"
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:border-[#1e2d6b] outline-none transition-all"
                   />
                 </div>
               ))}
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Type</label>
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1.5">Type</label>
                 <select
                   value={newWarehouse.warehouse_type}
                   onChange={e => setNewWarehouse(p => ({ ...p, warehouse_type: e.target.value }))}
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white focus:border-ziditech-500 outline-none transition-all font-bold appearance-none"
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 focus:border-[#1e2d6b] outline-none transition-all"
                 >
                   {["Retail", "Production", "Cold Storage", "Transit"].map(t => (
-                    <option key={t} value={t} className="bg-ziditech-900">{t}</option>
+                    <option key={t} value={t}>{t}</option>
                   ))}
                 </select>
               </div>
             </div>
-            <div className="flex space-x-3 mt-8">
-              <button onClick={() => setShowAddWarehouseModal(false)} className="flex-1 py-3 rounded-xl border border-white/10 font-black text-xs uppercase tracking-widest text-gray-400 hover:bg-white/5 transition-all">Cancel</button>
-              <button onClick={handleAddWarehouse} className="flex-1 py-3 rounded-xl bg-ziditech-600 text-white font-black text-xs uppercase tracking-widest hover:bg-ziditech-500 shadow-xl shadow-ziditech-600/20 transition-all active:scale-95">Deploy to ERPNext</button>
+            <div className="flex space-x-3 mt-6">
+              <button onClick={() => setShowAddWarehouseModal(false)} className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-all">Cancel</button>
+              <button onClick={handleAddWarehouse} className="flex-1 py-2.5 rounded-xl text-white text-sm font-semibold transition-all active:scale-95" style={{ backgroundColor: '#1e2d6b' }}>Deploy to ERPNext</button>
             </div>
           </div>
         </div>

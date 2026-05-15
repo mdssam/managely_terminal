@@ -36,19 +36,19 @@ export default function RetailSidebar() {
   }
 
   return (
-    <div className="hidden lg:flex fixed h-screen w-20 top-0 left-0 bg-ziditech-950/80 backdrop-blur-2xl flex-col border-r border-white/10 z-50">
+    <div className="hidden lg:flex fixed h-screen w-20 top-0 left-0 flex-col z-50" style={{ backgroundColor: '#4c28cc' }}>
       {/* Logo Section */}
       <div
-          className="h-24 flex items-center justify-center cursor-pointer active:scale-90 transition-transform duration-150"
+          className="h-20 flex items-center justify-center cursor-pointer active:scale-90 transition-transform duration-150 border-b border-white/10"
           onClick={() => navigate("/")}
         >
-          <div className="w-14 h-14 rounded-2xl bg-ziditech-600 flex items-center justify-center shadow-lg shadow-ziditech-600/20">
-            <span className="text-white font-black text-xl tracking-tighter">S</span>
+          <div className="w-11 h-11 rounded-xl bg-white/15 flex items-center justify-center border border-white/20">
+            <span className="text-white font-black text-lg tracking-tighter">S</span>
           </div>
         </div>
 
       {/* Menu Items */}
-      <div className="flex-1 flex flex-col items-center py-6 space-y-4">
+      <div className="flex-1 flex flex-col items-center py-5 space-y-1">
         {menuItems.map((item, index) => {
           const disabled = item.requiresSalesDashboard && !canAccessSalesDashboard
           const active = isActive(item.path)
@@ -58,34 +58,34 @@ export default function RetailSidebar() {
             onClick={() => handleNav(item)}
             disabled={disabled}
             title={disabled ? "Sales Dashboard Restricted" : item.label}
-            className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center transition-all duration-200 ${
+            className={`w-13 h-13 px-2 py-2.5 rounded-xl flex flex-col items-center justify-center transition-all duration-150 ${
               disabled
-                ? "opacity-30 cursor-not-allowed text-gray-600"
+                ? "opacity-25 cursor-not-allowed text-white/30"
                 : "cursor-pointer active:scale-90 " + (
               active
-                ? "bg-ziditech-600 text-white shadow-2xl shadow-ziditech-600/40"
-                : "text-ziditech-400 hover:bg-white/5"
+                ? "bg-white/20 text-white"
+                : "text-white/50 hover:bg-white/10 hover:text-white"
             )
             }`}
           >
-            <item.icon size={22} strokeWidth={2.5} />
-            <span className="text-[9px] font-black mt-1 uppercase tracking-tighter">{item.label.substring(0, 5)}</span>
+            <item.icon size={20} strokeWidth={2} />
+            <span className="text-[8px] font-semibold mt-1 uppercase tracking-wide opacity-80">{item.label.substring(0, 5)}</span>
           </button>
         )})}
       </div>
 
       {/* Settings at bottom */}
-      <div className="mt-auto p-6 pb-12 border-t border-white/10">
+      <div className="p-4 pb-8 border-t border-white/10">
         <button
           onClick={() => navigate("/settings")}
-          className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center transition-all duration-200 ${
+          className={`w-full px-2 py-2.5 rounded-xl flex flex-col items-center justify-center transition-all duration-150 ${
             location.pathname === "/settings"
-              ? "bg-ziditech-600 text-white shadow-2xl shadow-ziditech-600/40"
-              : "text-gray-500 hover:bg-white/5"
-          } mx-auto`}
+              ? "bg-white/20 text-white"
+              : "text-white/50 hover:bg-white/10 hover:text-white"
+          }`}
         >
-          <Settings size={22} strokeWidth={2.5} />
-          <span className="text-[9px] font-black mt-1 uppercase tracking-tighter">SETTS</span>
+          <Settings size={20} strokeWidth={2} />
+          <span className="text-[8px] font-semibold mt-1 uppercase tracking-wide opacity-80">SET</span>
         </button>
       </div>
     </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { usePOSOpeningStatus } from '../hooks/usePOSOpeningEntry';
 import POSOpeningModal from './PosOpeningEntryDialog';
 import erpnextAPI from '../services/erpnext-api';
@@ -29,6 +29,7 @@ export default function POSOpeningEntryGuard({
 }: POSOpeningEntryGuardProps) {
   const { isRTL } = useI18n();
   const location = useLocation();
+  const navigate = useNavigate();
   const [showOpeningModal, setShowOpeningModal] = useState(false);
   const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   const [userLoading, setUserLoading] = useState(true);
@@ -171,6 +172,10 @@ export default function POSOpeningEntryGuard({
     setIsInitialized(true);
     setTimeout(() => {
       refetch();
+      // Redirect to POS after session is opened
+      if (location.pathname !== '/pos') {
+        navigate('/pos');
+      }
     }, 500);
   };
 

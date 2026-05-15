@@ -26,12 +26,10 @@
   {
    "color": "Green",
    "doc_view": "",
-   "format": "Link",
-   "icon": "cart",
+   "icon": "rocket",
    "label": "Open Sultan POS",
-   "link_to": "sultan_pos",
-   "restrict_to_domain": "",
-   "type": "Page"
+   "type": "URL",
+   "url": "/sultan_spa/"
   },
   {
    "color": "Blue",
@@ -82,14 +80,6 @@
    "link_to": "BOM",
    "restrict_to_domain": "",
    "type": "DocType"
-  },
-  {
-   "color": "Blue",
-   "doc_view": "",
-   "icon": "rocket",
-   "label": "Open Sultan POS",
-   "type": "URL",
-   "url": "/sultan_spa"
   }
  ],
  "title": "Sultan POS"

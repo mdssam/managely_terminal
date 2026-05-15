@@ -42,195 +42,75 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 
-  /* Sultan brand colors — Premium Deep Indigo-Violet */
-  --color-ziditech-50:  #f0eeff;
-  --color-ziditech-100: #ddd8ff;
-  --color-ziditech-200: #bcb0ff;
-  --color-ziditech-300: #9a88ff;
-  --color-ziditech-400: #7c60f5;
-  --color-ziditech-500: #6040e0;
+  /* Sultan brand colors - Forced to be darker for visibility */
+  --color-ziditech-50:  #eef1ff;
+  --color-ziditech-100: #d8dfff;
+  --color-ziditech-200: #b0bcff;
+  --color-ziditech-300: #8090ff;
+  --color-ziditech-400: #4c28cc;
+  --color-ziditech-500: #4c28cc;
   --color-ziditech-600: #4c28cc;
-  --color-ziditech-700: #3a18a8;
-  --color-ziditech-800: #280e80;
-  --color-ziditech-900: #180855;
-  --color-ziditech-950: #0D0033;
-}
+  --color-ziditech-700: #4c28cc;
+  --color-ziditech-800: #4c28cc;
+  --color-ziditech-900: #4c28cc;
+  --color-ziditech-950: #4c28cc;
 
-/* ============================================================
-   SULTAN POS — Global Deep Indigo-Violet Theme Enforcement
-   All pages inherit this base. Individual components layer on top.
-   ============================================================ */
-
-/* SULTAN POS — Global Deep Indigo-Violet Theme Enforcement (Default) */
-body, #root {
-  background-color: #0D0033 !important;
-  color: #e8e0ff;
+  /* ─── Override Tailwind v4 gray palette → Pure Black & Dark Blue ─── */
+  --color-gray-50:  #f8fafc;
+  --color-gray-100: #f1f5f9;
+  --color-gray-200: #e2e8f0;
+  --color-gray-300: #cbd5e1;
+  --color-gray-400: #475569; 
+  --color-gray-500: #334155; 
+  --color-gray-600: #1e293b; 
+  --color-gray-700: #0f172a; 
+  --color-gray-800: #020617; 
+  --color-gray-900: #000000; 
+  --color-gray-950: #000000;
 }
-
-/* Branded Light Theme (Lavender Sultan) — Enabled via .light class */
-html.light body, html.light #root {
-  background-color: #f8f7ff !important;
-  color: #180855;
-}
-
-/* Dark Mode Overrides (Explicit) */
-html.dark body, html.dark #root {
-  background-color: #0D0033 !important;
-}
-
-/* Force ALL white/light containers to be dark (Default/Dark) */
-.bg-white, html.dark .bg-white {
-  background-color: rgba(255, 255, 255, 0.04) !important;
-  color: #e8e0ff !important;
-}
-.bg-gray-50, html.dark .bg-gray-50  { background-color: rgba(255,255,255,0.03) !important; }
-.bg-gray-100, html.dark .bg-gray-100 { background-color: rgba(255,255,255,0.05) !important; }
-.bg-gray-200, html.dark .bg-gray-200 { background-color: rgba(255,255,255,0.07) !important; }
-.bg-gray-800, html.dark .bg-gray-800 { background-color: rgba(255,255,255,0.06) !important; }
-.bg-gray-900, html.dark .bg-gray-900 { background-color: rgba(13,0,51,0.80) !important; }
-
-/* Light Mode Card & Container Overrides */
-html.light .bg-white, html.light [role="dialog"].bg-white {
-  background-color: #ffffff !important;
-  color: #180855 !important;
-}
-html.light .bg-gray-50, html.light .bg-gray-100, html.light .bg-gray-200 {
-  background-color: #f1f0f7 !important;
-  color: #180855 !important;
-}
-html.light .bg-ziditech-900, html.light .bg-ziditech-950 {
-  background-color: #ffffff !important;
-}
-
-/* Text overrides (Default/Dark) — Increased brightness for legibility */
-.text-gray-900, html.dark .text-gray-900 { color: #ffffff !important; }
-.text-gray-800, html.dark .text-gray-800 { color: #f5f3ff !important; }
-.text-gray-700, html.dark .text-gray-700 { color: #e8e0ff !important; }
-.text-gray-600, html.dark .text-gray-600 { color: #d8cdff !important; }
-.text-gray-500, html.dark .text-gray-500 { color: #c0b4f0 !important; }
-.text-gray-400, html.dark .text-gray-400 { color: #b0a0f0 !important; }
-
-/* Text overrides in Light Mode */
-html.light .text-gray-900, html.light .text-gray-800, html.light .text-gray-700 { color: #180855 !important; }
-html.light .text-gray-600, html.light .text-gray-500 { color: #5a4ea0 !important; }
-html.light .text-white { color: #180855 !important; }
-html.light .text-gray-400 { color: #6b5fb4 !important; }
-
-/* Border overrides in Light Mode */
-html.light .border-gray-100, html.light .border-gray-200, html.light .border-white\/10 {
-  border-color: #e2e1ec !important;
-}
-
-/* Input / form elements in Light Mode */
-html.light input, html.light textarea, html.light select {
-  background-color: #ffffff !important;
-  color: #180855 !important;
-  border-color: #d1d0db !important;
-}
-html.light input::placeholder {
-  color: #a098cc !important;
-}
-
-/* Modals & Dialogs in Light Mode */
-html.light .fixed.inset-0 > .bg-white,
-html.light [role="dialog"].bg-white {
-  background-color: #ffffff !important;
-  color: #180855 !important;
-  box-shadow: 0 25px 50px -12px rgba(24, 8, 85, 0.15) !important;
-}
-
-/* Background patterns */
-.bg-grid-pattern {
-  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%236040e0' fill-opacity='0.06'%3E%3Ccircle cx='30' cy='30' r='2'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-}
-
-/* react-phone-number-input dark theme overrides */
-.quick-add-phone .PhoneInput { background: transparent !important; }
-.quick-add-phone .PhoneInputInput {
-  background: transparent !important;
-  color: #f0eeff !important;
-  border: none !important;
-  outline: none !important;
-  font-weight: 600;
-  font-size: 1rem;
-  padding: 0.25rem 0.5rem;
-}
-.quick-add-phone .PhoneInputInput::placeholder { color: rgba(154,136,255,0.5) !important; }
-.quick-add-phone .PhoneInputCountry { padding-left: 0.5rem; }
-.quick-add-phone .PhoneInputCountrySelect {
-  background: rgba(24,8,85,0.95) !important;
-  color: #f0eeff !important;
-  border: none !important;
-}
-.quick-add-phone .PhoneInputCountrySelectArrow { color: #9a88ff !important; opacity: 1 !important; }
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(0.99 0 0);
-  --foreground: oklch(0.13 0.02 264);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.13 0.02 264);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.13 0.02 264);
-  --primary: oklch(0.55 0.18 264);
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.96 0.01 264);
-  --secondary-foreground: oklch(0.2 0.02 264);
-  --muted: oklch(0.96 0.01 264);
-  --muted-foreground: oklch(0.55 0.02 264);
-  --accent: oklch(0.96 0.01 264);
-  --accent-foreground: oklch(0.2 0.02 264);
-  --destructive: oklch(0.58 0.25 27);
-  --border: oklch(0.92 0.01 264);
-  --input: oklch(0.92 0.01 264);
-  --ring: oklch(0.7 0.02 264);
-  --chart-1: oklch(0.65 0.22 41);
-  --chart-2: oklch(0.6 0.12 185);
-  --chart-3: oklch(0.4 0.07 227);
-  --chart-4: oklch(0.83 0.19 84);
-  --chart-5: oklch(0.77 0.19 70);
-  --sidebar: oklch(0.99 0 0);
-  --sidebar-foreground: oklch(0.13 0.02 264);
-  --sidebar-primary: oklch(0.2 0.02 264);
-  --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.96 0.01 264);
-  --sidebar-accent-foreground: oklch(0.2 0.02 264);
-  --sidebar-border: oklch(0.92 0.01 264);
-  --sidebar-ring: oklch(0.7 0.02 264);
+  --background: #ffffff;
+  --foreground: #000000;
+  --card: #ffffff;
+  --card-foreground: #000000;
+  --popover: #ffffff;
+  --popover-foreground: #000000;
+  --primary: #1e40af;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #000000;
+  --muted: #f1f5f9;
+  --muted-foreground: #475569;
+  --accent: #f1f5f9;
+  --accent-foreground: #000000;
+  --destructive: #ef4444;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #1e40af;
 }
 
+/* Force Light Theme Colors even if .dark class is present */
 .dark {
-  --background: oklch(0.1 0.03 264);
-  --foreground: oklch(0.99 0 0);
-  --card: oklch(0.15 0.03 264);
-  --card-foreground: oklch(0.99 0 0);
-  --popover: oklch(0.15 0.03 264);
-  --popover-foreground: oklch(0.99 0 0);
-  --primary: oklch(0.7 0.17 264);
-  --primary-foreground: oklch(0.15 0.03 264);
-  --secondary: oklch(0.25 0.03 264);
-  --secondary-foreground: oklch(0.99 0 0);
-  --muted: oklch(0.25 0.03 264);
-  --muted-foreground: oklch(0.7 0.02 264);
-  --accent: oklch(0.25 0.03 264);
-  --accent-foreground: oklch(0.99 0 0);
-  --destructive: oklch(0.7 0.19 22);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.55 0.02 264);
-  --chart-1: oklch(0.49 0.24 264);
-  --chart-2: oklch(0.7 0.17 264);
-  --chart-3: oklch(0.77 0.19 70);
-  --chart-4: oklch(0.63 0.27 304);
-  --chart-5: oklch(0.65 0.25 16);
-  --sidebar: oklch(0.15 0.03 264);
-  --sidebar-foreground: oklch(0.99 0 0);
-  --sidebar-primary: oklch(0.49 0.24 264);
-  --sidebar-primary-foreground: oklch(0.99 0 0);
-  --sidebar-accent: oklch(0.25 0.03 264);
-  --sidebar-accent-foreground: oklch(0.99 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.55 0.02 264);
+  --background: #ffffff;
+  --foreground: #000000;
+  --card: #ffffff;
+  --card-foreground: #000000;
+  --popover: #ffffff;
+  --popover-foreground: #000000;
+  --primary: #1e40af;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #000000;
+  --muted: #f1f5f9;
+  --muted-foreground: #475569;
+  --accent: #f1f5f9;
+  --accent-foreground: #000000;
+  --destructive: #ef4444;
+  --border: #e2e8f0;
+  --input: #e2e8f0;
+  --ring: #1e40af;
 }
 
 @layer base {
@@ -239,81 +119,72 @@ html.light [role="dialog"].bg-white {
   }
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "rlig" 1, "calt" 1;
+    background-color: #ffffff !important;
+    color: #000000 !important;
   }
 }
 
-/* Custom Ultra-Thin Scrollbar Styles */
-.custom-scrollbar {
+/* ============================================================
+   SULTAN POS — GLOBAL VISIBILITY ENFORCEMENT (BLACK & BLUE)
+   ============================================================ */
+
+/* 1. Force all primary text to Black or Deep Blue */
+h1, h2, h3, h4, h5, h6, .font-bold, .font-semibold, strong {
+  color: #000000 !important;
+  opacity: 1 !important;
+}
+
+p, span, div, label, li, a {
+  color: #000000 !important;
+  opacity: 1 !important;
+}
+
+/* 2. Utility Class Overrides - High Contrast */
+.text-gray-900, .text-gray-800, .text-gray-700, .text-slate-900, .text-slate-800 { color: #000000 !important; opacity: 1 !important; }
+.text-gray-600, .text-gray-500, .text-gray-400, .text-slate-600, .text-slate-500 { color: #4c28cc !important; opacity: 1 !important; } 
+
+.text-ziditech-900, .text-ziditech-800, .text-ziditech-700 { color: #000000 !important; opacity: 1 !important; }
+.text-ziditech-600, .text-ziditech-500, .text-ziditech-400 { color: #1d4ed8 !important; opacity: 1 !important; } 
+
+/* 3. Global Opacity Fix */
+.text-muted-foreground, .opacity-70, .opacity-50, .text-gray-400, .text-gray-500, .text-slate-400 {
+  opacity: 1 !important;
+}
+
+/* 4. Backgrounds — Fix the 'black section' */
+.bg-white, .bg-card, .bg-background {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+}
+
+.bg-gray-50, .bg-slate-50, .bg-gray-100 {
+  background-color: #f8fafc !important;
+}
+
+/* 5. Input / form elements visibility */
+input, textarea, select {
+  background-color: #ffffff !important;
+  color: #000000 !important;
+  border: 1px solid #94a3b8 !important;
+  opacity: 1 !important;
+}
+
+input::placeholder {
+  color: #64748b !important;
+  opacity: 1 !important;
+}
+
+/* 6. Dashboard & Grid Specifics */
+.ProductionDashboard h1, .ProductionDashboard h3, .ProductionDashboard p,
+.MenuGrid h2, .MenuGrid p, .ProductCard h3, .ProductCard p {
+  color: #000000 !important;
+}
+
+/* 7. Scrollbars */
+* {
   scrollbar-width: thin;
   scrollbar-color: #94a3b8 transparent;
 }
-
-.custom-scrollbar::-webkit-scrollbar {
-  width: 3px;
-  height: 3px;
-}
-
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: #94a3b8;
-  border-radius: 2px;
-  border: none;
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background-color: #64748b;
-}
-
-/* Dark mode scrollbar */
-.dark .custom-scrollbar {
-  scrollbar-color: #475569 transparent;
-}
-
-.dark .custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: #475569;
-}
-
-.dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background-color: #334155;
-}
-
-/* Global ultra-thin scrollbars for all elements */
-* {
-  scrollbar-width: thin;
-  scrollbar-color: #cbd5e1 transparent;
-}
-
-*::-webkit-scrollbar {
-  width: 3px;
-  height: 3px;
-}
-
-*::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-*::-webkit-scrollbar-thumb {
-  background-color: #cbd5e1;
-  border-radius: 2px;
-  border: none;
-}
-
-*::-webkit-scrollbar-thumb:hover {
-  background-color: #94a3b8;
-}
-
-/* Dark mode global scrollbar */
-.dark * {
-  scrollbar-color: #475569 transparent;
-}
-
-.dark *::-webkit-scrollbar-thumb {
-  background-color: #475569;
-}
-
-.dark *::-webkit-scrollbar-thumb:hover {
-  background-color: #334155;
-}
+*::-webkit-scrollbar { width: 4px; height: 4px; }
+*::-webkit-scrollbar-thumb { background-color: #94a3b8; border-radius: 10px; }
