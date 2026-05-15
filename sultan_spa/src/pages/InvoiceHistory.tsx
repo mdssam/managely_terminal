@@ -160,40 +160,23 @@ export default function InvoiceHistoryPage() {
 
 
 const getStatusBadge = (status: string) => {
-  const baseClasses = "px-2 py-1 rounded-full text-xs font-medium";
+  const baseClasses = "px-2.5 py-1 rounded-full text-xs font-medium";
   const normalized = status?.toLowerCase() || "";
 
   switch (normalized) {
-    // Payment statuses
-    case "paid":
-      return `${baseClasses} bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900/20 dark:text-ziditech-400`;
-    case "unpaid":
-      return `${baseClasses} bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400`;
-    case "partly paid":
-      return `${baseClasses} bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400`;
-    case "overdue":
-      return `${baseClasses} bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400`;
-    case "draft":
-      return `${baseClasses} bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400`;
-    case "return":
-      return `${baseClasses} bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900/20 dark:text-ziditech-400`;
-    case "cancelled":
-      return `${baseClasses} bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400`;
-
-    // ZATCA submission statuses
-    case "pending":
-      return `${baseClasses} bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400`;
-    case "reported":
-      return `${baseClasses} bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400`;
-    case "not reported":
-      return `${baseClasses} bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400`;
-    case "cleared":
-      return `${baseClasses} bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900/20 dark:text-ziditech-400`;
-    case "not cleared":
-      return `${baseClasses} bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400`;
-
-    default:
-      return `${baseClasses} bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400`; // Neutral fallback
+    case "paid":      return `${baseClasses} bg-green-100 text-green-800`;
+    case "unpaid":    return `${baseClasses} bg-yellow-100 text-yellow-800`;
+    case "partly paid": return `${baseClasses} bg-orange-100 text-orange-800`;
+    case "overdue":   return `${baseClasses} bg-red-100 text-red-800`;
+    case "draft":     return `${baseClasses} bg-gray-100 text-gray-700`;
+    case "return":    return `${baseClasses} bg-purple-100 text-purple-800`;
+    case "cancelled": return `${baseClasses} bg-red-100 text-red-700`;
+    case "pending":   return `${baseClasses} bg-yellow-100 text-yellow-800`;
+    case "reported":  return `${baseClasses} bg-blue-100 text-blue-800`;
+    case "not reported": return `${baseClasses} bg-gray-100 text-gray-700`;
+    case "cleared":   return `${baseClasses} bg-green-100 text-green-800`;
+    case "not cleared": return `${baseClasses} bg-red-100 text-red-800`;
+    default:          return `${baseClasses} bg-gray-100 text-gray-700`;
   }
 };
 
@@ -279,10 +262,10 @@ const getStatusBadge = (status: string) => {
   // Loading state - only block if nothing loaded yet
   if ((isLoading && invoices.length === 0) || userInfoLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#eef1f8' }}>
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-ziditech-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 dark:text-gray-300">Loading invoices...</p>
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-t-transparent mx-auto mb-4" style={{ borderColor: '#1e2d6b', borderTopColor: 'transparent' }}></div>
+          <p className="text-gray-500 font-medium">Loading invoices...</p>
         </div>
       </div>
     );
@@ -291,14 +274,15 @@ const getStatusBadge = (status: string) => {
   // Error state
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="bg-red-50 dark:bg-red-900/20 p-6 rounded-lg max-w-md">
-          <h3 className="text-lg font-medium text-red-800 dark:text-red-200">Error loading invoices</h3>
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#eef1f8' }}>
+        <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm max-w-md">
+          <h3 className="text-base font-semibold text-gray-900 mb-2">Error loading invoices</h3>
            {/* @ts-expect-error just ignore */}
-          <p className="mt-2 text-sm text-red-700 dark:text-red-300">{error.message}</p>
+          <p className="text-sm text-gray-500">{error.message}</p>
           <button
             onClick={() => window.location.reload()}
-            className="mt-4 px-4 py-2 bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200 rounded hover:bg-red-200 dark:hover:bg-red-800"
+            className="mt-4 px-4 py-2 text-white rounded-xl text-sm font-semibold transition-all"
+            style={{ backgroundColor: '#1e2d6b' }}
           >
             Retry
           </button>
@@ -309,27 +293,27 @@ const getStatusBadge = (status: string) => {
 
   // Define render functions before they are used
   const renderFilters = () => (
-    <div className="w-full max-w-none bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 mb-6">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <div className="w-full max-w-none bg-white rounded-xl p-5 border border-gray-200 mb-5">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={15} />
           <input
             type="text"
             placeholder="Search invoices..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-ziditech-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-[#1e2d6b] bg-gray-50 text-gray-900 text-sm"
           />
           {isLoading && invoices.length > 0 && (
             <div className="absolute right-3 top-1/2 -translate-y-1/2">
-              <div className="animate-spin h-4 w-4 border-2 border-b-transparent border-ziditech-500 rounded-full"></div>
+              <div className="animate-spin h-4 w-4 border-2 border-t-transparent rounded-full" style={{ borderColor: '#1e2d6b', borderTopColor: 'transparent' }}></div>
             </div>
           )}
         </div>
         <select
           value={dateFilter}
           onChange={(e) => setDateFilter(e.target.value)}
-          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-ziditech-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          className="px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-[#1e2d6b] bg-gray-50 text-gray-900 text-sm"
         >
           <option value="all">All Time</option>
           <option value="today">Today</option>
@@ -342,129 +326,87 @@ const getStatusBadge = (status: string) => {
           value={cashierFilter}
           onChange={(e) => setCashierFilter(e.target.value)}
           disabled={!isAdminUser}
-          className={`px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-ziditech-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
-            !isAdminUser ? 'opacity-50 cursor-not-allowed' : ''
-          }`}
+          className={`px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-[#1e2d6b] bg-gray-50 text-gray-900 text-sm ${!isAdminUser ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           <option value="all">All Cashiers</option>
           {uniqueCashiers.map((cashier) => (
-            <option key={cashier} value={cashier}>
-              {cashier}
-            </option>
+            <option key={cashier} value={cashier}>{cashier}</option>
           ))}
         </select>
-        {!isAdminUser && (
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Showing only your transactions</p>
-        )}
         <select
           value={paymentFilter}
           onChange={(e) => setPaymentFilter(e.target.value)}
-          className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-ziditech-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          className="px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-[#1e2d6b] bg-gray-50 text-gray-900 text-sm"
         >
           <option value="all">All Payments</option>
           {modes.map((mode) => (
-            <option key={mode.name} value={mode.name}>
-              {mode.name}
-            </option>
+            <option key={mode.name} value={mode.name}>{mode.name}</option>
           ))}
         </select>
       </div>
-        {hasMore && (
-          <div className="mt-3 text-center">
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              Search works on all invoices in the database. Load more invoices to see additional results.
-            </p>
-          </div>
-        )}
     </div>
   );
 
   const renderSummaryCards = () => (
-    <div className="w-full max-w-none grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Total Invoices</p>
-            <p className="text-2xl font-bold text-gray-900 dark:text-white">{filteredInvoices.length}</p>
-            {hasMore && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Showing {totalLoaded} of {totalCount}
-              </p>
-            )}
+    <div className="w-full max-w-none grid grid-cols-1 md:grid-cols-4 gap-4 mb-5">
+      {[
+        {
+          label: "Total Invoices",
+          value: filteredInvoices.length,
+          sub: hasMore ? `${totalLoaded} of ${totalCount}` : null,
+          icon: FileText,
+        },
+        {
+          label: "Total Amount",
+          value: formatCurrency(filteredInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0), posDetails?.currency || 'USD'),
+          sub: null,
+          icon: DollarSign,
+        },
+        {
+          label: "Paid Amount",
+          value: formatCurrency(filteredInvoices.filter(inv => inv.status === "Paid").reduce((sum, inv) => sum + inv.totalAmount, 0), posDetails?.currency || 'USD'),
+          sub: null,
+          icon: CheckCircle,
+        },
+        {
+          label: "Outstanding",
+          value: formatCurrency(filteredInvoices.filter(inv => ["Unpaid", "Partly Paid", "Overdue"].includes(inv.status)).reduce((sum, inv) => sum + inv.totalAmount, 0), posDetails?.currency || 'USD'),
+          sub: null,
+          icon: AlertTriangle,
+        },
+      ].map(({ label, value, sub, icon: Icon }) => (
+        <div key={label} className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-medium text-gray-500 mb-1">{label}</p>
+              <p className="text-xl font-bold text-gray-900">{value}</p>
+              {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
+            </div>
+            <div className="p-2.5 rounded-xl" style={{ backgroundColor: '#eef1f8' }}>
+              <Icon className="w-5 h-5" style={{ color: '#1e2d6b' }} />
+            </div>
           </div>
-          <FileText className="w-8 h-8 text-orange-600" />
         </div>
-      </div>
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Total Amount</p>
-            <p className="text-2xl font-bold text-gray-900 dark:text-white">
-              {formatCurrency(filteredInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0), posDetails?.currency || 'USD')}
-            </p>
-          </div>
-          <DollarSign className="w-8 h-8 text-orange-600" />
-        </div>
-      </div>
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Paid Amount</p>
-            <p className="text-2xl font-bold text-gray-900 dark:text-white">
-              {formatCurrency(
-                filteredInvoices
-                  .filter(inv => inv.status === "Paid")
-                  .reduce((sum, inv) => sum + inv.totalAmount, 0),
-                posDetails?.currency || 'USD'
-              )}
-            </p>
-          </div>
-          <CheckCircle className="w-8 h-8 text-orange-600" />
-        </div>
-      </div>
-      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Outstanding</p>
-            <p className="text-2xl font-bold text-gray-900 dark:text-white">
-              {formatCurrency(
-                filteredInvoices
-                  .filter(inv => ["Unpaid", "Partly Paid", "Overdue"].includes(inv.status))
-                  .reduce((sum, inv) => sum + inv.totalAmount, 0),
-                posDetails?.currency || 'USD'
-              )}
-            </p>
-          </div>
-          <AlertTriangle className="w-8 h-8 text-orange-600" />
-        </div>
-      </div>
+      ))}
     </div>
   );
 
   const renderInvoicesTable = () => (
-    <div className="w-full max-w-none bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
-      <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+    <div className="w-full max-w-none bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+        <h3 className="text-sm font-semibold text-gray-900">
           {activeTab === "all" ? "All Invoices" : tabs.find(t => t.id === activeTab)?.name} ({filteredInvoices.length})
         </h3>
-        <div className="flex items-center space-x-2 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+        <div className="flex items-center space-x-1 bg-gray-100 rounded-lg p-1">
           <button
             onClick={() => setViewMode("list")}
-            className={`p-2 rounded-md transition-colors ${
-              viewMode === "list"
-                ? "bg-white dark:bg-gray-600 text-ziditech-600 dark:text-ziditech-400 shadow-sm"
-                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-            }`}
+            className={`p-1.5 rounded-md transition-colors ${viewMode === "list" ? "bg-white text-gray-800 shadow-sm" : "text-gray-400 hover:text-gray-600"}`}
           >
             <List className="w-4 h-4" />
           </button>
           <button
             onClick={() => setViewMode("cards")}
-            className={`p-2 rounded-md transition-colors ${
-              viewMode === "cards"
-                ? "bg-white dark:bg-gray-600 text-ziditech-600 dark:text-ziditech-400 shadow-sm"
-                : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
-            }`}
+            className={`p-1.5 rounded-md transition-colors ${viewMode === "cards" ? "bg-white text-gray-800 shadow-sm" : "text-gray-400 hover:text-gray-600"}`}
           >
             <Grid3X3 className="w-4 h-4" />
           </button>
@@ -474,113 +416,57 @@ const getStatusBadge = (status: string) => {
       {viewMode === "list" ? (
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-50 dark:bg-gray-700">
+            <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Invoice
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Customer
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Cashier
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Payment
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Amount
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Status
-                </th>
-                {posDetails?.is_zatca_enabled && (
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                    Zatca Status
-                  </th>
-                )}
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Actions
-                </th>
+                {["Invoice", "Customer", "Cashier", "Payment", "Amount", "Status", ...(posDetails?.is_zatca_enabled ? ["Zatca Status"] : []), "Actions"].map(h => (
+                  <th key={h} className="px-5 py-3 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
+                ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
+            <tbody className="divide-y divide-gray-100">
               {filteredInvoices.map((invoice) => (
-                <tr key={`${activeTab}-${invoice.id}`} className="hover:bg-gray-50 dark:hover:bg-gray-700">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900 dark:text-white">{invoice.id}</div>
-                      <div className="text-sm text-gray-500 dark:text-gray-400">
-                        {invoice.date} {invoice.time}
-                      </div>
-                    </div>
+                <tr key={`${activeTab}-${invoice.id}`} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-5 py-3.5 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{invoice.id}</div>
+                    <div className="text-xs text-gray-400">{invoice.date} {invoice.time}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900 dark:text-white">{invoice.customer}</div>
-
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                    {invoice.cashier}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="text-sm text-gray-900 dark:text-white">{invoice.paymentMethod}</span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900 dark:text-white">
-                      {formatCurrency(invoice.totalAmount, invoice.currency)}
-                    </div>
+                  <td className="px-5 py-3.5 whitespace-nowrap text-sm text-gray-700">{invoice.customer}</td>
+                  <td className="px-5 py-3.5 whitespace-nowrap text-sm text-gray-700">{invoice.cashier}</td>
+                  <td className="px-5 py-3.5 whitespace-nowrap text-sm text-gray-700">{invoice.paymentMethod}</td>
+                  <td className="px-5 py-3.5 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{formatCurrency(invoice.totalAmount, invoice.currency)}</div>
                     {invoice.giftCardDiscount > 0 && (
-                      <div className="text-xs text-orange-600 dark:text-ziditech-400">
-                        -{formatCurrency(invoice.giftCardDiscount, invoice.currency)} gift card
-                      </div>
+                      <div className="text-xs text-orange-600">-{formatCurrency(invoice.giftCardDiscount, invoice.currency)} gift</div>
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-5 py-3.5 whitespace-nowrap">
                     <span className={getStatusBadge(invoice.status)}>{invoice.status}</span>
                   </td>
                   {posDetails?.is_zatca_enabled && (
-                    <td className="px-6 py-4 whitespace-nowrap">
-                                  {/* @ts-expect-error just ignore */}
+                    <td className="px-5 py-3.5 whitespace-nowrap">
+                      {/* @ts-expect-error just ignore */}
                       <span className={getStatusBadge(invoice.custom_zatca_submit_status)}>{invoice.custom_zatca_submit_status}</span>
                     </td>
                   )}
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => handleViewInvoice(invoice)}
-                        className="text-ziditech-600 dark:text-ziditech-300 hover:text-ziditech-900 dark:hover:text-white flex items-center space-x-1"
-                      >
-                        <Eye className="w-4 h-4" />
-                        <span>View</span>
+                  <td className="px-5 py-3.5 whitespace-nowrap text-sm font-medium">
+                    <div className="flex items-center space-x-3">
+                      <button onClick={() => handleViewInvoice(invoice)} className="flex items-center space-x-1 text-[#1e2d6b] hover:opacity-70 transition-opacity">
+                        <Eye className="w-4 h-4" /><span>View</span>
                       </button>
                       {invoice.status === "Draft" && (
-                        <button
-                          onClick={() => handleEditDraftClick(invoice)}
-                          className="text-ziditech-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300 flex items-center space-x-1"
-                        >
-                          <Edit className="w-4 h-4" />
-                          <span>Edit</span>
+                        <button onClick={() => handleEditDraftClick(invoice)} className="flex items-center space-x-1 text-blue-600 hover:opacity-70 transition-opacity">
+                          <Edit className="w-4 h-4" /><span>Edit</span>
                         </button>
                       )}
                       {/* @ts-expect-error just ignore */}
                       {["Paid", "Unpaid", "Overdue", "Partly Paid", "Credit Note Issued"].includes(invoice.status) && !invoice.is_return && hasReturnableItems(invoice) && (
-
-                        <button
-                          onClick={() => handleSingleReturnClick(invoice)}
-                          className="text-orange-600 dark:text-orange-400 hover:text-orange-900 dark:hover:text-orange-300 flex items-center space-x-1"
-                        >
-                          <RotateCcw className="w-4 h-4" />
-                          <span>Return</span>
+                        <button onClick={() => handleSingleReturnClick(invoice)} className="flex items-center space-x-1 text-orange-600 hover:opacity-70 transition-opacity">
+                          <RotateCcw className="w-4 h-4" /><span>Return</span>
                         </button>
                       )}
-
                       {invoice.status === "Draft" && (
-                        <button
-                          onClick={() => handleDeleteClick(invoice)}
-                          className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300 flex items-center space-x-1"
-                        >
-                          <FileMinus className="w-4 h-4" />
-                          <span>Delete</span>
+                        <button onClick={() => handleDeleteClick(invoice)} className="flex items-center space-x-1 text-red-500 hover:opacity-70 transition-opacity">
+                          <FileMinus className="w-4 h-4" /><span>Delete</span>
                         </button>
                       )}
                     </div>
@@ -591,57 +477,35 @@ const getStatusBadge = (status: string) => {
           </table>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-5">
           {filteredInvoices.map((invoice) => (
-            <div
-              key={`${activeTab}-${invoice.id}`}
-              className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 border border-gray-200 dark:border-gray-600 hover:shadow-md transition-shadow"
-            >
+            <div key={`${activeTab}-${invoice.id}`} className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:shadow-sm transition-shadow">
               <div className="flex items-center justify-between mb-3">
-                <div className="text-sm font-medium text-gray-900 dark:text-white">{invoice.id}</div>
+                <div className="text-sm font-semibold text-gray-900">{invoice.id}</div>
                 <span className={getStatusBadge(invoice.status)}>{invoice.status}</span>
               </div>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600 dark:text-gray-400">Customer:</span>
-                  <span className="text-gray-900 dark:text-white">{invoice.customer}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600 dark:text-gray-400">Amount:</span>
-                  <span className="font-medium text-gray-900 dark:text-white">{formatCurrency(invoice.totalAmount, invoice.currency)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600 dark:text-gray-400">Date:</span>
-                  <span className="text-gray-900 dark:text-white">{invoice.date}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600 dark:text-gray-400">Cashier:</span>
-                  <span className="text-gray-900 dark:text-white">{invoice.cashier}</span>
-                </div>
+              <div className="space-y-1.5">
+                {[
+                  { label: "Customer", value: invoice.customer },
+                  { label: "Amount", value: formatCurrency(invoice.totalAmount, invoice.currency) },
+                  { label: "Date", value: invoice.date },
+                  { label: "Cashier", value: invoice.cashier },
+                ].map(({ label, value }) => (
+                  <div key={label} className="flex justify-between text-sm">
+                    <span className="text-gray-500">{label}:</span>
+                    <span className="text-gray-900 font-medium">{value}</span>
+                  </div>
+                ))}
               </div>
               <div className="mt-4 flex space-x-2">
-                <button
-                  onClick={() => handleViewInvoice(invoice)}
-                  className="flex-1 text-xs px-3 py-2 bg-ziditech-600 text-white rounded hover:bg-ziditech-700 transition-colors"
-                >
-                  View
-                </button>
+                <button onClick={() => handleViewInvoice(invoice)} className="flex-1 text-xs px-3 py-2 text-white rounded-lg transition-colors" style={{ backgroundColor: '#1e2d6b' }}>View</button>
                 {invoice.status === "Draft" && (
-                  <button
-                    onClick={() => handleEditDraftClick(invoice)}
-                    className="flex-1 text-xs px-3 py-2 bg-ziditech-600 text-white rounded hover:bg-ziditech-700 transition-colors flex items-center justify-center space-x-1"
-                  >
-                    <Edit className="w-3 h-3" />
-                    <span>Edit</span>
+                  <button onClick={() => handleEditDraftClick(invoice)} className="flex-1 text-xs px-3 py-2 bg-blue-600 text-white rounded-lg flex items-center justify-center space-x-1 transition-colors">
+                    <Edit className="w-3 h-3" /><span>Edit</span>
                   </button>
                 )}
-                  {["Paid", "Unpaid", "Overdue", "Partly Paid", "Credit Note Issued"].includes(invoice.status) && hasReturnableItems(invoice) && (
-                  <button
-                    onClick={() => handleSingleReturnClick(invoice)}
-                    className="flex-1 text-xs px-3 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors"
-                  >
-                    Return
-                  </button>
+                {["Paid", "Unpaid", "Overdue", "Partly Paid", "Credit Note Issued"].includes(invoice.status) && hasReturnableItems(invoice) && (
+                  <button onClick={() => handleSingleReturnClick(invoice)} className="flex-1 text-xs px-3 py-2 bg-orange-600 text-white rounded-lg transition-colors">Return</button>
                 )}
               </div>
             </div>
@@ -649,38 +513,30 @@ const getStatusBadge = (status: string) => {
         </div>
       )}
 
-      {/* Load More Button */}
       {hasMore && (
-        <div className="flex justify-center mt-8">
+        <div className="flex justify-center p-5 border-t border-gray-100">
           <button
             onClick={loadMore}
             disabled={isLoadingMore}
-            className={`px-6 py-3 rounded-lg font-medium transition-colors ${
-              isLoadingMore
-                ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                : 'bg-ziditech-600 text-white hover:bg-ziditech-700'
-            }`}
+            className="px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors disabled:opacity-40"
+            style={{ backgroundColor: '#1e2d6b' }}
           >
             {isLoadingMore ? (
               <div className="flex items-center space-x-2">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-t-transparent border-white"></div>
                 <span>Loading...</span>
               </div>
-            ) : (
-              `Load More (${totalLoaded}/${totalCount})`
-            )}
+            ) : `Load More (${totalLoaded}/${totalCount})`}
           </button>
         </div>
       )}
 
-      {/* Show message when all invoices are loaded */}
       {!hasMore && totalLoaded > 0 && (
-        <div className="text-center mt-8 py-4">
-          <p className="text-gray-600 dark:text-gray-400">
+        <div className="text-center py-4 border-t border-gray-100">
+          <p className="text-xs text-gray-400">
             {filteredInvoices.length > 0
-              ? `Showing ${filteredInvoices.length} invoice${filteredInvoices.length !== 1 ? 's' : ''} (${totalLoaded} total loaded)`
-              : `All ${totalCount} invoices loaded`
-            }
+              ? `Showing ${filteredInvoices.length} invoice${filteredInvoices.length !== 1 ? 's' : ''}`
+              : `All ${totalCount} invoices loaded`}
           </p>
         </div>
       )}
@@ -1069,66 +925,51 @@ const getStatusBadge = (status: string) => {
 
 
   return (
-
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex pb-12">
-      <div className="flex-1 flex flex-col overflow-hidden ml-20">
+    <div className="min-h-screen pb-12" style={{ backgroundColor: '#eef1f8' }}>
+      <div className="flex flex-col">
         {/* Header */}
-        <div className="fixed top-0 left-20 right-0 z-50 bg-ziditech-50 dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-          <div className="px-4 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-
-                <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Invoice History</h1>
-              </div>
-              <div className="flex items-center space-x-3">
-
-                <button
-                  onClick={handleExportInvoices}
-                  className="flex items-center space-x-2 px-4 py-2 bg-ziditech-600 text-white rounded-lg hover:bg-ziditech-700 transition-colors"
-                >
-                  <Download className="w-4 h-4" />
-                  <span>Export</span>
-                </button>
-              </div>
-            </div>
+        <div className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">
+          <div className="px-6 py-4 flex items-center justify-between">
+            <h1 className="text-lg font-bold text-gray-900">Invoice History</h1>
+            <button
+              onClick={handleExportInvoices}
+              className="flex items-center space-x-2 px-4 py-2 text-white rounded-xl text-sm font-semibold transition-colors"
+              style={{ backgroundColor: '#1e2d6b' }}
+            >
+              <Download className="w-4 h-4" />
+              <span>Export</span>
+            </button>
           </div>
         </div>
 
-        <div className="flex-1 px-6 py-8 mt-16 max-w-none">
-          {/* Status Tabs - Now full width like the table */}
-          <div className="mb-8 w-full max-w-none">
-            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-6">
-              <div className="border-b border-gray-200 dark:border-gray-700">
-                <nav className="-mb-px flex space-x-8 overflow-x-auto">
-                  {tabs.map((tab) => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={`flex items-center space-x-2 py-2 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                        activeTab === tab.id
-                          ? "border-ziditech-500 text-ziditech-600 dark:text-ziditech-400"
-                          : `border-transparent ${tab.color} dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300`
-                      }`}
-                    >
-                      <tab.icon className="w-5 h-5" />
-                      <span>{tab.name}</span>
-                      <span className="ml-2 px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 rounded-full">
-                        {getStatusCount(tab.id)}
-                      </span>
-                    </button>
-                  ))}
-                </nav>
-              </div>
+        <div className="px-6 py-6">
+          {/* Status Tabs */}
+          <div className="mb-5 w-full">
+            <div className="bg-white rounded-xl border border-gray-200 px-5 pt-4 shadow-sm">
+              <nav className="-mb-px flex space-x-6 overflow-x-auto">
+                {tabs.map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex items-center space-x-1.5 py-3 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${
+                      activeTab === tab.id
+                        ? "border-[#1e2d6b] text-[#1e2d6b]"
+                        : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                    }`}
+                  >
+                    <tab.icon className="w-4 h-4" />
+                    <span>{tab.name}</span>
+                    <span className="ml-1 px-1.5 py-0.5 text-xs bg-gray-100 text-gray-600 rounded-full">
+                      {getStatusCount(tab.id)}
+                    </span>
+                  </button>
+                ))}
+              </nav>
             </div>
           </div>
 
-          {/* Filters */}
           {renderFilters()}
-
-          {/* Summary Cards */}
           {renderSummaryCards()}
-
-          {/* Invoices Table/Grid */}
           {renderInvoicesTable()}
         </div>
 
@@ -1248,56 +1089,34 @@ const getStatusBadge = (status: string) => {
           confirmButtonClass="bg-red-600 hover:bg-red-700 text-white"
         />
 
-        {/* Original Draft Invoice Edit Options Modal */}
         {showEditOptions && selectedDraftInvoice && (
-          <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-xl w-full max-w-md relative">
-              {/* Click outside to close */}
-              <div
-                className="absolute inset-0 -z-10"
-                onClick={handleCloseEditOptions}
-              />
-              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Edit Draft Invoice</h2>
-                  <button
-                    onClick={handleCloseEditOptions}
-                    className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                  >
-                    <XCircle className="w-5 h-5" />
-                  </button>
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-xl w-full max-w-md">
+              <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                <div>
+                  <h2 className="text-base font-semibold text-gray-900">Edit Draft Invoice</h2>
+                  <p className="text-xs text-gray-500 mt-0.5">{selectedDraftInvoice.id}</p>
                 </div>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                  Invoice: {selectedDraftInvoice.id}
-                </p>
+                <button onClick={handleCloseEditOptions} className="text-gray-400 hover:text-gray-600 transition-colors">
+                  <XCircle className="w-5 h-5" />
+                </button>
               </div>
-              <div className="p-6">
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
-                  What would you like to do with this draft invoice?
-                </p>
-                <div className="space-y-3">
-                  <button
-                    onClick={() => handleGoToCart(selectedDraftInvoice)}
-                    className="w-full flex items-center justify-center space-x-3 p-4 bg-ziditech-50 dark:bg-blue-900/20 border border-ziditech-200 dark:border-blue-700 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
-                  >
-                    <ShoppingCart className="w-5 h-5 text-ziditech-600 dark:text-blue-400" />
-                    <span className="font-medium text-blue-900 dark:text-blue-100">Go to Cart</span>
-                  </button>
-                  {/* <button
-                    onClick={handleGoToPayment}
-                    className="w-full flex items-center justify-center space-x-3 p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-700 rounded-lg hover:bg-orange-100 dark:hover:bg-orange-900/40 transition-colors"
-                  >
-                    <FileText className="w-5 h-5 text-orange-600 dark:text-orange-400" />
-                    <span className="font-medium text-orange-900 dark:text-orange-100">Submit Payment</span>
-                  </button> */}
-                  <button
-                    onClick={() => handleSubmitDirect(selectedDraftInvoice)}
-                    className="w-full flex items-center justify-center space-x-3 p-4 bg-ziditech-50 dark:bg-ziditech-900/20 border border-ziditech-200 dark:border-ziditech-700 rounded-lg hover:bg-ziditech-100 dark:hover:bg-ziditech-900/40 transition-colors"
-                  >
-                    <Check className="w-5 h-5 text-ziditech-600 dark:text-ziditech-400" />
-                    <span className="font-medium text-ziditech-900 dark:text-ziditech-100">Submit</span>
-                  </button>
-                </div>
+              <div className="p-5 space-y-3">
+                <button
+                  onClick={() => handleGoToCart(selectedDraftInvoice)}
+                  className="w-full flex items-center space-x-3 p-4 bg-blue-50 border border-blue-200 rounded-xl hover:bg-blue-100 transition-colors text-left"
+                >
+                  <ShoppingCart className="w-5 h-5 text-blue-600" />
+                  <span className="font-medium text-blue-900">Go to Cart</span>
+                </button>
+                <button
+                  onClick={() => handleSubmitDirect(selectedDraftInvoice)}
+                  className="w-full flex items-center space-x-3 p-4 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors text-left"
+                  style={{ backgroundColor: '#eef1f8' }}
+                >
+                  <Check className="w-5 h-5" style={{ color: '#1e2d6b' }} />
+                  <span className="font-medium text-gray-800">Submit Invoice</span>
+                </button>
               </div>
             </div>
           </div>
