@@ -44,7 +44,7 @@ function AppLayout() {
     <ProductProvider>
       <div className="flex min-h-screen" style={{ backgroundColor: '#eef1f8' }}>
         <RetailSidebar />
-        <main className="flex-1 lg:pl-20 flex flex-col min-h-screen overflow-x-hidden">
+        <main className="flex-1 lg:pl-28 flex flex-col min-h-screen overflow-x-hidden">
           <div className="flex-1">
             <Outlet />
           </div>
