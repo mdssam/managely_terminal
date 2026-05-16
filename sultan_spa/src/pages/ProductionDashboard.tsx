@@ -63,7 +63,7 @@ export default function ProductionDashboard() {
   const todayStats = trends.find(t => t.date === todayStr) || { total_qty: 0, total_orders: 0 }
 
   return (
-    <div className="min-h-screen bg-gray-50 lg:pl-24 pb-12 text-gray-900">
+    <div className="min-h-screen bg-gray-50 pb-12 text-gray-900">
       <header className="px-6 py-8 bg-white border-b border-gray-200 shadow-sm">
         <div className="flex items-center space-x-4">
           <div className="p-3 bg-ziditech-100 dark:bg-ziditech-900/30 rounded-xl text-ziditech-600 dark:text-ziditech-400">
