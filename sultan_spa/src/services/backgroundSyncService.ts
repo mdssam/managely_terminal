@@ -11,6 +11,14 @@ interface StockUpdate {
   timestamp: number;
 }
 
+export interface OfflineInvoice {
+  id: string;
+  data: any;
+  timestamp: number;
+  synced: boolean;
+  syncError?: string;
+}
+
 class BackgroundSyncService {
   private isOnline = navigator.onLine;
   private lastSync: Date | null = null;
@@ -23,6 +31,101 @@ class BackgroundSyncService {
   constructor() {
     this.setupEventListeners();
     this.startPeriodicSync();
+    this.updatePendingCount();
+    // Attempt sync immediately on startup if online
+    if (this.isOnline) {
+      this.syncOfflineInvoices();
+    }
+  }
+
+  private updatePendingCount(): void {
+    const offlineInvoices = this.getOfflineInvoices();
+    const unsyncedCount = offlineInvoices.filter(inv => !inv.synced).length;
+    this.pendingUpdates = this.stockUpdateQueue.length + unsyncedCount;
+    this.notifyListeners();
+  }
+
+  public getOfflineInvoices(): OfflineInvoice[] {
+    try {
+      const stored = localStorage.getItem('sultan_offline_invoices');
+      return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+      console.error('Error loading offline invoices:', e);
+      return [];
+    }
+  }
+
+  public saveOfflineInvoice(data: any): OfflineInvoice {
+    const offlineInvoices = this.getOfflineInvoices();
+    const newInvoice: OfflineInvoice = {
+      id: 'OFFLINE-' + Date.now(),
+      data,
+      timestamp: Date.now(),
+      synced: false
+    };
+    offlineInvoices.push(newInvoice);
+    localStorage.setItem('sultan_offline_invoices', JSON.stringify(offlineInvoices));
+    this.updatePendingCount();
+
+    // Trigger sync automatically if online
+    if (this.isOnline) {
+      this.syncOfflineInvoices();
+    }
+
+    return newInvoice;
+  }
+
+  public async syncOfflineInvoices(): Promise<void> {
+    if (this.isSyncing || !this.isOnline) {
+      return;
+    }
+
+    const offlineInvoices = this.getOfflineInvoices();
+    const unsynced = offlineInvoices.filter(inv => !inv.synced);
+
+    if (unsynced.length === 0) {
+      return;
+    }
+
+    this.isSyncing = true;
+    this.notifyListeners();
+
+    console.log(`[Offline Sync] Found ${unsynced.length} unsynced offline invoices. Starting sync...`);
+
+    try {
+      const { createSalesInvoice } = await import('./salesInvoice');
+
+      for (const inv of unsynced) {
+        try {
+          console.log(`[Offline Sync] Syncing invoice ${inv.id}...`);
+          const result = await createSalesInvoice(inv.data);
+
+          // Success - remove from offline list
+          const currentInvoices = this.getOfflineInvoices();
+          const filtered = currentInvoices.filter(item => item.id !== inv.id);
+          localStorage.setItem('sultan_offline_invoices', JSON.stringify(filtered));
+
+          console.log(`[Offline Sync] Invoice ${inv.id} successfully synced as ${result.invoice?.name}`);
+        } catch (err: any) {
+          console.error(`[Offline Sync] Failed to sync invoice ${inv.id}:`, err);
+          // Store error to prevent blocking other syncs
+          const currentInvoices = this.getOfflineInvoices();
+          const updated = currentInvoices.map(item => {
+            if (item.id === inv.id) {
+              return { ...item, syncError: err.message || 'Unknown sync error' };
+            }
+            return item;
+          });
+          localStorage.setItem('sultan_offline_invoices', JSON.stringify(updated));
+        }
+      }
+      this.lastSync = new Date();
+    } catch (e) {
+      console.error('[Offline Sync] Error during import/sync:', e);
+    } finally {
+      this.isSyncing = false;
+      this.updatePendingCount();
+    }
   }
 
   private setupEventListeners(): void {
@@ -31,6 +134,7 @@ class BackgroundSyncService {
       this.isOnline = true;
       this.notifyListeners();
       this.processQueuedUpdates();
+      this.syncOfflineInvoices();
     });
 
     window.addEventListener('offline', () => {
@@ -42,6 +146,7 @@ class BackgroundSyncService {
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden && this.isOnline) {
         this.syncStockUpdates();
+        this.syncOfflineInvoices();
       }
     });
 
@@ -49,6 +154,7 @@ class BackgroundSyncService {
     window.addEventListener('focus', () => {
       if (this.isOnline) {
         this.syncStockUpdates();
+        this.syncOfflineInvoices();
       }
     });
   }
@@ -58,6 +164,7 @@ class BackgroundSyncService {
     this.syncInterval = setInterval(() => {
       if (this.isOnline && !this.isSyncing) {
         this.syncStockUpdates();
+        this.syncOfflineInvoices();
       }
     }, 30000);
   }
@@ -101,8 +208,7 @@ class BackgroundSyncService {
 
   private queueStockUpdates(updates: StockUpdate[]): void {
     this.stockUpdateQueue.push(...updates);
-    this.pendingUpdates = this.stockUpdateQueue.length;
-    this.notifyListeners();
+    this.updatePendingCount();
 
     // Process updates immediately
     this.processQueuedUpdates();
@@ -116,8 +222,7 @@ class BackgroundSyncService {
     // Emit updates to listeners
     const updates = [...this.stockUpdateQueue];
     this.stockUpdateQueue = [];
-    this.pendingUpdates = 0;
-    this.notifyListeners();
+    this.updatePendingCount();
 
     // Notify listeners about the updates
     this.emit('stock_updates', updates);
@@ -175,6 +280,7 @@ class BackgroundSyncService {
   }
 
   public forceSync(): Promise<void> {
+    this.syncOfflineInvoices();
     return this.syncStockUpdates();
   }
 

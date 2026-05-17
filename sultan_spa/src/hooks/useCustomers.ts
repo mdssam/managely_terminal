@@ -41,6 +41,23 @@ export function useCustomers(searchQuery?: string) {
   const fetchCustomers = async (search?: string, append = false) => {
     setIsLoading(true);
 
+    if (!navigator.onLine) {
+      const cached = localStorage.getItem('sultan_customers_cache');
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          console.log(`[Offline POS] Loading ${parsed.data.length} customers from cache...`);
+          setCustomers(parsed.data);
+          setTotalCount(parsed.totalCount || parsed.data.length);
+          setHasMore(false);
+          setIsLoading(false);
+          return;
+        } catch (e) {
+          console.error('[Offline POS] Failed to parse cached customers:', e);
+        }
+      }
+    }
+
     try {
       const params = new URLSearchParams();
       if (search) params.set('search', search);
@@ -95,7 +112,32 @@ export function useCustomers(searchQuery?: string) {
       setStart(nextStart);
       setHasMore(nextStart < total);
 
+      // Cache main list on success
+      if (!search) {
+        localStorage.setItem('sultan_customers_cache', JSON.stringify({
+          data: enhanced,
+          totalCount: total
+        }));
+      }
+
     } catch (err) {
+      console.error("Error fetching customers:", err);
+
+      const cached = localStorage.getItem('sultan_customers_cache');
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          console.log(`[Offline POS Fallback] Loading ${parsed.data.length} customers from cache...`);
+          setCustomers(parsed.data);
+          setTotalCount(parsed.totalCount || parsed.data.length);
+          setHasMore(false);
+          setError(null);
+          return;
+        } catch (e) {
+          console.error('[Offline POS Fallback] Failed to parse cached customers:', e);
+        }
+      }
+
       setError(err as Error);
     } finally {
       setIsLoading(false);

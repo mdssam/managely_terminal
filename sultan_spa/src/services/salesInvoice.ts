@@ -1,6 +1,7 @@
 
 import { extractErrorMessage } from "../utils/errorExtraction";
 import { refreshCSRFToken } from "../utils/csrf";
+import { backgroundSyncService } from "./backgroundSyncService";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function createDraftSalesInvoice(data: any) {
@@ -27,6 +28,40 @@ export async function createDraftSalesInvoice(data: any) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function createSalesInvoice(data: any) {
+  if (!navigator.onLine) {
+    console.log('[Offline Detection] Browser is offline. Saving invoice to offline sync queue...', data);
+    const offlineInv = backgroundSyncService.saveOfflineInvoice(data);
+
+    // Return a mock success message structured identically to the real backend payload
+    return {
+      success: true,
+      message: 'Payment queued offline successfully!',
+      invoice: {
+        name: offlineInv.id,
+        posting_date: new Date().toISOString().split('T')[0],
+        posting_time: new Date().toLocaleTimeString('en-US', { hour12: false }),
+        cashier_name: data.customer?.owner || 'Administrator',
+        owner: 'Administrator',
+        customer_name: data.customer?.name || 'Walk-in Customer',
+        customer: data.customer?.id || '',
+        items: data.items.map((item: any) => ({
+          item_code: item.item_code || item.id,
+          item_name: item.name,
+          qty: item.quantity || 1,
+          rate: item.price,
+          amount: (item.quantity || 1) * item.price,
+        })),
+        base_grand_total: data.grandTotal,
+        base_rounded_total: data.grandTotal,
+        change_amount: 0,
+        mode_of_payment: data.paymentMethods?.[0]?.method || 'Cash',
+        payment_methods: data.paymentMethods || [],
+        remarks: 'Offline Transaction (Pending Sync)',
+        status: 'Pending',
+      }
+    };
+  }
+
   const csrfToken = await refreshCSRFToken() || window.csrf_token;
 
   const response = await fetch('/api/method/sultan.sultan.api.sales_invoice.create_and_submit_invoice', {
