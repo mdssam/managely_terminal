@@ -10,7 +10,7 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ item, onAddToCart, isMobile = false, scannerOnly = false }: ProductCardProps) {
-  const isStockTracking = item.is_stock_item !== 0 && item.is_stock_item !== false
+  const isStockTracking = item.is_stock_item === 1 || item.is_stock_item === true
   const isOutOfStock = isStockTracking && item.available <= 0
   const canBeManufactured = !!item.is_fresh_produce
   const isDisabled = (isOutOfStock && !canBeManufactured) || scannerOnly

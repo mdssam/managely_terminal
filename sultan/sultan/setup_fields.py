@@ -1,6 +1,67 @@
 import frappe
 
 def run():
+	# Custom Child DocType for Sales Invoices in POS Closing Entry
+	if not frappe.db.exists("DocType", "Klik Sales Invoice Reference"):
+		doc = frappe.get_doc({
+			"doctype": "DocType",
+			"name": "Klik Sales Invoice Reference",
+			"module": "Sultan",
+			"custom": 1,
+			"istable": 1,
+			"fields": [
+				{
+					"fieldname": "sales_invoice",
+					"label": "Sales Invoice",
+					"fieldtype": "Link",
+					"options": "Sales Invoice",
+					"in_list_view": 1,
+					"reqd": 1
+				},
+				{
+					"fieldname": "customer",
+					"label": "Customer",
+					"fieldtype": "Link",
+					"options": "Customer",
+					"in_list_view": 1
+				},
+				{
+					"fieldname": "posting_date",
+					"label": "Posting Date",
+					"fieldtype": "Date",
+					"in_list_view": 1
+				},
+				{
+					"fieldname": "amount",
+					"label": "Amount",
+					"fieldtype": "Currency",
+					"in_list_view": 1
+				}
+			]
+		})
+		doc.insert(ignore_permissions=True)
+		print("Created Custom DocType Klik Sales Invoice Reference")
+	else:
+		print("Custom DocType Klik Sales Invoice Reference already exists.")
+
+	# Fix POS Closing Entry custom field options to Klik Sales Invoice Reference
+	field_name = "POS Closing Entry-custom_sales_invoice"
+	if not frappe.db.exists("Custom Field", field_name):
+		cf = frappe.new_doc("Custom Field")
+		cf.dt = "POS Closing Entry"
+		cf.fieldname = "custom_sales_invoice"
+		cf.label = "Sales Invoice"
+		cf.fieldtype = "Table"
+		cf.options = "Klik Sales Invoice Reference"
+		cf.insert(ignore_permissions=True)
+		print("Created custom_sales_invoice custom field on POS Closing Entry.")
+	else:
+		cf = frappe.get_doc("Custom Field", field_name)
+		if cf.options != "Klik Sales Invoice Reference":
+			cf.options = "Klik Sales Invoice Reference"
+			cf.save(ignore_permissions=True)
+			print("Updated custom_sales_invoice options to Klik Sales Invoice Reference")
+
 	# Custom field for Role
 	role_name = "POS Profile User-custom_role"
 	if not frappe.db.exists("Custom Field", role_name):
@@ -46,4 +107,6 @@ def run():
 	frappe.clear_cache(doctype="POS Profile User")
 	frappe.clear_cache(doctype="POS Profile")
 	frappe.clear_cache(doctype="Sales Invoice")
+	frappe.clear_cache(doctype="POS Closing Entry")
 	frappe.db.commit()
+
