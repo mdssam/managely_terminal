@@ -49,7 +49,7 @@ export default function ProductLineView({ items, onAddToCart, isMobile = false, 
         {/* Product Rows */}
         <div className="divide-y divide-gray-200">
           {items.map((item) => {
-            const isStockTracking = item.is_stock_item !== 0 && item.is_stock_item !== false
+            const isStockTracking = item.is_stock_item === 1 || item.is_stock_item === true
             const isOutOfStock = isStockTracking && item.available <= 0
             const canBeManufactured = item.is_fresh_produce === true
             const isDisabled = (isOutOfStock && !canBeManufactured) || scannerOnly

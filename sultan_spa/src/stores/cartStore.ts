@@ -46,7 +46,7 @@ export const useCartStore = create<CartState>()(
         const existingItem = state.cartItems.find((cartItem) => cartItem.id === item.id);
 
         // Check if item has available quantity (Bypass if item can be manufactured on-demand or is a service item)
-        const isStockTracking = item.is_stock_item !== 0 && item.is_stock_item !== false;
+        const isStockTracking = item.is_stock_item === 1 || item.is_stock_item === true;
         if (isStockTracking && item.available !== undefined && item.available <= 0 && !(item as any).is_fresh_produce) {
           toast.error(`${item.name} is out of stock`);
           return;
@@ -102,7 +102,7 @@ export const useCartStore = create<CartState>()(
         const existingItem = state.cartItems.find((cartItem) => cartItem.id === item.id);
 
         // Check if item has available quantity
-        const isStockTracking = item.is_stock_item !== 0 && item.is_stock_item !== false;
+        const isStockTracking = item.is_stock_item === 1 || item.is_stock_item === true;
         if (isStockTracking && item.available !== undefined && item.available < quantity && !(item as any).is_fresh_produce) {
           toast.error(`Only ${item.available} ${item.uom || 'units'} of ${item.name} available`);
           return;
@@ -168,7 +168,7 @@ export const useCartStore = create<CartState>()(
         }
 
         const item = state.cartItems.find((cartItem) => cartItem.id === id);
-        const isStockTracking = item?.is_stock_item !== 0 && item?.is_stock_item !== false;
+        const isStockTracking = item?.is_stock_item === 1 || item?.is_stock_item === true;
         if (isStockTracking && item && item.available !== undefined && quantity > item.available && !item.is_fresh_produce) {
           toast.error(`Only ${item.available} ${item.uom || 'units'} of ${item.name} available`);
           return;

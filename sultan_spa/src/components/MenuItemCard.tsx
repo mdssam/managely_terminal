@@ -8,7 +8,7 @@ interface MenuItemCardProps {
 }
 
 export default function MenuItemCard({ item, onAddToCart }: MenuItemCardProps) {
-  const isStockTracking = item.is_stock_item !== 0 && item.is_stock_item !== false
+  const isStockTracking = item.is_stock_item === 1 || item.is_stock_item === true
   const isOutOfStock = isStockTracking && item.available <= 0
 
   return (
