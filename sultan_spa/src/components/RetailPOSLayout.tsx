@@ -55,8 +55,9 @@ export default function RetailPOSLayout() {
   const isMobile = useMediaQuery("(max-width: 1024px)")
 
   const handleAddToCart = (item: MenuItem, quantity: number = 1) => {
-    // Don't add if item is not available (unless it can be manufactured)
-    if (item.available <= 0 && !item.is_fresh_produce) return
+    const isStockTracking = item.is_stock_item === 1 || item.is_stock_item === true
+    // Don't add if item is not available (unless it can be manufactured or is a service item)
+    if (isStockTracking && item.available <= 0 && !item.is_fresh_produce) return
 
     // If scanner-only mode is enabled, prevent adding items by clicking
     if (useScannerOnly) {
