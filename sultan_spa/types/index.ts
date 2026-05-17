@@ -22,6 +22,7 @@ export interface CartItem {
   conversion_factor?: number
   is_fresh_produce?: boolean
   supports_weight_price?: boolean
+  is_stock_item?: boolean | number
 }
 
 export interface MenuItem {
@@ -40,6 +41,7 @@ export interface MenuItem {
   barcode?: string
   is_fresh_produce?: boolean
   supports_weight_price?: boolean
+  is_stock_item?: boolean | number
 }
 
 export interface Category {

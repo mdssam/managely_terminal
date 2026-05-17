@@ -8,7 +8,8 @@ interface MenuItemCardProps {
 }
 
 export default function MenuItemCard({ item, onAddToCart }: MenuItemCardProps) {
-  const isOutOfStock = item.available <= 0
+  const isStockTracking = item.is_stock_item !== 0 && item.is_stock_item !== false
+  const isOutOfStock = isStockTracking && item.available <= 0
 
   return (
     <div
@@ -47,7 +48,11 @@ export default function MenuItemCard({ item, onAddToCart }: MenuItemCardProps) {
         <h3 className="font-semibold text-gray-800 dark:text-white text-sm leading-tight">{item.name}</h3>
 
         <div className="flex items-center space-x-2 text-xs text-gray-500 dark:text-gray-400">
-          <span>{item.available} Available</span>
+          {isStockTracking ? (
+            <span>{item.available} Available</span>
+          ) : (
+            <span>Unlimited Service</span>
+          )}
           <span>•</span>
           <span>{item.sold} Sold</span>
         </div>

@@ -70,6 +70,21 @@ def get_current_user_info():
 		except Exception:
 			pos_profile = None
 
+		# Resolve profile-specific role with safe fallback
+		active_role = None
+		if pos_profile:
+			active_role = frappe.db.get_value(
+				"POS Profile User",
+				{"parent": pos_profile.name, "user": user},
+				"custom_role"
+			)
+
+		if not active_role:
+			active_role = user_doc.role_profile_name or (user_roles[0] if user_roles else "User")
+
+		# If their profile-specific active role is Administrator, grant admin privileges
+		is_admin_user = is_admin_user or (active_role == "Administrator")
+
 		_total_time = time.time() - start_time
 
 		return {
@@ -78,6 +93,8 @@ def get_current_user_info():
 				"user": user,
 				"full_name": user_doc.full_name or user,
 				"email": user_doc.email,
+				"role": active_role,
+				"role_profile_name": active_role,
 				"roles": user_roles,
 				"is_admin_user": is_admin_user,
 				"admin_roles": admin_roles,

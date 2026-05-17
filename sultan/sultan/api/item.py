@@ -348,6 +348,7 @@ def get_item_by_barcode(barcode: str):
 			"currency_symbol": price_info["currency_symbol"],
 			"available": balance,
 			"image": item_doc.image,
+			"is_stock_item": item_doc.is_stock_item,
 		}
 
 	except Exception as e:
@@ -402,6 +403,7 @@ def get_item_by_identifier(code: str):
 				"expiry_date": expiry,
 				"weight": weight,
 				"is_fresh_produce": frappe.db.get_value("Item", item_code, "is_fresh_produce") or 0,
+				"is_stock_item": item_doc.is_stock_item,
 			}
 
 		matched_type = None
@@ -475,6 +477,7 @@ def get_item_by_identifier(code: str):
 			"image": item_doc.image,
 			"matched_type": matched_type,
 			"matched_value": matched_value,
+			"is_stock_item": item_doc.is_stock_item,
 		}
 	except Exception as e:
 		frappe.log_error(frappe.get_traceback(), f"Error fetching item by identifier: {code}")
@@ -664,7 +667,7 @@ def get_items_with_balance_and_price(
 
 	try:
 		# Build the base query
-		select_fields = "i.name, i.item_name, i.description, i.item_group, i.image, i.stock_uom, i.is_fresh_produce"
+		select_fields = "i.name, i.item_name, i.description, i.item_group, i.image, i.stock_uom, i.is_fresh_produce, i.is_stock_item"
 
 		if hide_unavailable:
 			base_query = [
@@ -848,7 +851,8 @@ def get_items_with_balance_and_price(
 			balance = stock_map.get(item_code, 0)
 
 			# Skip items with no stock if hide_unavailable is enabled
-			if hide_unavailable and balance <= 0:
+			is_stock_tracking = item.get("is_stock_item") != 0
+			if hide_unavailable and is_stock_tracking and balance <= 0:
 				continue
 
 			default_uom = item.get("stock_uom", "Nos")
@@ -871,6 +875,7 @@ def get_items_with_balance_and_price(
 					"uom": default_uom,
 					"barcode": primary_barcode,
 					"is_fresh_produce": item.get("is_fresh_produce") or 0,
+					"is_stock_item": item.get("is_stock_item") or 0,
 				}
 			)
 

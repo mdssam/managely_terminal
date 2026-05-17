@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { extractErrorMessage } from "../utils/errorExtraction";
+import { refreshCSRFToken } from "../utils/csrf";
 
 // HOOK: Create POS Closing Entry
 interface ClosingBalance {
@@ -22,7 +24,7 @@ export function useCreatePOSClosingEntry(): UseCreateClosingReturn {
     setIsCreating(true);
     setError(null);
     setSuccess(false);
-    const csrfToken = window.csrf_token;
+    const csrfToken = await refreshCSRFToken() || window.csrf_token;
 
     try {
       // console.log('Creating closing entry with:', closingBalance);
@@ -44,17 +46,18 @@ export function useCreatePOSClosingEntry(): UseCreateClosingReturn {
         ok: res.ok
       });
 
-      if (!res.ok) {
-        throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-      }
-
       const data = await res.json();
       console.log('Closing entry data:', data);
+
+      if (!res.ok) {
+        const errorMessage = extractErrorMessage(data, `HTTP ${res.status}: ${res.statusText}`);
+        throw new Error(errorMessage);
+      }
 
       if (data.message) {
         setSuccess(true);
       } else {
-        throw new Error(data._server_messages || "Failed to create closing entry");
+        throw new Error("Failed to create closing entry");
       }
         //eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {

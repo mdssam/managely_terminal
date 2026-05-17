@@ -6,7 +6,7 @@ import { useTheme } from "../hooks/useTheme"
 import { useCartStore } from "../stores/cartStore"
 import { formatCurrency } from "../utils/currency"
 import { usePOSDetails } from "../hooks/usePOSProfile"
-import { ShoppingCart, Search, Settings, LogOut, Moon, Sun, Scan, Grid3X3, List, Store, RefreshCw } from "lucide-react"
+import { ShoppingCart, Search, Settings, LogOut, Moon, Sun, Scan, Grid3X3, List, Store, RefreshCw, MonitorX } from "lucide-react"
 import { clearCacheAndReload } from "../utils/clearCache"
 import CategoryTabs from "./CategoryTabs"
 import ProductGrid from "./ProductGrid"
@@ -203,6 +203,17 @@ export default function MobilePOSLayout({
                     <RefreshCw size={14} className="mr-3 text-gray-500 dark:text-gray-400" />
                     <span>Clear Cache</span>
                   </button>
+
+                  {(user as any)?.role !== "Menu User" && (
+                    <Link
+                      to="/closing_shift"
+                      onClick={() => setShowUserMenu(false)}
+                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      <MonitorX size={14} className="mr-3 text-gray-500 dark:text-gray-400" />
+                      <span>Closing Session</span>
+                    </Link>
+                  )}
 
                   <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>
 

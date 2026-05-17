@@ -1,4 +1,6 @@
-import {  useState} from "react";
+import { useState } from "react";
+import { extractErrorMessage } from "../utils/errorExtraction";
+import { refreshCSRFToken } from "../utils/csrf";
 
 // HOOK 2: Create POS Opening Entry
 interface OpeningBalance {
@@ -22,7 +24,7 @@ export function useCreatePOSOpeningEntry(): UseCreateOpeningReturn {
     setIsCreating(true);
     setError(null);
     setSuccess(false);
-    const csrfToken = window.csrf_token;
+    const csrfToken = await refreshCSRFToken() || window.csrf_token;
 
     try {
       //eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -43,15 +45,21 @@ export function useCreatePOSOpeningEntry(): UseCreateOpeningReturn {
 
       const data = await res.json();
 
-      if (res.ok && data.message) {
+      if (!res.ok) {
+        const errorMessage = extractErrorMessage(data, "Failed to create opening entry");
+        throw new Error(errorMessage);
+      }
+
+      if (data.message) {
         setSuccess(true);
       } else {
-        throw new Error(data._server_messages || "Failed to create opening entry");
+        throw new Error("Failed to create opening entry");
       }
             //eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       console.error("Error creating POS Opening Entry:", err);
       setError(err.message || "Unexpected error occurred");
+      throw err;
     } finally {
       setIsCreating(false);
     }

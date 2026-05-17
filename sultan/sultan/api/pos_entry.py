@@ -12,6 +12,12 @@ from sultan.sultan.utils import clear_pos_profile_cache, get_current_pos_profile
 
 
 @frappe.whitelist()
+def get_csrf_token():
+	"""Fetch the current authenticated session's CSRF token."""
+	return frappe.session.csrf_token
+
+
+@frappe.whitelist()
 def open_pos():
 	"""Check if the current user has an open POS Opening Entry."""
 	user = frappe.session.user

@@ -43,6 +43,16 @@ def get_current_pos_profile():
 
 	# Mania: Always fetch a fresh doc to ensure latest fields -> Issue reported 04/11/2025
 	pos_profile_doc = frappe.get_doc("POS Profile", pos_profile_name)
+
+	# Dynamically override warehouse if user has a custom warehouse set in Applicable Users
+	custom_warehouse = frappe.db.get_value(
+		"POS Profile User",
+		{"parent": pos_profile_name, "user": user},
+		"custom_warehouse"
+	)
+	if custom_warehouse:
+		pos_profile_doc.warehouse = custom_warehouse
+
 	return pos_profile_doc
 
 

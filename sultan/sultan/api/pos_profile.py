@@ -156,7 +156,8 @@ def get_pos_details():
 			"default_customer": None,
 			"current_opening_entry": None,
 			"custom_scale_barcodes_start_with": "",
-			"allow_discount_change": 0
+			"allow_discount_change": 0,
+			"role": frappe.db.get_value("User", frappe.session.user, "role_profile_name") or "Cashier"
 		}
 
 	business_type = getattr(pos, "custom_business_type", "Retail")
@@ -176,6 +177,18 @@ def get_pos_details():
 			"customer_group": customer_doc.customer_group,
 			"default_currency": customer_doc.default_currency,
 		}
+
+	# Resolve profile-specific role with safe fallback
+	active_role = None
+	if pos and pos.name != "System Default":
+		active_role = frappe.db.get_value(
+			"POS Profile User",
+			{"parent": pos.name, "user": frappe.session.user},
+			"custom_role"
+		)
+	if not active_role:
+		active_role = frappe.db.get_value("User", frappe.session.user, "role_profile_name") or "Cashier"
+
 	details = {
 		"name": pos.name,
 		"business_type": business_type,
@@ -201,7 +214,8 @@ def get_pos_details():
 		"custom_allow_write_off": getattr(pos, "custom_allow_write_off", 0),
 		"custom_ignore_write_off_on_partial_returns": getattr(pos, "custom_ignore_write_off_on_partial_returns", 1.0),
 		"custom_delivery_required": int(getattr(pos, "custom_delivery_required", 0) or 0),
-		"allow_discount_change": getattr(pos, "allow_discount_change", 0)
+		"allow_discount_change": getattr(pos, "allow_discount_change", 0),
+		"role": active_role
 	}
 	return details
 
