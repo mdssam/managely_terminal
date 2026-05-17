@@ -11,7 +11,7 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<"light" | "dark">("dark")
+  const [theme, setTheme] = useState<"light" | "dark">("light")
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -21,26 +21,23 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!mounted) return
 
-    const savedTheme = localStorage.getItem("theme") as "light" | "dark" | null
-    if (savedTheme) {
-      setTheme(savedTheme)
-    }
-    // No OS-preference fallback — light is the Sultan POS default
+    // Enforce light mode at all times
+    setTheme("light")
+    document.documentElement.classList.remove("dark")
+    localStorage.setItem("theme", "light")
   }, [mounted])
 
   useEffect(() => {
     if (!mounted) return
 
-    localStorage.setItem("theme", theme)
-    if (theme === "dark") {
-      document.documentElement.classList.add("dark")
-    } else {
-      document.documentElement.classList.remove("dark")
-    }
+    // Keep it light
+    document.documentElement.classList.remove("dark")
+    localStorage.setItem("theme", "light")
   }, [theme, mounted])
 
   const toggleTheme = () => {
-    setTheme(theme === "light" ? "dark" : "light")
+    // No-op to prevent switching to dark theme
+    setTheme("light")
   }
 
   return <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>{children}</ThemeContext.Provider>
