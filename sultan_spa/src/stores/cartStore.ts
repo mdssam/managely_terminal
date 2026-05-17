@@ -45,15 +45,16 @@ export const useCartStore = create<CartState>()(
         const state = get();
         const existingItem = state.cartItems.find((cartItem) => cartItem.id === item.id);
 
-        // Check if item has available quantity (Bypass if item can be manufactured on-demand)
-        if (item.available !== undefined && item.available <= 0 && !(item as any).is_fresh_produce) {
+        // Check if item has available quantity (Bypass if item can be manufactured on-demand or is a service item)
+        const isStockTracking = item.is_stock_item !== 0 && item.is_stock_item !== false;
+        if (isStockTracking && item.available !== undefined && item.available <= 0 && !(item as any).is_fresh_produce) {
           toast.error(`${item.name} is out of stock`);
           return;
         }
 
         if (existingItem) {
           // Check if adding one more would exceed available stock
-          if (item.available !== undefined && existingItem.quantity >= item.available && !(item as any).is_fresh_produce) {
+          if (isStockTracking && item.available !== undefined && existingItem.quantity >= item.available && !(item as any).is_fresh_produce) {
             toast.error(`Only ${item.available} ${item.uom || 'units'} of ${item.name} available`);
             return;
           }
@@ -101,14 +102,15 @@ export const useCartStore = create<CartState>()(
         const existingItem = state.cartItems.find((cartItem) => cartItem.id === item.id);
 
         // Check if item has available quantity
-        if (item.available !== undefined && item.available < quantity && !(item as any).is_fresh_produce) {
+        const isStockTracking = item.is_stock_item !== 0 && item.is_stock_item !== false;
+        if (isStockTracking && item.available !== undefined && item.available < quantity && !(item as any).is_fresh_produce) {
           toast.error(`Only ${item.available} ${item.uom || 'units'} of ${item.name} available`);
           return;
         }
 
         if (existingItem) {
           // Check if adding the quantity would exceed available stock
-          if (item.available !== undefined && (existingItem.quantity + quantity) > item.available && !(item as any).is_fresh_produce) {
+          if (isStockTracking && item.available !== undefined && (existingItem.quantity + quantity) > item.available && !(item as any).is_fresh_produce) {
             toast.error(`Only ${item.available} ${item.uom || 'units'} of ${item.name} available`);
             return;
           }
@@ -166,7 +168,8 @@ export const useCartStore = create<CartState>()(
         }
 
         const item = state.cartItems.find((cartItem) => cartItem.id === id);
-        if (item && item.available !== undefined && quantity > item.available && !item.is_fresh_produce) {
+        const isStockTracking = item?.is_stock_item !== 0 && item?.is_stock_item !== false;
+        if (isStockTracking && item && item.available !== undefined && quantity > item.available && !item.is_fresh_produce) {
           toast.error(`Only ${item.available} ${item.uom || 'units'} of ${item.name} available`);
           return;
         }

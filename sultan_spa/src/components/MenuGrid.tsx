@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom"
 import { useAuth } from "../hooks/useAuth"
 import { useTheme } from "../hooks/useTheme"
 import { usePOSDetails } from "../hooks/usePOSProfile"
-import { Settings, LogOut, Moon, Sun, Grid3X3, List, Store, RefreshCw, LayoutGrid } from "lucide-react"
+import { Settings, LogOut, Moon, Sun, Grid3X3, List, Store, RefreshCw, LayoutGrid, MonitorX } from "lucide-react"
 import { clearCacheAndReload } from "../utils/clearCache"
 import CategoryTabs from "./CategoryTabs"
 import ProductGrid from "./ProductGrid"
@@ -226,6 +226,21 @@ export default function MenuGrid({
                           <RefreshCw size={15} className="mr-3 text-gray-400" />
                           <span className="font-medium">Clear Cache</span>
                         </button>
+
+                        {(user as any)?.role !== "Menu User" && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setShowUserMenu(false);
+                              navigate('/closing_shift');
+                            }}
+                            className="flex items-center w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                            type="button"
+                          >
+                            <MonitorX size={15} className="mr-3 text-gray-400" />
+                            <span className="font-medium">Closing Session</span>
+                          </button>
+                        )}
 
                         <div className="border-t border-gray-100 my-1"></div>
 

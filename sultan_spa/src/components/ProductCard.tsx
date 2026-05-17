@@ -10,7 +10,8 @@ interface ProductCardProps {
 }
 
 export default function ProductCard({ item, onAddToCart, isMobile = false, scannerOnly = false }: ProductCardProps) {
-  const isOutOfStock = item.available <= 0
+  const isStockTracking = item.is_stock_item !== 0 && item.is_stock_item !== false
+  const isOutOfStock = isStockTracking && item.available <= 0
   const canBeManufactured = !!item.is_fresh_produce
   const isDisabled = (isOutOfStock && !canBeManufactured) || scannerOnly
 
@@ -52,7 +53,11 @@ export default function ProductCard({ item, onAddToCart, isMobile = false, scann
 
         {/* Badges — top-right corner */}
         <div className="absolute top-2 right-2 flex flex-col gap-1.5 z-10">
-          {item.available > 0 ? (
+          {!isStockTracking ? (
+            <div className="text-white px-3 py-1.5 rounded-lg text-xs font-black shadow-md border border-white/20" style={{ backgroundColor: '#10b981' }}>
+              SERVICE
+            </div>
+          ) : item.available > 0 ? (
             <div className="text-white px-3 py-1.5 rounded-lg text-xs font-black shadow-md border border-white/20" style={{ backgroundColor: '#4c28cc' }}>
               IN STOCK
             </div>

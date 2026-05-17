@@ -1,9 +1,10 @@
 
 import { extractErrorMessage } from "../utils/errorExtraction";
+import { refreshCSRFToken } from "../utils/csrf";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function createDraftSalesInvoice(data: any) {
-const csrfToken = window.csrf_token;
+  const csrfToken = await refreshCSRFToken() || window.csrf_token;
   const response = await fetch('/api/method/sultan.sultan.api.sales_invoice.create_draft_invoice', {
     method: 'POST',
     headers: {
@@ -26,7 +27,7 @@ const csrfToken = window.csrf_token;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function createSalesInvoice(data: any) {
-  const csrfToken = window.csrf_token;
+  const csrfToken = await refreshCSRFToken() || window.csrf_token;
 
   const response = await fetch('/api/method/sultan.sultan.api.sales_invoice.create_and_submit_invoice', {
     method: 'POST',
@@ -50,7 +51,7 @@ export async function createSalesInvoice(data: any) {
 }
 
 export async function createSalesReturn(invoiceName: string) {
-  const csrfToken = window.csrf_token;
+  const csrfToken = await refreshCSRFToken() || window.csrf_token;
 
   const response = await fetch('/api/method/sultan.sultan.api.sales_invoice.return_sales_invoice', {
     method: 'POST',
@@ -108,7 +109,7 @@ export async function getInvoiceDetails(invoiceName: string) {
 }
 
 export async function deleteDraftInvoice(invoiceId: string) {
-  const csrfToken = window.csrf_token;
+  const csrfToken = await refreshCSRFToken() || window.csrf_token;
 
   const response = await fetch('/api/method/sultan.sultan.api.sales_invoice.delete_draft_invoice', {
     method: 'POST',
@@ -160,7 +161,7 @@ export async function getDraftInvoiceItems(invoiceId: string) {
 }
 
 export async function submitDraftInvoice(invoiceId: string) {
-  const csrfToken = window.csrf_token;
+  const csrfToken = await refreshCSRFToken() || window.csrf_token;
 
   const response = await fetch('/api/method/sultan.sultan.api.sales_invoice.submit_draft_invoice', {
     method: 'POST',

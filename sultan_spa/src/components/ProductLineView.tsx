@@ -49,7 +49,8 @@ export default function ProductLineView({ items, onAddToCart, isMobile = false, 
         {/* Product Rows */}
         <div className="divide-y divide-gray-200">
           {items.map((item) => {
-            const isOutOfStock = item.available <= 0
+            const isStockTracking = item.is_stock_item !== 0 && item.is_stock_item !== false
+            const isOutOfStock = isStockTracking && item.available <= 0
             const canBeManufactured = item.is_fresh_produce === true
             const isDisabled = (isOutOfStock && !canBeManufactured) || scannerOnly
             const formattedPrice = `${item.currency_symbol}${item.price.toFixed(2)}`
@@ -90,7 +91,7 @@ export default function ProductLineView({ items, onAddToCart, isMobile = false, 
                   <span className={`font-medium ${isMobile ? "text-xs" : "text-sm"} ${
                     isOutOfStock ? "text-red-600" : "text-gray-900"
                   }`}>
-                    {isOutOfStock ? "0" : item.available}
+                    {!isStockTracking ? "—" : (isOutOfStock ? "0" : item.available)}
                   </span>
                 </div>
 
