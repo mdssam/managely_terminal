@@ -31,8 +31,9 @@ export default function RetailPOSLayout() {
   const isMobile = useMediaQuery("(max-width: 1024px)")
 
   const handleAddToCart = (item: MenuItem) => {
+    const isStockTracking = item.is_stock_item === 1 || item.is_stock_item === true
     // Don't add if item is not available
-    if (item.available <= 0) return
+    if (isStockTracking && item.available <= 0) return
 
     // If scanner-only mode is enabled, prevent adding items by clicking
     if (useScannerOnly) {
@@ -48,14 +49,15 @@ export default function RetailPOSLayout() {
     const existingItem = cartItems.find((cartItem) => cartItem.id === item.id)
 
     // Check if item has available quantity
-    if (item.available <= 0) {
+    const isStockTracking = item.is_stock_item === 1 || item.is_stock_item === true
+    if (isStockTracking && item.available <= 0) {
       toast.error(`${item.name} is out of stock`)
       return
     }
 
     if (existingItem) {
       // Check if adding one more would exceed available stock
-      if (existingItem.quantity >= item.available) {
+      if (isStockTracking && existingItem.quantity >= item.available) {
           toast.error(`Only ${item.available} ${item.uom || 'units'} of ${item.name} available`)
         return
       }
@@ -93,7 +95,8 @@ export default function RetailPOSLayout() {
       setCartItems(cartItems.filter((item) => item.id !== id))
     } else {
       const item = cartItems.find((cartItem) => cartItem.id === id)
-      if (item && item.available !== undefined && quantity > item.available) {
+      const isStockTracking = item?.is_stock_item === 1 || item?.is_stock_item === true
+      if (isStockTracking && item && item.available !== undefined && quantity > item.available) {
         toast.error(`Only ${item.available} ${item.uom || 'units'} of ${item.name} available`)
         return
       }
