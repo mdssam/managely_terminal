@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useMemo, useEffect } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   CreditCard,
   Search,
@@ -30,6 +30,15 @@ import { clearAllCache } from "../utils/clearCache";
 
 export default function ClosingShiftPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get("open") === "true") {
+      setShowCloseModal(true);
+    }
+  }, [location.search]);
+
   const isMobile = useMediaQuery("(max-width: 1024px)");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");

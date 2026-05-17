@@ -146,12 +146,12 @@ export default function NavBar() {
 
                     {(user as any)?.role !== "Menu User" && (
                       <Link
-                        to="/closing_shift"
+                        to="/closing_shift?open=true"
                         onClick={() => setShowUserMenu(false)}
                         className="flex items-center w-full px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-ziditech-50 dark:hover:bg-ziditech-900/10 transition-colors"
                       >
                         <Monitor size={18} className="mr-3 text-ziditech-500" />
-                        <span className="font-medium">Closing Shift</span>
+                        <span className="font-medium">Closing Session</span>
                       </Link>
                     )}
 
