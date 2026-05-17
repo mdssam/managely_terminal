@@ -28,21 +28,30 @@ console.log("🚀 Loading Sultan POS Interceptor...");
   // Check immediately on load
   if (checkAndRedirect()) return;
 
-  // Also intercept frappe.set_route calls before they fire
-  if (typeof frappe !== "undefined" && frappe.router) {
-    const origSetRoute = frappe.router.push_state || frappe.set_route;
-    if (origSetRoute) {
-      const _orig = origSetRoute.bind(frappe.router || frappe);
-      const _intercept = function(...args) {
+  // Also intercept frappe.set_route and push_state calls before they fire
+  if (typeof frappe !== "undefined") {
+    if (frappe.router && frappe.router.push_state) {
+      const _origPushState = frappe.router.push_state.bind(frappe.router);
+      frappe.router.push_state = function(...args) {
         const route = (args[0] || "").toString();
         if (route.includes("sultan_pos")) {
           window.location.href = "/sultan_spa/";
           return;
         }
-        return _orig.apply(this, args);
+        return _origPushState.apply(this, args);
       };
-      if (frappe.router) frappe.router.push_state = _intercept;
-      if (frappe.set_route) frappe.set_route = _intercept;
+    }
+
+    if (frappe.set_route) {
+      const _origSetRoute = frappe.set_route.bind(frappe);
+      frappe.set_route = function(...args) {
+        const route = (args[0] || "").toString();
+        if (route.includes("sultan_pos")) {
+          window.location.href = "/sultan_spa/";
+          return Promise.resolve();
+        }
+        return _origSetRoute.apply(this, args);
+      };
     }
   }
 
