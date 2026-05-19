@@ -132,6 +132,15 @@ export function usePOSDetails() {
       try {
         setLoading(true)
 
+        if (typeof window !== 'undefined' && !navigator.onLine) {
+          const cached = localStorage.getItem('cached_pos_details');
+          if (cached) {
+            setPOSDetails(JSON.parse(cached));
+            setLoading(false);
+            return;
+          }
+        }
+
         const response = await fetch("/api/method/sultan.sultan.api.pos_profile.get_pos_details", {
           method: "GET",
           headers: {
@@ -142,8 +151,10 @@ export function usePOSDetails() {
 
         const data = await response.json()
         if (response.ok && data.message) {
-
           setPOSDetails(data.message as POSDetails)
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('cached_pos_details', JSON.stringify(data.message));
+          }
         } else {
           throw new Error(data._server_messages || "Failed to fetch POS details")
         }
