@@ -43,7 +43,7 @@
   --radius-xl: calc(var(--radius) + 4px);
 
   /* Sultan brand colors - Forced to be darker for visibility */
-  --color-ziditech-50:  #eef1ff;
+  --color-ziditech-50: #eef1ff;
   --color-ziditech-100: #d8dfff;
   --color-ziditech-200: #b0bcff;
   --color-ziditech-300: #8090ff;
@@ -56,16 +56,16 @@
   --color-ziditech-950: #4c28cc;
 
   /* ─── Override Tailwind v4 gray palette → Pure Black & Dark Blue ─── */
-  --color-gray-50:  #f8fafc;
+  --color-gray-50: #f8fafc;
   --color-gray-100: #f1f5f9;
   --color-gray-200: #e2e8f0;
   --color-gray-300: #cbd5e1;
-  --color-gray-400: #475569; 
-  --color-gray-500: #334155; 
-  --color-gray-600: #1e293b; 
-  --color-gray-700: #0f172a; 
-  --color-gray-800: #020617; 
-  --color-gray-900: #000000; 
+  --color-gray-400: #475569;
+  --color-gray-500: #334155;
+  --color-gray-600: #1e293b;
+  --color-gray-700: #0f172a;
+  --color-gray-800: #020617;
+  --color-gray-900: #000000;
   --color-gray-950: #000000;
 }
 
@@ -117,6 +117,7 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
@@ -130,40 +131,152 @@
    ============================================================ */
 
 /* 1. Force all primary text to Black or Deep Blue */
-h1, h2, h3, h4, h5, h6, .font-bold, .font-semibold, strong {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.font-bold,
+.font-semibold,
+strong {
   color: #000000 !important;
   opacity: 1 !important;
 }
 
-p, span, div, label, li, a {
+p,
+span,
+div,
+label,
+li,
+a {
   color: #000000 !important;
   opacity: 1 !important;
 }
+
+/* ============================================================
+   SULTAN POS — EXEMPTIONS FOR LIGHT TEXT ON DARK BACKGROUNDS
+   ============================================================ */
+
+/* A. Sidebar completely (ignores global black override, forces white styled colors) */
+.sultan-sidebar,
+.sultan-sidebar *,
+.sultan-sidebar div,
+.sultan-sidebar button,
+.sultan-sidebar span,
+.sultan-sidebar svg,
+.sultan-sidebar a {
+  color: #ffffff !important;
+}
+
+/* Exemptions for status colors */
+.sultan-sidebar .text-green-300,
+.sultan-sidebar .text-green-300 * {
+  color: #86efac !important;
+}
+.sultan-sidebar .text-yellow-300,
+.sultan-sidebar .text-yellow-300 * {
+  color: #fde047 !important;
+}
+.sultan-sidebar .text-red-300,
+.sultan-sidebar .text-red-300 * {
+  color: #fca5a5 !important;
+}
+
+/* Exemption for disabled/restricted buttons */
+.sultan-sidebar button[disabled],
+.sultan-sidebar button[disabled] *,
+.sultan-sidebar button[disabled] span,
+.sultan-sidebar button[disabled] svg {
+  color: rgba(255, 255, 255, 0.3) !important;
+  opacity: 0.3 !important;
+}
+
+
+
+/* B. Allow .text-white and its nested contents to be white */
+.text-white,
+.text-white-important {
+  color: #ffffff !important;
+}
+
+.text-white *,
+.text-white-important * {
+  color: inherit !important;
+}
+
+/* C. Prevent status colors and highlights from being forced to black */
+.text-green-300 { color: #86efac !important; }
+.text-yellow-300 { color: #fde047 !important; }
+.text-red-300 { color: #fca5a5 !important; }
+.text-orange-500 { color: #f97316 !important; }
+.text-green-500 { color: #22c55e !important; }
+.text-red-500 { color: #ef4444 !important; }
+.text-blue-500 { color: #3b82f6 !important; }
+.text-yellow-500 { color: #eab308 !important; }
+
 
 /* 2. Utility Class Overrides - High Contrast */
-.text-gray-900, .text-gray-800, .text-gray-700, .text-slate-900, .text-slate-800 { color: #000000 !important; opacity: 1 !important; }
-.text-gray-600, .text-gray-500, .text-gray-400, .text-slate-600, .text-slate-500 { color: #4c28cc !important; opacity: 1 !important; } 
+.text-gray-900,
+.text-gray-800,
+.text-gray-700,
+.text-slate-900,
+.text-slate-800 {
+  color: #000000 !important;
+  opacity: 1 !important;
+}
 
-.text-ziditech-900, .text-ziditech-800, .text-ziditech-700 { color: #000000 !important; opacity: 1 !important; }
-.text-ziditech-600, .text-ziditech-500, .text-ziditech-400 { color: #1d4ed8 !important; opacity: 1 !important; } 
+.text-gray-600,
+.text-gray-500,
+.text-gray-400,
+.text-slate-600,
+.text-slate-500 {
+  color: #4c28cc !important;
+  opacity: 1 !important;
+}
+
+.text-ziditech-900,
+.text-ziditech-800,
+.text-ziditech-700 {
+  color: #000000 !important;
+  opacity: 1 !important;
+}
+
+.text-ziditech-600,
+.text-ziditech-500,
+.text-ziditech-400 {
+  color: #1d4ed8 !important;
+  opacity: 1 !important;
+}
 
 /* 3. Global Opacity Fix */
-.text-muted-foreground, .opacity-70, .opacity-50, .text-gray-400, .text-gray-500, .text-slate-400 {
+.text-muted-foreground,
+.opacity-70,
+.opacity-50,
+.text-gray-400,
+.text-gray-500,
+.text-slate-400 {
   opacity: 1 !important;
 }
 
 /* 4. Backgrounds — Fix the 'black section' */
-.bg-white, .bg-card, .bg-background {
+.bg-white,
+.bg-card,
+.bg-background {
   background-color: #ffffff !important;
   color: #000000 !important;
 }
 
-.bg-gray-50, .bg-slate-50, .bg-gray-100 {
+.bg-gray-50,
+.bg-slate-50,
+.bg-gray-100 {
   background-color: #f8fafc !important;
 }
 
 /* 5. Input / form elements visibility */
-input, textarea, select {
+input,
+textarea,
+select {
   background-color: #ffffff !important;
   color: #000000 !important;
   border: 1px solid #94a3b8 !important;
@@ -176,8 +289,13 @@ input::placeholder {
 }
 
 /* 6. Dashboard & Grid Specifics */
-.ProductionDashboard h1, .ProductionDashboard h3, .ProductionDashboard p,
-.MenuGrid h2, .MenuGrid p, .ProductCard h3, .ProductCard p {
+.ProductionDashboard h1,
+.ProductionDashboard h3,
+.ProductionDashboard p,
+.MenuGrid h2,
+.MenuGrid p,
+.ProductCard h3,
+.ProductCard p {
   color: #000000 !important;
 }
 
@@ -186,5 +304,13 @@ input::placeholder {
   scrollbar-width: thin;
   scrollbar-color: #94a3b8 transparent;
 }
-*::-webkit-scrollbar { width: 4px; height: 4px; }
-*::-webkit-scrollbar-thumb { background-color: #94a3b8; border-radius: 10px; }
+
+*::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: #94a3b8;
+  border-radius: 10px;
+}

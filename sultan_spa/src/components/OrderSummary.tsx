@@ -2493,84 +2493,84 @@ export default function OrderSummary({
   };
 
   const handleSaveCustomer = async (newCustomer: Partial<Customer> & { customer_name?: string }) => {
-    // Automatically select the newly created customer in the cart
-    if (newCustomer && newCustomer.customer_name) {
-      try {
-        // Fetch the full customer data using the customer_name returned from backend
-        const response = await fetch(`/api/method/sultan.sultan.api.customer.get_customer_info?customer_name=${encodeURIComponent(newCustomer.customer_name)}`);
+    if (newCustomer?.id) {
+      const isOffline = newCustomer.id.startsWith('OFFLINE_CUST-');
 
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const resData = await response.json();
-
-        if (resData.message) {
-          // Convert the ERP customer data to our Customer format
-          const erpCustomer = resData.message;
-          const customerToSelect: Customer = {
-            id: erpCustomer.name,
-            name: erpCustomer.customer_name || erpCustomer.name,
-            email: erpCustomer.email_id || '',
-            phone: erpCustomer.mobile_no || '',
-            type: erpCustomer.customer_type === "Company" ? "company" : "individual",
-            address: {
-              street: '',
-              city: '',
-              state: '',
-              zipCode: '',
-              country: 'Saudi Arabia'
-            },
-            loyaltyPoints: erpCustomer.custom_loyalty_points || 0,
-            totalSpent: erpCustomer.custom_total_spent || 0,
-            totalOrders: erpCustomer.custom_total_orders || 0,
-            preferredPaymentMethod: 'Cash',
-            tags: erpCustomer.custom_tags?.split(',').filter(Boolean) || [],
-            status: erpCustomer.custom_status || 'active',
-            createdAt: erpCustomer.creation || new Date().toISOString()
-          };
-
-          setSelectedCustomer(customerToSelect);
-          setCustomerSearchQuery(''); // Clear the search query
-
-          // Also refresh the customers list to include the new customer
-          if (refetchCustomers) {
-            refetchCustomers();
-          }
-        }
-      } catch (error) {
-        console.error('Error fetching customer details:', error);
-        // Fallback: create a basic customer object from the returned data
+      if (isOffline) {
+        // Offline customer — use data returned from AddCustomerModal directly
         const customerToSelect: Customer = {
-          id: newCustomer.customer_name || '',
-          name: newCustomer.customer_name || '',
-          email: '',
-          phone: '',
-          type: 'individual',
-          address: {
-            street: '',
-            city: '',
-            state: '',
-            zipCode: '',
-            country: 'Saudi Arabia'
-          },
+          id: newCustomer.id,
+          name: newCustomer.name || '',
+          customer_name: newCustomer.name || '',
+          email: newCustomer.email || '',
+          phone: newCustomer.phone || '',
+          type: (newCustomer.type as Customer['type']) || 'individual',
+          address: { street: '', city: '', state: '', zipCode: '', country: 'Saudi Arabia' },
           loyaltyPoints: 0,
           totalSpent: 0,
           totalOrders: 0,
           preferredPaymentMethod: 'Cash',
           tags: [],
           status: 'active',
-          createdAt: new Date().toISOString()
+          createdAt: new Date().toISOString(),
         };
-
         setSelectedCustomer(customerToSelect);
         setCustomerSearchQuery('');
+      } else {
+        // Online customer — fetch full data from backend
+        try {
+          const response = await fetch(`/api/method/sultan.sultan.api.customer.get_customer_info?customer_name=${encodeURIComponent(newCustomer.id)}`);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const resData = await response.json();
+          if (resData.message) {
+            const erpCustomer = resData.message;
+            const customerToSelect: Customer = {
+              id: erpCustomer.name,
+              name: erpCustomer.customer_name || erpCustomer.name,
+              customer_name: erpCustomer.customer_name || erpCustomer.name,
+              email: erpCustomer.email_id || '',
+              phone: erpCustomer.mobile_no || '',
+              type: erpCustomer.customer_type === "Company" ? "company" : "individual",
+              address: { street: '', city: '', state: '', zipCode: '', country: 'Saudi Arabia' },
+              loyaltyPoints: erpCustomer.custom_loyalty_points || 0,
+              totalSpent: erpCustomer.custom_total_spent || 0,
+              totalOrders: erpCustomer.custom_total_orders || 0,
+              preferredPaymentMethod: 'Cash',
+              tags: erpCustomer.custom_tags?.split(',').filter(Boolean) || [],
+              status: erpCustomer.custom_status || 'active',
+              createdAt: erpCustomer.creation || new Date().toISOString(),
+            };
+            setSelectedCustomer(customerToSelect);
+            setCustomerSearchQuery('');
+            if (refetchCustomers) refetchCustomers();
+          }
+        } catch (error) {
+          console.error('Error fetching customer details:', error);
+          const customerToSelect: Customer = {
+            id: newCustomer.id,
+            name: newCustomer.name || '',
+            customer_name: newCustomer.name || '',
+            email: newCustomer.email || '',
+            phone: newCustomer.phone || '',
+            type: (newCustomer.type as Customer['type']) || 'individual',
+            address: { street: '', city: '', state: '', zipCode: '', country: 'Saudi Arabia' },
+            loyaltyPoints: 0,
+            totalSpent: 0,
+            totalOrders: 0,
+            preferredPaymentMethod: 'Cash',
+            tags: [],
+            status: 'active',
+            createdAt: new Date().toISOString(),
+          };
+          setSelectedCustomer(customerToSelect);
+          setCustomerSearchQuery('');
+        }
       }
     }
 
     setShowAddCustomerModal(false);
-    setPrefilledCustomerName(""); // Clear the prefilled name
-    setPrefilledData({}); // Clear the prefilled data
+    setPrefilledCustomerName("");
+    setPrefilledData({});
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

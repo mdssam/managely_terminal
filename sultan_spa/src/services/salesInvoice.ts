@@ -1,6 +1,7 @@
 
 import { extractErrorMessage } from "../utils/errorExtraction";
 import { refreshCSRFToken } from "../utils/csrf";
+import { backgroundSyncService } from "./backgroundSyncService";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function createDraftSalesInvoice(data: any) {
@@ -27,27 +28,96 @@ export async function createDraftSalesInvoice(data: any) {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function createSalesInvoice(data: any) {
-  const csrfToken = await refreshCSRFToken() || window.csrf_token;
+  if (!navigator.onLine) {
+    console.log('[Offline Detection] Browser is offline. Saving invoice to offline sync queue...', data);
+    const offlineInv = backgroundSyncService.saveOfflineInvoice(data);
 
-  const response = await fetch('/api/method/sultan.sultan.api.sales_invoice.create_and_submit_invoice', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Frappe-CSRF-Token': csrfToken
-    },
-    body: JSON.stringify({ data }),
-    credentials: 'include'
-  });
-
-  const result = await response.json();
-
-
-  if (!response.ok || !result.message || result.message.success === false) {
-    const errorMessage = extractErrorMessage(result, 'Failed to create invoice');
-    throw new Error(errorMessage);
+    // Return a mock success message structured identically to the real backend payload
+    return {
+      success: true,
+      message: 'Payment queued offline successfully!',
+      invoice: {
+        name: offlineInv.id,
+        posting_date: new Date().toISOString().split('T')[0],
+        posting_time: new Date().toLocaleTimeString('en-US', { hour12: false }),
+        cashier_name: data.customer?.owner || 'Administrator',
+        owner: 'Administrator',
+        customer_name: data.customer?.name || 'Walk-in Customer',
+        customer: data.customer?.id || '',
+        items: data.items.map((item: any) => ({
+          item_code: item.item_code || item.id,
+          item_name: item.name,
+          qty: item.quantity || 1,
+          rate: item.price,
+          amount: (item.quantity || 1) * item.price,
+        })),
+        base_grand_total: data.grandTotal,
+        base_rounded_total: data.grandTotal,
+        change_amount: 0,
+        mode_of_payment: data.paymentMethods?.[0]?.method || 'Cash',
+        payment_methods: data.paymentMethods || [],
+        remarks: 'Offline Transaction (Pending Sync)',
+        status: 'Pending',
+      }
+    };
   }
 
-  return result.message;
+  const csrfToken = await refreshCSRFToken() || window.csrf_token;
+
+  try {
+    const response = await fetch('/api/method/sultan.sultan.api.sales_invoice.create_and_submit_invoice', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Frappe-CSRF-Token': csrfToken
+      },
+      body: JSON.stringify({ data }),
+      credentials: 'include'
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || !result.message || result.message.success === false) {
+      const errorMessage = extractErrorMessage(result, 'Failed to create invoice');
+      throw new Error(errorMessage);
+    }
+
+    return result.message;
+  } catch (err: any) {
+    // Network error (e.g. LAN connected but no internet) — queue offline
+    if (err instanceof TypeError && err.message.includes('fetch')) {
+      console.log('[Offline Detection] Network unavailable. Saving invoice to offline sync queue...', data);
+      const offlineInv = backgroundSyncService.saveOfflineInvoice(data);
+      return {
+        success: true,
+        message: 'Payment queued offline successfully!',
+        invoice: {
+          name: offlineInv.id,
+          posting_date: new Date().toISOString().split('T')[0],
+          posting_time: new Date().toLocaleTimeString('en-US', { hour12: false }),
+          cashier_name: data.customer?.owner || 'Administrator',
+          owner: 'Administrator',
+          customer_name: data.customer?.name || 'Walk-in Customer',
+          customer: data.customer?.id || '',
+          items: data.items.map((item: any) => ({
+            item_code: item.item_code || item.id,
+            item_name: item.name,
+            qty: item.quantity || 1,
+            rate: item.price,
+            amount: (item.quantity || 1) * item.price,
+          })),
+          base_grand_total: data.grandTotal,
+          base_rounded_total: data.grandTotal,
+          change_amount: 0,
+          mode_of_payment: data.paymentMethods?.[0]?.method || 'Cash',
+          payment_methods: data.paymentMethods || [],
+          remarks: 'Offline Transaction (Pending Sync)',
+          status: 'Pending',
+        }
+      };
+    }
+    throw err;
+  }
 }
 
 export async function createSalesReturn(invoiceName: string) {

@@ -315,6 +315,17 @@ class ERPNextAPI {
   }
 
   async getCurrentUser(): Promise<unknown> {
+    if (typeof window !== 'undefined' && !navigator.onLine) {
+      const cached = localStorage.getItem('cached_user_profile');
+      if (cached) {
+        try {
+          const profile = JSON.parse(cached);
+          return profile.name || null;
+        } catch (e) {
+          console.error("Error parsing cached user profile in getCurrentUser:", e);
+        }
+      }
+    }
     try {
       const response = await fetch(`${this.config.baseUrl}/api/method/frappe.auth.get_logged_user`, {
         method: 'GET',
@@ -331,6 +342,16 @@ class ERPNextAPI {
   }
 
   async getCurrentUserProfile(): Promise<UserProfile | null> {
+    if (typeof window !== 'undefined' && !navigator.onLine) {
+      const cached = localStorage.getItem('cached_user_profile');
+      if (cached) {
+        try {
+          return JSON.parse(cached);
+        } catch (e) {
+          console.error("Error parsing cached user profile in getCurrentUserProfile:", e);
+        }
+      }
+    }
     try {
       // Try to get user profile using the frappe.auth.get_logged_user method first
       const response = await fetch(`${this.config.baseUrl}/api/method/frappe.auth.get_logged_user`, {
@@ -362,6 +383,9 @@ class ERPNextAPI {
       }
 
       const userData = await userResponse.json();
+      if (typeof window !== 'undefined' && userData.data) {
+        localStorage.setItem('cached_user_profile', JSON.stringify(userData.data));
+      }
       // console.log('Full user profile data:', userData.data);
       return userData.data;
     } catch (error) {
@@ -569,6 +593,11 @@ class ERPNextAPI {
       }
       return false;
     } catch (error) {
+      if (error instanceof TypeError) {
+        // Network unavailable — assume session still valid to avoid logging out offline users
+        console.warn('Session validation skipped (network unavailable)');
+        return true;
+      }
       console.error('Session validation failed:', error);
       return false;
     }

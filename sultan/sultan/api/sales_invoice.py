@@ -647,16 +647,70 @@ def create_draft_invoice(data):
 		return {"success": False, "message": str(e)}
 
 
+def _resolve_offline_customer(customer_data, pos_profile):
+	"""
+	Create or locate an ERPNext Customer when the invoice carries an OFFLINE_CUST- id.
+	Returns a real ERPNext customer name, or None if resolution fails.
+	"""
+	# 1. POS profile has a default customer configured — use it.
+	if pos_profile.customer:
+		return pos_profile.customer
+
+	# 2. Try to create the customer from the data embedded in the invoice payload.
+	try:
+		cust_name = (
+			customer_data.get("name")
+			or customer_data.get("customer_name")
+			or ""
+		).strip()
+		if not cust_name:
+			return None
+
+		# Re-use existing customer with the same name to avoid duplicates.
+		existing = frappe.db.get_value("Customer", {"customer_name": cust_name}, "name")
+		if existing:
+			return existing
+
+		cust_type = "Company" if customer_data.get("type") == "company" else "Individual"
+		doc = frappe.new_doc("Customer")
+		doc.customer_name = cust_name
+		doc.customer_type = cust_type
+		doc.customer_group = customer_data.get("customer_group") or "Individual"
+		doc.territory = customer_data.get("territory") or "All Territories"
+		phone = customer_data.get("phone") or ""
+		email = customer_data.get("email") or ""
+		if phone:
+			doc.mobile_no = phone
+		if email:
+			doc.email_id = email
+		doc.insert(ignore_permissions=True)
+		frappe.db.commit()
+		frappe.logger().info(f"[Offline Sync] Created customer '{doc.name}' from offline invoice data")
+		return doc.name
+	except Exception as exc:
+		frappe.log_error(f"[Offline Sync] Failed to create customer from offline data: {exc}")
+		return None
+
+
 def parse_invoice_data(data):
 	"""Sanitize and extract customer and items from request payload including round-off."""
 	if isinstance(data, str):
 		data = json.loads(data)
 
-	customer = data.get("customer", {}).get("id")
+	customer_obj = data.get("customer") or {}
+	customer = customer_obj.get("id") if customer_obj else None
 	items = data.get("items", [])
 
 	amount_paid = 0.0
-	sales_and_tax_charges = get_current_pos_profile().taxes_and_charges
+	pos_profile = get_current_pos_profile()
+	sales_and_tax_charges = pos_profile.taxes_and_charges
+
+	# Offline-synced invoices carry a temporary OFFLINE_CUST- id. Resolve it to a
+	# real ERPNext customer before building the invoice document.
+	if not customer or (isinstance(customer, str) and customer.startswith("OFFLINE_CUST-")):
+		resolved = _resolve_offline_customer(customer_obj, pos_profile)
+		if resolved:
+			customer = resolved
 	business_type = data.get("businessType")
 	mode_of_payment = None
 

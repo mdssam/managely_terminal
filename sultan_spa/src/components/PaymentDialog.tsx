@@ -573,7 +573,6 @@ export default function PaymentDialog({
 
   if (!isOpen) return null;
   if (isLoading || posLoading) return <div className="p-6">Loading...</div>;
-  if (error) return <div className="p-6 text-red-500">Error: {error}</div>;
 
   // Sort modes to put default payment method first
   const sortedModes = [...modes].sort((a, b) => {
@@ -973,7 +972,7 @@ export default function PaymentDialog({
       if (response.invoice?.name) {
         try {
           const woResponse = await fetch(
-            `/api/method/sultan.sultan.sultan.api.get_work_orders_for_pos_invoice?invoice_name=${encodeURIComponent(response.invoice.name)}`,
+            `/api/method/sultan.sultan.api.get_work_orders_for_pos_invoice?invoice_name=${encodeURIComponent(response.invoice.name)}`,
             { headers: { "X-Frappe-CSRF-Token": window.csrf_token || "" } }
           );
           if (woResponse.ok) {
@@ -1280,6 +1279,11 @@ export default function PaymentDialog({
                     <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                       Payment Methods
                     </h2>
+                    {paymentMethods.length === 0 && (
+                      <div className="text-sm text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3 mb-3">
+                        Payment methods unavailable — check your connection and try again.
+                      </div>
+                    )}
                     <div className="flex space-x-3 overflow-x-auto pb-2">
                       {paymentMethods.map((method) => (
                         <div
@@ -2005,6 +2009,11 @@ export default function PaymentDialog({
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                     Payment Methods
                   </h3>
+                  {paymentMethods.length === 0 && (
+                    <div className="text-sm text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3 mb-3">
+                      Payment methods unavailable — check your connection and try again.
+                    </div>
+                  )}
                   <div className="flex space-x-4 overflow-x-auto pb-2">
                     {paymentMethods.map((method) => (
                       <div

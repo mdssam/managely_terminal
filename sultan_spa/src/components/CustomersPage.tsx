@@ -29,7 +29,7 @@ export default function CustomersPage() {
   const [globalTotals, setGlobalTotals] = useState<{ total_customers: number; total_invoices: number } | null>(null)
 
   // Use the customers hook with search to fetch from server when searching
-  const { customers, isLoading, error, totalCount, loadMore } = useCustomers(searchQuery)
+  const { customers, isLoading, error, totalCount, loadMore, addCustomer } = useCustomers(searchQuery)
 
   useEffect(() => {
     // Fetch global totals for accurate cards
@@ -414,21 +414,27 @@ export default function CustomersPage() {
                 setPrefilledData({})
               }}
           onSave={(customer: Partial<Customer>) => {
-            console.log('Saving customer:', customer)
-
-            // If it's a new customer (not editing), reload the page to show the new customer
             if (!selectedCustomer && customer.id) {
-              console.log('New customer created, reloading page to show updated list')
-              // Small delay to ensure the backend has processed the creation
-              setTimeout(() => {
-                window.location.reload()
-              }, 500)
-            } else {
-              // For editing existing customers, just close the modal
-              setShowAddModal(false)
-              setSelectedCustomer(null)
-              setPrefilledData({})
+              addCustomer({
+                id: customer.id,
+                name: customer.name || '',
+                customer_name: customer.name || '',
+                email: customer.email || '',
+                phone: customer.phone || '',
+                type: (customer.type as Customer['type']) || 'individual',
+                address: { street: '', city: '', state: '', zipCode: '', country: '' },
+                loyaltyPoints: 0,
+                totalSpent: 0,
+                totalOrders: 0,
+                preferredPaymentMethod: 'Cash',
+                tags: [],
+                status: 'active',
+                createdAt: new Date().toISOString(),
+              })
             }
+            setShowAddModal(false)
+            setSelectedCustomer(null)
+            setPrefilledData({})
           }}
               prefilledData={prefilledData}
             />
@@ -653,21 +659,27 @@ export default function CustomersPage() {
               setPrefilledData({}) // Clear prefilled data
           }}
           onSave={(customer: Partial<Customer>) => {
-            console.log('Saving customer (desktop):', customer)
-
-            // If it's a new customer (not editing), reload the page to show the new customer
             if (!selectedCustomer && customer.id) {
-              console.log('New customer created, reloading page to show updated list')
-              // Small delay to ensure the backend has processed the creation
-              setTimeout(() => {
-                window.location.reload()
-              }, 500)
-            } else {
-              // For editing existing customers, just close the modal
-              setShowAddModal(false)
-              setSelectedCustomer(null)
-              setPrefilledData({}) // Clear prefilled data
+              addCustomer({
+                id: customer.id,
+                name: customer.name || '',
+                customer_name: customer.name || '',
+                email: customer.email || '',
+                phone: customer.phone || '',
+                type: (customer.type as Customer['type']) || 'individual',
+                address: { street: '', city: '', state: '', zipCode: '', country: '' },
+                loyaltyPoints: 0,
+                totalSpent: 0,
+                totalOrders: 0,
+                preferredPaymentMethod: 'Cash',
+                tags: [],
+                status: 'active',
+                createdAt: new Date().toISOString(),
+              })
             }
+            setShowAddModal(false)
+            setSelectedCustomer(null)
+            setPrefilledData({})
           }}
             prefilledData={prefilledData}
         />

@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import type { SalesInvoice, SalesInvoiceItem } from "../../types";
+import { backgroundSyncService } from "../services/backgroundSyncService";
 
 export function useCustomerInvoices(customerName: string) {
   const [invoices, setInvoices] = useState<SalesInvoice[]>([]);
@@ -24,6 +25,57 @@ export function useCustomerInvoices(customerName: string) {
       setIsLoadingMore(true);
     } else {
       setIsLoading(true);
+    }
+
+    // Get unsynced offline invoices for this customer
+    const offlineList = backgroundSyncService.getOfflineInvoices().filter(inv => !inv.synced && (inv.data.customer?.id === customerName || inv.data.customer?.name === customerName));
+    const transformedOffline: SalesInvoice[] = offlineList.map(inv => {
+      const data = inv.data;
+      return {
+        id: inv.id,
+        date: new Date(inv.timestamp).toISOString().split("T")[0],
+        time: new Date(inv.timestamp).toLocaleTimeString("en-US", { hour12: false }),
+        cashier: data.customer?.owner || "Administrator",
+        cashierId: "Administrator",
+        customer: data.customer?.name || "Walk-in Customer",
+        customerId: data.customer?.id || "",
+        items: data.items.map((item: any) => ({
+          id: item.item_code || item.id,
+          item_code: item.item_code || item.id,
+          item_name: item.name,
+          qty: item.quantity || 1,
+          rate: item.price,
+          amount: (item.quantity || 1) * item.price,
+        })),
+        subtotal: data.subtotal || data.grandTotal,
+        giftCardDiscount: 0,
+        giftCardCode: "",
+        taxAmount: data.taxAmount || 0,
+        totalAmount: data.grandTotal,
+        paymentMethod: data.paymentMethods?.[0]?.method || "-",
+        payment_methods: data.paymentMethods || [],
+        amountPaid: data.amountPaid || data.grandTotal,
+        changeGiven: 0,
+        status: "Pending",
+        refundAmount: 0,
+        custom_zatca_submit_status: "Pending",
+        currency: data.currency || "USD",
+        notes: "Offline Order - Pending Sync",
+        posProfile: data.posProfile || "",
+        custom_pos_opening_entry: "",
+        canReturn: false,
+      };
+    });
+
+    if (typeof window !== 'undefined' && !navigator.onLine) {
+      if (append) {
+        setIsLoadingMore(false);
+      } else {
+        setInvoices(transformedOffline);
+        setTotalLoaded(transformedOffline.length);
+        setIsLoading(false);
+      }
+      return;
     }
 
     try {

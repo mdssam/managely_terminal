@@ -10,6 +10,7 @@ import "react-toastify/dist/ReactToastify.css";
 import { setupGlobalErrorHandling } from "./utils/apiUtils";
 import Footer from "./components/Footer";
 import RetailSidebar from "./components/RetailSidebar";
+import OfflineBanner from "./components/OfflineBanner";
 
 import { useAuth } from "./hooks/useAuth";
 
@@ -45,6 +46,7 @@ function AppLayout() {
       <div className="flex min-h-screen" style={{ backgroundColor: '#eef1f8' }}>
         <RetailSidebar />
         <main className="flex-1 lg:pl-28 flex flex-col min-h-screen overflow-x-hidden">
+          <OfflineBanner />
           <div className="flex-1">
             <Outlet />
           </div>

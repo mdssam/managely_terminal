@@ -19,16 +19,19 @@ export default function PrintPreview({ invoice }: PrintPreviewProps) {
   const { posDetails, loading: posLoading } = usePOSDetails();
 
   const printFormat = posDetails?.print_format ?? "Sales Invoice";
+  const isOfflineInvoice = typeof invoice.name === 'string' && invoice.name.startsWith('OFFLINE-');
 
   useEffect(() => {
+    if (isOfflineInvoice) {
+      setLoading(false);
+      return;
+    }
+
     const fetchPrintHTML = async () => {
-      // Wait until posDetails is loaded
       if (posLoading || !posDetails) return;
 
       setLoading(true);
       try {
-        // console.log("Fetching print format for invoice:", printFormat);
-        // Convert invoice to the format expected by getPrintFormatHTML
         const invoiceName = typeof invoice.name === 'string' ? invoice.name : '';
         const invoiceForAPI: { doctype: string; name: string; [key: string]: unknown } = {
           ...invoice,
@@ -46,9 +49,19 @@ export default function PrintPreview({ invoice }: PrintPreviewProps) {
     };
 
     fetchPrintHTML();
-  }, [invoice, posDetails, posLoading, printFormat]); // re-run when posDetails or invoice changes
+  }, [invoice, posDetails, posLoading, printFormat, isOfflineInvoice]);
 
   if (loading) return <p>Loading Print Preview...</p>;
+
+  if (isOfflineInvoice) {
+    return (
+      <div className="p-4 text-center text-sm text-gray-600">
+        <p className="font-semibold text-gray-800 mb-1">Sale Saved Offline</p>
+        <p className="text-xs text-gray-500">Receipt will be available once the device reconnects and syncs.</p>
+        <p className="mt-2 text-xs font-mono text-gray-400">{invoice.name}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="print-preview-container p-4 bg-white shadow overflow-auto max-h-[90vh]">

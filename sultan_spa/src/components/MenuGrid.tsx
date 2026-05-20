@@ -232,7 +232,7 @@ export default function MenuGrid({
                             onClick={(e) => {
                               e.stopPropagation();
                               setShowUserMenu(false);
-                              navigate('/closing_shift');
+                              navigate('/closing_shift?open=true');
                             }}
                             className="flex items-center w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                             type="button"

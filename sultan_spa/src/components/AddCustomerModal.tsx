@@ -76,9 +76,21 @@ export default function AddCustomerModal({
       if (isEditing && customer?.id) {
         const updated = await updateCustomer(customer.id, payload);
         onSave({ ...updated, id: customer.id });
+        toast.success("Customer updated");
       } else {
         const created = await createCustomer(payload);
-        onSave({ ...created, id: created.name || created.customer_name });
+        if (created.is_offline) {
+          toast.info("Saved offline — will sync when connection is restored");
+        } else {
+          toast.success("Customer created");
+        }
+        onSave({
+          id: created.name,
+          name: created.customer_name || formData.name,
+          phone: created.phone || formData.phone,
+          email: created.email || formData.email,
+          type: formData.customer_type === 'Company' ? 'company' : 'individual',
+        });
       }
       onClose();
     } catch (error: any) {

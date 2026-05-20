@@ -160,9 +160,15 @@ export default function POSOpeningEntryGuard({
         setIsInitialized(true);
       }
     } else if (!statusLoading && statusError) {
-      // Only show error modal if we don't have cached data
-      setShowOpeningModal(true);
-      setIsInitialized(true);
+      if (typeof window !== 'undefined' && !navigator.onLine) {
+        // If offline, bypass the block and let the children render
+        setShowOpeningModal(false);
+        setIsInitialized(true);
+      } else {
+        // Only show error modal if we don't have cached data
+        setShowOpeningModal(true);
+        setIsInitialized(true);
+      }
     }
   }, [hasOpenEntry, statusLoading, statusError, userLoading, userError, location.pathname]);
 

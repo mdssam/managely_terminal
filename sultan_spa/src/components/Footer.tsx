@@ -12,21 +12,20 @@ export default function Footer() {
   }
 
   return (
-    <footer className="fixed bottom-0 left-20 right-0 z-50 backdrop-blur-md border-t" style={{ backgroundColor: 'rgba(24,8,85,0.85)', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+    <footer className="fixed bottom-0 left-20 right-0 z-50 bg-white border-t border-gray-200">
       <div className="w-full py-2 flex justify-between items-center px-6">
 
-        <div className="text-[10px] font-black text-white uppercase tracking-[0.2em]">
+        <div className="text-[10px] font-black text-ziditech-600 uppercase tracking-[0.2em]">
           Sultan POS <span className="text-ziditech-400 ml-2">Control Center</span>
         </div>
 
-        <div className="text-[9px] font-black uppercase tracking-widest text-gray-500">
+        <div className="text-[9px] font-black uppercase tracking-widest text-gray-400">
           © {new Date().getFullYear()} Powered by{" "}
-          <span className="text-ziditech-400">
+          <span className="text-ziditech-600">
             Sultan
           </span>
         </div>
       </div>
     </footer>
-
   )
 }

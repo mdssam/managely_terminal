@@ -70,6 +70,16 @@ export function usePOSProfiles() {
 
   useEffect(() => {
     const fetchPOSProfiles = async () => {
+      const cacheKey = "cached_pos_profiles";
+      if (typeof window !== "undefined" && !navigator.onLine) {
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+          setProfiles(JSON.parse(cached));
+          setLoading(false);
+          return;
+        }
+      }
+
       try {
         setLoading(true)
 
@@ -77,7 +87,6 @@ export function usePOSProfiles() {
           method: "GET",
           headers: {
             "Accept": "application/json",
-            // "X-Frappe-CSRF-Token": (window as any).csrf_token || "",
           },
           credentials: "include",
         })
@@ -85,12 +94,21 @@ export function usePOSProfiles() {
         const data = await response.json()
         if (response.ok && data.message) {
           setProfiles(data.message)
+          if (typeof window !== "undefined") {
+            localStorage.setItem(cacheKey, JSON.stringify(data.message));
+          }
         } else {
           throw new Error(data._server_messages || "Failed to fetch POS Profiles")
         }
       } catch (err: unknown) {
         console.error("Error loading POS Profiles:", err)
-        setError(err instanceof Error ? err.message : "Unknown error")
+        const cached = typeof window !== "undefined" ? localStorage.getItem(cacheKey) : null;
+        if (cached) {
+          setProfiles(JSON.parse(cached));
+          setError(null);
+        } else {
+          setError(err instanceof Error ? err.message : "Unknown error")
+        }
       } finally {
         setLoading(false)
       }
@@ -132,6 +150,15 @@ export function usePOSDetails() {
       try {
         setLoading(true)
 
+        if (typeof window !== 'undefined' && !navigator.onLine) {
+          const cached = localStorage.getItem('cached_pos_details');
+          if (cached) {
+            setPOSDetails(JSON.parse(cached));
+            setLoading(false);
+            return;
+          }
+        }
+
         const response = await fetch("/api/method/sultan.sultan.api.pos_profile.get_pos_details", {
           method: "GET",
           headers: {
@@ -142,14 +169,22 @@ export function usePOSDetails() {
 
         const data = await response.json()
         if (response.ok && data.message) {
-
           setPOSDetails(data.message as POSDetails)
+          if (typeof window !== 'undefined') {
+            localStorage.setItem('cached_pos_details', JSON.stringify(data.message));
+          }
         } else {
           throw new Error(data._server_messages || "Failed to fetch POS details")
         }
       } catch (err: unknown) {
         console.error("Error loading POS details:", err)
-        setError(err instanceof Error ? err.message : "Unknown error")
+        const cached = typeof window !== 'undefined' ? localStorage.getItem('cached_pos_details') : null;
+        if (cached) {
+          setPOSDetails(JSON.parse(cached));
+          setError(null);
+        } else {
+          setError(err instanceof Error ? err.message : "Unknown error")
+        }
       } finally {
         setLoading(false)
       }

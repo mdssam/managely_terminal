@@ -216,12 +216,43 @@ export function ProductProvider({ children }: ProductProviderProps) {
     }
   };
 
+  // Synchronize memory products to localStorage cache
+  useEffect(() => {
+    if (products.length > 0) {
+      localStorage.setItem('sultan_products_cache', JSON.stringify({
+        items: products,
+        total_count: totalCount,
+        timestamp: Date.now()
+      }));
+    }
+  }, [products, totalCount]);
+
   // Initial fetch of products with pagination
   const fetchProducts = async (forceRefresh = false) => {
     setIsLoading(true);
     setError(null);
     setSearchQuery(''); // Clear search on initial fetch
     backgroundLoadStartedRef.current = false; // Reset background load flag
+
+    // Check if offline and we have a cached version
+    if (!navigator.onLine) {
+      const cached = localStorage.getItem('sultan_products_cache');
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          console.log(`[Offline POS] Loading ${parsed.items.length} products from local storage cache...`);
+          setProducts(parsed.items);
+          setTotalCount(parsed.total_count || parsed.items.length);
+          setHasMore(false);
+          setCurrentOffset(parsed.items.length);
+          setLastUpdated(new Date(parsed.timestamp || Date.now()));
+          setIsLoading(false);
+          return;
+        } catch (e) {
+          console.error('[Offline POS] Failed to parse cached products:', e);
+        }
+      }
+    }
 
     try {
       const result = await fetchProductsFromAPI(PAGE_SIZE, 0);
@@ -236,6 +267,25 @@ export function ProductProvider({ children }: ProductProviderProps) {
       //eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       console.error("Error fetching products:", error);
+
+      // Fallback to cache on network failure
+      const cached = localStorage.getItem('sultan_products_cache');
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          console.log(`[Offline POS Fallback] Loading ${parsed.items.length} products from cache due to fetch error...`);
+          setProducts(parsed.items);
+          setTotalCount(parsed.total_count || parsed.items.length);
+          setHasMore(false);
+          setCurrentOffset(parsed.items.length);
+          setLastUpdated(new Date(parsed.timestamp || Date.now()));
+          setError(null);
+          return;
+        } catch (e) {
+          console.error('[Offline POS Fallback] Failed to parse cached products:', e);
+        }
+      }
+
       // Fail-open: don't block UI with "Invalid response format"
       if (error.message && error.message.includes("Invalid response format")) {
         setError(null);
@@ -257,7 +307,8 @@ export function ProductProvider({ children }: ProductProviderProps) {
     // - Not searching
     // - Has more items to load
     // - Haven't started background load yet
-    if (isLoading || isLoadingMore || searchQuery || !hasMore || backgroundLoadStartedRef.current) {
+    // - Online
+    if (isLoading || isLoadingMore || searchQuery || !hasMore || backgroundLoadStartedRef.current || !navigator.onLine) {
       return;
     }
 
