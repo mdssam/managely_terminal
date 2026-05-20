@@ -4,6 +4,9 @@ interface SerialNumber {
 }
 
 export async function getSerials(itemCode: string): Promise<string[]> {
+  if (typeof window !== "undefined" && !navigator.onLine) {
+    return [];
+  }
   try {
     const res = await fetch(`/api/method/sultan.sultan.api.item.get_serial_nos_for_item?item_code=${encodeURIComponent(itemCode)}`)
     if (!res.ok) return []

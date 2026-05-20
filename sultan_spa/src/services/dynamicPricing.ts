@@ -10,6 +10,15 @@ export interface PriceInfo {
  * Get item price for a specific customer
  */
 export async function getItemPriceForCustomer(itemCode: string, customerId?: string, uom?: string): Promise<PriceInfo> {
+  if (typeof window !== "undefined" && !navigator.onLine) {
+    return {
+      success: false,
+      price: 0,
+      currency: 'SAR',
+      currency_symbol: 'SAR',
+      error: 'Offline'
+    };
+  }
   try {
     const customerParam = customerId ? `&customer=${customerId}` : '';
     const uomParam = uom ? `&uom=${encodeURIComponent(uom)}` : '';
@@ -75,6 +84,9 @@ export async function applyPricingRulesToCart(
   cartItems: Array<{id: string, item_code?: string, quantity: number, price: number, uom?: string, [key: string]: any}>,
   customerId?: string
 ): Promise<PricingRuleResult[]> {
+  if (typeof window !== "undefined" && !navigator.onLine) {
+    return cartItems;
+  }
   try {
     const customerParam = customerId ? `&customer=${customerId}` : '';
     const response = await fetch(`/api/method/sultan.sultan.api.item.apply_pricing_rules_to_cart?cart_items=${encodeURIComponent(JSON.stringify(cartItems))}${customerParam}`, {

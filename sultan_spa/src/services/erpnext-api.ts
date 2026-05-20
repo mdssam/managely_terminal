@@ -593,6 +593,11 @@ class ERPNextAPI {
       }
       return false;
     } catch (error) {
+      if (error instanceof TypeError) {
+        // Network unavailable — assume session still valid to avoid logging out offline users
+        console.warn('Session validation skipped (network unavailable)');
+        return true;
+      }
       console.error('Session validation failed:', error);
       return false;
     }

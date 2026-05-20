@@ -32,11 +32,75 @@ export function useSalesInvoices(
     return () => clearTimeout(timer);
   }, [searchTerm]);
 
+  const getCacheKey = () =>
+    `sultan_invoices_cache_${skipOpeningEntryFilter}_${cashierName || ''}_${submittedOnly}`;
+
   const fetchInvoices = useCallback(async (page = 0, append = false) => {
     if (append) {
       setIsLoadingMore(true);
     } else {
       setIsLoading(true);
+    }
+
+    // Get unsynced offline invoices
+    const offlineList = backgroundSyncService.getOfflineInvoices().filter(inv => !inv.synced);
+    let transformedOffline: SalesInvoice[] = offlineList.map(inv => {
+      const data = inv.data;
+      return {
+        id: inv.id,
+        date: new Date(inv.timestamp).toISOString().split("T")[0],
+        time: new Date(inv.timestamp).toLocaleTimeString("en-US", { hour12: false }),
+        cashier: data.customer?.owner || "Administrator",
+        cashierId: "Administrator",
+        customer: data.customer?.name || "Walk-in Customer",
+        customerId: data.customer?.id || "",
+        items: data.items.map((item: any) => ({
+          id: item.item_code || item.id,
+          item_code: item.item_code || item.id,
+          item_name: item.name,
+          qty: item.quantity || 1,
+          rate: item.price,
+          amount: (item.quantity || 1) * item.price,
+        })),
+        subtotal: data.subtotal || data.grandTotal,
+        giftCardDiscount: 0,
+        giftCardCode: "",
+        taxAmount: data.taxAmount || 0,
+        totalAmount: data.grandTotal,
+        paymentMethod: data.paymentMethods?.[0]?.method || "-",
+        payment_methods: data.paymentMethods || [],
+        amountPaid: data.amountPaid || data.grandTotal,
+        changeGiven: 0,
+        status: "Pending",
+        refundAmount: 0,
+        custom_zatca_submit_status: "Pending",
+        currency: data.currency || "USD",
+        notes: "Offline Order - Pending Sync",
+        posProfile: data.posProfile || "",
+        custom_pos_opening_entry: "",
+        canReturn: false,
+      };
+    });
+
+    // Filter offline invoices client-side if a search query is active
+    if (debouncedSearchTerm) {
+      const query = debouncedSearchTerm.toLowerCase();
+      transformedOffline = transformedOffline.filter(inv =>
+        inv.id.toLowerCase().includes(query) ||
+        inv.customer.toLowerCase().includes(query)
+      );
+    }
+
+    if (typeof window !== 'undefined' && !navigator.onLine) {
+      if (append) {
+        setIsLoadingMore(false);
+      } else {
+        setInvoices(transformedOffline);
+        setTotalLoaded(transformedOffline.length);
+        setTotalCount(transformedOffline.length);
+        setIsLoading(false);
+      }
+      return;
     }
 
     try {
@@ -150,55 +214,6 @@ export function useSalesInvoices(
         };
       });
 
-      // Get unsynced offline invoices
-      const offlineList = backgroundSyncService.getOfflineInvoices().filter(inv => !inv.synced);
-      let transformedOffline: SalesInvoice[] = offlineList.map(inv => {
-        const data = inv.data;
-        return {
-          id: inv.id,
-          date: new Date(inv.timestamp).toISOString().split("T")[0],
-          time: new Date(inv.timestamp).toLocaleTimeString("en-US", { hour12: false }),
-          cashier: data.customer?.owner || "Administrator",
-          cashierId: "Administrator",
-          customer: data.customer?.name || "Walk-in Customer",
-          customerId: data.customer?.id || "",
-          items: data.items.map((item: any) => ({
-            id: item.item_code || item.id,
-            item_code: item.item_code || item.id,
-            item_name: item.name,
-            qty: item.quantity || 1,
-            rate: item.price,
-            amount: (item.quantity || 1) * item.price,
-          })),
-          subtotal: data.subtotal || data.grandTotal,
-          giftCardDiscount: 0,
-          giftCardCode: "",
-          taxAmount: data.taxAmount || 0,
-          totalAmount: data.grandTotal,
-          paymentMethod: data.paymentMethods?.[0]?.method || "-",
-          payment_methods: data.paymentMethods || [],
-          amountPaid: data.amountPaid || data.grandTotal,
-          changeGiven: 0,
-          status: "Pending",
-          refundAmount: 0,
-          custom_zatca_submit_status: "Pending",
-          currency: data.currency || "USD",
-          notes: "Offline Order - Pending Sync",
-          posProfile: data.posProfile || "",
-          custom_pos_opening_entry: "",
-          canReturn: false,
-        };
-      });
-
-      // Filter offline invoices client-side if a search query is active
-      if (debouncedSearchTerm) {
-        const query = debouncedSearchTerm.toLowerCase();
-        transformedOffline = transformedOffline.filter(inv =>
-          inv.id.toLowerCase().includes(query) ||
-          inv.customer.toLowerCase().includes(query)
-        );
-      }
-
       if (append) {
         setInvoices(prev => [...prev, ...transformed]);
         setTotalLoaded(prev => prev + newInvoicesCount);
@@ -206,6 +221,17 @@ export function useSalesInvoices(
         setInvoices([...transformedOffline, ...transformed]);
         setTotalLoaded(newInvoicesCount + transformedOffline.length);
         setTotalCount(totalCountFromAPI + transformedOffline.length);
+
+        // Cache page-0 results for offline fallback
+        if (!debouncedSearchTerm) {
+          try {
+            localStorage.setItem(getCacheKey(), JSON.stringify({
+              invoices: transformed,
+              totalCount: totalCountFromAPI,
+              timestamp: Date.now(),
+            }));
+          } catch (_) { /* storage full — skip */ }
+        }
       }
 
       setCurrentPage(page);
@@ -213,7 +239,32 @@ export function useSalesInvoices(
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
-      setError(err.message || "Unknown error occurred");
+      // Fall back to cached invoices rather than showing an error screen
+      if (page === 0 && !debouncedSearchTerm) {
+        try {
+          const cached = localStorage.getItem(getCacheKey());
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            setInvoices([...transformedOffline, ...parsed.invoices]);
+            setTotalLoaded(parsed.invoices.length + transformedOffline.length);
+            setTotalCount(parsed.totalCount + transformedOffline.length);
+            setHasMore(false);
+            setError(null);
+          } else if (transformedOffline.length > 0) {
+            setInvoices(transformedOffline);
+            setTotalLoaded(transformedOffline.length);
+            setTotalCount(transformedOffline.length);
+            setHasMore(false);
+            setError(null);
+          } else {
+            setError(err.message || "Unable to load invoices. Please check your connection.");
+          }
+        } catch (_) {
+          setError(err.message || "Unknown error occurred");
+        }
+      } else {
+        setError(err.message || "Unknown error occurred");
+      }
     } finally {
       setIsLoading(false);
       setIsLoadingMore(false);

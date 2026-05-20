@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import type { SalesInvoice } from "../../types";
+import { backgroundSyncService } from "../services/backgroundSyncService";
 
 export function useInvoiceDetails(invoiceId: string | null) {
   const [invoice, setInvoice] = useState<SalesInvoice | null>(null);
@@ -13,6 +14,51 @@ export function useInvoiceDetails(invoiceId: string | null) {
       setIsLoading(true);
       try {
         console.log("Fetching invoice details for:", invoiceId);
+
+        if (invoiceId.startsWith("OFFLINE-") || (typeof window !== "undefined" && !navigator.onLine)) {
+          const offlineList = backgroundSyncService.getOfflineInvoices();
+          const found = offlineList.find(inv => inv.id === invoiceId);
+          if (found) {
+            const data = found.data;
+            const transformed: SalesInvoice = {
+              id: found.id,
+              date: new Date(found.timestamp).toISOString().split("T")[0],
+              time: new Date(found.timestamp).toLocaleTimeString("en-US", { hour12: false }),
+              cashier: data.customer?.owner || "Administrator",
+              cashierId: "Administrator",
+              customer: data.customer?.name || "Walk-in Customer",
+              customerId: data.customer?.id || "",
+              items: data.items.map((item: any) => ({
+                id: item.item_code || item.id,
+                item_code: item.item_code || item.id,
+                item_name: item.name,
+                qty: item.quantity || 1,
+                rate: item.price,
+                amount: (item.quantity || 1) * item.price,
+              })),
+              subtotal: data.subtotal || data.grandTotal,
+              giftCardDiscount: 0,
+              giftCardCode: "",
+              taxAmount: data.taxAmount || 0,
+              totalAmount: data.grandTotal,
+              paymentMethod: data.paymentMethods?.[0]?.method || "-",
+              payment_methods: data.paymentMethods || [],
+              amountPaid: data.amountPaid || data.grandTotal,
+              changeGiven: 0,
+              status: "Pending",
+              refundAmount: 0,
+              custom_zatca_submit_status: "Pending",
+              currency: data.currency || "USD",
+              notes: "Offline Order - Pending Sync",
+              posProfile: data.posProfile || "",
+              custom_pos_opening_entry: "",
+              canReturn: false,
+            };
+            setInvoice(transformed);
+            setIsLoading(false);
+            return;
+          }
+        }
 
         const response = await fetch(`/api/method/sultan.sultan.api.sales_invoice.get_invoice_details?invoice_id=${invoiceId}`, {
           method: 'GET',

@@ -12,6 +12,16 @@ export function useDeliveryPersonnel() {
 
   useEffect(() => {
     const fetchDeliveryPersonnel = async () => {
+      const cacheKey = "cached_delivery_personnel";
+      if (typeof window !== "undefined" && !navigator.onLine) {
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+          setPersonnel(JSON.parse(cached));
+          setLoading(false);
+          return;
+        }
+      }
+
       try {
         setLoading(true);
         const response = await fetch(
@@ -27,13 +37,23 @@ export function useDeliveryPersonnel() {
 
         const data = await response.json();
         if (response.ok && data.message && data.message.success) {
-          setPersonnel(data.message.data || []);
+          const list = data.message.data || [];
+          setPersonnel(list);
+          if (typeof window !== "undefined") {
+            localStorage.setItem(cacheKey, JSON.stringify(list));
+          }
         } else {
           throw new Error(data.message?.error || "Failed to fetch delivery personnel");
         }
       } catch (err: unknown) {
         console.error("Error loading delivery personnel:", err);
-        setError(err instanceof Error ? err.message : "Unknown error");
+        const cached = typeof window !== "undefined" ? localStorage.getItem(cacheKey) : null;
+        if (cached) {
+          setPersonnel(JSON.parse(cached));
+        } else {
+          setPersonnel([]);
+        }
+        setError(null);
       } finally {
         setLoading(false);
       }

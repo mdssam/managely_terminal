@@ -1,3 +1,35 @@
+export const OFFLINE_CUSTOMERS_KEY = 'sultan_offline_customers';
+
+export interface OfflineCustomer {
+  id: string;
+  data: any;
+  timestamp: number;
+  synced: boolean;
+  realId?: string;
+}
+
+export function getOfflineCustomers(): OfflineCustomer[] {
+  try {
+    const stored = localStorage.getItem(OFFLINE_CUSTOMERS_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveOfflineCustomer(data: any): OfflineCustomer {
+  const customers = getOfflineCustomers();
+  const newCust: OfflineCustomer = {
+    id: 'OFFLINE_CUST-' + Date.now(),
+    data,
+    timestamp: Date.now(),
+    synced: false,
+  };
+  customers.push(newCust);
+  localStorage.setItem(OFFLINE_CUSTOMERS_KEY, JSON.stringify(customers));
+  return newCust;
+}
+
 interface CustomerAddress {
   addressType?: string;
   street: string;
@@ -41,6 +73,23 @@ export const useCustomerActions = () => {
   };
 
   const createCustomer = async (customerData: CustomerData) => {
+    const queueOffline = () => {
+      const offline = saveOfflineCustomer(customerData);
+      return {
+        success: true,
+        name: offline.id,
+        customer_name: (customerData as any).name || (customerData as any).customer_name || '',
+        phone: customerData.phone || '',
+        email: customerData.email || '',
+        is_offline: true,
+      };
+    };
+
+    if (!navigator.onLine) {
+      console.log('[Offline] Saving customer to offline queue:', customerData);
+      return queueOffline();
+    }
+
     try {
       const response = await fetch('/api/method/sultan.sultan.api.customer.create_or_update_customer', {
         method: 'POST',
@@ -60,6 +109,10 @@ export const useCustomerActions = () => {
 
       return result.message;
     } catch (error) {
+      if (error instanceof TypeError && (error as any).message.includes('fetch')) {
+        console.log('[Offline] Network unavailable. Saving customer to offline queue:', customerData);
+        return queueOffline();
+      }
       console.error("❌ Error creating customer:", error);
       throw error;
     }

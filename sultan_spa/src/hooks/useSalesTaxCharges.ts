@@ -18,6 +18,19 @@ export function useSalesTaxCharges() {
   useEffect(() => {
     const fetchTaxes = async () => {
       setIsLoading(true)
+
+      const cacheKey = "cached_sales_tax_charges";
+      if (typeof window !== "undefined" && !navigator.onLine) {
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          setTaxCategories(parsed.data || []);
+          setDefaultTax(parsed.default || null);
+          setIsLoading(false);
+          return;
+        }
+      }
+
       try {
         const res = await fetch("/api/method/sultan.sultan.api.tax.get_sales_tax_categories")
         const data = await res.json()
@@ -26,12 +39,28 @@ export function useSalesTaxCharges() {
           throw new Error(data.message?.error || "Failed to fetch tax categories")
         }
 
-        setTaxCategories(data.message.data || [])
-        setDefaultTax(data.message.default || null)
-
+        const categories = data.message.data || [];
+        const defaultTx = data.message.default || null;
+        setTaxCategories(categories)
+        setDefaultTax(defaultTx)
+        if (typeof window !== "undefined") {
+          localStorage.setItem(cacheKey, JSON.stringify({
+            data: categories,
+            default: defaultTx
+          }));
+        }
         //eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (err: any) {
-        setError(err.message)
+        console.error("Error loading tax categories:", err);
+        const cached = typeof window !== "undefined" ? localStorage.getItem(cacheKey) : null;
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          setTaxCategories(parsed.data || []);
+          setDefaultTax(parsed.default || null);
+          setError(null);
+        } else {
+          setError(err.message)
+        }
       } finally {
         setIsLoading(false)
       }

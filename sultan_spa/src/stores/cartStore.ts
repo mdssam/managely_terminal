@@ -316,7 +316,6 @@ export const useCartStore = create<CartState>()(
 
         } catch (error) {
           console.error('❌ Error updating prices for customer:', error);
-          toast.error('Failed to update prices for customer');
         }
       },
 

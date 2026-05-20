@@ -31,10 +31,15 @@ export function usePOSOpeningStatus() {
       } else {
         throw new Error("Unexpected response");
       }
-      //eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       console.error("Error checking POS Opening Entry:", err);
-      setError(err.message || "Failed to check opening entry status");
+      const cached = typeof window !== 'undefined' ? localStorage.getItem('cached_has_open_entry') : null;
+      if (cached !== null) {
+        setHasOpenEntry(JSON.parse(cached));
+      } else {
+        setHasOpenEntry(true); // Default to true offline to bypass block
+      }
+      setError(null);
     } finally {
       setIsLoading(false);
     }
