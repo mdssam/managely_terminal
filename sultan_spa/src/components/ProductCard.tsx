@@ -58,11 +58,11 @@ export default function ProductCard({ item, onAddToCart, isMobile = false, scann
               SERVICE
             </div>
           ) : item.available > 0 ? (
-            <div className="text-white px-3 py-1.5 rounded-lg text-xs font-black shadow-md border border-white/20" style={{ backgroundColor: '#4c28cc' }}>
+            <div className="text-white px-3 py-1.5 rounded-lg text-xs font-black shadow-md border border-white/20" style={{ backgroundColor: '#1e59db' }}>
               IN STOCK
             </div>
           ) : (
-            <div className="text-white px-3 py-1.5 rounded-lg text-xs font-black shadow-md border-2 border-white" style={{ backgroundColor: '#4c28cc' }}>
+            <div className="text-white px-3 py-1.5 rounded-lg text-xs font-black shadow-md border-2 border-white" style={{ backgroundColor: '#1e59db' }}>
               OUT OF STOCK
             </div>
           )}
@@ -70,7 +70,7 @@ export default function ProductCard({ item, onAddToCart, isMobile = false, scann
 
         {/* Discount badge — top-left */}
         {item.discount && (
-          <div className="absolute top-2 left-2 text-white px-2 py-1 rounded-lg text-[10px] font-black shadow-md z-10" style={{ backgroundColor: '#4c28cc' }}>
+          <div className="absolute top-2 left-2 text-white px-2 py-1 rounded-lg text-[10px] font-black shadow-md z-10" style={{ backgroundColor: '#1e59db' }}>
             -{item.discount}% OFF
           </div>
         )}
@@ -78,7 +78,7 @@ export default function ProductCard({ item, onAddToCart, isMobile = false, scann
         {/* Out of stock overlay — only for non-fresh items */}
         {isOutOfStock && !canBeManufactured && (
           <div className="absolute inset-0 bg-white/60 backdrop-blur-[2px] flex items-center justify-center z-20">
-            <div className="bg-[#4c28cc] text-white px-4 py-2 rounded-xl font-black text-sm shadow-xl border-2 border-white rotate-[-5deg]">
+            <div className="bg-[#1e59db] text-white px-4 py-2 rounded-xl font-black text-sm shadow-xl border-2 border-white rotate-[-5deg]">
               OUT OF STOCK
             </div>
           </div>
@@ -87,7 +87,7 @@ export default function ProductCard({ item, onAddToCart, isMobile = false, scann
         {/* Scanner only overlay */}
         {scannerOnly && !isOutOfStock && (
           <div className="absolute inset-0 flex items-center justify-center z-20">
-            <span className="font-black text-xs bg-white text-[#4c28cc] px-3 py-1.5 rounded-xl shadow-lg border-2 border-[#4c28cc]">
+            <span className="font-black text-xs bg-white text-[#1e59db] px-3 py-1.5 rounded-xl shadow-lg border-2 border-[#1e59db]">
               SCAN ONLY
             </span>
           </div>
@@ -101,11 +101,11 @@ export default function ProductCard({ item, onAddToCart, isMobile = false, scann
         </h3>
         <p className={`text-[10px] text-gray-600 font-bold uppercase tracking-wider`}>{item.category}</p>
         <div className="mt-auto pt-2 flex items-center justify-between border-t border-gray-100">
-          <span className={`font-black ${isMobile ? "text-sm" : "text-base"}`} style={{ color: '#4c28cc' }}>
+          <span className={`font-black ${isMobile ? "text-sm" : "text-base"}`} style={{ color: '#1e59db' }}>
             {formattedPrice}
           </span>
           {canBeManufactured && isOutOfStock && (
-            <span className="text-[10px] font-black px-2 py-0.5 bg-ziditech-50 rounded-md border border-ziditech-200" style={{ color: '#4c28cc' }}>
+            <span className="text-[10px] font-black px-2 py-0.5 bg-ziditech-50 rounded-md border border-ziditech-200" style={{ color: '#1e59db' }}>
               MADE TO ORDER
             </span>
           )}

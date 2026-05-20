@@ -45,7 +45,7 @@ export default function RetailSidebar() {
   }
 
   return (
-    <div className="hidden lg:flex fixed h-screen w-28 top-0 left-0 flex-col z-50 sultan-sidebar" style={{ backgroundColor: '#4c28cc', color: 'white' }}>
+    <div className="hidden lg:flex fixed h-screen w-28 top-0 left-0 flex-col z-50 sultan-sidebar" style={{ background: 'linear-gradient(135deg, #3a76fc 0%, #1a53d3 100%)', color: 'white' }}>
       {/* Logo Section */}
       <div
         className="h-20 flex items-center justify-center cursor-pointer active:scale-90 transition-transform duration-150 border-b border-white/10"

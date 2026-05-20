@@ -43,17 +43,17 @@
   --radius-xl: calc(var(--radius) + 4px);
 
   /* Sultan brand colors - Forced to be darker for visibility */
-  --color-ziditech-50: #eef1ff;
-  --color-ziditech-100: #d8dfff;
-  --color-ziditech-200: #b0bcff;
-  --color-ziditech-300: #8090ff;
-  --color-ziditech-400: #4c28cc;
-  --color-ziditech-500: #4c28cc;
-  --color-ziditech-600: #4c28cc;
-  --color-ziditech-700: #4c28cc;
-  --color-ziditech-800: #4c28cc;
-  --color-ziditech-900: #4c28cc;
-  --color-ziditech-950: #4c28cc;
+  --color-ziditech-50: #eef5ff;
+  --color-ziditech-100: #d3e3fd;
+  --color-ziditech-200: #a8c7fa;
+  --color-ziditech-300: #7cacf8;
+  --color-ziditech-400: #3a76fc;
+  --color-ziditech-500: #1e59db;
+  --color-ziditech-600: #1a53d3;
+  --color-ziditech-700: #1545b2;
+  --color-ziditech-800: #10368c;
+  --color-ziditech-900: #0c2866;
+  --color-ziditech-950: #081a44;
 
   /* ─── Override Tailwind v4 gray palette → Pure Black & Dark Blue ─── */
   --color-gray-50: #f8fafc;
@@ -231,7 +231,7 @@ a {
 .text-gray-400,
 .text-slate-600,
 .text-slate-500 {
-  color: #4c28cc !important;
+  color: #1e59db !important;
   opacity: 1 !important;
 }
 
