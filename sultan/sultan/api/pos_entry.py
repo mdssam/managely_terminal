@@ -155,6 +155,13 @@ def create_closing_entry():
 
 		doc = _create_and_submit_closing_doc(opening_entry, data, payment_data, user)
 
+		# Create Journal Entries for any Cash In/Out transactions in this session
+		try:
+			from sultan.sultan.api.cash_transaction import create_gl_entries_for_session
+			create_gl_entries_for_session(opening_entry.name, opening_entry.company)
+		except Exception:
+			frappe.log_error(frappe.get_traceback(), "Cash Transaction GL Entry Error on Close")
+
 		return {
 			"name": doc.name,
 			"message": _("POS Closing Entry created successfully."),

@@ -112,12 +112,16 @@ const POSOpeningModal: React.FC<POSOpeningModalProps> = ({
     }
 
     if (paymentModes && paymentModes.length > 0 && !paymentModesLoading) {
-      // Sort payment modes to put default payment method first
-      const sortedPaymentModes = [...paymentModes].sort((a, b) => {
-        // Default payment method (default === 1) should come first
+      // Item 6: only show modes where show_in_opening_entry is not explicitly 0
+      //eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const modesForOpening = (paymentModes as any[]).filter(
+        (p) => p.custom_show_in_opening_entry !== 0
+      );
+
+      const sortedPaymentModes = [...modesForOpening].sort((a, b) => {
         if (a.default === 1 && b.default !== 1) return -1;
         if (a.default !== 1 && b.default === 1) return 1;
-        return 0; // Keep original order for non-default methods
+        return 0;
       });
 
       //eslint-disable-next-line @typescript-eslint/no-explicit-any

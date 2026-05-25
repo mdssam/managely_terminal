@@ -1,8 +1,10 @@
-import { Receipt, Grid3X3, BarChart3, Users, MonitorX, Factory, Settings, WifiOff, Wifi } from "lucide-react"
+import { Receipt, Grid3X3, BarChart3, Users, MonitorX, Factory, Settings, WifiOff, Wifi, ArrowLeftRight } from "lucide-react"
 import { useNavigate, useLocation } from "react-router-dom"
 import { useUserInfo } from "../hooks/useUserInfo"
 import { useState, useEffect } from "react"
 import backgroundSyncService from "../services/backgroundSyncService"
+import CashIOModal from "./CashIOModal"
+import { usePOSDetails } from "../hooks/usePOSProfile"
 
 // Inside your component
 export default function RetailSidebar() {
@@ -10,6 +12,8 @@ export default function RetailSidebar() {
   const location = useLocation()
   const { userInfo } = useUserInfo()
   const [syncStatus, setSyncStatus] = useState(backgroundSyncService.getStatus())
+  const [showCashIO, setShowCashIO] = useState(false)
+  const { posDetails } = usePOSDetails()
 
   useEffect(() => {
     const handler = (status: typeof syncStatus) => setSyncStatus({ ...status })
@@ -45,6 +49,7 @@ export default function RetailSidebar() {
   }
 
   return (
+    <>
     <div className="hidden lg:flex fixed h-screen w-28 top-0 left-0 flex-col z-50 sultan-sidebar" style={{ background: 'linear-gradient(135deg, #3a76fc 0%, #1a53d3 100%)', color: 'white' }}>
       {/* Logo Section */}
       <div
@@ -79,6 +84,19 @@ export default function RetailSidebar() {
           )
         })}
       </div>
+
+      {/* Cash I/O button — non-Menu Users only */}
+      {!isMenuUser && (
+        <button
+          onClick={() => setShowCashIO(true)}
+          title="Cash In / Cash Out"
+          style={{ color: 'white' }}
+          className="w-13 h-13 px-2 py-2.5 rounded-xl flex flex-col items-center justify-center transition-all duration-150 cursor-pointer active:scale-90 hover:bg-white/10"
+        >
+          <ArrowLeftRight size={20} strokeWidth={2.5} />
+          <span style={{ color: 'white' }} className="text-[10px] font-bold mt-1 uppercase tracking-wide">CASH</span>
+        </button>
+      )}
 
       {/* Connection status indicator */}
       <div className="px-3 py-2 border-t border-white/10 flex flex-col items-center">
@@ -116,5 +134,12 @@ export default function RetailSidebar() {
         </button>
       </div>
     </div>
+
+    <CashIOModal
+      isOpen={showCashIO}
+      onClose={() => setShowCashIO(false)}
+      currency={posDetails?.currency}
+    />
+    </>
   )
 }

@@ -104,8 +104,94 @@ def run():
 	else:
 		print("custom_pos_opening_entry field already exists.")
 
+	# ── Item 6: show/hide per payment mode in Opening Entry dialog ──────────────
+	opening_flag = "POS Payment Method-custom_show_in_opening_entry"
+	if not frappe.db.exists("Custom Field", opening_flag):
+		doc = frappe.new_doc("Custom Field")
+		doc.dt = "POS Payment Method"
+		doc.fieldname = "custom_show_in_opening_entry"
+		doc.label = "Show in Opening Entry"
+		doc.fieldtype = "Check"
+		doc.default = "1"
+		doc.insert(ignore_permissions=True)
+		# Back-fill existing rows so nothing disappears for existing users
+		frappe.db.sql(
+			"UPDATE `tabPOS Payment Method` SET custom_show_in_opening_entry = 1 "
+			"WHERE custom_show_in_opening_entry IS NULL OR custom_show_in_opening_entry = 0"
+		)
+		print("Created custom_show_in_opening_entry field.")
+	else:
+		print("custom_show_in_opening_entry field already exists.")
+
+	# ── Items 1 & 7: bucket account on POS Profile ───────────────────────────
+	bucket_field = "POS Profile-custom_cash_io_bucket_account"
+	if not frappe.db.exists("Custom Field", bucket_field):
+		doc = frappe.new_doc("Custom Field")
+		doc.dt = "POS Profile"
+		doc.fieldname = "custom_cash_io_bucket_account"
+		doc.label = "Cash In/Out Bucket Account"
+		doc.fieldtype = "Link"
+		doc.options = "Account"
+		doc.description = "Default suspense account used as the offset for Cash In/Out entries"
+		doc.insert(ignore_permissions=True)
+		print("Created custom_cash_io_bucket_account field.")
+	else:
+		print("custom_cash_io_bucket_account field already exists.")
+
+	# ── Items 1 & 7: Sultan POS Cash Transaction doctype ─────────────────────
+	if not frappe.db.exists("DocType", "Sultan POS Cash Transaction"):
+		txn_doc = frappe.get_doc({
+			"doctype": "DocType",
+			"name": "Sultan POS Cash Transaction",
+			"module": "Sultan",
+			"custom": 1,
+			"naming_rule": "By \"Naming Series\" field",
+			"autoname": "naming_series:",
+			"is_submittable": 1,
+			"track_changes": 1,
+			"fields": [
+				{"fieldname": "naming_series", "label": "Series", "fieldtype": "Select",
+				 "options": "CASH-IO-.YYYY.-.####\n", "default": "CASH-IO-.YYYY.-.####", "reqd": 1},
+				{"fieldname": "transaction_type", "label": "Transaction Type", "fieldtype": "Select",
+				 "options": "Cash In\nCash Out", "reqd": 1, "in_list_view": 1},
+				{"fieldname": "amount", "label": "Amount", "fieldtype": "Currency", "reqd": 1, "in_list_view": 1},
+				{"fieldname": "description", "label": "Description", "fieldtype": "Small Text", "in_list_view": 1},
+				{"fieldname": "col_break_1", "fieldtype": "Column Break"},
+				{"fieldname": "pos_opening_entry", "label": "POS Opening Entry", "fieldtype": "Link",
+				 "options": "POS Opening Entry", "reqd": 1},
+				{"fieldname": "pos_profile", "label": "POS Profile", "fieldtype": "Link",
+				 "options": "POS Profile", "read_only": 1},
+				{"fieldname": "posting_date", "label": "Posting Date", "fieldtype": "Date",
+				 "default": "Today", "reqd": 1},
+				{"fieldname": "posting_time", "label": "Posting Time", "fieldtype": "Time"},
+				{"fieldname": "sec_accounts", "label": "Accounts", "fieldtype": "Section Break"},
+				# Cash In  → Debit = POS cash (read-only), Credit = bucket (editable)
+				# Cash Out → Debit = bucket (editable), Credit = POS cash (read-only)
+				{"fieldname": "account_debit", "label": "Account (Debit)", "fieldtype": "Link",
+				 "options": "Account", "in_list_view": 0},
+				{"fieldname": "account_credit", "label": "Account (Credit)", "fieldtype": "Link",
+				 "options": "Account", "in_list_view": 0},
+				{"fieldname": "currency", "label": "Currency", "fieldtype": "Link", "options": "Currency"},
+				{"fieldname": "linked_journal_entry", "label": "Journal Entry", "fieldtype": "Link",
+				 "options": "Journal Entry", "read_only": 1},
+				{"fieldname": "cashier_employee", "label": "Cashier Employee", "fieldtype": "Link",
+				 "options": "Employee"},
+			],
+			"permissions": [
+				{"role": "System Manager", "read": 1, "write": 1, "create": 1,
+				 "delete": 1, "submit": 1, "cancel": 1, "amend": 1},
+				{"role": "Accounts User", "read": 1, "write": 1, "create": 1, "submit": 1},
+				{"role": "POS User", "read": 1, "write": 1, "create": 1, "submit": 1},
+			]
+		})
+		txn_doc.insert(ignore_permissions=True)
+		print("Created Sultan POS Cash Transaction doctype.")
+	else:
+		print("Sultan POS Cash Transaction already exists.")
+
 	frappe.clear_cache(doctype="POS Profile User")
 	frappe.clear_cache(doctype="POS Profile")
+	frappe.clear_cache(doctype="POS Payment Method")
 	frappe.clear_cache(doctype="Sales Invoice")
 	frappe.clear_cache(doctype="POS Closing Entry")
 	frappe.db.commit()
