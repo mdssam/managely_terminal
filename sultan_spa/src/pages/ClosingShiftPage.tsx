@@ -29,6 +29,9 @@ import { isToday, isThisWeek, isThisMonth, isThisYear } from "../utils/time";
 import { clearAllCache } from "../utils/clearCache";
 import { getCashTransactions } from "../services/cashTransaction";
 import type { CashTransaction, CashTransactionSummary } from "../services/cashTransaction";
+import ShiftClosureReceipt from "../components/ShiftClosureReceipt";
+import type { ShiftReceiptData } from "../components/ShiftClosureReceipt";
+import { useUserInfo } from "../hooks/useUserInfo";
 
 export default function ClosingShiftPage() {
   const navigate = useNavigate();
@@ -71,6 +74,11 @@ export default function ClosingShiftPage() {
   const { invoices, isLoading,  error,  } = useSalesInvoices();
   const { modes, isLoading: modesLoading, error: modesError } = useAllPaymentModes()
   const { posDetails } = usePOSDetails();
+  const { userInfo } = useUserInfo();
+
+  // Shift closure receipt state
+  const [showReceipt, setShowReceipt] = useState(false);
+  const [receiptData, setReceiptData] = useState<ShiftReceiptData | null>(null);
 
 
   const hideExpectedAmount = posDetails?.custom_hide_expected_amount || false;
@@ -399,6 +407,31 @@ export default function ClosingShiftPage() {
       await createClosingEntry(closingBalanceArray);
       setShowCloseModal(false);
 
+      // Build receipt data before clearing cache
+      const breakdown = Object.values(paymentStats).map((stat: any) => ({
+        mode: stat.name,
+        openingAmount: stat.openingAmount || 0,
+        salesAmount: stat.amount - (stat.openingAmount || 0),
+        closingAmount: (closingAmounts as any)[stat.name] || 0,
+        difference: ((closingAmounts as any)[stat.name] || 0) - stat.amount,
+      }));
+
+      const receipt: ShiftReceiptData = {
+        companyName: posDetails?.company || posDetails?.name,
+        posProfile: posDetails?.name || "",
+        cashierName: userInfo?.full_name || userInfo?.user || "",
+        openingDate: posDetails?.current_opening_entry ? new Date().toLocaleString("en-SA", { hour12: false }) : "",
+        closingDate: new Date().toLocaleString("en-SA", { hour12: false }),
+        currency: posDetails?.currency || "SAR",
+        paymentBreakdown: breakdown,
+        cashTransactions,
+        cashSummary,
+        totalSales: filteredInvoices.filter(i => i.status !== "Return" && i.status !== "Cancelled" && i.status !== "Draft").length,
+        totalQuantity: filteredInvoices.filter(i => i.status !== "Return" && i.status !== "Cancelled" && i.status !== "Draft").length,
+      };
+      setReceiptData(receipt);
+      setShowReceipt(true);
+
       // Clear frontend caches
       clearAllCache();
 
@@ -417,9 +450,6 @@ export default function ClosingShiftPage() {
         console.warn('Failed to clear backend cache after close:', e);
       }
 
-      // Navigate to POS home for a fresh start without full reload
-      navigate('/pos');
-      toast.success("Shift closed successfully");
     } catch (err: any) {
       console.error("Error closing shift:", err);
       toast.error(err.message || "Failed to close shift. Please try again.");
@@ -753,6 +783,17 @@ export default function ClosingShiftPage() {
 
         {/* Bottom Navigation */}
         <BottomNavigation />
+
+        {/* Shift Closure Receipt (mobile) */}
+        {showReceipt && receiptData && (
+          <ShiftClosureReceipt
+            data={receiptData}
+            onClose={() => {
+              setShowReceipt(false);
+              navigate('/pos');
+            }}
+          />
+        )}
       </div>
     );
   }
@@ -1157,6 +1198,17 @@ export default function ClosingShiftPage() {
           confirmButtonClass="bg-red-600 hover:bg-red-700 text-white"
         />
       </div>
+
+      {/* Shift Closure Receipt */}
+      {showReceipt && receiptData && (
+        <ShiftClosureReceipt
+          data={receiptData}
+          onClose={() => {
+            setShowReceipt(false);
+            navigate('/pos');
+          }}
+        />
+      )}
     </div>
   );
 }

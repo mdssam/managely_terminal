@@ -2,7 +2,9 @@ import { useState, useEffect } from "react"
 import { useAuth } from "../hooks/useAuth"
 import { useNavigate, useLocation } from "react-router-dom"
 import { useI18n } from "../hooks/useI18n"
-import { ArrowLeft, User, LogOut } from "lucide-react"
+import { ArrowLeft, User, LogOut, KeyRound, Loader2 } from "lucide-react"
+import { setPosPin } from "../services/pinAuth"
+import { toast } from "react-toastify"
 
 export default function SettingsPage() {
   const navigate = useNavigate()
@@ -10,12 +12,15 @@ export default function SettingsPage() {
   const { logout, user: authUser } = useAuth()
   const { isRTL } = useI18n()
   const [activeSection, setActiveSection] = useState("profile")
+  const [newPin, setNewPin] = useState("")
+  const [confirmPin, setConfirmPin] = useState("")
+  const [pinLoading, setPinLoading] = useState(false)
 
   // Handle ?tab= param
   useEffect(() => {
     const params = new URLSearchParams(location.search)
     const tab = params.get("tab")
-    if (tab && ["profile"].includes(tab)) {
+    if (tab && ["profile", "pin"].includes(tab)) {
       setActiveSection(tab)
     }
   }, [location])
@@ -27,7 +32,20 @@ export default function SettingsPage() {
 
   const sections = [
     { id: "profile", name: "My Profile", icon: User },
+    { id: "pin", name: "Cashier PIN", icon: KeyRound },
   ]
+
+  const handleSetPin = async () => {
+    if (!/^\d{4,8}$/.test(newPin)) { toast.error("PIN must be 4–8 digits."); return }
+    if (newPin !== confirmPin) { toast.error("PINs do not match."); return }
+    setPinLoading(true)
+    try {
+      const res = await setPosPin(newPin)
+      if (res.success) { toast.success("PIN updated successfully"); setNewPin(""); setConfirmPin("") }
+      else toast.error(res.error || "Failed to set PIN")
+    } catch { toast.error("Connection error") }
+    finally { setPinLoading(false) }
+  }
 
   return (
     <div className={`min-h-screen ${isRTL ? "rtl" : "ltr"} pb-24 lg:pb-0 lg:pl-20`} style={{ backgroundColor: '#eef1f8' }}>
@@ -84,6 +102,49 @@ export default function SettingsPage() {
                 </h2>
                 <div className="h-1 w-10 rounded-full mt-2" style={{ backgroundColor: '#1e2d6b' }} />
               </div>
+
+              {/* PIN Section */}
+              {activeSection === "pin" && (
+                <div className="space-y-6 animate-in fade-in duration-300 max-w-md">
+                  <p className="text-sm text-gray-600">
+                    Set a 4–8 digit PIN that will be required each time you open a new POS session.
+                    If no PIN is set, sessions can be opened without verification.
+                  </p>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 mb-1.5">New PIN</label>
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      maxLength={8}
+                      value={newPin}
+                      onChange={e => setNewPin(e.target.value.replace(/\D/g, ""))}
+                      placeholder="4–8 digits"
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-lg font-bold tracking-widest focus:outline-none focus:ring-2 focus:ring-ziditech-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 mb-1.5">Confirm PIN</label>
+                    <input
+                      type="password"
+                      inputMode="numeric"
+                      maxLength={8}
+                      value={confirmPin}
+                      onChange={e => setConfirmPin(e.target.value.replace(/\D/g, ""))}
+                      placeholder="Re-enter PIN"
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl text-lg font-bold tracking-widest focus:outline-none focus:ring-2 focus:ring-ziditech-500"
+                    />
+                  </div>
+                  <button
+                    onClick={handleSetPin}
+                    disabled={pinLoading || !newPin || !confirmPin}
+                    className="flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-white transition-all disabled:bg-gray-300 disabled:cursor-not-allowed"
+                    style={{ backgroundColor: '#1e2d6b' }}
+                  >
+                    {pinLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <KeyRound className="w-4 h-4" />}
+                    {pinLoading ? "Saving..." : "Set PIN"}
+                  </button>
+                </div>
+              )}
 
               {/* Profile Section */}
               {activeSection === "profile" && (

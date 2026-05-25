@@ -1,4 +1,5 @@
 import frappe
+from sultan.sultan.api.thermal_receipts import create_thermal_print_formats
 
 def run():
 	# Custom Child DocType for Sales Invoices in POS Closing Entry
@@ -187,6 +188,27 @@ def run():
 		print("Created Sultan POS Cash Transaction doctype.")
 	else:
 		print("Sultan POS Cash Transaction already exists.")
+
+	# ── Item 2: Cashier PIN field on User document ────────────────────────────
+	pin_hash_field = "User-custom_pos_pin_hash"
+	if not frappe.db.exists("Custom Field", pin_hash_field):
+		frappe.get_doc({
+			"doctype": "Custom Field",
+			"dt": "User",
+			"fieldname": "custom_pos_pin_hash",
+			"label": "POS PIN (hashed)",
+			"fieldtype": "Password",
+			"insert_after": "enabled",
+			"hidden": 1,
+			"no_copy": 1,
+			"description": "Hashed PIN for POS session authentication",
+		}).insert(ignore_permissions=True)
+		print("Created custom_pos_pin_hash field on User.")
+	else:
+		print("custom_pos_pin_hash field already exists.")
+
+	# ── Item 5: Three 80mm thermal receipt print formats ──────────────────────
+	create_thermal_print_formats()
 
 	frappe.clear_cache(doctype="POS Profile User")
 	frappe.clear_cache(doctype="POS Profile")

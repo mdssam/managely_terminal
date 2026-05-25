@@ -5,6 +5,7 @@ import { useCreatePOSOpeningEntry } from '../services/opeiningEntry';
 import { usePaymentModes } from "../hooks/usePaymentModes"
 import { usePOSProfiles, usePOSDetails } from '../hooks/usePOSProfile';
 import { clearAllCache } from '../utils/clearCache';
+import PinAuthModal from './PinAuthModal';
 
 interface PaymentMethod {
   mode_of_payment: string;
@@ -40,6 +41,7 @@ const POSOpeningModal: React.FC<POSOpeningModalProps> = ({
   const [selectedProfile, setSelectedProfile] = useState<string>('');
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [error, setError] = useState<string>('');
+  const [showPin, setShowPin] = useState(false);
 
   // Use your existing hooks
   const { createOpeningEntry, isCreating, error: createError, success } = useCreatePOSOpeningEntry();
@@ -154,8 +156,14 @@ const POSOpeningModal: React.FC<POSOpeningModalProps> = ({
     });
   };
 
-  // Handle create opening entry
+  // PIN gate — shows PIN modal; on success proceeds to actual creation
+  const handleStartSession = () => {
+    setShowPin(true)
+  }
+
+  // Handle create opening entry (called after PIN verified)
   const handleCreateOpeningEntry = async () => {
+    setShowPin(false)
     try {
       setStep('creating');
       setError('');
@@ -351,7 +359,7 @@ const POSOpeningModal: React.FC<POSOpeningModalProps> = ({
                   Cancel
                 </button>
                 <button
-                  onClick={handleCreateOpeningEntry}
+                  onClick={handleStartSession}
                   disabled={
                     !!profilesLoading ||
                     !!isCreating ||
@@ -405,6 +413,14 @@ const POSOpeningModal: React.FC<POSOpeningModalProps> = ({
           )}
         </div>
       </div>
+
+      {/* PIN authentication gate */}
+      <PinAuthModal
+        isOpen={showPin}
+        title="Cashier PIN"
+        onSuccess={handleCreateOpeningEntry}
+        onCancel={() => setShowPin(false)}
+      />
     </div>
   );
 };
