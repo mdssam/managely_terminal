@@ -241,17 +241,17 @@ _BILINGUAL_HTML = """
 FORMATS = [
     {
         "name": "Sultan Thermal Standard",
-        "html": _STANDARD_HTML.format(css=_BASE_CSS),
+        "html": _STANDARD_HTML.replace("{css}", _BASE_CSS),
         "description": "80mm standard receipt with logo, item table, VAT breakdown, and QR code",
     },
     {
         "name": "Sultan Thermal Compact",
-        "html": _COMPACT_HTML.format(css=_BASE_CSS),
+        "html": _COMPACT_HTML.replace("{css}", _BASE_CSS),
         "description": "80mm compact receipt — minimal header, items, and total only",
     },
     {
         "name": "Sultan Thermal Bilingual",
-        "html": _BILINGUAL_HTML.format(css=_BASE_CSS),
+        "html": _BILINGUAL_HTML.replace("{css}", _BASE_CSS),
         "description": "80mm bilingual (Arabic/English) receipt with QR code",
     },
 ]
