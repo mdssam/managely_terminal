@@ -181,7 +181,6 @@ def run():
 				{"role": "System Manager", "read": 1, "write": 1, "create": 1,
 				 "delete": 1, "submit": 1, "cancel": 1, "amend": 1},
 				{"role": "Accounts User", "read": 1, "write": 1, "create": 1, "submit": 1},
-				{"role": "POS User", "read": 1, "write": 1, "create": 1, "submit": 1},
 			]
 		})
 		txn_doc.insert(ignore_permissions=True)
