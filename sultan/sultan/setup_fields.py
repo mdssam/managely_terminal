@@ -238,32 +238,7 @@ def run():
 	else:
 		print("POS Cash Transaction Detail already exists.")
 
-	# 2. POS Suspended Transaction Item (child table injected into POS Closing Entry)
-	if not frappe.db.exists("DocType", "POS Suspended Transaction Item"):
-		frappe.get_doc({
-			"doctype": "DocType",
-			"name": "POS Suspended Transaction Item",
-			"module": "Sultan",
-			"custom": 1,
-			"istable": 1,
-			"fields": [
-				{"fieldname": "suspended_transaction", "label": "Suspended Transaction",
-				 "fieldtype": "Link", "options": "POS Suspended Transaction", "in_list_view": 1},
-				{"fieldname": "transaction_type", "label": "Type", "fieldtype": "Data",
-				 "in_list_view": 1},
-				{"fieldname": "amount", "label": "Amount", "fieldtype": "Currency", "in_list_view": 1},
-				{"fieldname": "currency", "label": "Currency", "fieldtype": "Link", "options": "Currency"},
-				{"fieldname": "description", "label": "Description", "fieldtype": "Small Text",
-				 "in_list_view": 1},
-				{"fieldname": "posting_date", "label": "Date", "fieldtype": "Date", "in_list_view": 1},
-				{"fieldname": "posting_time", "label": "Time", "fieldtype": "Time"},
-			]
-		}).insert(ignore_permissions=True)
-		print("Created POS Suspended Transaction Item doctype.")
-	else:
-		print("POS Suspended Transaction Item already exists.")
-
-	# 3. POS Suspended Transaction (parent doctype)
+	# 2. POS Suspended Transaction (parent doctype — must exist before the Item child table)
 	if not frappe.db.exists("DocType", "POS Suspended Transaction"):
 		frappe.get_doc({
 			"doctype": "DocType",
@@ -316,6 +291,31 @@ def run():
 		print("Created POS Suspended Transaction doctype.")
 	else:
 		print("POS Suspended Transaction already exists.")
+
+	# 3. POS Suspended Transaction Item (child table for POS Closing Entry; links to parent above)
+	if not frappe.db.exists("DocType", "POS Suspended Transaction Item"):
+		frappe.get_doc({
+			"doctype": "DocType",
+			"name": "POS Suspended Transaction Item",
+			"module": "Sultan",
+			"custom": 1,
+			"istable": 1,
+			"fields": [
+				{"fieldname": "suspended_transaction", "label": "Suspended Transaction",
+				 "fieldtype": "Link", "options": "POS Suspended Transaction", "in_list_view": 1},
+				{"fieldname": "transaction_type", "label": "Type", "fieldtype": "Data",
+				 "in_list_view": 1},
+				{"fieldname": "amount", "label": "Amount", "fieldtype": "Currency", "in_list_view": 1},
+				{"fieldname": "currency", "label": "Currency", "fieldtype": "Link", "options": "Currency"},
+				{"fieldname": "description", "label": "Description", "fieldtype": "Small Text",
+				 "in_list_view": 1},
+				{"fieldname": "posting_date", "label": "Date", "fieldtype": "Date", "in_list_view": 1},
+				{"fieldname": "posting_time", "label": "Time", "fieldtype": "Time"},
+			]
+		}).insert(ignore_permissions=True)
+		print("Created POS Suspended Transaction Item doctype.")
+	else:
+		print("POS Suspended Transaction Item already exists.")
 
 	# 4. Inject custom_pos_suspended_transactions into POS Closing Entry
 	susp_table_field = "POS Closing Entry-custom_pos_suspended_transactions"
