@@ -151,7 +151,19 @@ doc_events = {
 	"Sales Invoice": {
 		"validate": "sultan.sultan.api.fix_invoice_items_valuation",
 		"on_submit": "sultan.sultan.api.generate_production_order"
-	}
+	},
+	"POS Opening Entry": {
+		"on_submit": "sultan.sultan.api.suspended_transaction.check_opening_amount_difference",
+	},
+	"POS Closing Entry": {
+		"before_validate": "sultan.sultan.api.suspended_transaction.update_closing_entry_expected_amounts",
+		"on_submit": "sultan.sultan.api.suspended_transaction.create_transaction_from_closing_entry",
+		"on_cancel": "sultan.sultan.api.suspended_transaction.cancel_transaction_from_closing_entry",
+	},
+	"POS Suspended Transaction": {
+		"before_insert": "sultan.sultan.api.suspended_transaction.check_desk_manipulation",
+		"on_trash": "sultan.sultan.api.suspended_transaction.check_desk_manipulation",
+	},
 }
 
 # Scheduled Tasks

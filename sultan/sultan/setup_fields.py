@@ -210,10 +210,151 @@ def run():
 	# ── Item 5: Three 80mm thermal receipt print formats ──────────────────────
 	create_thermal_print_formats()
 
+	# ── New spec: POS Suspended Transaction system ─────────────────────────────
+
+	# 1. POS Cash Transaction Detail (child table for GL rows)
+	if not frappe.db.exists("DocType", "POS Cash Transaction Detail"):
+		frappe.get_doc({
+			"doctype": "DocType",
+			"name": "POS Cash Transaction Detail",
+			"module": "Sultan",
+			"custom": 1,
+			"istable": 1,
+			"fields": [
+				{"fieldname": "account_debit", "label": "Account (Debit)", "fieldtype": "Link",
+				 "options": "Account", "in_list_view": 1},
+				{"fieldname": "account_credit", "label": "Account (Credit)", "fieldtype": "Link",
+				 "options": "Account", "in_list_view": 1},
+				{"fieldname": "amount", "label": "Amount", "fieldtype": "Currency", "in_list_view": 1},
+				{"fieldname": "currency", "label": "Currency", "fieldtype": "Link", "options": "Currency"},
+				{"fieldname": "exchange_rate", "label": "Exchange Rate", "fieldtype": "Float",
+				 "default": "1", "precision": 6},
+				{"fieldname": "amount_in_base_currency", "label": "Amount (Base Currency)",
+				 "fieldtype": "Currency"},
+				{"fieldname": "reference", "label": "Reference", "fieldtype": "Data"},
+			]
+		}).insert(ignore_permissions=True)
+		print("Created POS Cash Transaction Detail doctype.")
+	else:
+		print("POS Cash Transaction Detail already exists.")
+
+	# 2. POS Suspended Transaction Item (child table injected into POS Closing Entry)
+	if not frappe.db.exists("DocType", "POS Suspended Transaction Item"):
+		frappe.get_doc({
+			"doctype": "DocType",
+			"name": "POS Suspended Transaction Item",
+			"module": "Sultan",
+			"custom": 1,
+			"istable": 1,
+			"fields": [
+				{"fieldname": "suspended_transaction", "label": "Suspended Transaction",
+				 "fieldtype": "Link", "options": "POS Suspended Transaction", "in_list_view": 1},
+				{"fieldname": "transaction_type", "label": "Type", "fieldtype": "Data",
+				 "in_list_view": 1},
+				{"fieldname": "amount", "label": "Amount", "fieldtype": "Currency", "in_list_view": 1},
+				{"fieldname": "currency", "label": "Currency", "fieldtype": "Link", "options": "Currency"},
+				{"fieldname": "description", "label": "Description", "fieldtype": "Small Text",
+				 "in_list_view": 1},
+				{"fieldname": "posting_date", "label": "Date", "fieldtype": "Date", "in_list_view": 1},
+				{"fieldname": "posting_time", "label": "Time", "fieldtype": "Time"},
+			]
+		}).insert(ignore_permissions=True)
+		print("Created POS Suspended Transaction Item doctype.")
+	else:
+		print("POS Suspended Transaction Item already exists.")
+
+	# 3. POS Suspended Transaction (parent doctype)
+	if not frappe.db.exists("DocType", "POS Suspended Transaction"):
+		frappe.get_doc({
+			"doctype": "DocType",
+			"name": "POS Suspended Transaction",
+			"module": "Sultan",
+			"custom": 1,
+			"naming_rule": "By \"Naming Series\" field",
+			"autoname": "naming_series:",
+			"is_submittable": 1,
+			"track_changes": 1,
+			"fields": [
+				{"fieldname": "naming_series", "label": "Series", "fieldtype": "Select",
+				 "options": "POS-SUSP-.YYYY.-.####\n", "default": "POS-SUSP-.YYYY.-.####", "reqd": 1},
+				{"fieldname": "transaction_type", "label": "Transaction Type", "fieldtype": "Select",
+				 "options": "Cash In\nCash Out\nOpening Difference\nClosing Difference",
+				 "reqd": 1, "in_list_view": 1},
+				{"fieldname": "amount", "label": "Amount", "fieldtype": "Currency",
+				 "reqd": 1, "in_list_view": 1},
+				{"fieldname": "currency", "label": "Currency", "fieldtype": "Link", "options": "Currency"},
+				{"fieldname": "description", "label": "Description", "fieldtype": "Small Text",
+				 "in_list_view": 1},
+				{"fieldname": "col_break_1", "fieldtype": "Column Break"},
+				{"fieldname": "pos_opening_entry", "label": "POS Opening Entry",
+				 "fieldtype": "Link", "options": "POS Opening Entry", "reqd": 1, "in_list_view": 1},
+				{"fieldname": "pos_profile", "label": "POS Profile",
+				 "fieldtype": "Link", "options": "POS Profile"},
+				{"fieldname": "pos_closing_entry", "label": "POS Closing Entry",
+				 "fieldtype": "Link", "options": "POS Closing Entry"},
+				{"fieldname": "company", "label": "Company",
+				 "fieldtype": "Link", "options": "Company", "reqd": 1},
+				{"fieldname": "posting_date", "label": "Posting Date", "fieldtype": "Date",
+				 "default": "Today", "reqd": 1},
+				{"fieldname": "posting_time", "label": "Posting Time", "fieldtype": "Time"},
+				{"fieldname": "cost_center", "label": "Cost Center",
+				 "fieldtype": "Link", "options": "Cost Center"},
+				{"fieldname": "linked_journal_entry", "label": "Journal Entry",
+				 "fieldtype": "Link", "options": "Journal Entry", "read_only": 1},
+				{"fieldname": "sec_details", "label": "Transaction Details", "fieldtype": "Section Break"},
+				{"fieldname": "details", "label": "GL Details",
+				 "fieldtype": "Table", "options": "POS Cash Transaction Detail"},
+			],
+			"permissions": [
+				{"role": "System Manager", "read": 1, "write": 1, "create": 1,
+				 "delete": 1, "submit": 1, "cancel": 1, "amend": 1},
+				{"role": "Accounts User", "read": 1, "write": 1, "create": 1, "submit": 1},
+				{"role": "Accounts Manager", "read": 1, "write": 1, "create": 1,
+				 "delete": 1, "submit": 1, "cancel": 1},
+			]
+		}).insert(ignore_permissions=True)
+		print("Created POS Suspended Transaction doctype.")
+	else:
+		print("POS Suspended Transaction already exists.")
+
+	# 4. Inject custom_pos_suspended_transactions into POS Closing Entry
+	susp_table_field = "POS Closing Entry-custom_pos_suspended_transactions"
+	if not frappe.db.exists("Custom Field", susp_table_field):
+		frappe.get_doc({
+			"doctype": "Custom Field",
+			"dt": "POS Closing Entry",
+			"fieldname": "custom_pos_suspended_transactions",
+			"label": "Cash Transactions",
+			"fieldtype": "Table",
+			"options": "POS Suspended Transaction Item",
+			"insert_after": "payment_reconciliation",
+			"read_only": 1,
+		}).insert(ignore_permissions=True)
+		print("Created custom_pos_suspended_transactions field on POS Closing Entry.")
+	else:
+		print("custom_pos_suspended_transactions field already exists.")
+
+	# 5. allowed_for_cash_in_out on POS Profile (checkbox per payment mode)
+	allowed_io_field = "POS Payment Method-custom_allowed_for_cash_in_out"
+	if not frappe.db.exists("Custom Field", allowed_io_field):
+		frappe.get_doc({
+			"doctype": "Custom Field",
+			"dt": "POS Payment Method",
+			"fieldname": "custom_allowed_for_cash_in_out",
+			"label": "Allowed for Cash In/Out",
+			"fieldtype": "Check",
+			"default": "0",
+			"description": "If enabled, this payment mode can be used for manual Cash In/Out entries",
+		}).insert(ignore_permissions=True)
+		print("Created custom_allowed_for_cash_in_out on POS Payment Method.")
+	else:
+		print("custom_allowed_for_cash_in_out already exists.")
+
 	frappe.clear_cache(doctype="POS Profile User")
 	frappe.clear_cache(doctype="POS Profile")
 	frappe.clear_cache(doctype="POS Payment Method")
 	frappe.clear_cache(doctype="Sales Invoice")
 	frappe.clear_cache(doctype="POS Closing Entry")
+	frappe.clear_cache(doctype="POS Suspended Transaction")
 	frappe.db.commit()
 
