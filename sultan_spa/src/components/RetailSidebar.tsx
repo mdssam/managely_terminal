@@ -5,6 +5,7 @@ import { useState, useEffect } from "react"
 import backgroundSyncService from "../services/backgroundSyncService"
 import CashIOModal from "./CashIOModal"
 import { usePOSDetails } from "../hooks/usePOSProfile"
+import { useCashIOFeature } from "../hooks/useCashIOFeature"
 
 // Inside your component
 export default function RetailSidebar() {
@@ -14,6 +15,7 @@ export default function RetailSidebar() {
   const [syncStatus, setSyncStatus] = useState(backgroundSyncService.getStatus())
   const [showCashIO, setShowCashIO] = useState(false)
   const { posDetails } = usePOSDetails()
+  const cashIO = useCashIOFeature(posDetails?.name as string | undefined)
 
   useEffect(() => {
     const handler = (status: typeof syncStatus) => setSyncStatus({ ...status })
@@ -85,8 +87,8 @@ export default function RetailSidebar() {
         })}
       </div>
 
-      {/* Cash I/O button — non-Menu Users only */}
-      {!isMenuUser && (
+      {/* Cash I/O button — only when pos_cash_in_out is installed & enabled for this profile */}
+      {!isMenuUser && cashIO.enabled && (
         <button
           onClick={() => setShowCashIO(true)}
           title="Cash In / Cash Out"
@@ -139,6 +141,8 @@ export default function RetailSidebar() {
       isOpen={showCashIO}
       onClose={() => setShowCashIO(false)}
       currency={posDetails?.currency}
+      allowedModes={cashIO.allowed_modes}
+      posSession={(posDetails as any)?.current_opening_entry}
     />
     </>
   )

@@ -8,30 +8,30 @@ interface Props {
   onClose: () => void
   onSuccess?: () => void
   currency?: string
+  allowedModes?: string[]
+  posSession?: string
 }
 
-export default function CashIOModal({ isOpen, onClose, onSuccess, currency = "SAR" }: Props) {
+export default function CashIOModal({
+  isOpen, onClose, onSuccess, currency = "SAR", allowedModes = [], posSession,
+}: Props) {
   const [type, setType] = useState<"Cash In" | "Cash Out">("Cash In")
   const [amount, setAmount] = useState("")
   const [description, setDescription] = useState("")
+  const [modeOfPayment, setModeOfPayment] = useState(allowedModes[0] ?? "")
   const [loading, setLoading] = useState(false)
 
   if (!isOpen) return null
 
   const handleSubmit = async () => {
     const amt = parseFloat(amount)
-    if (!amt || amt <= 0) {
-      toast.error("Please enter a valid amount greater than zero.")
-      return
-    }
-    if (!description.trim()) {
-      toast.error("Please enter a description / reason.")
-      return
-    }
+    if (!amt || amt <= 0) { toast.error("Please enter a valid amount greater than zero."); return }
+    if (!description.trim()) { toast.error("Please enter a description / reason."); return }
+    if (!modeOfPayment) { toast.error("Please select a payment method."); return }
 
     setLoading(true)
     try {
-      const result = await createCashTransaction(type, amt, description.trim())
+      const result = await createCashTransaction(type, amt, description.trim(), modeOfPayment, posSession)
       if (result.success) {
         toast.success(result.message || `${type} recorded successfully`)
         setAmount("")
@@ -87,6 +87,24 @@ export default function CashIOModal({ isOpen, onClose, onSuccess, currency = "SA
               Cash Out
             </button>
           </div>
+
+          {/* Payment method */}
+          {allowedModes.length > 1 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Payment Method
+              </label>
+              <select
+                value={modeOfPayment}
+                onChange={(e) => setModeOfPayment(e.target.value)}
+                className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-ziditech-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              >
+                {allowedModes.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Amount */}
           <div>
