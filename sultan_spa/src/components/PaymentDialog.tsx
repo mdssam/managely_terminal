@@ -1174,16 +1174,43 @@ export default function PaymentDialog({
                     </div>
                   )}
 
+                  {/* Standard print (DOM-based, A4) */}
                   <button
                     className="flex items-center space-x-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                     title="Print"
-                    onClick={() => {
-                      handlePrintInvoice(invoiceData);
-                    }}
+                    onClick={() => handlePrintInvoice(invoiceData)}
                   >
                     <Printer size={18} />
                     <span>Print</span>
                   </button>
+
+                  {/* Thermal receipt buttons — shown when configured on POS Profile */}
+                  {posDetails?.custom_pos_print_format_en && invoiceData?.name && (
+                    <button
+                      className="flex items-center space-x-2 px-4 py-2 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/30 transition-colors"
+                      title="Print Thermal (EN)"
+                      onClick={() => {
+                        const fmt = encodeURIComponent(posDetails.custom_pos_print_format_en as string);
+                        window.open(`/printview?doctype=Sales+Invoice&name=${invoiceData.name}&format=${fmt}&no_letterhead=1`, "_blank");
+                      }}
+                    >
+                      <Printer size={18} />
+                      <span>Receipt EN</span>
+                    </button>
+                  )}
+                  {posDetails?.custom_pos_print_format_ar && invoiceData?.name && (
+                    <button
+                      className="flex items-center space-x-2 px-4 py-2 bg-amber-100 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 rounded-lg hover:bg-amber-200 dark:hover:bg-amber-900/30 transition-colors"
+                      title="Print Thermal (AR)"
+                      onClick={() => {
+                        const fmt = encodeURIComponent(posDetails.custom_pos_print_format_ar as string);
+                        window.open(`/printview?doctype=Sales+Invoice&name=${invoiceData.name}&format=${fmt}&no_letterhead=1`, "_blank");
+                      }}
+                    >
+                      <Printer size={18} />
+                      <span>Receipt AR</span>
+                    </button>
+                  )}
 
                   <button
                     className="flex items-center space-x-2 px-4 py-2 bg-blue-100 dark:bg-blue-900/20 text-ziditech-600 dark:text-blue-400 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/30 transition-colors"

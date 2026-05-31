@@ -124,20 +124,26 @@ def run():
 	else:
 		print("custom_show_in_opening_entry field already exists.")
 
-	# ── Items 1 & 7: bucket account on POS Profile ───────────────────────────
-	bucket_field = "POS Profile-custom_cash_io_bucket_account"
-	if not frappe.db.exists("Custom Field", bucket_field):
-		doc = frappe.new_doc("Custom Field")
-		doc.dt = "POS Profile"
-		doc.fieldname = "custom_cash_io_bucket_account"
-		doc.label = "Cash In/Out Bucket Account"
-		doc.fieldtype = "Link"
-		doc.options = "Account"
-		doc.description = "Default suspense account used as the offset for Cash In/Out entries"
-		doc.insert(ignore_permissions=True)
-		print("Created custom_cash_io_bucket_account field.")
-	else:
-		print("custom_cash_io_bucket_account field already exists.")
+	# ── POS Print Format per terminal ────────────────────────────────────────
+	for fieldname, label, after in [
+		("custom_pos_print_format_en", "POS Print Template (English)", "write_off_account"),
+		("custom_pos_print_format_ar", "POS Print Template (Arabic)", "custom_pos_print_format_en"),
+	]:
+		cf = f"POS Profile-{fieldname}"
+		if not frappe.db.exists("Custom Field", cf):
+			frappe.get_doc({
+				"doctype": "Custom Field",
+				"dt": "POS Profile",
+				"fieldname": fieldname,
+				"label": label,
+				"fieldtype": "Link",
+				"options": "Print Format",
+				"insert_after": after,
+				"description": "Thermal receipt print format used by the Sultan POS SPA",
+			}).insert(ignore_permissions=True)
+			print(f"Created {fieldname} on POS Profile.")
+		else:
+			print(f"{fieldname} already exists.")
 
 	# ── Items 1 & 7: Sultan POS Cash Transaction doctype ─────────────────────
 	if not frappe.db.exists("DocType", "Sultan POS Cash Transaction"):
@@ -189,23 +195,67 @@ def run():
 	else:
 		print("Sultan POS Cash Transaction already exists.")
 
-	# ── Item 2: Cashier PIN field on User document ────────────────────────────
-	pin_hash_field = "User-custom_pos_pin_hash"
-	if not frappe.db.exists("Custom Field", pin_hash_field):
-		frappe.get_doc({
-			"doctype": "Custom Field",
-			"dt": "User",
-			"fieldname": "custom_pos_pin_hash",
-			"label": "POS PIN (hashed)",
+	# ── Employee POS Login fields ─────────────────────────────────────────────
+	employee_fields = [
+		{
+			"fieldname": "custom_pos_login_section",
+			"label": "POS Login",
+			"fieldtype": "Section Break",
+			"dt": "Employee",
+			"cf_name": "Employee-custom_pos_login_section",
+			"insert_after": "lft",
+		},
+		{
+			"fieldname": "custom_pos_username",
+			"label": "POS Username",
+			"fieldtype": "Data",
+			"dt": "Employee",
+			"cf_name": "Employee-custom_pos_username",
+			"insert_after": "custom_pos_login_section",
+			"unique": 1,
+			"description": "Unique username the employee uses to log in at the POS terminal",
+		},
+		{
+			"fieldname": "custom_pos_password",
+			"label": "POS Password",
 			"fieldtype": "Password",
-			"insert_after": "enabled",
-			"hidden": 1,
+			"dt": "Employee",
+			"cf_name": "Employee-custom_pos_password",
+			"insert_after": "custom_pos_username",
 			"no_copy": 1,
-			"description": "Hashed PIN for POS session authentication",
-		}).insert(ignore_permissions=True)
-		print("Created custom_pos_pin_hash field on User.")
-	else:
-		print("custom_pos_pin_hash field already exists.")
+		},
+	]
+	for ef in employee_fields:
+		if not frappe.db.exists("Custom Field", ef["cf_name"]):
+			doc = frappe.new_doc("Custom Field")
+			for k, v in ef.items():
+				if k not in ("cf_name",):
+					setattr(doc, k, v)
+			doc.insert(ignore_permissions=True)
+			print(f"Created {ef['cf_name']}.")
+		else:
+			print(f"{ef['cf_name']} already exists.")
+
+	# ── Employee on POS Opening Entry ─────────────────────────────────────────
+	for fieldname, label, fieldtype, after, opts in [
+		("custom_employee", "Employee", "Link", "user", "Employee"),
+		("custom_employee_name", "Employee Name", "Data", "custom_employee", None),
+	]:
+		cf = f"POS Opening Entry-{fieldname}"
+		if not frappe.db.exists("Custom Field", cf):
+			d = frappe.new_doc("Custom Field")
+			d.dt = "POS Opening Entry"
+			d.fieldname = fieldname
+			d.label = label
+			d.fieldtype = fieldtype
+			d.insert_after = after
+			d.read_only = 1
+			if opts:
+				d.options = opts
+			d.insert(ignore_permissions=True)
+			print(f"Created {cf}.")
+		else:
+			print(f"{cf} already exists.")
 
 	# ── Item 5: Three 80mm thermal receipt print formats ──────────────────────
 	create_thermal_print_formats()

@@ -5,7 +5,7 @@ import { useCreatePOSOpeningEntry } from '../services/opeiningEntry';
 import { usePaymentModes } from "../hooks/usePaymentModes"
 import { usePOSProfiles, usePOSDetails } from '../hooks/usePOSProfile';
 import { clearAllCache } from '../utils/clearCache';
-import PinAuthModal from './PinAuthModal';
+import EmployeeLoginModal from './EmployeeLoginModal';
 
 interface PaymentMethod {
   mode_of_payment: string;
@@ -41,7 +41,8 @@ const POSOpeningModal: React.FC<POSOpeningModalProps> = ({
   const [selectedProfile, setSelectedProfile] = useState<string>('');
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [error, setError] = useState<string>('');
-  const [showPin, setShowPin] = useState(false);
+  const [showEmployeeLogin, setShowEmployeeLogin] = useState(false);
+  const [employeeInfo, setEmployeeInfo] = useState<{employee: string; employee_name: string} | null>(null);
 
   // Use your existing hooks
   const { createOpeningEntry, isCreating, error: createError, success } = useCreatePOSOpeningEntry();
@@ -156,14 +157,20 @@ const POSOpeningModal: React.FC<POSOpeningModalProps> = ({
     });
   };
 
-  // PIN gate — shows PIN modal; on success proceeds to actual creation
+  // Employee login gate
   const handleStartSession = () => {
-    setShowPin(true)
+    setShowEmployeeLogin(true)
   }
 
-  // Handle create opening entry (called after PIN verified)
-  const handleCreateOpeningEntry = async () => {
-    setShowPin(false)
+  // Called after employee login verified
+  const handleEmployeeLoginSuccess = (employee: string, employee_name: string) => {
+    setEmployeeInfo({ employee, employee_name })
+    setShowEmployeeLogin(false)
+    handleCreateOpeningEntry(employee, employee_name)
+  }
+
+  // Handle create opening entry
+  const handleCreateOpeningEntry = async (employee?: string, employee_name?: string) => {
     try {
       setStep('creating');
       setError('');
@@ -174,7 +181,8 @@ const POSOpeningModal: React.FC<POSOpeningModalProps> = ({
         opening_amount: method.opening_amount || 0
       }));
       console.log("Opening balance data:", openingBalance, "Selected profile:", selectedProfile);
-      await createOpeningEntry(openingBalance, selectedProfile || undefined);
+      const empInfo = employee && employee_name ? { employee, employee_name } : employeeInfo ?? undefined;
+      await createOpeningEntry(openingBalance, selectedProfile || undefined, empInfo ?? undefined);
 
       // Clear all caches after creating opening entry for fresh start
       clearAllCache();
@@ -414,12 +422,12 @@ const POSOpeningModal: React.FC<POSOpeningModalProps> = ({
         </div>
       </div>
 
-      {/* PIN authentication gate */}
-      <PinAuthModal
-        isOpen={showPin}
-        title="Cashier PIN"
-        onSuccess={handleCreateOpeningEntry}
-        onCancel={() => setShowPin(false)}
+      {/* Employee login gate */}
+      <EmployeeLoginModal
+        isOpen={showEmployeeLogin}
+        title="Cashier Login"
+        onSuccess={handleEmployeeLoginSuccess}
+        onCancel={() => setShowEmployeeLogin(false)}
       />
     </div>
   );

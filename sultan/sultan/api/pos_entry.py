@@ -65,6 +65,9 @@ def create_opening_entry():
 		if not balance_details:
 			frappe.throw(_("At least one balance detail (mode of payment) is required"))
 
+		employee = data.get("employee")
+		employee_name = data.get("employee_name")
+
 		# Check if an open entry exists
 		existing = frappe.db.exists(
 			"POS Opening Entry",
@@ -90,6 +93,11 @@ def create_opening_entry():
 		doc.posting_date = today()
 		doc.set_posting_time = 1
 		doc.period_start_date = now_datetime()
+
+		if employee:
+			doc.custom_employee = employee
+		if employee_name:
+			doc.custom_employee_name = employee_name
 
 		for row in balance_details:
 			doc.append(
