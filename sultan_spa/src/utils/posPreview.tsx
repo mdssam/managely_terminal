@@ -67,6 +67,10 @@ export default function PrintPreview({ invoice, language = "en" }: PrintPreviewP
     );
   }
 
+  const styleBlock = style.trim().toLowerCase().includes("<style")
+    ? style
+    : `<style>${style}</style>`;
+
   const previewDocument = `<!doctype html>
 <html>
 <head>
@@ -78,7 +82,7 @@ export default function PrintPreview({ invoice, language = "en" }: PrintPreviewP
       background: #fff;
     }
   </style>
-  ${style}
+  ${styleBlock}
 </head>
 <body>
   ${html}
