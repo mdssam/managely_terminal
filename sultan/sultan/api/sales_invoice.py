@@ -54,16 +54,21 @@ def get_sales_invoices(limit=100, start=0, search="", skip_opening_entry_filter=
 		if isinstance(submitted_only, str):
 			submitted_only = submitted_only.lower() in ("true", "1", "yes")
 
-		# Get user IDs for cashier filter if cashier_name is provided
+		# Get user IDs / POS Opening Entries for cashier filter if cashier_name is provided
 		cashier_user_ids = None
+		cashier_opening_entries = None
 		if cashier_name and cashier_name != "all":
 			cashier_user_ids = _get_user_ids_by_full_name(cashier_name)
-			if not cashier_user_ids:
+			cashier_opening_entries = _get_opening_entries_by_employee_name(cashier_name)
+			if not cashier_user_ids and not cashier_opening_entries:
 				# No users found with this name, return empty result
 				return {"success": True, "data": [], "total_count": 0}
 
 		filters, fields = _build_filters_and_fields(
-			skip_opening_entry_filter=skip_opening_entry_filter, cashier_user_ids=cashier_user_ids, submitted_only=submitted_only
+			skip_opening_entry_filter=skip_opening_entry_filter,
+			cashier_user_ids=cashier_user_ids,
+			cashier_opening_entries=cashier_opening_entries,
+			submitted_only=submitted_only,
 		)
 
 		# Build search filters
@@ -89,11 +94,12 @@ def get_sales_invoices(limit=100, start=0, search="", skip_opening_entry_filter=
 		user_ids = list(set([inv.owner for inv in invoices]))
 
 		cashier_names_map = _batch_fetch_cashier_names(user_ids)
+		opening_cashier_map = _batch_fetch_opening_cashier_names(invoice_names)
 		payment_methods_map = _batch_fetch_payment_methods(invoice_names)
 		items_map = _batch_fetch_items(invoice_names)
 
 		# Process and enrich invoices
-		_process_invoices(invoices, cashier_names_map, payment_methods_map, items_map)
+		_process_invoices(invoices, cashier_names_map, opening_cashier_map, payment_methods_map, items_map)
 
 		return {"success": True, "data": invoices, "total_count": total_count}
 
@@ -116,12 +122,37 @@ def _get_user_ids_by_full_name(full_name):
 		return []
 
 
-def _build_filters_and_fields(skip_opening_entry_filter=False, cashier_user_ids=None, submitted_only=False):
+def _get_opening_entries_by_employee_name(employee_name):
+	"""Get POS Opening Entry IDs whose verified employee name matches the cashier filter."""
+	try:
+		opening_entry_meta = frappe.get_meta("POS Opening Entry")
+		all_fieldnames = {df.fieldname for df in opening_entry_meta.fields}
+		if "custom_employee_name" not in all_fieldnames:
+			return []
+
+		entries = frappe.get_all(
+			"POS Opening Entry",
+			filters={"custom_employee_name": employee_name},
+			fields=["name"],
+		)
+		return [entry.name for entry in entries] if entries else []
+	except Exception as e:
+		frappe.logger().error(f"Error getting POS Opening Entries by employee name '{employee_name}': {e}")
+		return []
+
+
+def _build_filters_and_fields(
+	skip_opening_entry_filter=False,
+	cashier_user_ids=None,
+	cashier_opening_entries=None,
+	submitted_only=False,
+):
 	"""Build filters and fields list based on user role and metadata.
 
 	Args:
 		skip_opening_entry_filter: If True, skip filtering by opening entry (show all invoices)
 		cashier_user_ids: List of user IDs to filter by. If provided, only returns invoices for these users.
+		cashier_opening_entries: POS Opening Entry IDs to filter by employee cashier name.
 		submitted_only: If True, only return submitted invoices (docstatus=1); excludes Draft and Cancelled.
 	"""
 	current_opening_entry = get_current_pos_opening_entry()
@@ -184,8 +215,15 @@ def _build_filters_and_fields(skip_opening_entry_filter=False, cashier_user_ids=
 	if has_zatca_status:
 		fields.append("custom_zatca_submit_status")
 
-	# Add cashier filter if provided
-	if cashier_user_ids:
+	# Add cashier filter if provided. Prefer the employee attached to the POS
+	# Opening Entry because the ERPNext browser session may still be Administrator.
+	if cashier_opening_entries and has_opening_entry:
+		if len(cashier_opening_entries) == 1:
+			filters["custom_pos_opening_entry"] = cashier_opening_entries[0]
+		else:
+			filters["custom_pos_opening_entry"] = ["in", cashier_opening_entries]
+		frappe.logger().info(f"Filtering by cashier POS Opening Entries: {cashier_opening_entries}")
+	elif cashier_user_ids:
 		if len(cashier_user_ids) == 1:
 			filters["owner"] = cashier_user_ids[0]
 		else:
@@ -220,6 +258,43 @@ def _batch_fetch_cashier_names(user_ids):
 	""".format(",".join([f"'{uid}'" for uid in user_ids]))
 	cashier_results = frappe.db.sql(cashier_query, as_dict=True)
 	return {user.name: user.full_name or user.name for user in cashier_results}
+
+
+def _batch_fetch_opening_cashier_names(invoice_names):
+	"""Map Sales Invoice names to the employee cashier from their POS Opening Entry."""
+	if not invoice_names:
+		return {}
+
+	try:
+		sales_invoice_meta = frappe.get_meta("Sales Invoice")
+		sales_invoice_fields = {df.fieldname for df in sales_invoice_meta.fields}
+		opening_entry_meta = frappe.get_meta("POS Opening Entry")
+		opening_entry_fields = {df.fieldname for df in opening_entry_meta.fields}
+		if (
+			"custom_pos_opening_entry" not in sales_invoice_fields
+			or "custom_employee_name" not in opening_entry_fields
+		):
+			return {}
+
+		placeholders = ", ".join(["%s"] * len(invoice_names))
+		rows = frappe.db.sql(
+			f"""
+			SELECT si.name, poe.custom_employee_name
+			FROM `tabSales Invoice` si
+			LEFT JOIN `tabPOS Opening Entry` poe ON poe.name = si.custom_pos_opening_entry
+			WHERE si.name IN ({placeholders})
+			""",
+			tuple(invoice_names),
+			as_dict=True,
+		)
+		return {
+			row.name: row.custom_employee_name
+			for row in rows
+			if row.get("custom_employee_name")
+		}
+	except Exception as e:
+		frappe.logger().error(f"Error fetching POS Opening Entry cashier names: {e}")
+		return {}
 
 
 def _batch_fetch_payment_methods(invoice_names):
@@ -276,11 +351,12 @@ def _batch_fetch_items(invoice_names):
 	return items_map
 
 
-def _process_invoices(invoices, cashier_names_map, payment_methods_map, items_map):
+def _process_invoices(invoices, cashier_names_map, opening_cashier_map, payment_methods_map, items_map):
 	"""Process and enrich invoices with related data."""
 	for inv in invoices:
-		# Set cashier name
-		inv["cashier_name"] = cashier_names_map.get(inv.owner, inv.owner)
+		# Set cashier name. Employee login is stored on POS Opening Entry; owner
+		# may be Administrator when the terminal is logged in through one ERPNext user.
+		inv["cashier_name"] = opening_cashier_map.get(inv.name) or cashier_names_map.get(inv.owner, inv.owner)
 
 		# Format posting_time
 		if inv.get("posting_time"):
@@ -373,10 +449,9 @@ def get_invoice_details(invoice_id):
 			else:
 				invoice_data["posting_time"] = str(invoice_data["posting_time"])
 
-		# Get cashier full name
-		cashier_name = frappe.db.get_value(
-			"User", invoice_data.get("owner"), "full_name"
-		) or invoice_data.get("owner")
+		# Get cashier full name. Prefer the employee verified at POS session
+		# opening; fall back to the ERPNext document owner.
+		cashier_name = _get_invoice_cashier_name(invoice_data)
 		invoice_data["cashier_name"] = cashier_name
 
 		return {
@@ -391,6 +466,26 @@ def get_invoice_details(invoice_id):
 	except Exception as e:
 		frappe.log_error(frappe.get_traceback(), f"Error fetching invoice {invoice_id}")
 		return {"success": False, "error": str(e)}
+
+
+def _get_invoice_cashier_name(invoice_data):
+	opening_entry = invoice_data.get("custom_pos_opening_entry")
+	if opening_entry:
+		try:
+			opening_entry_meta = frappe.get_meta("POS Opening Entry")
+			opening_entry_fields = {df.fieldname for df in opening_entry_meta.fields}
+			if "custom_employee_name" in opening_entry_fields:
+				employee_name = frappe.db.get_value(
+					"POS Opening Entry", opening_entry, "custom_employee_name"
+				)
+				if employee_name:
+					return employee_name
+		except Exception as e:
+			frappe.logger().error(f"Error getting invoice cashier from POS Opening Entry {opening_entry}: {e}")
+
+	return frappe.db.get_value(
+		"User", invoice_data.get("owner"), "full_name"
+	) or invoice_data.get("owner")
 
 
 def _get_invoice_items_with_returns(invoice_id, customer):
