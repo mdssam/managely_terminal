@@ -102,7 +102,86 @@ _STANDARD_HTML = (
     "</div>\n"
 )
 
-# ── Template 2: Sultan Thermal Compact ──────────────────────────────────────
+# ── Template 2: Sultan Thermal Standard EN ──────────────────────────────────
+_STANDARD_EN_HTML = (
+    "__CSS__\n"
+    "\n"
+    "<div class=\"center\">\n"
+    "  <div class=\"xl bold\">{{ doc.company }}</div>\n"
+    "  <div class=\"small\">{% if doc.tax_id %}VAT No: {{ doc.tax_id }}{% endif %}</div>\n"
+    "</div>\n"
+    "<div class=\"divider\"></div>\n"
+    "<div class=\"center\">\n"
+    "  <div class=\"bold lg\">TAX INVOICE</div>\n"
+    "  <div>{{ doc.name }}</div>\n"
+    "  <div class=\"small\">{{ doc.posting_date }} {{ doc.posting_time or \"\" }}</div>\n"
+    "  {% set cashier = frappe.db.get_value(\"POS Opening Entry\", doc.custom_pos_opening_entry, \"custom_employee_name\") if doc.custom_pos_opening_entry else None %}\n"
+    "  <div class=\"small\">Cashier: {{ cashier or frappe.db.get_value(\"User\", doc.owner, \"full_name\") or doc.owner }}</div>\n"
+    "  <div class=\"small\">Customer: {{ doc.customer_name or doc.customer }}</div>\n"
+    "</div>\n"
+    "<div class=\"divider\"></div>\n"
+    "<table>\n"
+    "  <thead><tr><th style=\"width:42%\">Item</th><th class=\"c\" style=\"width:12%\">Qty</th><th class=\"r\" style=\"width:22%\">Price</th><th class=\"r\" style=\"width:24%\">Total</th></tr></thead>\n"
+    "  <tbody>\n"
+    "    {% for item in doc.items %}\n"
+    "    <tr><td>{{ item.item_name or item.item_code }}</td><td class=\"c\">{{ item.qty | int }}</td><td class=\"r\">{{ \"{:,.2f}\".format(item.rate or 0) }}</td><td class=\"r\">{{ \"{:,.2f}\".format(item.amount or 0) }}</td></tr>\n"
+    "    {% endfor %}\n"
+    "  </tbody>\n"
+    "</table>\n"
+    "<div class=\"solid\"></div>\n"
+    "<table>\n"
+    "  <tr><td>Subtotal</td><td class=\"r\">{{ \"{:,.2f}\".format(doc.net_total or 0) }}</td></tr>\n"
+    "  {% for tax in doc.taxes %}<tr><td>{{ tax.description or tax.account_head }} ({{ tax.rate }}%)</td><td class=\"r\">{{ \"{:,.2f}\".format(tax.tax_amount or 0) }}</td></tr>{% endfor %}\n"
+    "  {% if doc.discount_amount %}<tr><td>Discount</td><td class=\"r\">-{{ \"{:,.2f}\".format(doc.discount_amount) }}</td></tr>{% endif %}\n"
+    "  <tr class=\"grand\"><td>TOTAL {{ doc.currency }}</td><td class=\"r\">{{ \"{:,.2f}\".format(doc.grand_total or 0) }}</td></tr>\n"
+    "</table>\n"
+    "{% if doc.payments %}<div class=\"divider\"></div><table>{% for p in doc.payments %}<tr><td>{{ p.mode_of_payment }}</td><td class=\"r\">{{ \"{:,.2f}\".format(p.amount or 0) }}</td></tr>{% endfor %}</table>{% endif %}\n"
+    "<div class=\"divider\"></div>\n"
+    "{% if doc.custom_qr_code %}<div class=\"center\" style=\"margin:4px 0\"><img src=\"{{ doc.custom_qr_code }}\" style=\"width:30mm;height:30mm\" /></div><div class=\"divider\"></div>{% endif %}\n"
+    "<div class=\"center small\" style=\"margin-top:4px\"><div>Thank you for your visit!</div></div>\n"
+)
+
+# ── Template 3: Sultan Thermal Standard AR ──────────────────────────────────
+_STANDARD_AR_HTML = (
+    "__CSS__\n"
+    "<style>body, html { direction: rtl; } .en { direction:ltr; unicode-bidi:embed; } td, th { text-align:right; } .r { text-align:left; } .c { text-align:center; }</style>\n"
+    "\n"
+    "<div class=\"center\">\n"
+    "  <div class=\"xl bold\">{{ doc.company }}</div>\n"
+    "  <div class=\"small\">{% if doc.tax_id %}الرقم الضريبي: <span class=\"en\">{{ doc.tax_id }}</span>{% endif %}</div>\n"
+    "</div>\n"
+    "<div class=\"divider\"></div>\n"
+    "<div class=\"center\">\n"
+    "  <div class=\"bold lg\">فاتورة ضريبية</div>\n"
+    "  <div class=\"en\">{{ doc.name }}</div>\n"
+    "  <div class=\"small en\">{{ doc.posting_date }} {{ doc.posting_time or \"\" }}</div>\n"
+    "  {% set cashier = frappe.db.get_value(\"POS Opening Entry\", doc.custom_pos_opening_entry, \"custom_employee_name\") if doc.custom_pos_opening_entry else None %}\n"
+    "  <div class=\"small\">الكاشير: {{ cashier or frappe.db.get_value(\"User\", doc.owner, \"full_name\") or doc.owner }}</div>\n"
+    "  <div class=\"small\">العميل: {{ doc.customer_name or doc.customer }}</div>\n"
+    "</div>\n"
+    "<div class=\"divider\"></div>\n"
+    "<table>\n"
+    "  <thead><tr><th style=\"width:42%\">الصنف</th><th class=\"c\" style=\"width:12%\">الكمية</th><th class=\"r\" style=\"width:22%\">السعر</th><th class=\"r\" style=\"width:24%\">الإجمالي</th></tr></thead>\n"
+    "  <tbody>\n"
+    "    {% for item in doc.items %}\n"
+    "    <tr><td>{{ item.item_name or item.item_code }}</td><td class=\"c en\">{{ item.qty | int }}</td><td class=\"r en\">{{ \"{:,.2f}\".format(item.rate or 0) }}</td><td class=\"r en\">{{ \"{:,.2f}\".format(item.amount or 0) }}</td></tr>\n"
+    "    {% endfor %}\n"
+    "  </tbody>\n"
+    "</table>\n"
+    "<div class=\"solid\"></div>\n"
+    "<table>\n"
+    "  <tr><td>المجموع</td><td class=\"r en\">{{ \"{:,.2f}\".format(doc.net_total or 0) }}</td></tr>\n"
+    "  {% for tax in doc.taxes %}<tr><td>{{ tax.description or \"ضريبة\" }} ({{ tax.rate }}%)</td><td class=\"r en\">{{ \"{:,.2f}\".format(tax.tax_amount or 0) }}</td></tr>{% endfor %}\n"
+    "  {% if doc.discount_amount %}<tr><td>خصم</td><td class=\"r en\">-{{ \"{:,.2f}\".format(doc.discount_amount) }}</td></tr>{% endif %}\n"
+    "  <tr class=\"grand\"><td>الإجمالي {{ doc.currency }}</td><td class=\"r en\">{{ \"{:,.2f}\".format(doc.grand_total or 0) }}</td></tr>\n"
+    "</table>\n"
+    "{% if doc.payments %}<div class=\"divider\"></div><table>{% for p in doc.payments %}<tr><td>{{ p.mode_of_payment }}</td><td class=\"r en\">{{ \"{:,.2f}\".format(p.amount or 0) }}</td></tr>{% endfor %}</table>{% endif %}\n"
+    "<div class=\"divider\"></div>\n"
+    "{% if doc.custom_qr_code %}<div class=\"center\" style=\"margin:4px 0\"><img src=\"{{ doc.custom_qr_code }}\" style=\"width:30mm;height:30mm\" /></div><div class=\"divider\"></div>{% endif %}\n"
+    "<div class=\"center small\" style=\"margin-top:4px\"><div>شكراً لزيارتكم</div></div>\n"
+)
+
+# ── Template 4: Sultan Thermal Compact ──────────────────────────────────────
 _COMPACT_HTML = (
     "__CSS__\n"
     "\n"
@@ -143,7 +222,7 @@ _COMPACT_HTML = (
     "<div class=\"center small\">{{ doc.company }} — Thank you / شكراً!</div>\n"
 )
 
-# ── Template 3: Sultan Thermal Bilingual (Arabic + English) ─────────────────
+# ── Template 5: Sultan Thermal Bilingual (Arabic + English) ─────────────────
 _BILINGUAL_HTML = (
     "__CSS__\n"
     "<style>.ar{direction:rtl;text-align:right}.split{display:flex;justify-content:space-between}</style>\n"
@@ -222,6 +301,16 @@ FORMATS = [
         "name": "Sultan Thermal Standard",
         "html": _STANDARD_HTML.replace("__CSS__", _BASE_CSS),
         "description": "80mm standard receipt with header, item table, VAT breakdown, and QR code",
+    },
+    {
+        "name": "Sultan Thermal Standard EN",
+        "html": _STANDARD_EN_HTML.replace("__CSS__", _BASE_CSS),
+        "description": "80mm standard English receipt for Sultan POS",
+    },
+    {
+        "name": "Sultan Thermal Standard AR",
+        "html": _STANDARD_AR_HTML.replace("__CSS__", _BASE_CSS),
+        "description": "80mm standard Arabic receipt for Sultan POS",
     },
     {
         "name": "Sultan Thermal Compact",

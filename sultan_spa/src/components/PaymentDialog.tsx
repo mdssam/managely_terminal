@@ -185,6 +185,7 @@ export default function PaymentDialog({
   // Delivery personnel states (optional, user-controlled via footer field)
   const [showDeliveryPersonnelModal, setShowDeliveryPersonnelModal] = useState(false);
   const [selectedDeliveryPersonnel, setSelectedDeliveryPersonnel] = useState<string | null>(null);
+  const [receiptLanguage, setReceiptLanguage] = useState<"en" | "ar">("en");
 
   // Hooks
   const { posDetails, loading: posLoading } = usePOSDetails();
@@ -205,6 +206,48 @@ export default function PaymentDialog({
   const isDeliveryRequired = deliveryRequiredValue === 1 ||
                              deliveryRequiredValue === true ||
                              deliveryRequiredValue === "1";
+
+  const canPreviewReceiptLanguage = {
+    en: Boolean(posDetails?.custom_pos_print_format_en),
+    ar: Boolean(posDetails?.custom_pos_print_format_ar),
+  };
+
+  const renderReceiptLanguageToggle = () => {
+    if (!canPreviewReceiptLanguage.en && !canPreviewReceiptLanguage.ar) return null;
+
+    return (
+      <div className="mb-3 flex justify-center">
+        <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 p-1">
+          {canPreviewReceiptLanguage.en && (
+            <button
+              type="button"
+              onClick={() => setReceiptLanguage("en")}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+                receiptLanguage === "en"
+                  ? "bg-ziditech-600 text-white"
+                  : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+              }`}
+            >
+              EN
+            </button>
+          )}
+          {canPreviewReceiptLanguage.ar && (
+            <button
+              type="button"
+              onClick={() => setReceiptLanguage("ar")}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+                receiptLanguage === "ar"
+                  ? "bg-ziditech-600 text-white"
+                  : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+              }`}
+            >
+              AR
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  };
 
 
 
@@ -1277,10 +1320,11 @@ export default function PaymentDialog({
                 {invoiceData && (
                   <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600 p-4">
                     <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 text-center">
-                      Invoice Preview:
+                      Receipt Preview:
                     </h4>
+                    {renderReceiptLanguageToggle()}
                     <div className="border border-gray-300 dark:border-gray-600 rounded p-3 bg-gray-50 dark:bg-gray-700 max-h-64 overflow-y-auto">
-                      <DisplayPrintPreview invoice={invoiceData} />
+                      <DisplayPrintPreview invoice={invoiceData} language={receiptLanguage} />
                     </div>
                   </div>
                 )}
@@ -2321,10 +2365,11 @@ export default function PaymentDialog({
             {invoiceSubmitted && invoiceData ? (
               <div className="mb-4">
                 <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 text-center">
-                  Print Format Preview:
+                  Receipt Preview:
                 </h5>
+                {renderReceiptLanguageToggle()}
                 <div className="border border-gray-300 dark:border-gray-600 rounded p-2 bg-gray-50 dark:bg-gray-700">
-                  <DisplayPrintPreview invoice={invoiceData} />
+                  <DisplayPrintPreview invoice={invoiceData} language={receiptLanguage} />
                 </div>
               </div>
             ) : (
@@ -2423,10 +2468,12 @@ export default function PaymentDialog({
 
                       {/* Invoice Preview */}
                       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden">
+                        {renderReceiptLanguageToggle()}
                         <DisplayPrintPreview
                           invoice={
                             externalInvoiceData || submittedInvoice || {}
                           }
+                          language={receiptLanguage}
                         />
                       </div>
                     </div>

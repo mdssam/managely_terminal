@@ -9,16 +9,20 @@ type PrintPreviewProps = {
     name: string;
     [key: string]: unknown;
   };
+  language?: "en" | "ar";
 };
 
-export default function PrintPreview({ invoice }: PrintPreviewProps) {
+export default function PrintPreview({ invoice, language = "en" }: PrintPreviewProps) {
   const [html, setHtml] = useState("");
   const [style, setStyle] = useState("");
   const [loading, setLoading] = useState(true);
 
   const { posDetails, loading: posLoading } = usePOSDetails();
 
-  const printFormat = posDetails?.print_format ?? "Sales Invoice";
+  const printFormat =
+    language === "ar"
+      ? posDetails?.custom_pos_print_format_ar || posDetails?.custom_pos_print_format_en || posDetails?.print_format || "Sales Invoice"
+      : posDetails?.custom_pos_print_format_en || posDetails?.custom_pos_print_format_ar || posDetails?.print_format || "Sales Invoice";
   const isOfflineInvoice = typeof invoice.name === 'string' && invoice.name.startsWith('OFFLINE-');
 
   useEffect(() => {
