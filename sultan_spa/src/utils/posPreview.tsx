@@ -67,12 +67,31 @@ export default function PrintPreview({ invoice, language = "en" }: PrintPreviewP
     );
   }
 
+  const previewDocument = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background: #fff;
+    }
+  </style>
+  ${style}
+</head>
+<body>
+  ${html}
+</body>
+</html>`;
+
   return (
     <div className="print-preview-container p-4 bg-white shadow overflow-auto max-h-[90vh]">
-      <style dangerouslySetInnerHTML={{ __html: style }} />
-      <div
-        className="print-preview-content"
-        dangerouslySetInnerHTML={{ __html: html }}
+      <iframe
+        title="Receipt Preview"
+        className="print-preview-content w-full bg-white border-0"
+        srcDoc={previewDocument}
+        style={{ minHeight: "520px" }}
       />
     </div>
   );
