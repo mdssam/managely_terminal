@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sultan-pos-v1780325879881';
+const CACHE_NAME = 'sultan-pos-v1780326346777';
 const URLS_TO_CACHE = [
   "/sultan_spa/",
   "/assets/sultan/sultan_spa/favicon.png",
@@ -6,7 +6,7 @@ const URLS_TO_CACHE = [
   "/assets/sultan/sultan_spa/manifest.json",
   "/assets/sultan/logo.png",
   "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Tajawal:wght@400;500;700&display=swap",
-  "/assets/sultan/sultan_spa/assets/index-D6r90U32.js",
+  "/assets/sultan/sultan_spa/assets/index-BfaO7BF_.js",
   "/assets/sultan/sultan_spa/assets/index-oIMpbKBM.css"
 ];
 
