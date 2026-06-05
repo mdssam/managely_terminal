@@ -76,6 +76,7 @@ doctype_js = {
 # website_generators = ["Web Page"]
 
 website_route_rules = [
+	{"from_route": "/sultan_spa", "to_route": "sultan_spa"},
 	{"from_route": "/sultan_spa/<path:app_path>", "to_route": "sultan_spa"},
 ]
 
