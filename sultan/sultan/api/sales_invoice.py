@@ -1243,8 +1243,17 @@ def _validate_item_accounts(item_code, income_account, expense_account):
 def _add_uom_to_item(item_data, item):
 	"""Add UOM to item data if specified and not default."""
 	selected_uom = item.get("uom")
-	if selected_uom and selected_uom != "Nos":
+	if selected_uom:
 		item_data["uom"] = selected_uom
+		conversion_factor = item.get("conversion_factor") or item.get("conversionFactor")
+		if not conversion_factor:
+			conversion_factor = frappe.db.get_value(
+				"UOM Conversion Detail",
+				{"parent": item_data["item_code"], "uom": selected_uom},
+				"conversion_factor",
+			)
+		if conversion_factor:
+			item_data["conversion_factor"] = flt(conversion_factor)
 
 
 def _add_batch_to_item(item_data, item, item_db_data):

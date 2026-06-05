@@ -131,6 +131,8 @@ export default function RetailPOSLayout() {
         image: item.image,
         available: item.available,
         uom: item.uom,
+        base_uom: item.stock_uom,
+        conversion_factor: item.conversion_factor,
         item_code: item.id,
       })
       updateQuantity(item.id, quantity)
@@ -151,6 +153,8 @@ export default function RetailPOSLayout() {
         image: item.image,
         available: item.available,
         uom: item.uom,
+        base_uom: item.stock_uom,
+        conversion_factor: item.conversion_factor,
         item_code: item.id,
         is_fresh_produce: item.is_fresh_produce,
         supports_weight_price: item.supports_weight_price,
@@ -320,7 +324,9 @@ export default function RetailPOSLayout() {
                 available: data.message.available || 0,
                 image: data.message.image,
                 sold: 0,
-                uom: data.message.stock_uom,
+                uom: data.message.uom || data.message.stock_uom,
+                stock_uom: data.message.stock_uom,
+                conversion_factor: data.message.conversion_factor,
               }
               await addOrIncreaseWithQuantity(fetched, qty)
             }

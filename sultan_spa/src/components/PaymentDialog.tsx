@@ -981,6 +981,7 @@ export default function PaymentDialog({
           batchNumber: itemDiscounts[item.id]?.batchNumber || null,
           serialNumber: itemDiscounts[item.id]?.serialNumber || null,
           uom: item.uom || 'Nos',
+          conversion_factor: item.conversion_factor,
           discountPercentage: itemDiscounts[item.id]?.discountPercentage || 0,
           discountAmount: itemDiscounts[item.id]?.discountAmount || 0,
         })),

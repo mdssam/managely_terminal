@@ -1,7 +1,10 @@
 import frappe
 from sultan.sultan.api.thermal_receipts import create_thermal_print_formats
+from sultan.sultan.accounting.customizations import setup_custom_fields as setup_accounting_custom_fields
 
 def run():
+	setup_accounting_custom_fields()
+
 	# Custom Child DocType for Sales Invoices in POS Closing Entry
 	if not frappe.db.exists("DocType", "Klik Sales Invoice Reference"):
 		doc = frappe.get_doc({
@@ -273,4 +276,3 @@ def run():
 	frappe.clear_cache(doctype="POS Profile")
 	frappe.clear_cache(doctype="Sales Invoice")
 	frappe.db.commit()
-
