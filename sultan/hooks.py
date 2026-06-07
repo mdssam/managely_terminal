@@ -48,6 +48,7 @@ doctype_js = {
 	"Payment Entry": "public/js/doctype/accounting_addendum.js",
 	"Journal Entry": "public/js/doctype/accounting_addendum.js",
 	"Account": "public/js/doctype/account_autonumber.js",
+	"Employee": "public/js/doctype/employee_pos_login.js",
 }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}

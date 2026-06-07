@@ -2,6 +2,72 @@ import frappe
 from sultan.sultan.api.thermal_receipts import create_thermal_print_formats
 from sultan.sultan.accounting.customizations import setup_custom_fields as setup_accounting_custom_fields
 
+
+def ensure_employee_pos_login_fields():
+	employee_fields = [
+		{
+			"fieldname": "custom_pos_login_tab",
+			"label": "POS Profile",
+			"fieldtype": "Tab Break",
+			"dt": "Employee",
+			"cf_name": "Employee-custom_pos_login_tab",
+			"insert_after": "internal_work_history",
+		},
+		{
+			"fieldname": "custom_pos_login_section",
+			"label": "POS Login",
+			"fieldtype": "Section Break",
+			"dt": "Employee",
+			"cf_name": "Employee-custom_pos_login_section",
+			"insert_after": "custom_pos_login_tab",
+		},
+		{
+			"fieldname": "custom_pos_username",
+			"label": "POS Username",
+			"fieldtype": "Data",
+			"dt": "Employee",
+			"cf_name": "Employee-custom_pos_username",
+			"insert_after": "custom_pos_login_section",
+			"unique": 1,
+			"description": "Unique username the employee uses to log in at the POS terminal",
+		},
+		{
+			"fieldname": "custom_pos_password",
+			"label": "POS Password",
+			"fieldtype": "Password",
+			"dt": "Employee",
+			"cf_name": "Employee-custom_pos_password",
+			"insert_after": "custom_pos_username",
+			"no_copy": 1,
+		},
+	]
+
+	for ef in employee_fields:
+		if not frappe.db.exists("Custom Field", ef["cf_name"]):
+			doc = frappe.new_doc("Custom Field")
+			for k, v in ef.items():
+				if k not in ("cf_name",):
+					setattr(doc, k, v)
+			doc.insert(ignore_permissions=True)
+			print(f"Created {ef['cf_name']}.")
+		else:
+			doc = frappe.get_doc("Custom Field", ef["cf_name"])
+			changed = False
+			for k, v in ef.items():
+				if k == "cf_name":
+					continue
+				if getattr(doc, k, None) != v:
+					setattr(doc, k, v)
+					changed = True
+			if changed:
+				doc.save(ignore_permissions=True)
+				print(f"Updated {ef['cf_name']}.")
+			else:
+				print(f"{ef['cf_name']} already exists.")
+
+	frappe.clear_cache(doctype="Employee")
+
+
 def run():
 	setup_accounting_custom_fields()
 
@@ -199,45 +265,7 @@ def run():
 		print("Sultan POS Cash Transaction already exists.")
 
 	# ── Employee POS Login fields ─────────────────────────────────────────────
-	employee_fields = [
-		{
-			"fieldname": "custom_pos_login_section",
-			"label": "POS Login",
-			"fieldtype": "Section Break",
-			"dt": "Employee",
-			"cf_name": "Employee-custom_pos_login_section",
-			"insert_after": "lft",
-		},
-		{
-			"fieldname": "custom_pos_username",
-			"label": "POS Username",
-			"fieldtype": "Data",
-			"dt": "Employee",
-			"cf_name": "Employee-custom_pos_username",
-			"insert_after": "custom_pos_login_section",
-			"unique": 1,
-			"description": "Unique username the employee uses to log in at the POS terminal",
-		},
-		{
-			"fieldname": "custom_pos_password",
-			"label": "POS Password",
-			"fieldtype": "Password",
-			"dt": "Employee",
-			"cf_name": "Employee-custom_pos_password",
-			"insert_after": "custom_pos_username",
-			"no_copy": 1,
-		},
-	]
-	for ef in employee_fields:
-		if not frappe.db.exists("Custom Field", ef["cf_name"]):
-			doc = frappe.new_doc("Custom Field")
-			for k, v in ef.items():
-				if k not in ("cf_name",):
-					setattr(doc, k, v)
-			doc.insert(ignore_permissions=True)
-			print(f"Created {ef['cf_name']}.")
-		else:
-			print(f"{ef['cf_name']} already exists.")
+	ensure_employee_pos_login_fields()
 
 	# ── Employee on POS Opening Entry ─────────────────────────────────────────
 	for fieldname, label, fieldtype, after, opts in [
@@ -275,4 +303,5 @@ def run():
 
 	frappe.clear_cache(doctype="POS Profile")
 	frappe.clear_cache(doctype="Sales Invoice")
+	frappe.clear_cache(doctype="Employee")
 	frappe.db.commit()

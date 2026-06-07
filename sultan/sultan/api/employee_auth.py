@@ -36,3 +36,17 @@ def verify_employee_login(username: str, password: str) -> dict:
         "employee": employee.name,
         "employee_name": employee.employee_name,
     }
+
+
+@frappe.whitelist(allow_guest=False)
+def get_employee_pos_password(employee: str) -> str:
+    if not employee:
+        return ""
+
+    if not frappe.has_permission("Employee", "read", employee):
+        frappe.throw(_("Not permitted"), frappe.PermissionError)
+
+    try:
+        return get_decrypted_password("Employee", employee, "custom_pos_password", raise_exception=False) or ""
+    except Exception:
+        return frappe.db.get_value("Employee", employee, "custom_pos_password") or ""
