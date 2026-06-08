@@ -37,6 +37,8 @@ export interface MenuItem {
   discount?: number
   description?: string
   uom?: string
+  stock_uom?: string
+  conversion_factor?: number
   currency_symbol?: string
   barcode?: string
   is_fresh_produce?: boolean

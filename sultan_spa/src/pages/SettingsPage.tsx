@@ -15,9 +15,7 @@ export default function SettingsPage() {
   useEffect(() => {
     const params = new URLSearchParams(location.search)
     const tab = params.get("tab")
-    if (tab && ["profile"].includes(tab)) {
-      setActiveSection(tab)
-    }
+    if (tab === "profile") setActiveSection(tab)
   }, [location])
 
   const handleLogout = async () => {

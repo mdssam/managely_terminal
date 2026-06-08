@@ -3,6 +3,25 @@ import { useEffect, useState, useCallback } from "react";
 import type { SalesInvoice, SalesInvoiceItem } from "../../types";
 import { backgroundSyncService } from "../services/backgroundSyncService";
 
+function getOfflineCashier(data: any) {
+  const cachedUser = localStorage.getItem("user_data");
+  let currentUserName = "";
+
+  if (cachedUser) {
+    try {
+      const user = JSON.parse(cachedUser);
+      currentUserName = user.full_name || user.name || user.email || "";
+    } catch {
+      currentUserName = "";
+    }
+  }
+
+  return {
+    name: data.cashier_name || data.employee_name || data.customer?.owner || currentUserName || "Unknown",
+    id: data.cashier_id || data.employee || currentUserName || "Unknown",
+  };
+}
+
 export function useSalesInvoices(
   searchTerm: string = "",
   skipOpeningEntryFilter: boolean = false,
@@ -46,12 +65,13 @@ export function useSalesInvoices(
     const offlineList = backgroundSyncService.getOfflineInvoices().filter(inv => !inv.synced);
     let transformedOffline: SalesInvoice[] = offlineList.map(inv => {
       const data = inv.data;
+      const offlineCashier = getOfflineCashier(data);
       return {
         id: inv.id,
         date: new Date(inv.timestamp).toISOString().split("T")[0],
         time: new Date(inv.timestamp).toLocaleTimeString("en-US", { hour12: false }),
-        cashier: data.customer?.owner || "Administrator",
-        cashierId: "Administrator",
+        cashier: offlineCashier.name,
+        cashierId: offlineCashier.id,
         customer: data.customer?.name || "Walk-in Customer",
         customerId: data.customer?.id || "",
         items: data.items.map((item: any) => ({

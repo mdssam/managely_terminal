@@ -1,33 +1,14 @@
-export const OFFLINE_CUSTOMERS_KEY = 'sultan_offline_customers';
+import { backgroundSyncService } from './backgroundSyncService';
 
-export interface OfflineCustomer {
-  id: string;
-  data: any;
-  timestamp: number;
-  synced: boolean;
-  realId?: string;
+// Re-export so existing imports keep working
+export type { OfflineCustomer } from './backgroundSyncService';
+
+export function getOfflineCustomers() {
+  return backgroundSyncService.getOfflineCustomers();
 }
 
-export function getOfflineCustomers(): OfflineCustomer[] {
-  try {
-    const stored = localStorage.getItem(OFFLINE_CUSTOMERS_KEY);
-    return stored ? JSON.parse(stored) : [];
-  } catch {
-    return [];
-  }
-}
-
-export function saveOfflineCustomer(data: any): OfflineCustomer {
-  const customers = getOfflineCustomers();
-  const newCust: OfflineCustomer = {
-    id: 'OFFLINE_CUST-' + Date.now(),
-    data,
-    timestamp: Date.now(),
-    synced: false,
-  };
-  customers.push(newCust);
-  localStorage.setItem(OFFLINE_CUSTOMERS_KEY, JSON.stringify(customers));
-  return newCust;
+export function saveOfflineCustomer(data: any) {
+  return backgroundSyncService.saveOfflineCustomer(data);
 }
 
 interface CustomerAddress {

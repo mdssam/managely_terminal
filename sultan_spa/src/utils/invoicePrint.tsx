@@ -7,7 +7,13 @@ interface Invoice {
   [key: string]: unknown;
 }
 
-export default function DisplayPrintPreview({ invoice }: { invoice: Invoice }) {
+export default function DisplayPrintPreview({
+  invoice,
+  language = "en",
+}: {
+  invoice: Invoice;
+  language?: "en" | "ar";
+}) {
   // Ensure invoice has required fields for PrintPreview
   const invoiceWithRequiredFields = {
     pos_profile: (typeof invoice.pos_profile === 'string' ? invoice.pos_profile : '') || '',
@@ -16,7 +22,7 @@ export default function DisplayPrintPreview({ invoice }: { invoice: Invoice }) {
   };
 
   return (
-      <PrintPreview invoice={invoiceWithRequiredFields} />
+      <PrintPreview invoice={invoiceWithRequiredFields} language={language} />
 
   );
 }

@@ -18,7 +18,7 @@ def get_payment_modes():
 		payment_modes = frappe.get_all(
 			"POS Payment Method",
 			filters={"parent": pos_doc.name},
-			fields=["mode_of_payment", "default", "allow_in_returns"],
+			fields=["mode_of_payment", "default", "allow_in_returns", "custom_show_in_opening_entry"],
 		)
 
 		for mode in payment_modes:
@@ -64,7 +64,7 @@ def get_opening_entry_payment_summary():
 			opening_info["profile"], opening_info["entry_name"], opening_info["date"], is_admin
 		)
 
-		payment_summary = _build_payment_summary(opening_info["modes"], sales_data)
+		payment_summary = _build_payment_summary(opening_info["modes"], sales_data, opening_info["profile"])
 
 		return _success_response(opening_info, payment_summary)
 
@@ -163,19 +163,28 @@ def _fetch_opening_sales_data(opening_entry_name):
 	)
 
 
-def _build_payment_summary(opening_modes, sales_data):
-	"""Build payment summary by merging opening balances with sales data."""
+def _build_payment_summary(opening_modes, sales_data, pos_profile):
+	"""Build payment summary for ALL POS Profile payment modes (Item 3 fix).
+	Modes with no transactions still appear so cashiers can enter closing amounts."""
 	sales_map = {row.mode_of_payment: row for row in sales_data}
+	opening_map = {mode.mode_of_payment: float(mode.opening_amount or 0.0) for mode in opening_modes}
+
+	# Always show every mode on the POS Profile, not just those with sales
+	all_profile_modes = frappe.get_all(
+		"POS Payment Method",
+		filters={"parent": pos_profile},
+		fields=["mode_of_payment"],
+		order_by="idx asc",
+	)
 
 	summary = []
-	for mode in opening_modes:
-		mop = mode.mode_of_payment
+	for profile_mode in all_profile_modes:
+		mop = profile_mode.mode_of_payment
 		sales_info = sales_map.get(mop, {})
-
 		summary.append(
 			{
 				"name": mop,
-				"openingAmount": float(mode.opening_amount or 0.0),
+				"openingAmount": opening_map.get(mop, 0.0),
 				"amount": float(sales_info.get("total_amount", 0.0)),
 				"transactions": int(sales_info.get("transactions", 0)),
 			}

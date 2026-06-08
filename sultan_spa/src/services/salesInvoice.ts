@@ -4,6 +4,32 @@ import { refreshCSRFToken } from "../utils/csrf";
 import { backgroundSyncService } from "./backgroundSyncService";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+function getOfflineCashier(data: any) {
+  const cachedUser = localStorage.getItem("user_data");
+  let currentUserName = "";
+
+  if (cachedUser) {
+    try {
+      const user = JSON.parse(cachedUser);
+      currentUserName = user.full_name || user.name || user.email || "";
+    } catch {
+      currentUserName = "";
+    }
+  }
+
+  const cashierName =
+    data.cashier_name ||
+    data.employee_name ||
+    data.customer?.owner ||
+    currentUserName ||
+    "Unknown";
+
+  const cashierId = data.cashier_id || data.employee || currentUserName || "Unknown";
+
+  return { cashierName, cashierId };
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function createDraftSalesInvoice(data: any) {
   const csrfToken = await refreshCSRFToken() || window.csrf_token;
   const response = await fetch('/api/method/sultan.sultan.api.sales_invoice.create_draft_invoice', {
@@ -31,6 +57,7 @@ export async function createSalesInvoice(data: any) {
   if (!navigator.onLine) {
     console.log('[Offline Detection] Browser is offline. Saving invoice to offline sync queue...', data);
     const offlineInv = backgroundSyncService.saveOfflineInvoice(data);
+    const { cashierName, cashierId } = getOfflineCashier(data);
 
     // Return a mock success message structured identically to the real backend payload
     return {
@@ -40,8 +67,8 @@ export async function createSalesInvoice(data: any) {
         name: offlineInv.id,
         posting_date: new Date().toISOString().split('T')[0],
         posting_time: new Date().toLocaleTimeString('en-US', { hour12: false }),
-        cashier_name: data.customer?.owner || 'Administrator',
-        owner: 'Administrator',
+        cashier_name: cashierName,
+        owner: cashierId,
         customer_name: data.customer?.name || 'Walk-in Customer',
         customer: data.customer?.id || '',
         items: data.items.map((item: any) => ({
@@ -88,6 +115,7 @@ export async function createSalesInvoice(data: any) {
     if (err instanceof TypeError && err.message.includes('fetch')) {
       console.log('[Offline Detection] Network unavailable. Saving invoice to offline sync queue...', data);
       const offlineInv = backgroundSyncService.saveOfflineInvoice(data);
+      const { cashierName, cashierId } = getOfflineCashier(data);
       return {
         success: true,
         message: 'Payment queued offline successfully!',
@@ -95,8 +123,8 @@ export async function createSalesInvoice(data: any) {
           name: offlineInv.id,
           posting_date: new Date().toISOString().split('T')[0],
           posting_time: new Date().toLocaleTimeString('en-US', { hour12: false }),
-          cashier_name: data.customer?.owner || 'Administrator',
-          owner: 'Administrator',
+          cashier_name: cashierName,
+          owner: cashierId,
           customer_name: data.customer?.name || 'Walk-in Customer',
           customer: data.customer?.id || '',
           items: data.items.map((item: any) => ({

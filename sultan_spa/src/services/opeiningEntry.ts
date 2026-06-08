@@ -8,8 +8,10 @@ interface OpeningBalance {
   opening_amount: number;
 }
 
+interface EmployeeInfo { employee: string; employee_name: string }
+
 interface UseCreateOpeningReturn {
-  createOpeningEntry: (openingBalance: OpeningBalance[], posProfile?: string) => Promise<void>;
+  createOpeningEntry: (openingBalance: OpeningBalance[], posProfile?: string, employeeInfo?: EmployeeInfo) => Promise<void>;
   isCreating: boolean;
   error: string | null;
   success: boolean;
@@ -20,7 +22,7 @@ export function useCreatePOSOpeningEntry(): UseCreateOpeningReturn {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  const createOpeningEntry = async (openingBalance: OpeningBalance[], posProfile?: string) => {
+  const createOpeningEntry = async (openingBalance: OpeningBalance[], posProfile?: string, employeeInfo?: EmployeeInfo) => {
     setIsCreating(true);
     setError(null);
     setSuccess(false);
@@ -29,8 +31,10 @@ export function useCreatePOSOpeningEntry(): UseCreateOpeningReturn {
     try {
       //eslint-disable-next-line @typescript-eslint/no-explicit-any
       const requestBody: any = { opening_balance: openingBalance };
-      if (posProfile) {
-        requestBody.pos_profile = posProfile;
+      if (posProfile) requestBody.pos_profile = posProfile;
+      if (employeeInfo) {
+        requestBody.employee = employeeInfo.employee;
+        requestBody.employee_name = employeeInfo.employee_name;
       }
 
       const res = await fetch("/api/method/sultan.sultan.api.pos_entry.create_opening_entry", {

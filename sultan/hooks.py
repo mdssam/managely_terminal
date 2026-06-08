@@ -42,7 +42,14 @@ app_include_js = "/assets/sultan/js/sultan_pos_modifier.js"
 # page_js = {"page" : "public/js/file.js"}
 
 # include js in doctype views
-# doctype_js = {"doctype" : "public/js/doctype.js"}
+doctype_js = {
+	"Sales Invoice": "public/js/doctype/accounting_addendum.js",
+	"Purchase Invoice": "public/js/doctype/accounting_addendum.js",
+	"Payment Entry": "public/js/doctype/accounting_addendum.js",
+	"Journal Entry": "public/js/doctype/accounting_addendum.js",
+	"Account": "public/js/doctype/account_autonumber.js",
+	"Employee": "public/js/doctype/employee_pos_login.js",
+}
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
@@ -70,6 +77,7 @@ app_include_js = "/assets/sultan/js/sultan_pos_modifier.js"
 # website_generators = ["Web Page"]
 
 website_route_rules = [
+	{"from_route": "/sultan_spa", "to_route": "sultan_spa"},
 	{"from_route": "/sultan_spa/<path:app_path>", "to_route": "sultan_spa"},
 ]
 
@@ -149,9 +157,24 @@ doc_events = {
 		"on_submit": "sultan.sultan.api.generate_production_order"
 	},
 	"Sales Invoice": {
+		"before_validate": "sultan.sultan.accounting.customizations.before_validate_transaction",
 		"validate": "sultan.sultan.api.fix_invoice_items_valuation",
 		"on_submit": "sultan.sultan.api.generate_production_order"
-	}
+	},
+	"Purchase Invoice": {
+		"before_validate": "sultan.sultan.accounting.customizations.before_validate_transaction",
+		"before_save": "sultan.sultan.accounting.customizations.before_save_purchase_invoice",
+		"before_submit": "sultan.sultan.accounting.customizations.before_save_purchase_invoice",
+	},
+	"Payment Entry": {
+		"before_validate": "sultan.sultan.accounting.customizations.before_validate_transaction",
+	},
+	"Journal Entry": {
+		"before_validate": "sultan.sultan.accounting.customizations.before_validate_transaction",
+	},
+	"Account": {
+		"before_insert": "sultan.sultan.accounting.customizations.autonumber_child_account",
+	},
 }
 
 # Scheduled Tasks

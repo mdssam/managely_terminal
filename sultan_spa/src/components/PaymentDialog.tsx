@@ -185,6 +185,7 @@ export default function PaymentDialog({
   // Delivery personnel states (optional, user-controlled via footer field)
   const [showDeliveryPersonnelModal, setShowDeliveryPersonnelModal] = useState(false);
   const [selectedDeliveryPersonnel, setSelectedDeliveryPersonnel] = useState<string | null>(null);
+  const [receiptLanguage, setReceiptLanguage] = useState<"en" | "ar">("en");
 
   // Hooks
   const { posDetails, loading: posLoading } = usePOSDetails();
@@ -205,6 +206,48 @@ export default function PaymentDialog({
   const isDeliveryRequired = deliveryRequiredValue === 1 ||
                              deliveryRequiredValue === true ||
                              deliveryRequiredValue === "1";
+
+  const canPreviewReceiptLanguage = {
+    en: Boolean(posDetails?.custom_pos_print_format_en),
+    ar: Boolean(posDetails?.custom_pos_print_format_ar),
+  };
+
+  const renderReceiptLanguageToggle = () => {
+    if (!canPreviewReceiptLanguage.en && !canPreviewReceiptLanguage.ar) return null;
+
+    return (
+      <div className="mb-3 flex justify-center">
+        <div className="inline-flex rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 p-1">
+          {canPreviewReceiptLanguage.en && (
+            <button
+              type="button"
+              onClick={() => setReceiptLanguage("en")}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+                receiptLanguage === "en"
+                  ? "bg-ziditech-600 text-white"
+                  : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+              }`}
+            >
+              EN
+            </button>
+          )}
+          {canPreviewReceiptLanguage.ar && (
+            <button
+              type="button"
+              onClick={() => setReceiptLanguage("ar")}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors ${
+                receiptLanguage === "ar"
+                  ? "bg-ziditech-600 text-white"
+                  : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+              }`}
+            >
+              AR
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  };
 
 
 
@@ -938,6 +981,7 @@ export default function PaymentDialog({
           batchNumber: itemDiscounts[item.id]?.batchNumber || null,
           serialNumber: itemDiscounts[item.id]?.serialNumber || null,
           uom: item.uom || 'Nos',
+          conversion_factor: item.conversion_factor,
           discountPercentage: itemDiscounts[item.id]?.discountPercentage || 0,
           discountAmount: itemDiscounts[item.id]?.discountAmount || 0,
         })),
@@ -1174,16 +1218,43 @@ export default function PaymentDialog({
                     </div>
                   )}
 
+                  {/* Standard print (DOM-based, A4) */}
                   <button
                     className="flex items-center space-x-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
                     title="Print"
-                    onClick={() => {
-                      handlePrintInvoice(invoiceData);
-                    }}
+                    onClick={() => handlePrintInvoice(invoiceData)}
                   >
                     <Printer size={18} />
                     <span>Print</span>
                   </button>
+
+                  {/* Thermal receipt buttons — shown when configured on POS Profile */}
+                  {posDetails?.custom_pos_print_format_en && invoiceData?.name && (
+                    <button
+                      className="flex items-center space-x-2 px-4 py-2 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/30 transition-colors"
+                      title="Print Thermal (EN)"
+                      onClick={() => {
+                        const fmt = encodeURIComponent(posDetails.custom_pos_print_format_en as string);
+                        window.open(`/printview?doctype=Sales+Invoice&name=${invoiceData.name}&format=${fmt}&no_letterhead=1`, "_blank");
+                      }}
+                    >
+                      <Printer size={18} />
+                      <span>Receipt EN</span>
+                    </button>
+                  )}
+                  {posDetails?.custom_pos_print_format_ar && invoiceData?.name && (
+                    <button
+                      className="flex items-center space-x-2 px-4 py-2 bg-amber-100 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 rounded-lg hover:bg-amber-200 dark:hover:bg-amber-900/30 transition-colors"
+                      title="Print Thermal (AR)"
+                      onClick={() => {
+                        const fmt = encodeURIComponent(posDetails.custom_pos_print_format_ar as string);
+                        window.open(`/printview?doctype=Sales+Invoice&name=${invoiceData.name}&format=${fmt}&no_letterhead=1`, "_blank");
+                      }}
+                    >
+                      <Printer size={18} />
+                      <span>Receipt AR</span>
+                    </button>
+                  )}
 
                   <button
                     className="flex items-center space-x-2 px-4 py-2 bg-blue-100 dark:bg-blue-900/20 text-ziditech-600 dark:text-blue-400 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/30 transition-colors"
@@ -1250,10 +1321,11 @@ export default function PaymentDialog({
                 {invoiceData && (
                   <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600 p-4">
                     <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 text-center">
-                      Invoice Preview:
+                      Receipt Preview:
                     </h4>
+                    {renderReceiptLanguageToggle()}
                     <div className="border border-gray-300 dark:border-gray-600 rounded p-3 bg-gray-50 dark:bg-gray-700 max-h-64 overflow-y-auto">
-                      <DisplayPrintPreview invoice={invoiceData} />
+                      <DisplayPrintPreview invoice={invoiceData} language={receiptLanguage} />
                     </div>
                   </div>
                 )}
@@ -2294,10 +2366,11 @@ export default function PaymentDialog({
             {invoiceSubmitted && invoiceData ? (
               <div className="mb-4">
                 <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 text-center">
-                  Print Format Preview:
+                  Receipt Preview:
                 </h5>
+                {renderReceiptLanguageToggle()}
                 <div className="border border-gray-300 dark:border-gray-600 rounded p-2 bg-gray-50 dark:bg-gray-700">
-                  <DisplayPrintPreview invoice={invoiceData} />
+                  <DisplayPrintPreview invoice={invoiceData} language={receiptLanguage} />
                 </div>
               </div>
             ) : (
@@ -2396,10 +2469,12 @@ export default function PaymentDialog({
 
                       {/* Invoice Preview */}
                       <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-lg overflow-hidden">
+                        {renderReceiptLanguageToggle()}
                         <DisplayPrintPreview
                           invoice={
                             externalInvoiceData || submittedInvoice || {}
                           }
+                          language={receiptLanguage}
                         />
                       </div>
                     </div>
