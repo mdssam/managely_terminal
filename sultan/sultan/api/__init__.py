@@ -74,6 +74,7 @@ def generate_production_order(doc, method=None):
         # Submit Work Order so it is instantly queued in the kitchen/production station
         try:
             wo.submit()
+            complete_work_order_manufacture(wo.name)
             from frappe.utils import get_link_to_form
             frappe.msgprint(
                 msg=f"✅ Work Order has been dispatched to the kitchen!<br><br><strong>{get_link_to_form('Work Order', wo.name)}</strong>",
@@ -82,6 +83,27 @@ def generate_production_order(doc, method=None):
             )
         except Exception as e:
             frappe.log_error(f"Failed to submit Work Order for {item.item_code}: {str(e)}", "Sultan Manufacturing")
+
+
+def complete_work_order_manufacture(work_order_name):
+    """Submit a Manufacture Stock Entry so POS-created Work Orders are actually completed."""
+    try:
+        from erpnext.manufacturing.doctype.work_order.work_order import make_stock_entry
+
+        work_order = frappe.get_doc("Work Order", work_order_name)
+        pending_qty = flt(work_order.qty) - flt(work_order.produced_qty)
+        if work_order.docstatus != 1 or pending_qty <= 0:
+            return
+
+        stock_entry = frappe.get_doc(make_stock_entry(work_order.name, "Manufacture", pending_qty))
+        stock_entry.flags.ignore_permissions = True
+        stock_entry.insert(ignore_permissions=True)
+        stock_entry.submit()
+    except Exception:
+        frappe.log_error(
+            frappe.get_traceback(),
+            f"Failed to complete manufacture for Work Order {work_order_name}",
+        )
 
 def apply_custom_ingredients(wo, custom_ingredients_data):
     """

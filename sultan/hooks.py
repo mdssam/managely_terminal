@@ -159,12 +159,16 @@ doc_events = {
 	"Sales Invoice": {
 		"before_validate": "sultan.sultan.accounting.customizations.before_validate_transaction",
 		"validate": "sultan.sultan.api.fix_invoice_items_valuation",
-		"on_submit": "sultan.sultan.api.generate_production_order"
+		"on_submit": [
+			"sultan.sultan.api.generate_production_order",
+			"sultan.sultan.stock_automation.create_delivery_note_from_sales_invoice",
+		],
 	},
 	"Purchase Invoice": {
 		"before_validate": "sultan.sultan.accounting.customizations.before_validate_transaction",
 		"before_save": "sultan.sultan.accounting.customizations.before_save_purchase_invoice",
 		"before_submit": "sultan.sultan.accounting.customizations.before_save_purchase_invoice",
+		"on_submit": "sultan.sultan.stock_automation.create_purchase_receipt_from_purchase_invoice",
 	},
 	"Payment Entry": {
 		"before_validate": "sultan.sultan.accounting.customizations.before_validate_transaction",
