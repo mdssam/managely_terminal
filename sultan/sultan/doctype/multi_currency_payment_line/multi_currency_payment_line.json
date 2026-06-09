@@ -1,0 +1,42 @@
+{
+ "actions": [],
+ "creation": "2026-06-08 00:00:00.000000",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "entry_type",
+  "account",
+  "party_type",
+  "party",
+  "currency",
+  "amount",
+  "exchange_rate",
+  "amount_usd",
+  "amount_lbp",
+  "company_amount"
+ ],
+ "fields": [
+  {"fieldname": "entry_type", "fieldtype": "Select", "in_list_view": 1, "label": "Entry Type", "options": "Debit\nCredit", "reqd": 1},
+  {"fieldname": "account", "fieldtype": "Link", "in_list_view": 1, "label": "Account", "options": "Account", "reqd": 1},
+  {"fieldname": "party_type", "fieldtype": "Link", "label": "Party Type", "options": "DocType"},
+  {"fieldname": "party", "fieldtype": "Dynamic Link", "label": "Party", "options": "party_type"},
+  {"fieldname": "currency", "fieldtype": "Link", "in_list_view": 1, "label": "Currency", "options": "Currency"},
+  {"fieldname": "amount", "fieldtype": "Currency", "in_list_view": 1, "label": "Amount", "reqd": 1},
+  {"fieldname": "exchange_rate", "fieldtype": "Float", "label": "Exchange Rate"},
+  {"fieldname": "amount_usd", "fieldtype": "Currency", "in_list_view": 1, "label": "USD Amount", "read_only": 1},
+  {"fieldname": "amount_lbp", "fieldtype": "Currency", "in_list_view": 1, "label": "LBP Amount", "precision": "0", "read_only": 1},
+  {"fieldname": "company_amount", "fieldtype": "Currency", "label": "Company Amount", "read_only": 1}
+ ],
+ "istable": 1,
+ "links": [],
+ "modified": "2026-06-08 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sultan",
+ "name": "Multi Currency Payment Line",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
