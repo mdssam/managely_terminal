@@ -13,7 +13,18 @@ TRANSACTION_DOCTYPES = ("Sales Invoice", "Purchase Invoice", "Payment Entry", "J
 def setup_custom_fields():
 	create_custom_fields(
 		{
-			"Sales Invoice": _transaction_parent_fields("customer"),
+			"Sales Invoice": _transaction_parent_fields("customer") + [
+				{
+					"fieldname": "custom_target_warehouse",
+					"label": "Target Warehouse",
+					"fieldtype": "Link",
+					"options": "Warehouse",
+					"insert_after": "set_warehouse",
+					"reqd": 0,
+					"description": "Warehouse used for the auto-generated Delivery Note / Return. Required when invoice has stock items.",
+					"translatable": 0,
+				}
+			],
 			"Purchase Invoice": _transaction_parent_fields("bill_no")
 			+ [
 				{
@@ -22,7 +33,17 @@ def setup_custom_fields():
 					"fieldtype": "Data",
 					"insert_after": "bill_no",
 					"translatable": 0,
-				}
+				},
+				{
+					"fieldname": "custom_target_warehouse",
+					"label": "Target Warehouse",
+					"fieldtype": "Link",
+					"options": "Warehouse",
+					"insert_after": "set_warehouse",
+					"reqd": 0,
+					"description": "Warehouse used for the auto-generated Purchase Receipt / Return. Required when invoice has stock items.",
+					"translatable": 0,
+				},
 			],
 			"Payment Entry": _transaction_parent_fields("party", "paid_to_account_currency"),
 			"Journal Entry": _transaction_parent_fields("user_remark", "user_remark"),

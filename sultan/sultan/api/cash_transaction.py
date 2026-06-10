@@ -1,26 +1,21 @@
 """
 Cash I/O bridge for the Sultan SPA.
 
-All GL logic and doctypes are owned by the cash_drawer app.
-These endpoints proxy to that app when it is installed; when it is not
-installed the feature is simply disabled (the SPA hides the button).
+POS Suspended Transaction logic lives in sultan; the DocType schema is currently
+defined in cash_drawer and will move to sultan once cash_drawer is uninstalled.
 """
 import frappe
 from frappe.utils import flt
 
 from sultan.sultan.api.sales_invoice import get_current_pos_opening_entry
-
-
-def _installed():
-    return "cash_drawer" in frappe.get_installed_apps()
+from sultan.sultan.sultan.doctype.pos_suspended_transaction.pos_suspended_transaction import (
+    create_cash_transaction_from_pos,
+)
 
 
 @frappe.whitelist()
 def get_cash_io_config(pos_profile=None):
-    """Return whether the Cash I/O feature is installed and enabled for the profile."""
-    if not _installed():
-        return {"installed": False, "enabled": False, "allowed_modes": []}
-
+    """Return whether the Cash I/O feature is enabled for the given POS profile."""
     if not pos_profile:
         opening_entry = get_current_pos_opening_entry()
         if opening_entry:
@@ -29,7 +24,6 @@ def get_cash_io_config(pos_profile=None):
     if not pos_profile:
         return {"installed": True, "enabled": False, "allowed_modes": []}
 
-    # cash_drawer adds `allowed_for_cash_in_out` (no custom_ prefix) via create_custom_fields
     allowed_modes = frappe.get_all(
         "POS Payment Method",
         filters={"parent": pos_profile, "allowed_for_cash_in_out": 1},
@@ -46,15 +40,8 @@ def get_cash_io_config(pos_profile=None):
 @frappe.whitelist()
 def create_cash_transaction(transaction_type, amount, description="",
                             mode_of_payment=None, pos_session=None):
-    """Proxy to cash_drawer.create_cash_transaction_from_pos."""
-    if not _installed():
-        return {"success": False, "error": "Cash I/O feature (cash_drawer) is not installed."}
-
+    """Create a POS Suspended Transaction (Cash In / Cash Out)."""
     try:
-        from cash_drawer.cash_drawer.doctype.pos_suspended_transaction.pos_suspended_transaction import (
-            create_cash_transaction_from_pos,
-        )
-
         if not pos_session:
             pos_session = get_current_pos_opening_entry()
         if not pos_session:
@@ -77,10 +64,7 @@ def create_cash_transaction(transaction_type, amount, description="",
 
 @frappe.whitelist()
 def get_cash_transactions(opening_entry=None):
-    """Return submitted Cash In/Out records for the session (from POS Suspended Transaction)."""
-    if not _installed():
-        return {"success": True, "data": [], "summary": {"cash_in": 0, "cash_out": 0, "net": 0}}
-
+    """Return Cash In/Out records for the current session."""
     if not opening_entry:
         opening_entry = get_current_pos_opening_entry()
     if not opening_entry:
@@ -101,7 +85,6 @@ def get_cash_transactions(opening_entry=None):
         order_by="posting_date_time asc",
     )
 
-    # Normalise to the shape the SPA expects
     data = []
     for r in rows:
         dt = r.get("posting_date_time")
@@ -126,5 +109,4 @@ def get_cash_transactions(opening_entry=None):
 
 
 def create_gl_entries_for_session(opening_entry, company):
-    """No-op: GL entries are created inline by cash_drawer."""
     pass

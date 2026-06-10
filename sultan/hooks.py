@@ -49,9 +49,10 @@ doctype_js = {
 	"Journal Entry": "public/js/doctype/accounting_addendum.js",
 	"Account": "public/js/doctype/account_autonumber.js",
 	"Employee": "public/js/doctype/employee_pos_login.js",
+	"Multi Currency Payment": "public/js/doctype/multi_currency_payment.js",
 }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
-# doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
+doctype_tree_js = {"Account": "public/js/doctype/account_autonumber.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
 
 # Svg Icons
@@ -159,6 +160,7 @@ doc_events = {
 	"Sales Invoice": {
 		"before_validate": "sultan.sultan.accounting.customizations.before_validate_transaction",
 		"validate": "sultan.sultan.api.fix_invoice_items_valuation",
+		"before_submit": "sultan.sultan.stock_automation.validate_target_warehouse",
 		"on_submit": [
 			"sultan.sultan.api.generate_production_order",
 			"sultan.sultan.stock_automation.create_delivery_note_from_sales_invoice",
@@ -167,7 +169,10 @@ doc_events = {
 	"Purchase Invoice": {
 		"before_validate": "sultan.sultan.accounting.customizations.before_validate_transaction",
 		"before_save": "sultan.sultan.accounting.customizations.before_save_purchase_invoice",
-		"before_submit": "sultan.sultan.accounting.customizations.before_save_purchase_invoice",
+		"before_submit": [
+			"sultan.sultan.accounting.customizations.before_save_purchase_invoice",
+			"sultan.sultan.stock_automation.validate_target_warehouse",
+		],
 		"on_submit": "sultan.sultan.stock_automation.create_purchase_receipt_from_purchase_invoice",
 	},
 	"Payment Entry": {
@@ -178,6 +183,14 @@ doc_events = {
 	},
 	"Account": {
 		"before_insert": "sultan.sultan.accounting.customizations.autonumber_child_account",
+	},
+	"POS Opening Entry": {
+		"on_submit": "sultan.sultan.sultan.doctype.pos_suspended_transaction.pos_suspended_transaction.on_pos_opening_entry_submit",
+	},
+	"POS Closing Entry": {
+		"before_validate": "sultan.sultan.sultan.doctype.pos_suspended_transaction.pos_suspended_transaction.before_validate_pos_closing_entry",
+		"on_submit": "sultan.sultan.sultan.doctype.pos_suspended_transaction.pos_suspended_transaction.on_pos_closing_entry_submit",
+		"on_cancel": "sultan.sultan.sultan.doctype.pos_suspended_transaction.pos_suspended_transaction.on_pos_closing_entry_cancel",
 	},
 }
 

@@ -73,6 +73,7 @@ def generate_production_order(doc, method=None):
             
         # Submit Work Order so it is instantly queued in the kitchen/production station
         try:
+            wo.flags.ignore_permissions = True
             wo.submit()
             complete_work_order_manufacture(wo.name)
             from frappe.utils import get_link_to_form
@@ -98,6 +99,7 @@ def complete_work_order_manufacture(work_order_name):
         stock_entry = frappe.get_doc(make_stock_entry(work_order.name, "Manufacture", pending_qty))
         stock_entry.flags.ignore_permissions = True
         stock_entry.insert(ignore_permissions=True)
+        stock_entry.flags.ignore_permissions = True
         stock_entry.submit()
     except Exception:
         frappe.log_error(
