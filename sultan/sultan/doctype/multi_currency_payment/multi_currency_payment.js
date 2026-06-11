@@ -60,8 +60,11 @@ frappe.ui.form.on("Multi Currency Payment Line", {
 			});
 		}
 
-		// 2. Clear stale MoP and populate the cache for the new currency
-		frappe.model.set_value(cdt, cdn, "mode_of_payment", "");
+		// Refresh the MoP filter cache for the new currency.
+		// Do NOT auto-clear mode_of_payment here: Frappe re-fires the currency
+		// event when the row gains focus (e.g. when the user clicks into the MoP
+		// cell), which would erase the value the user just picked.
+		// The get_query filter already prevents invalid selections.
 		_loadMopCache(frm, row.currency);
 	},
 
