@@ -11,6 +11,13 @@ const _lastCurrency = {};
 frappe.ui.form.on("Multi Currency Payment", {
 
 	refresh(frm) {
+		// Pre-initialize _lastCurrency for rows that already have a currency set
+		// (e.g. new rows with a default currency, or rows loaded from the DB).
+		// Without this, the first Frappe re-fire on row focus isn't caught.
+		(frm.doc.lines || []).forEach(row => {
+			if (row.currency) _lastCurrency[row.name] = row.currency;
+		});
+
 		// Party Type: restrict to the standard Party Type doctype options
 		frm.set_query("party_type", () => ({
 			filters: [["Party Type", "name", "in", ["Customer", "Supplier", "Employee", "Shareholder"]]]
@@ -96,7 +103,8 @@ function _recalcBase(frm, cdt, cdn) {
 
 	let base = (row.currency === companyCurrency) ? amt : amt * rate;
 	frappe.model.set_value(cdt, cdn, "amount_base_currency", base);
-	frm.refresh_field("lines");
+	// Do NOT call frm.refresh_field("lines") here — it re-renders the entire
+	// grid and disrupts in-progress MoP selection. set_value handles the cell.
 }
 
 function _loadMopCache(frm, currency) {
