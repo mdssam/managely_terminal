@@ -30,6 +30,8 @@ def setup_custom_fields():
 				"reqd": 1,
 				"bold": 1,
 				"hidden": 0,
+				"depends_on": "",
+				"mandatory_depends_on": "",
 				"description": "Warehouse for the auto-generated Delivery Note / Return.",
 			}
 		]
@@ -53,6 +55,8 @@ def setup_custom_fields():
 				"reqd": 1,
 				"bold": 1,
 				"hidden": 0,
+				"depends_on": "",
+				"mandatory_depends_on": "",
 				"description": "Warehouse for the auto-generated Purchase Receipt / Return.",
 			},
 		]
@@ -74,9 +78,11 @@ def setup_custom_fields():
 			doc.insert(ignore_permissions=True)
 			count += 1
 		else:
-			# Update position and mandatory flag on existing fields (safe direct DB update)
+			# Update position, mandatory flag, and visibility on existing fields.
+			# depends_on and mandatory_depends_on are included so stale conditions are cleared.
 			update_data = {k: v for k, v in f.items() if k in (
-				"insert_after", "reqd", "bold", "hidden", "description", "label"
+				"insert_after", "reqd", "bold", "hidden", "description", "label",
+				"depends_on", "mandatory_depends_on",
 			)}
 			if update_data:
 				frappe.db.set_value("Custom Field", cf_name, update_data)
