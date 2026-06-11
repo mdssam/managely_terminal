@@ -1,11 +1,12 @@
 {
  "actions": [],
  "allow_rename": 1,
- "autoname": "format:MCP-.YYYY.-.#####",
+ "autoname": "naming_series:",
  "creation": "2026-06-08 00:00:00.000000",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "naming_series",
   "posting_date",
   "company",
   "company_currency",
@@ -25,6 +26,13 @@
   "journal_entry"
  ],
  "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Series",
+   "options": "MCP-.YYYY.-.#####\n",
+   "set_only_once": 1
+  },
   {
    "default": "Today",
    "fieldname": "posting_date",
