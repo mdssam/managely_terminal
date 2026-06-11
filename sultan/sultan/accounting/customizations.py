@@ -80,11 +80,13 @@ def setup_custom_fields():
 				frappe.db.set_value("Custom Field", cf_name, update_data)
 
 	# Make the native set_warehouse field always visible and mandatory on both invoice types.
-	# By default ERPNext hides it behind depends_on='update_stock'; we clear that so it
-	# always shows, and make it required so our auto-DN/PR knows which warehouse to use.
-	for dt in ("Sales Invoice", "Purchase Invoice"):
+	# By default ERPNext hides it behind depends_on='update_stock'; we clear that and
+	# move it to just after the customer/supplier field so it's prominent at the top.
+	for dt, anchor in (("Sales Invoice", "customer"), ("Purchase Invoice", "supplier")):
+		_ensure_property_setter(dt, "set_warehouse", "insert_after", anchor, "Data")
 		_ensure_property_setter(dt, "set_warehouse", "depends_on", "", "Data")
 		_ensure_property_setter(dt, "set_warehouse", "reqd", "1", "Check")
+		_ensure_property_setter(dt, "set_warehouse", "bold", "1", "Check")
 
 	frappe.db.commit()
 	frappe.clear_cache()
