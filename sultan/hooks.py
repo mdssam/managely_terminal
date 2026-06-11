@@ -185,12 +185,12 @@ doc_events = {
 		"before_insert": "sultan.sultan.accounting.customizations.autonumber_child_account",
 	},
 	"POS Opening Entry": {
-		"on_submit": "sultan.sultan.sultan.doctype.pos_suspended_transaction.pos_suspended_transaction.on_pos_opening_entry_submit",
+		"on_submit": "sultan.sultan.doctype.pos_suspended_transaction.pos_suspended_transaction.on_pos_opening_entry_submit",
 	},
 	"POS Closing Entry": {
-		"before_validate": "sultan.sultan.sultan.doctype.pos_suspended_transaction.pos_suspended_transaction.before_validate_pos_closing_entry",
-		"on_submit": "sultan.sultan.sultan.doctype.pos_suspended_transaction.pos_suspended_transaction.on_pos_closing_entry_submit",
-		"on_cancel": "sultan.sultan.sultan.doctype.pos_suspended_transaction.pos_suspended_transaction.on_pos_closing_entry_cancel",
+		"before_validate": "sultan.sultan.doctype.pos_suspended_transaction.pos_suspended_transaction.before_validate_pos_closing_entry",
+		"on_submit": "sultan.sultan.doctype.pos_suspended_transaction.pos_suspended_transaction.on_pos_closing_entry_submit",
+		"on_cancel": "sultan.sultan.doctype.pos_suspended_transaction.pos_suspended_transaction.on_pos_closing_entry_cancel",
 	},
 }
 
