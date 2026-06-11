@@ -1,6 +1,12 @@
 // Cache of valid Modes of Payment per currency (populated on demand)
 const _mopCache = {};
 
+// Track the last currency processed per row (cdn) so we can skip re-fires.
+// Frappe's editable grid re-fires field change events whenever the row gains
+// focus (e.g. clicking the MoP cell). Without this guard the currency handler
+// would call set_value + refresh_field every time, disrupting MoP selection.
+const _lastCurrency = {};
+
 // ── Parent form ───────────────────────────────────────────────────────────────
 frappe.ui.form.on("Multi Currency Payment", {
 
@@ -42,9 +48,17 @@ frappe.ui.form.on("Multi Currency Payment Line", {
 		const row = locals[cdt][cdn];
 		if (!row.currency) return;
 
+		// Frappe re-fires this event every time the row gains focus. Skip if
+		// we've already processed this currency for this row so we don't
+		// trigger set_value + refresh_field and disrupt MoP selection.
+		if (_lastCurrency[cdn] === row.currency) {
+			_loadMopCache(frm, row.currency);
+			return;
+		}
+		_lastCurrency[cdn] = row.currency;
+
 		const companyCurrency = frm.doc.company_currency;
 
-		// 1. Auto-fetch exchange rate from ERPNext currency exchange table
 		if (row.currency === companyCurrency) {
 			frappe.model.set_value(cdt, cdn, "exchange_rate", 1.0);
 			_recalcBase(frm, cdt, cdn);
@@ -60,11 +74,6 @@ frappe.ui.form.on("Multi Currency Payment Line", {
 			});
 		}
 
-		// Refresh the MoP filter cache for the new currency.
-		// Do NOT auto-clear mode_of_payment here: Frappe re-fires the currency
-		// event when the row gains focus (e.g. when the user clicks into the MoP
-		// cell), which would erase the value the user just picked.
-		// The get_query filter already prevents invalid selections.
 		_loadMopCache(frm, row.currency);
 	},
 
@@ -93,7 +102,7 @@ function _recalcBase(frm, cdt, cdn) {
 function _loadMopCache(frm, currency) {
 	if (!frm.doc.company || !currency) return;
 	const key = `${frm.doc.company}::${currency}`;
-	if (_mopCache[key] !== undefined) return;   // already loaded
+	if (_mopCache[key] !== undefined) return;   // already loaded or loading
 
 	_mopCache[key] = [];   // mark as loading
 	frappe.call({
