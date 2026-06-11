@@ -314,28 +314,41 @@ def create_instant_work_order(item_code, qty=1, custom_ingredients=None, **kwarg
     if not fg_wh:
         frappe.throw(_("No valid warehouse found for company {0}. Please configure a default warehouse.").format(default_company))
     
-    # Create a new Work Order
+    # Resolve source warehouse: prefer the company's default selling warehouse
+    source_wh = (
+        frappe.db.get_value("Warehouse", {"company": default_company, "warehouse_type": "Stores", "is_group": 0}, "name")
+        or fg_wh
+    )
+
+    # Create a new Work Order with skip_transfer so Manufacture SE runs without a prior transfer step
     wo = frappe.get_doc({
         "doctype": "Work Order",
         "production_item": item_code,
         "bom_no": bom_no,
         "qty": flt(qty),
+        "source_warehouse": source_wh,
         "wip_warehouse": wip_wh or fg_wh,
         "fg_warehouse": fg_wh,
         "company": default_company,
         "planned_start_date": now_datetime(),
+        "skip_transfer": 1,
     })
-    
+
+    wo.flags.ignore_permissions = True
     wo.insert(ignore_permissions=True)
-    
+
     if custom_ingredients:
         apply_custom_ingredients(wo, custom_ingredients)
-        
+
     try:
+        wo.flags.ignore_permissions = True
         wo.submit()
+        # Complete the full cycle: Manufacture SE adds finished item to stock
+        # so it is ready to be deducted when the POS invoice is submitted.
+        complete_work_order_manufacture(wo.name)
         return {"status": "success", "name": wo.name}
     except Exception as e:
-        frappe.log_error(f"Instant Work Order Error for {item_code}: {str(e)}")
+        frappe.log_error(frappe.get_traceback(), f"Instant Work Order Error for {item_code}")
         return {"status": "error", "message": str(e)}
 
 @frappe.whitelist()
