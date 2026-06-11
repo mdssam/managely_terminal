@@ -18,23 +18,6 @@ def setup_custom_fields():
 
 	fields = (
 		si_parent
-		+ [
-			{
-				"dt": "Sales Invoice",
-				"fieldname": "custom_target_warehouse",
-				"label": "Source Warehouse",
-				"fieldtype": "Link",
-				"options": "Warehouse",
-				# Insert directly after customer so it's the first field below Customer
-				"insert_after": "customer",
-				"reqd": 1,
-				"bold": 1,
-				"hidden": 0,
-				"depends_on": "",
-				"mandatory_depends_on": "",
-				"description": "Warehouse for the auto-generated Delivery Note / Return.",
-			}
-		]
 		+ pi_parent
 		+ [
 			{
@@ -43,21 +26,6 @@ def setup_custom_fields():
 				"label": "Supplier Invoice Number",
 				"fieldtype": "Data",
 				"insert_after": "bill_no",
-			},
-			{
-				"dt": "Purchase Invoice",
-				"fieldname": "custom_target_warehouse",
-				"label": "Source Warehouse",
-				"fieldtype": "Link",
-				"options": "Warehouse",
-				# Insert directly after supplier so it's the first field below Supplier
-				"insert_after": "supplier",
-				"reqd": 1,
-				"bold": 1,
-				"hidden": 0,
-				"depends_on": "",
-				"mandatory_depends_on": "",
-				"description": "Warehouse for the auto-generated Purchase Receipt / Return.",
 			},
 		]
 		+ pe_parent
@@ -78,8 +46,6 @@ def setup_custom_fields():
 			doc.insert(ignore_permissions=True)
 			count += 1
 		else:
-			# Update position, mandatory flag, and visibility on existing fields.
-			# depends_on and mandatory_depends_on are included so stale conditions are cleared.
 			update_data = {k: v for k, v in f.items() if k in (
 				"insert_after", "reqd", "bold", "hidden", "description", "label",
 				"depends_on", "mandatory_depends_on",
@@ -87,17 +53,20 @@ def setup_custom_fields():
 			if update_data:
 				frappe.db.set_value("Custom Field", cf_name, update_data)
 
-	# Ensure no stale Property Setters override the native set_warehouse field —
-	# custom_target_warehouse (labelled "Source Warehouse") is our field for this purpose.
+	# Delete the old custom_target_warehouse field if it still exists — we now use
+	# the native set_warehouse field made visible/mandatory via Property Setters below.
 	for dt in ("Sales Invoice", "Purchase Invoice"):
-		for prop in ("reqd", "depends_on", "insert_after", "bold"):
-			name = frappe.db.get_value(
-				"Property Setter",
-				{"doc_type": dt, "field_name": "set_warehouse", "property": prop},
-				"name",
-			)
-			if name:
-				frappe.delete_doc("Property Setter", name, ignore_permissions=True)
+		cf = frappe.db.get_value("Custom Field", {"dt": dt, "fieldname": "custom_target_warehouse"})
+		if cf:
+			frappe.delete_doc("Custom Field", cf, ignore_permissions=True)
+
+	# Make the native set_warehouse field always visible and mandatory on both invoice types.
+	# Standard ERPNext hides it behind depends_on:"update_stock"; we clear that here.
+	for dt in ("Sales Invoice", "Purchase Invoice"):
+		_ensure_property_setter(dt, "set_warehouse", "depends_on", "", "Code")
+		_ensure_property_setter(dt, "set_warehouse", "mandatory_depends_on", "", "Code")
+		_ensure_property_setter(dt, "set_warehouse", "reqd", "1", "Check")
+		_ensure_property_setter(dt, "set_warehouse", "bold", "1", "Check")
 
 	frappe.db.commit()
 	frappe.clear_cache()
