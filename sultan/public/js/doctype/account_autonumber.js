@@ -2,35 +2,69 @@ frappe.ui.form.on("Account", {
 	parent_account(frm) {
 		autofill_account_number(frm);
 	},
+
 	refresh(frm) {
+		// Form view: parent_account may already be set.
 		autofill_account_number(frm);
+		// Tree view: parent_account is injected slightly after refresh — start polling.
+		if (frm.is_new() && !frm.doc.account_number) {
+			_poll_for_parent(frm);
+		}
 	},
-	// Fires after form is fully rendered — catches tree view quick-entry where
-	// parent_account is injected after the initial refresh event.
+
 	onload_post_render(frm) {
+		// Second chance: catches quick-entry dialogs opened from the tree.
 		autofill_account_number(frm);
+		if (frm.is_new() && !frm.doc.account_number) {
+			_poll_for_parent(frm);
+		}
 	},
 });
 
-// Tree view: patch "Add Child" so the number is filled once the dialog opens.
-frappe.treeview_settings["Account"] = frappe.treeview_settings["Account"] || {};
-(function () {
-	var _orig_onload = frappe.treeview_settings["Account"].onload;
-	frappe.treeview_settings["Account"].onload = function (treeview) {
-		if (_orig_onload) _orig_onload.call(this, treeview);
-		var _orig_new_node = treeview.new_node && treeview.new_node.bind(treeview);
-		if (_orig_new_node) {
-			treeview.new_node = function () {
-				_orig_new_node();
-				setTimeout(function () {
-					if (cur_frm && cur_frm.doc && cur_frm.doc.doctype === "Account") {
-						autofill_account_number(cur_frm);
-					}
-				}, 350);
-			};
+// ── Tree view: intercept "Add Child" via event delegation ─────────────────────
+// frappe.treeview_settings["Account"].onload is unreliable (it may have already
+// fired by the time this file loads). Delegating on the tree container is safer.
+$(document).on("click.sultan_acct_autonumber", ".tree-node-toolbar .btn-new-node, [data-label='Add Child']", function () {
+	// The new-account dialog takes a moment to render; poll cur_dialog/cur_frm.
+	_wait_for_new_account_form();
+});
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+/**
+ * Poll cur_frm until parent_account is available, then fetch the next number.
+ * Gives up after ~2 s so it never runs indefinitely.
+ */
+function _poll_for_parent(frm) {
+	let tries = 0;
+	const id = setInterval(() => {
+		if (frm.doc.account_number) { clearInterval(id); return; }
+		if (frm.doc.parent_account) {
+			clearInterval(id);
+			autofill_account_number(frm);
+			return;
 		}
-	};
-})();
+		if (++tries > 20) clearInterval(id);  // give up after 2 s
+	}, 100);
+}
+
+/**
+ * After clicking "Add Child" in the tree, wait for the new Account form/dialog
+ * to appear in cur_frm, then trigger the autonumber fill.
+ */
+function _wait_for_new_account_form() {
+	let tries = 0;
+	const id = setInterval(() => {
+		const frm = cur_frm;
+		if (frm && frm.doc && frm.doc.doctype === "Account" && frm.is_new()) {
+			clearInterval(id);
+			autofill_account_number(frm);
+			if (!frm.doc.account_number) _poll_for_parent(frm);
+			return;
+		}
+		if (++tries > 30) clearInterval(id);  // give up after 3 s
+	}, 100);
+}
 
 function autofill_account_number(frm) {
 	if (!frm.is_new() || !frm.doc.parent_account || frm.doc.account_number) return;
