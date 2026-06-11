@@ -29,7 +29,7 @@ def _create_forward_delivery_note(doc, submit_dn=True):
         if not dn.get("items"):
             return
 
-        target_wh = doc.get("custom_target_warehouse")
+        target_wh = doc.set_warehouse or doc.get("custom_target_warehouse")
         if target_wh:
             for row in dn.items:
                 row.warehouse = target_wh
@@ -70,7 +70,7 @@ def _create_return_delivery_note(doc, submit_dn=True):
         if not return_dn.get("items"):
             return
 
-        target_wh = doc.get("custom_target_warehouse")
+        target_wh = doc.set_warehouse or doc.get("custom_target_warehouse")
         for row in return_dn.items:
             row.qty = -abs(
                 next(
@@ -115,7 +115,7 @@ def _create_forward_purchase_receipt(doc):
         if not pr.get("items"):
             return
 
-        target_wh = doc.get("custom_target_warehouse")
+        target_wh = doc.set_warehouse or doc.get("custom_target_warehouse")
         if target_wh:
             for row in pr.items:
                 row.warehouse = target_wh
@@ -155,7 +155,7 @@ def _create_return_purchase_receipt(doc):
         if not return_pr.get("items"):
             return
 
-        target_wh = doc.get("custom_target_warehouse")
+        target_wh = doc.set_warehouse or doc.get("custom_target_warehouse")
         for row in return_pr.items:
             row.qty = -abs(
                 next(
@@ -178,14 +178,14 @@ def _create_return_purchase_receipt(doc):
 
 
 def validate_target_warehouse(doc, method=None):
-    """Block submission if custom_target_warehouse is empty and the invoice has stock items."""
+    """Block submission if no warehouse is set and the invoice has stock items."""
     if not _has_stock_items(doc.items):
         return
-    if not doc.get("custom_target_warehouse"):
+    if not (doc.set_warehouse or doc.get("custom_target_warehouse")):
         frappe.throw(
-            _("Please set the <b>Target Warehouse</b> before submitting. "
-              "It is required to generate the automatic Delivery Note."),
-            title=_("Target Warehouse Required"),
+            _("Please set the <b>Source Warehouse</b> before submitting. "
+              "It is required to generate the automatic Delivery Note / Purchase Receipt."),
+            title=_("Source Warehouse Required"),
         )
 
 

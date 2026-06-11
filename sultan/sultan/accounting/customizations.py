@@ -20,16 +20,16 @@ def setup_custom_fields():
 		si_parent
 		+ [
 			{
+				# Kept for data continuity but hidden — set_warehouse is used instead
 				"dt": "Sales Invoice",
 				"fieldname": "custom_target_warehouse",
-				"label": "Target Warehouse",
+				"label": "Target Warehouse (legacy)",
 				"fieldtype": "Link",
 				"options": "Warehouse",
-				# After the Description field (which is after customer) — unambiguous position
 				"insert_after": "custom_transaction_description",
-				"reqd": 1,
-				"bold": 1,
-				"description": "Warehouse for the auto-generated Delivery Note / Return.",
+				"reqd": 0,
+				"bold": 0,
+				"hidden": 1,
 			}
 		]
 		+ pi_parent
@@ -42,16 +42,16 @@ def setup_custom_fields():
 				"insert_after": "bill_no",
 			},
 			{
+				# Kept for data continuity but hidden — set_warehouse is used instead
 				"dt": "Purchase Invoice",
 				"fieldname": "custom_target_warehouse",
-				"label": "Target Warehouse",
+				"label": "Target Warehouse (legacy)",
 				"fieldtype": "Link",
 				"options": "Warehouse",
-				# After the Description field (which is after supplier) — unambiguous position
 				"insert_after": "custom_transaction_description",
-				"reqd": 1,
-				"bold": 1,
-				"description": "Warehouse for the auto-generated Purchase Receipt / Return.",
+				"reqd": 0,
+				"bold": 0,
+				"hidden": 1,
 			},
 		]
 		+ pe_parent
@@ -79,9 +79,36 @@ def setup_custom_fields():
 			if update_data:
 				frappe.db.set_value("Custom Field", cf_name, update_data)
 
+	# Make the native set_warehouse field always visible and mandatory on both invoice types.
+	# By default ERPNext hides it behind depends_on='update_stock'; we clear that so it
+	# always shows, and make it required so our auto-DN/PR knows which warehouse to use.
+	for dt in ("Sales Invoice", "Purchase Invoice"):
+		_ensure_property_setter(dt, "set_warehouse", "depends_on", "", "Data")
+		_ensure_property_setter(dt, "set_warehouse", "reqd", "1", "Check")
+
 	frappe.db.commit()
 	frappe.clear_cache()
 	return f"Created/updated {count} accounting custom fields."
+
+
+def _ensure_property_setter(dt, field, prop, value, prop_type="Data"):
+	existing = frappe.db.get_value(
+		"Property Setter",
+		{"doc_type": dt, "field_name": field, "property": prop},
+		"name",
+	)
+	if existing:
+		frappe.db.set_value("Property Setter", existing, "value", str(value))
+	else:
+		ps = frappe.new_doc("Property Setter")
+		ps.doctype_or_field = "DocField"
+		ps.doc_type = dt
+		ps.field_name = field
+		ps.property = prop
+		ps.value = str(value)
+		ps.property_type = prop_type
+		ps.flags.ignore_permissions = True
+		ps.insert(ignore_permissions=True)
 
 
 def _transaction_parent_fields(dt, insert_after, exchange_insert_after="currency"):
