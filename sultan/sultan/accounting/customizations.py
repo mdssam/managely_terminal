@@ -25,8 +25,8 @@ def setup_custom_fields():
 				"label": "Target Warehouse",
 				"fieldtype": "Link",
 				"options": "Warehouse",
-				# Placed right after customer so it's immediately visible on the form
-				"insert_after": "customer",
+				# After the Description field (which is after customer) — unambiguous position
+				"insert_after": "custom_transaction_description",
 				"reqd": 1,
 				"bold": 1,
 				"description": "Warehouse for the auto-generated Delivery Note / Return.",
@@ -47,8 +47,8 @@ def setup_custom_fields():
 				"label": "Target Warehouse",
 				"fieldtype": "Link",
 				"options": "Warehouse",
-				# Placed right after supplier so it's immediately visible on the form
-				"insert_after": "supplier",
+				# After the Description field (which is after supplier) — unambiguous position
+				"insert_after": "custom_transaction_description",
 				"reqd": 1,
 				"bold": 1,
 				"description": "Warehouse for the auto-generated Purchase Receipt / Return.",

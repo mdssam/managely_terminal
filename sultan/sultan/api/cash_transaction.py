@@ -8,7 +8,7 @@ import frappe
 from frappe.utils import flt
 
 from sultan.sultan.api.sales_invoice import get_current_pos_opening_entry
-from sultan.sultan.sultan.doctype.pos_suspended_transaction.pos_suspended_transaction import (
+from sultan.sultan.doctype.pos_suspended_transaction.pos_suspended_transaction import (
     create_cash_transaction_from_pos,
 )
 
