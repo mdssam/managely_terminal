@@ -30,6 +30,22 @@ export function handlePrintInvoice(invoiceData: Invoice | null) {
 
   console.log('Setting title to:', invoiceName);
 
+  const previewFrame = printElement.querySelector("iframe");
+  if (previewFrame?.contentWindow) {
+    try {
+      previewFrame.contentWindow.document.title = `${invoiceName}`;
+      previewFrame.contentWindow.focus();
+      previewFrame.contentWindow.print();
+      document.title = originalTitle;
+      return;
+    } catch (error) {
+      console.error("Failed to print receipt preview iframe:", error);
+      toast.error("Could not print receipt preview");
+      document.title = originalTitle;
+      return;
+    }
+  }
+
   // Store original styles
   const originalBodyStyle = document.body.style.cssText;
   const originalPrintElementStyle = (printElement as HTMLElement).style.cssText;

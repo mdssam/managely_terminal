@@ -68,6 +68,9 @@ export function useBarcodeScanner(onAddToCart: (item: MenuItem, quantity?: numbe
             price: data.message.price || 0,
             available: data.message.available || 0,
             image: data.message.image,
+            uom: data.message.uom || data.message.stock_uom,
+            stock_uom: data.message.stock_uom,
+            conversion_factor: data.message.conversion_factor,
             sold: 0
           }
           // Add to cart, optionally providing returned weight/quantity

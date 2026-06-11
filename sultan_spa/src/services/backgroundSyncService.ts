@@ -1,3 +1,5 @@
+import { dbGetAll, dbPut, dbDelete, dbPutBatch, INVOICES_STORE, CUSTOMERS_STORE } from './offlineDB';
+
 interface SyncStatus {
   isOnline: boolean;
   lastSync: Date | null;
@@ -21,98 +23,143 @@ export interface OfflineInvoice {
   syncError?: string;
 }
 
+export interface OfflineCustomer {
+  id: string;
+  data: any;
+  timestamp: number;
+  synced: boolean;
+  realId?: string;
+}
+
 class BackgroundSyncService {
   private isOnline = navigator.onLine;
   private lastSync: Date | null = null;
   private pendingUpdates = 0;
-  private isSyncing = false;        // for stock updates
-  private isSyncingInvoices = false; // separate flag so stock sync can't block invoice sync
+  private isSyncing = false;
+  private isSyncingInvoices = false;
   private lastSyncError: string | null = null;
   private syncInterval: NodeJS.Timeout | null = null;
   private listeners: Map<string, ((status: SyncStatus) => void)[]> = new Map();
   private stockUpdateQueue: StockUpdate[] = [];
 
+  // In-memory caches — loaded from IndexedDB at startup, kept in sync on every write
+  private invoiceCache: OfflineInvoice[] = [];
+  private customerCache: OfflineCustomer[] = [];
+
   constructor() {
     this.setupEventListeners();
     this.startPeriodicSync();
-    this.updatePendingCount();
-    // Attempt sync immediately on startup if online
-    if (this.isOnline) {
-      this.syncOfflineInvoices();
+    // Load from IndexedDB (migrating localStorage if needed), then trigger initial sync
+    this.initFromDB().then(() => {
+      this.updatePendingCount();
+      if (this.isOnline) this.syncOfflineInvoices();
+    });
+  }
+
+  private async initFromDB(): Promise<void> {
+    try {
+      // --- Invoices ---
+      let invoices = await dbGetAll<OfflineInvoice>(INVOICES_STORE);
+      if (invoices.length === 0) {
+        try {
+          const raw = localStorage.getItem('sultan_offline_invoices');
+          if (raw) {
+            invoices = JSON.parse(raw);
+            if (invoices.length > 0) {
+              await dbPutBatch(INVOICES_STORE, invoices);
+              localStorage.removeItem('sultan_offline_invoices');
+              console.log(`[OfflineDB] Migrated ${invoices.length} invoices from localStorage → IndexedDB`);
+            }
+          }
+        } catch { /* ignore migration errors */ }
+      }
+      this.invoiceCache = invoices;
+
+      // --- Customers ---
+      let customers = await dbGetAll<OfflineCustomer>(CUSTOMERS_STORE);
+      if (customers.length === 0) {
+        try {
+          const raw = localStorage.getItem('sultan_offline_customers');
+          if (raw) {
+            customers = JSON.parse(raw);
+            if (customers.length > 0) {
+              await dbPutBatch(CUSTOMERS_STORE, customers);
+              localStorage.removeItem('sultan_offline_customers');
+              console.log(`[OfflineDB] Migrated ${customers.length} customers from localStorage → IndexedDB`);
+            }
+          }
+        } catch { /* ignore migration errors */ }
+      }
+      this.customerCache = customers;
+    } catch (e) {
+      console.error('[OfflineDB] IndexedDB init failed, falling back to localStorage:', e);
+      try { this.invoiceCache = JSON.parse(localStorage.getItem('sultan_offline_invoices') || '[]'); } catch { this.invoiceCache = []; }
+      try { this.customerCache = JSON.parse(localStorage.getItem('sultan_offline_customers') || '[]'); } catch { this.customerCache = []; }
     }
   }
 
   private getUnsyncedCustomerCount(): number {
-    try {
-      const stored = localStorage.getItem('sultan_offline_customers');
-      const customers: any[] = stored ? JSON.parse(stored) : [];
-      return customers.filter(c => !c.synced).length;
-    } catch {
-      return 0;
-    }
+    return this.customerCache.filter(c => !c.synced).length;
   }
 
   private updatePendingCount(): void {
-    const offlineInvoices = this.getOfflineInvoices();
-    const unsyncedInvoices = offlineInvoices.filter(inv => !inv.synced).length;
+    const unsyncedInvoices = this.invoiceCache.filter(inv => !inv.synced).length;
     this.pendingUpdates = this.stockUpdateQueue.length + unsyncedInvoices + this.getUnsyncedCustomerCount();
     this.notifyListeners();
   }
 
+  // --- Public invoice API ---
+
   public getOfflineInvoices(): OfflineInvoice[] {
-    try {
-      const stored = localStorage.getItem('sultan_offline_invoices');
-      return stored ? JSON.parse(stored) : [];
-    } catch (e) {
-      console.error('Error loading offline invoices:', e);
-      return [];
-    }
+    return this.invoiceCache;
   }
 
   public saveOfflineInvoice(data: any): OfflineInvoice {
-    const offlineInvoices = this.getOfflineInvoices();
     const newInvoice: OfflineInvoice = {
       id: 'OFFLINE-' + Date.now(),
       data,
       timestamp: Date.now(),
-      synced: false
+      synced: false,
     };
-    offlineInvoices.push(newInvoice);
-    localStorage.setItem('sultan_offline_invoices', JSON.stringify(offlineInvoices));
+    this.invoiceCache.push(newInvoice);
+    dbPut(INVOICES_STORE, newInvoice).catch(e => console.error('[OfflineDB] Save invoice failed:', e));
     this.updatePendingCount();
-
-    // Trigger sync automatically if online
-    if (this.isOnline) {
-      this.syncOfflineInvoices();
-    }
-
+    if (this.isOnline) this.syncOfflineInvoices();
     return newInvoice;
   }
 
+  // --- Public customer API ---
+
+  public getOfflineCustomers(): OfflineCustomer[] {
+    return this.customerCache;
+  }
+
+  public saveOfflineCustomer(data: any): OfflineCustomer {
+    const newCust: OfflineCustomer = {
+      id: 'OFFLINE_CUST-' + Date.now(),
+      data,
+      timestamp: Date.now(),
+      synced: false,
+    };
+    this.customerCache.push(newCust);
+    dbPut(CUSTOMERS_STORE, newCust).catch(e => console.error('[OfflineDB] Save customer failed:', e));
+    this.updatePendingCount();
+    return newCust;
+  }
+
+  // --- Sync logic ---
+
   private async syncOfflineCustomers(): Promise<Map<string, string>> {
-    // Returns a map of offlineId → realId for resolved customers
     const resolved = new Map<string, string>();
     try {
-      const stored = localStorage.getItem('sultan_offline_customers');
-      const customers: any[] = stored ? JSON.parse(stored) : [];
-
-      // Always populate from already-synced customers first so invoices can resolve IDs
-      // even when there are no remaining unsynced customers
-      for (const cust of customers) {
+      for (const cust of this.customerCache) {
         if (cust.realId) resolved.set(cust.id, cust.realId);
       }
 
-      const unsynced = customers.filter(c => !c.synced);
+      const unsynced = this.customerCache.filter(c => !c.synced && !c.realId);
       if (unsynced.length === 0) return resolved;
 
-      const { useCustomerActions } = await import('./customerService');
-
       for (const cust of unsynced) {
-        // If already has a realId recorded, just use it
-        if (cust.realId) {
-          resolved.set(cust.id, cust.realId);
-          continue;
-        }
         try {
           const csrfToken = (window as any).csrf_token || '';
           const response = await fetch('/api/method/sultan.sultan.api.customer.create_or_update_customer', {
@@ -126,11 +173,11 @@ class BackgroundSyncService {
             const realId = result.message.name;
             resolved.set(cust.id, realId);
             console.log(`[Offline Sync] Customer ${cust.id} synced as ${realId}`);
-            // Mark synced
-            const current: any[] = JSON.parse(localStorage.getItem('sultan_offline_customers') || '[]');
-            localStorage.setItem('sultan_offline_customers', JSON.stringify(
-              current.map(c => c.id === cust.id ? { ...c, synced: true, realId } : c)
-            ));
+            this.customerCache = this.customerCache.map(c =>
+              c.id === cust.id ? { ...c, synced: true, realId } : c
+            );
+            const updated = this.customerCache.find(c => c.id === cust.id);
+            if (updated) dbPut(CUSTOMERS_STORE, updated).catch(() => {});
           }
         } catch (err) {
           console.error(`[Offline Sync] Failed to sync customer ${cust.id}:`, err);
@@ -143,23 +190,15 @@ class BackgroundSyncService {
   }
 
   public async syncOfflineInvoices(): Promise<void> {
-    // Use a dedicated flag so stock-update syncing never blocks invoice syncing
-    if (this.isSyncingInvoices || !this.isOnline) {
-      return;
-    }
+    if (this.isSyncingInvoices || !this.isOnline) return;
 
-    const offlineInvoices = this.getOfflineInvoices();
-    const unsynced = offlineInvoices.filter(inv => !inv.synced);
-
-    if (unsynced.length === 0 && this.getUnsyncedCustomerCount() === 0) {
-      return;
-    }
+    const unsynced = this.invoiceCache.filter(inv => !inv.synced);
+    if (unsynced.length === 0 && this.getUnsyncedCustomerCount() === 0) return;
 
     this.isSyncingInvoices = true;
     this.lastSyncError = null;
     this.notifyListeners();
 
-    // First, sync pending offline customers and get their real IDs
     const customerIdMap = await this.syncOfflineCustomers();
 
     if (unsynced.length === 0) {
@@ -168,7 +207,7 @@ class BackgroundSyncService {
       return;
     }
 
-    console.log(`[Offline Sync] Found ${unsynced.length} unsynced offline invoices. Starting sync...`);
+    console.log(`[Offline Sync] Found ${unsynced.length} unsynced invoices. Starting sync...`);
 
     let anyFailed = false;
     try {
@@ -176,19 +215,15 @@ class BackgroundSyncService {
 
       for (const inv of unsynced) {
         try {
-          // Resolve offline customer ID to real ID if needed
           let invoiceData = inv.data;
           const custId = invoiceData?.customer?.id;
-          if (custId && custId.startsWith('OFFLINE_CUST-') && customerIdMap.has(custId)) {
-            const realId = customerIdMap.get(custId)!;
-            invoiceData = {
-              ...invoiceData,
-              customer: { ...invoiceData.customer, id: realId },
-            };
+
+          // Resolve offline customer ID to real ERPNext ID if we already have it
+          if (custId?.startsWith('OFFLINE_CUST-') && customerIdMap.has(custId)) {
+            invoiceData = { ...invoiceData, customer: { ...invoiceData.customer, id: customerIdMap.get(custId)! } };
           }
 
-          // If customer ID is still an offline ID, first try to create the customer
-          // in ERPNext using the data embedded in the invoice, then update the reference
+          // Still unresolved — try to create the customer on the fly
           if (invoiceData?.customer?.id?.startsWith('OFFLINE_CUST-')) {
             const offlineCust = invoiceData.customer;
             let resolved = false;
@@ -220,7 +255,7 @@ class BackgroundSyncService {
               console.warn(`[Offline Sync] Could not create customer ${offlineCust.id}:`, custErr);
             }
 
-            // Last resort: use the POS default customer so the invoice still syncs
+            // Last resort: fall back to POS default customer
             if (!resolved) {
               try {
                 const cachedDetails = localStorage.getItem('cached_pos_details');
@@ -231,28 +266,26 @@ class BackgroundSyncService {
                     invoiceData = { ...invoiceData, customer: posDetails.default_customer };
                   }
                 }
-              } catch { /* keep original — backend will substitute via its own fallback */ }
+              } catch { /* keep original — backend will substitute */ }
             }
           }
 
           console.log(`[Offline Sync] Syncing invoice ${inv.id}...`);
           const result = await createSalesInvoice(invoiceData);
 
-          // Success — remove from offline list
-          const currentInvoices = this.getOfflineInvoices();
-          const filtered = currentInvoices.filter(item => item.id !== inv.id);
-          localStorage.setItem('sultan_offline_invoices', JSON.stringify(filtered));
-
+          // Remove from cache and IndexedDB on success
+          this.invoiceCache = this.invoiceCache.filter(item => item.id !== inv.id);
+          dbDelete(INVOICES_STORE, inv.id).catch(() => {});
           console.log(`[Offline Sync] Invoice ${inv.id} successfully synced as ${result.invoice?.name}`);
         } catch (err: any) {
           anyFailed = true;
           const errMsg = err.message || 'Unknown sync error';
           console.error(`[Offline Sync] Failed to sync invoice ${inv.id}:`, err);
-          const currentInvoices = this.getOfflineInvoices();
-          const updated = currentInvoices.map(item =>
+          this.invoiceCache = this.invoiceCache.map(item =>
             item.id === inv.id ? { ...item, syncError: errMsg } : item
           );
-          localStorage.setItem('sultan_offline_invoices', JSON.stringify(updated));
+          const updated = this.invoiceCache.find(item => item.id === inv.id);
+          if (updated) dbPut(INVOICES_STORE, updated).catch(() => {});
           this.lastSyncError = errMsg;
         }
       }
@@ -267,7 +300,6 @@ class BackgroundSyncService {
   }
 
   private setupEventListeners(): void {
-    // Listen for online/offline events
     window.addEventListener('online', () => {
       this.isOnline = true;
       this.notifyListeners();
@@ -280,7 +312,6 @@ class BackgroundSyncService {
       this.notifyListeners();
     });
 
-    // Listen for visibility changes to sync when tab becomes visible
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden && this.isOnline) {
         this.syncStockUpdates();
@@ -288,7 +319,6 @@ class BackgroundSyncService {
       }
     });
 
-    // Listen for focus events
     window.addEventListener('focus', () => {
       if (this.isOnline) {
         this.syncStockUpdates();
@@ -298,7 +328,6 @@ class BackgroundSyncService {
   }
 
   private startPeriodicSync(): void {
-    // Sync every 30 seconds when online
     this.syncInterval = setInterval(() => {
       if (this.isOnline && !this.isSyncing) {
         this.syncStockUpdates();
@@ -308,29 +337,21 @@ class BackgroundSyncService {
   }
 
   private async syncStockUpdates(): Promise<void> {
-    if (this.isSyncing || !this.isOnline) {
-      return;
-    }
-
+    if (this.isSyncing || !this.isOnline) return;
     this.isSyncing = true;
     this.notifyListeners();
-
     try {
       const response = await fetch('/api/method/sultan.sultan.api.item.get_stock_updates');
       const resData = await response.json();
-
       if (resData?.message && typeof resData.message === 'object') {
         const stockUpdates = resData.message;
         const updateCount = Object.keys(stockUpdates).length;
-
         if (updateCount > 0) {
-          // Convert to our format and queue for processing
           const updates: StockUpdate[] = Object.entries(stockUpdates).map(([item_code, available]) => ({
             item_code,
             available: available as number,
             timestamp: Date.now()
           }));
-
           this.queueStockUpdates(updates);
           this.lastSync = new Date();
           console.log(`Background sync: Updated ${updateCount} items`);
@@ -347,22 +368,14 @@ class BackgroundSyncService {
   private queueStockUpdates(updates: StockUpdate[]): void {
     this.stockUpdateQueue.push(...updates);
     this.updatePendingCount();
-
-    // Process updates immediately
     this.processQueuedUpdates();
   }
 
   private processQueuedUpdates(): void {
-    if (this.stockUpdateQueue.length === 0) {
-      return;
-    }
-
-    // Emit updates to listeners
+    if (this.stockUpdateQueue.length === 0) return;
     const updates = [...this.stockUpdateQueue];
     this.stockUpdateQueue = [];
     this.updatePendingCount();
-
-    // Notify listeners about the updates
     this.emit('stock_updates', updates);
   }
 
@@ -375,27 +388,22 @@ class BackgroundSyncService {
       isSyncingInvoices: this.isSyncingInvoices,
       lastSyncError: this.lastSyncError,
     };
-
     this.emit('status_change', status);
   }
+
   //eslint-disable-next-line @typescript-eslint/no-explicit-any
   private emit(event: string, data: any): void {
     const listeners = this.listeners.get(event);
     if (listeners) {
       listeners.forEach(listener => {
-        try {
-          listener(data);
-        } catch (error) {
-          console.error('Error in background sync listener:', error);
-        }
+        try { listener(data); } catch (error) { console.error('Error in background sync listener:', error); }
       });
     }
   }
+
   //eslint-disable-next-line @typescript-eslint/no-explicit-any
   public on(event: string, callback: (data: any) => void): void {
-    if (!this.listeners.has(event)) {
-      this.listeners.set(event, []);
-    }
+    if (!this.listeners.has(event)) this.listeners.set(event, []);
     this.listeners.get(event)!.push(callback);
   }
 
@@ -404,9 +412,7 @@ class BackgroundSyncService {
     const listeners = this.listeners.get(event);
     if (listeners) {
       const index = listeners.indexOf(callback);
-      if (index > -1) {
-        listeners.splice(index, 1);
-      }
+      if (index > -1) listeners.splice(index, 1);
     }
   }
 
@@ -422,7 +428,6 @@ class BackgroundSyncService {
   }
 
   public forceSync(): Promise<void> {
-    // Reset error state so a manual retry always attempts
     this.lastSyncError = null;
     this.syncOfflineInvoices();
     return this.syncStockUpdates();
@@ -437,6 +442,5 @@ class BackgroundSyncService {
   }
 }
 
-// Export singleton instance
 export const backgroundSyncService = new BackgroundSyncService();
 export default backgroundSyncService;

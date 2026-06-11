@@ -40,7 +40,24 @@ def generate_production_order(doc, method=None):
         is_fresh_produce = frappe.db.get_value("Item", item.item_code, "is_fresh_produce")
         if not is_fresh_produce:
             continue
-            
+
+        # Deduplication: Order Station may have already completed a WO for this item
+        # within the last 15 minutes — if so, the finished good is already in stock, skip.
+        cutoff = frappe.utils.add_to_date(frappe.utils.now_datetime(), minutes=-15)
+        already_done = frappe.db.get_value(
+            "Work Order",
+            {
+                "production_item": item.item_code,
+                "qty": [">=", item.qty],
+                "status": "Completed",
+                "company": doc.company,
+                "creation": [">", cutoff],
+            },
+            "name",
+        )
+        if already_done:
+            continue
+
         # Get active BOM for the item
         bom_no = frappe.db.get_value("BOM", {"item": item.item_code, "is_active": 1, "docstatus": 1})
         if not bom_no:
@@ -48,16 +65,24 @@ def generate_production_order(doc, method=None):
             continue
             
         # Create a new Work Order
+        source_wh = item.warehouse or doc.set_warehouse
+        wip_wh = (
+            doc.get("wip_warehouse")
+            or frappe.db.get_single_value("Manufacturing Settings", "default_wip_warehouse")
+            or source_wh
+        )
         wo = frappe.get_doc({
             "doctype": "Work Order",
             "production_item": item.item_code,
             "bom_no": bom_no,
             "qty": item.qty,
-            "source_warehouse": item.warehouse or doc.set_warehouse,
-            "wip_warehouse": doc.get("wip_warehouse") or frappe.db.get_single_value("Manufacturing Settings", "default_wip_warehouse") or (item.warehouse or doc.set_warehouse),
-            "fg_warehouse": item.warehouse or doc.set_warehouse,
+            "source_warehouse": source_wh,
+            "wip_warehouse": wip_wh,
+            "fg_warehouse": source_wh,
             "company": doc.company,
             "planned_start_date": frappe.utils.now_datetime(),
+            # Skip material-transfer step so Manufacture SE consumes from source_warehouse directly
+            "skip_transfer": 1,
             "custom_pos_invoice": doc.name if doc.doctype == "POS Invoice" else None,
             "custom_sales_order": doc.name if doc.doctype == "Sales Order" else None,
             "custom_sales_invoice": doc.name if doc.doctype == "Sales Invoice" else None,
@@ -73,7 +98,9 @@ def generate_production_order(doc, method=None):
             
         # Submit Work Order so it is instantly queued in the kitchen/production station
         try:
+            wo.flags.ignore_permissions = True
             wo.submit()
+            complete_work_order_manufacture(wo.name)
             from frappe.utils import get_link_to_form
             frappe.msgprint(
                 msg=f"✅ Work Order has been dispatched to the kitchen!<br><br><strong>{get_link_to_form('Work Order', wo.name)}</strong>",
@@ -82,6 +109,32 @@ def generate_production_order(doc, method=None):
             )
         except Exception as e:
             frappe.log_error(f"Failed to submit Work Order for {item.item_code}: {str(e)}", "Sultan Manufacturing")
+
+
+def complete_work_order_manufacture(work_order_name):
+    """Submit a Manufacture Stock Entry so POS-created Work Orders are actually completed."""
+    try:
+        from erpnext.manufacturing.doctype.work_order.work_order import make_stock_entry
+
+        work_order = frappe.get_doc("Work Order", work_order_name)
+        pending_qty = flt(work_order.qty) - flt(work_order.produced_qty)
+        if work_order.docstatus != 1 or pending_qty <= 0:
+            return
+
+        stock_entry = frappe.get_doc(make_stock_entry(work_order.name, "Manufacture", pending_qty))
+        # Allow consuming raw materials even if stock goes negative (fresh produce scenario)
+        stock_entry.set_missing_values()
+        for row in stock_entry.items:
+            row.allow_zero_valuation_rate = 1
+        stock_entry.flags.ignore_permissions = True
+        stock_entry.insert(ignore_permissions=True)
+        stock_entry.flags.ignore_permissions = True
+        stock_entry.submit()
+    except Exception:
+        frappe.log_error(
+            frappe.get_traceback(),
+            f"Failed to complete manufacture for Work Order {work_order_name}",
+        )
 
 def apply_custom_ingredients(wo, custom_ingredients_data):
     """
@@ -278,28 +331,41 @@ def create_instant_work_order(item_code, qty=1, custom_ingredients=None, **kwarg
     if not fg_wh:
         frappe.throw(_("No valid warehouse found for company {0}. Please configure a default warehouse.").format(default_company))
     
-    # Create a new Work Order
+    # Resolve source warehouse: prefer the company's default selling warehouse
+    source_wh = (
+        frappe.db.get_value("Warehouse", {"company": default_company, "warehouse_type": "Stores", "is_group": 0}, "name")
+        or fg_wh
+    )
+
+    # Create a new Work Order with skip_transfer so Manufacture SE runs without a prior transfer step
     wo = frappe.get_doc({
         "doctype": "Work Order",
         "production_item": item_code,
         "bom_no": bom_no,
         "qty": flt(qty),
+        "source_warehouse": source_wh,
         "wip_warehouse": wip_wh or fg_wh,
         "fg_warehouse": fg_wh,
         "company": default_company,
         "planned_start_date": now_datetime(),
+        "skip_transfer": 1,
     })
-    
+
+    wo.flags.ignore_permissions = True
     wo.insert(ignore_permissions=True)
-    
+
     if custom_ingredients:
         apply_custom_ingredients(wo, custom_ingredients)
-        
+
     try:
+        wo.flags.ignore_permissions = True
         wo.submit()
+        # Complete the full cycle: Manufacture SE adds finished item to stock
+        # so it is ready to be deducted when the POS invoice is submitted.
+        complete_work_order_manufacture(wo.name)
         return {"status": "success", "name": wo.name}
     except Exception as e:
-        frappe.log_error(f"Instant Work Order Error for {item_code}: {str(e)}")
+        frappe.log_error(frappe.get_traceback(), f"Instant Work Order Error for {item_code}")
         return {"status": "error", "message": str(e)}
 
 @frappe.whitelist()

@@ -5,6 +5,7 @@ import { useCreatePOSOpeningEntry } from '../services/opeiningEntry';
 import { usePaymentModes } from "../hooks/usePaymentModes"
 import { usePOSProfiles, usePOSDetails } from '../hooks/usePOSProfile';
 import { clearAllCache } from '../utils/clearCache';
+import EmployeeLoginModal from './EmployeeLoginModal';
 
 interface PaymentMethod {
   mode_of_payment: string;
@@ -40,6 +41,8 @@ const POSOpeningModal: React.FC<POSOpeningModalProps> = ({
   const [selectedProfile, setSelectedProfile] = useState<string>('');
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
   const [error, setError] = useState<string>('');
+  const [showEmployeeLogin, setShowEmployeeLogin] = useState(false);
+  const [employeeInfo, setEmployeeInfo] = useState<{employee: string; employee_name: string} | null>(null);
 
   // Use your existing hooks
   const { createOpeningEntry, isCreating, error: createError, success } = useCreatePOSOpeningEntry();
@@ -112,12 +115,16 @@ const POSOpeningModal: React.FC<POSOpeningModalProps> = ({
     }
 
     if (paymentModes && paymentModes.length > 0 && !paymentModesLoading) {
-      // Sort payment modes to put default payment method first
-      const sortedPaymentModes = [...paymentModes].sort((a, b) => {
-        // Default payment method (default === 1) should come first
+      // Item 6: only show modes where show_in_opening_entry is not explicitly 0
+      //eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const modesForOpening = (paymentModes as any[]).filter(
+        (p) => p.custom_show_in_opening_entry !== 0
+      );
+
+      const sortedPaymentModes = [...modesForOpening].sort((a, b) => {
         if (a.default === 1 && b.default !== 1) return -1;
         if (a.default !== 1 && b.default === 1) return 1;
-        return 0; // Keep original order for non-default methods
+        return 0;
       });
 
       //eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -150,8 +157,20 @@ const POSOpeningModal: React.FC<POSOpeningModalProps> = ({
     });
   };
 
+  // Employee login gate
+  const handleStartSession = () => {
+    setShowEmployeeLogin(true)
+  }
+
+  // Called after employee login verified
+  const handleEmployeeLoginSuccess = (employee: string, employee_name: string) => {
+    setEmployeeInfo({ employee, employee_name })
+    setShowEmployeeLogin(false)
+    handleCreateOpeningEntry(employee, employee_name)
+  }
+
   // Handle create opening entry
-  const handleCreateOpeningEntry = async () => {
+  const handleCreateOpeningEntry = async (employee?: string, employee_name?: string) => {
     try {
       setStep('creating');
       setError('');
@@ -162,7 +181,8 @@ const POSOpeningModal: React.FC<POSOpeningModalProps> = ({
         opening_amount: method.opening_amount || 0
       }));
       console.log("Opening balance data:", openingBalance, "Selected profile:", selectedProfile);
-      await createOpeningEntry(openingBalance, selectedProfile || undefined);
+      const empInfo = employee && employee_name ? { employee, employee_name } : employeeInfo ?? undefined;
+      await createOpeningEntry(openingBalance, selectedProfile || undefined, empInfo ?? undefined);
 
       // Clear all caches after creating opening entry for fresh start
       clearAllCache();
@@ -347,7 +367,7 @@ const POSOpeningModal: React.FC<POSOpeningModalProps> = ({
                   Cancel
                 </button>
                 <button
-                  onClick={handleCreateOpeningEntry}
+                  onClick={handleStartSession}
                   disabled={
                     !!profilesLoading ||
                     !!isCreating ||
@@ -401,6 +421,14 @@ const POSOpeningModal: React.FC<POSOpeningModalProps> = ({
           )}
         </div>
       </div>
+
+      {/* Employee login gate */}
+      <EmployeeLoginModal
+        isOpen={showEmployeeLogin}
+        title="Cashier Login"
+        onSuccess={handleEmployeeLoginSuccess}
+        onCancel={() => setShowEmployeeLogin(false)}
+      />
     </div>
   );
 };

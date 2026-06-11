@@ -42,9 +42,17 @@ app_include_js = "/assets/sultan/js/sultan_pos_modifier.js"
 # page_js = {"page" : "public/js/file.js"}
 
 # include js in doctype views
-# doctype_js = {"doctype" : "public/js/doctype.js"}
+doctype_js = {
+	"Sales Invoice": "public/js/doctype/accounting_addendum.js",
+	"Purchase Invoice": "public/js/doctype/accounting_addendum.js",
+	"Payment Entry": "public/js/doctype/accounting_addendum.js",
+	"Journal Entry": "public/js/doctype/accounting_addendum.js",
+	"Account": "public/js/doctype/account_autonumber.js",
+	"Employee": "public/js/doctype/employee_pos_login.js",
+	"Multi Currency Payment": "public/js/doctype/multi_currency_payment.js",
+}
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
-# doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}
+doctype_tree_js = {"Account": "public/js/doctype/account_autonumber.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
 
 # Svg Icons
@@ -70,6 +78,7 @@ app_include_js = "/assets/sultan/js/sultan_pos_modifier.js"
 # website_generators = ["Web Page"]
 
 website_route_rules = [
+	{"from_route": "/sultan_spa", "to_route": "sultan_spa"},
 	{"from_route": "/sultan_spa/<path:app_path>", "to_route": "sultan_spa"},
 ]
 
@@ -87,6 +96,11 @@ website_route_rules = [
 
 # before_install = "sultan.install.before_install"
 # after_install = "sultan.install.after_install"
+
+after_migrate = [
+    "sultan.sultan.api.setup_custom_fields",
+    "sultan.sultan.accounting.customizations.setup_custom_fields",
+]
 
 # Uninstallation
 # ------------
@@ -143,15 +157,46 @@ website_route_rules = [
 doc_events = {
 	"POS Invoice": {
 		"validate": "sultan.sultan.api.fix_invoice_items_valuation",
-		"on_submit": "sultan.sultan.api.generate_production_order"
+		"before_submit": "sultan.sultan.api.generate_production_order",
 	},
 	"Sales Order": {
 		"on_submit": "sultan.sultan.api.generate_production_order"
 	},
 	"Sales Invoice": {
+		"before_validate": "sultan.sultan.accounting.customizations.before_validate_transaction",
 		"validate": "sultan.sultan.api.fix_invoice_items_valuation",
-		"on_submit": "sultan.sultan.api.generate_production_order"
-	}
+		"before_submit": "sultan.sultan.stock_automation.validate_target_warehouse",
+		"on_submit": [
+			"sultan.sultan.api.generate_production_order",
+			"sultan.sultan.stock_automation.create_delivery_note_from_sales_invoice",
+		],
+	},
+	"Purchase Invoice": {
+		"before_validate": "sultan.sultan.accounting.customizations.before_validate_transaction",
+		"before_save": "sultan.sultan.accounting.customizations.before_save_purchase_invoice",
+		"before_submit": [
+			"sultan.sultan.accounting.customizations.before_save_purchase_invoice",
+			"sultan.sultan.stock_automation.validate_target_warehouse",
+		],
+		"on_submit": "sultan.sultan.stock_automation.create_purchase_receipt_from_purchase_invoice",
+	},
+	"Payment Entry": {
+		"before_validate": "sultan.sultan.accounting.customizations.before_validate_transaction",
+	},
+	"Journal Entry": {
+		"before_validate": "sultan.sultan.accounting.customizations.before_validate_transaction",
+	},
+	"Account": {
+		"before_insert": "sultan.sultan.accounting.customizations.autonumber_child_account",
+	},
+	"POS Opening Entry": {
+		"on_submit": "sultan.sultan.doctype.pos_suspended_transaction.pos_suspended_transaction.on_pos_opening_entry_submit",
+	},
+	"POS Closing Entry": {
+		"before_validate": "sultan.sultan.doctype.pos_suspended_transaction.pos_suspended_transaction.before_validate_pos_closing_entry",
+		"on_submit": "sultan.sultan.doctype.pos_suspended_transaction.pos_suspended_transaction.on_pos_closing_entry_submit",
+		"on_cancel": "sultan.sultan.doctype.pos_suspended_transaction.pos_suspended_transaction.on_pos_closing_entry_cancel",
+	},
 }
 
 # Scheduled Tasks

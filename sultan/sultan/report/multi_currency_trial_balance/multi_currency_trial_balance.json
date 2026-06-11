@@ -1,0 +1,22 @@
+{
+ "add_total_row": 1,
+ "creation": "2026-06-08 00:00:00.000000",
+ "disable_prepared_report": 0,
+ "doctype": "Report",
+ "idx": 0,
+ "is_standard": "Yes",
+ "modified": "2026-06-08 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sultan",
+ "name": "Multi Currency Trial Balance",
+ "owner": "Administrator",
+ "prepared_report": 0,
+ "ref_doctype": "GL Entry",
+ "report_name": "Multi Currency Trial Balance",
+ "report_type": "Script Report",
+ "roles": [
+  {"role": "Accounts User"},
+  {"role": "Accounts Manager"},
+  {"role": "Auditor"}
+ ]
+}

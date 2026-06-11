@@ -105,7 +105,9 @@ self.addEventListener('fetch', event => {
 });
 `;
 
-			fs.writeFileSync(path.resolve(publicDir, 'sw.js'), swContent);
+			// Write inside the sultan_spa asset dir so Nginx serves it at
+			// /assets/sultan/sultan_spa/sw.js — registered with explicit scope below
+			fs.writeFileSync(path.resolve(spaDir, 'sw.js'), swContent);
 			console.log('Service worker sw.js generated successfully at build time.');
 		}
 	};

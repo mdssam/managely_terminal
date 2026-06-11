@@ -49,7 +49,7 @@ def _get_uom_conversion_factor(item_code: str, uom: str) -> float | None:
 	"""Get conversion factor for a specific UOM from Item UOM table."""
 	try:
 		conversion_factor = frappe.db.get_value(
-			"UOM",
+			"UOM Conversion Detail",
 			{"parent": item_code, "uom": uom},
 			"conversion_factor",
 		)
@@ -309,7 +309,7 @@ def get_item_by_barcode(barcode: str):
 
 		item_code = frappe.db.sql(
 			"""
-            SELECT parent
+            SELECT parent, uom
             FROM `tabItem Barcode`
             WHERE barcode = %s
         """,
@@ -332,11 +332,16 @@ def get_item_by_barcode(barcode: str):
 			frappe.throw(_("Item not found for barcode: {0}").format(barcode))
 
 		item_name = item_code[0].parent or item_code[0].name
+		barcode_uom = item_code[0].get("uom")
 
 		item_doc = frappe.get_doc("Item", item_name)
+		selected_uom = barcode_uom or item_doc.stock_uom
+		conversion_factor = _get_uom_conversion_factor(item_name, selected_uom) or 1
+		if selected_uom == item_doc.stock_uom:
+			conversion_factor = 1
 
 		balance = fetch_item_balance(item_name, warehouse)
-		price_info = fetch_item_price(item_name, price_list)
+		price_info = fetch_item_price(item_name, price_list, uom=selected_uom)
 
 		return {
 			"item_code": item_name,
@@ -348,6 +353,9 @@ def get_item_by_barcode(barcode: str):
 			"currency_symbol": price_info["currency_symbol"],
 			"available": balance,
 			"image": item_doc.image,
+			"uom": selected_uom,
+			"stock_uom": item_doc.stock_uom,
+			"conversion_factor": conversion_factor,
 			"is_stock_item": item_doc.is_stock_item,
 		}
 
@@ -412,7 +420,7 @@ def get_item_by_identifier(code: str):
 		# 1) Try Item Barcode
 		item_row = frappe.db.sql(
 			"""
-            SELECT parent as item_code
+            SELECT parent as item_code, uom
             FROM `tabItem Barcode`
             WHERE barcode = %s
             """,
@@ -463,7 +471,11 @@ def get_item_by_identifier(code: str):
 
 		item_doc = frappe.get_doc("Item", item_code)
 		balance = fetch_item_balance(item_code, warehouse)
-		price_info = fetch_item_price(item_code, price_list)
+		selected_uom = item_row[0].get("uom") or item_doc.stock_uom
+		conversion_factor = _get_uom_conversion_factor(item_code, selected_uom) or 1
+		if selected_uom == item_doc.stock_uom:
+			conversion_factor = 1
+		price_info = fetch_item_price(item_code, price_list, uom=selected_uom)
 
 		return {
 			"item_code": item_code,
@@ -475,6 +487,9 @@ def get_item_by_identifier(code: str):
 			"currency_symbol": price_info["currency_symbol"],
 			"available": balance,
 			"image": item_doc.image,
+			"uom": selected_uom,
+			"stock_uom": item_doc.stock_uom,
+			"conversion_factor": conversion_factor,
 			"matched_type": matched_type,
 			"matched_value": matched_value,
 			"is_stock_item": item_doc.is_stock_item,

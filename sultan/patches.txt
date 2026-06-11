@@ -4,3 +4,6 @@
 
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
+sultan.patches.add_pos_profile_print_templates
+sultan.patches.add_accounting_addendum_fields
+sultan.patches.add_employee_pos_login_fields

@@ -27,6 +27,11 @@ import { ConfirmDialog } from "../components/ui/ConfirmDialog";
 import { formatCurrency } from "../utils/currency";
 import { isToday, isThisWeek, isThisMonth, isThisYear } from "../utils/time";
 import { clearAllCache } from "../utils/clearCache";
+import { getCashTransactions } from "../services/cashTransaction";
+import type { CashTransaction, CashTransactionSummary } from "../services/cashTransaction";
+import ShiftClosureReceipt from "../components/ShiftClosureReceipt";
+import type { ShiftReceiptData } from "../components/ShiftClosureReceipt";
+import { useUserInfo } from "../hooks/useUserInfo";
 
 export default function ClosingShiftPage() {
   const navigate = useNavigate();
@@ -62,12 +67,30 @@ export default function ClosingShiftPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [invoiceToDelete, setInvoiceToDelete] = useState<SalesInvoice | null>(null);
 
+  // Cash transactions state
+  const [cashTransactions, setCashTransactions] = useState<CashTransaction[]>([]);
+  const [cashSummary, setCashSummary] = useState<CashTransactionSummary>({ cash_in: 0, cash_out: 0, net: 0 });
+
   const { invoices, isLoading,  error,  } = useSalesInvoices();
   const { modes, isLoading: modesLoading, error: modesError } = useAllPaymentModes()
   const { posDetails } = usePOSDetails();
+  const { userInfo } = useUserInfo();
+
+  // Shift closure receipt state
+  const [showReceipt, setShowReceipt] = useState(false);
+  const [receiptData, setReceiptData] = useState<ShiftReceiptData | null>(null);
 
 
   const hideExpectedAmount = posDetails?.custom_hide_expected_amount || false;
+
+  useEffect(() => {
+    getCashTransactions(posDetails?.current_opening_entry || undefined).then(res => {
+      if (res.success) {
+        setCashTransactions(res.data);
+        setCashSummary(res.summary);
+      }
+    });
+  }, [posDetails?.current_opening_entry]);
 
   const filterInvoiceByDate = (invoiceDateStr: string) => {
     if (dateFilter === "all") return true;
@@ -384,6 +407,31 @@ export default function ClosingShiftPage() {
       await createClosingEntry(closingBalanceArray);
       setShowCloseModal(false);
 
+      // Build receipt data before clearing cache
+      const breakdown = Object.values(paymentStats).map((stat: any) => ({
+        mode: stat.name,
+        openingAmount: stat.openingAmount || 0,
+        salesAmount: stat.amount - (stat.openingAmount || 0),
+        closingAmount: (closingAmounts as any)[stat.name] || 0,
+        difference: ((closingAmounts as any)[stat.name] || 0) - stat.amount,
+      }));
+
+      const receipt: ShiftReceiptData = {
+        companyName: posDetails?.company || posDetails?.name,
+        posProfile: posDetails?.name || "",
+        cashierName: userInfo?.full_name || userInfo?.user || "",
+        openingDate: posDetails?.current_opening_entry ? new Date().toLocaleString("en-SA", { hour12: false }) : "",
+        closingDate: new Date().toLocaleString("en-SA", { hour12: false }),
+        currency: posDetails?.currency || "SAR",
+        paymentBreakdown: breakdown,
+        cashTransactions,
+        cashSummary,
+        totalSales: filteredInvoices.filter(i => i.status !== "Return" && i.status !== "Cancelled" && i.status !== "Draft").length,
+        totalQuantity: filteredInvoices.filter(i => i.status !== "Return" && i.status !== "Cancelled" && i.status !== "Draft").length,
+      };
+      setReceiptData(receipt);
+      setShowReceipt(true);
+
       // Clear frontend caches
       clearAllCache();
 
@@ -402,9 +450,6 @@ export default function ClosingShiftPage() {
         console.warn('Failed to clear backend cache after close:', e);
       }
 
-      // Navigate to POS home for a fresh start without full reload
-      navigate('/pos');
-      toast.success("Shift closed successfully");
     } catch (err: any) {
       console.error("Error closing shift:", err);
       toast.error(err.message || "Failed to close shift. Please try again.");
@@ -738,6 +783,17 @@ export default function ClosingShiftPage() {
 
         {/* Bottom Navigation */}
         <BottomNavigation />
+
+        {/* Shift Closure Receipt (mobile) */}
+        {showReceipt && receiptData && (
+          <ShiftClosureReceipt
+            data={receiptData}
+            onClose={() => {
+              setShowReceipt(false);
+              navigate('/pos');
+            }}
+          />
+        )}
       </div>
     );
   }
@@ -806,9 +862,6 @@ export default function ClosingShiftPage() {
                                               {/* @ts-expect-error just ignore */}
                         {formatCurrency(stat.amount, posDetails?.currency || 'USD')}
                       </div>
-                      {/* <div className="text-sm text-gray-600 dark:text-gray-400">
-                        {stat.transactions} transactions
-                      </div> */}
                       <div className="text-sm text-gray-600 dark:text-gray-400">
                                               {/* @ts-expect-error just ignore */}
                         {total > 0 ? ((stat.amount / total) * 100).toFixed(1) : 0}% of total
@@ -818,6 +871,54 @@ export default function ClosingShiftPage() {
                 ))}
               </div>
             </>
+          )}
+
+          {/* Cash In / Cash Out Summary */}
+          {(cashSummary.cash_in > 0 || cashSummary.cash_out > 0 || cashTransactions.length > 0) && (
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 overflow-hidden">
+              <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Cash In / Out Transactions</h3>
+                <div className="flex gap-4 text-sm font-medium">
+                  <span className="text-green-600">In: {formatCurrency(cashSummary.cash_in, posDetails?.currency || 'SAR')}</span>
+                  <span className="text-red-600">Out: {formatCurrency(cashSummary.cash_out, posDetails?.currency || 'SAR')}</span>
+                  <span className={cashSummary.net >= 0 ? 'text-ziditech-600' : 'text-red-600'}>
+                    Net: {formatCurrency(cashSummary.net, posDetails?.currency || 'SAR')}
+                  </span>
+                </div>
+              </div>
+              {cashTransactions.length > 0 && (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 dark:bg-gray-700">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Type</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Amount</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Description</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Time</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
+                      {cashTransactions.map((txn) => (
+                        <tr key={txn.name} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                          <td className="px-6 py-3 whitespace-nowrap">
+                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${txn.transaction_type === 'Cash In' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                              {txn.transaction_type}
+                            </span>
+                          </td>
+                          <td className="px-6 py-3 whitespace-nowrap text-sm font-bold text-gray-900 dark:text-white">
+                            {formatCurrency(txn.amount, posDetails?.currency || 'SAR')}
+                          </td>
+                          <td className="px-6 py-3 text-sm text-gray-600 dark:text-gray-400">{txn.description}</td>
+                          <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                            {txn.posting_date} {txn.posting_time}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           )}
 
           {/* Filters */}
@@ -1097,6 +1198,17 @@ export default function ClosingShiftPage() {
           confirmButtonClass="bg-red-600 hover:bg-red-700 text-white"
         />
       </div>
+
+      {/* Shift Closure Receipt */}
+      {showReceipt && receiptData && (
+        <ShiftClosureReceipt
+          data={receiptData}
+          onClose={() => {
+            setShowReceipt(false);
+            navigate('/pos');
+          }}
+        />
+      )}
     </div>
   );
 }

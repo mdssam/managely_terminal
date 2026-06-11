@@ -3,7 +3,33 @@
  * Dynamically injects ingredient modifier logic into the standard POS.
  */
 
-console.log("🚀 Loading Sultan POS Interceptor...");
+// ── One-time stale meta purge ────────────────────────────────────────────────
+// Frappe caches form metadata in localStorage.  When we reposition custom
+// fields the browser may still render the old layout.  This block runs once
+// per session, clears every localStorage key that contains the affected
+// doctype names, and forces a page reload so the fresh metadata is fetched.
+(function purgeStaleMeta() {
+    var VER = "sultan_meta_v5_src_wh";
+    if (sessionStorage.getItem(VER)) return;
+    sessionStorage.setItem(VER, "1");
+    try {
+        Object.keys(localStorage).forEach(function (k) {
+            if (
+                k.indexOf("Sales Invoice") !== -1 ||
+                k.indexOf("Purchase Invoice") !== -1 ||
+                k.indexOf("sales_invoice") !== -1 ||
+                k.indexOf("purchase_invoice") !== -1
+            ) {
+                localStorage.removeItem(k);
+            }
+        });
+    } catch (e) { /* ignore quota / security errors */ }
+    // Reload so Frappe re-fetches fresh metadata from the server.
+    window.location.reload(true);
+})();
+// ────────────────────────────────────────────────────────────────────────────
+
+console.log("Sultan POS Interceptor loading...");
 
 // ─── Shortcut Redirect: /app/sultan_pos → /sultan_spa/ ───────────────────────
 // The ERPNext desk shortcut tries to render sultan_pos inline (via AJAX+eval),
