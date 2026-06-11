@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { X, ArrowDownCircle, ArrowUpCircle, Loader2 } from "lucide-react"
 import { createCashTransaction } from "../services/cashTransaction"
 import { toast } from "react-toastify"
@@ -20,6 +20,13 @@ export default function CashIOModal({
   const [description, setDescription] = useState("")
   const [modeOfPayment, setModeOfPayment] = useState(allowedModes[0] ?? "")
   const [loading, setLoading] = useState(false)
+
+  // allowedModes loads async — sync the selected mode whenever the list arrives
+  useEffect(() => {
+    if (allowedModes.length > 0 && !modeOfPayment) {
+      setModeOfPayment(allowedModes[0])
+    }
+  }, [allowedModes])
 
   if (!isOpen) return null
 
