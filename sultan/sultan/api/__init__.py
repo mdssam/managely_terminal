@@ -40,7 +40,24 @@ def generate_production_order(doc, method=None):
         is_fresh_produce = frappe.db.get_value("Item", item.item_code, "is_fresh_produce")
         if not is_fresh_produce:
             continue
-            
+
+        # Deduplication: Order Station may have already completed a WO for this item
+        # within the last 15 minutes — if so, the finished good is already in stock, skip.
+        cutoff = frappe.utils.add_to_date(frappe.utils.now_datetime(), minutes=-15)
+        already_done = frappe.db.get_value(
+            "Work Order",
+            {
+                "production_item": item.item_code,
+                "qty": [">=", item.qty],
+                "status": "Completed",
+                "company": doc.company,
+                "creation": [">", cutoff],
+            },
+            "name",
+        )
+        if already_done:
+            continue
+
         # Get active BOM for the item
         bom_no = frappe.db.get_value("BOM", {"item": item.item_code, "is_active": 1, "docstatus": 1})
         if not bom_no:
