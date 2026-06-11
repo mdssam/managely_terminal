@@ -3,18 +3,23 @@ from frappe import _
 
 
 def create_delivery_note_from_sales_invoice(doc, method=None):
-    if doc.doctype != "Sales Invoice" or doc.docstatus != 1 or doc.update_stock:
+    if doc.doctype != "Sales Invoice" or doc.docstatus != 1:
         return
     if not _has_stock_items(doc.items):
         return
 
+    # When invoice already updates stock (update_stock=1), create a Draft DN for
+    # tracking/printing only — don't submit, as stock was already deducted by the invoice.
+    # When update_stock=0, submit the DN so it handles the stock deduction.
+    submit_dn = not doc.update_stock
+
     if doc.is_return:
-        _create_return_delivery_note(doc)
+        _create_return_delivery_note(doc, submit_dn=submit_dn)
     else:
-        _create_forward_delivery_note(doc)
+        _create_forward_delivery_note(doc, submit_dn=submit_dn)
 
 
-def _create_forward_delivery_note(doc):
+def _create_forward_delivery_note(doc, submit_dn=True):
     if _linked_submitted_doc_exists("Delivery Note Item", "against_sales_invoice", doc.name):
         return
     try:
@@ -33,8 +38,9 @@ def _create_forward_delivery_note(doc):
 
         dn.flags.ignore_permissions = True
         dn.insert(ignore_permissions=True)
-        dn.flags.ignore_permissions = True
-        dn.submit()
+        if submit_dn:
+            dn.flags.ignore_permissions = True
+            dn.submit()
     except Exception:
         frappe.log_error(
             frappe.get_traceback(),
@@ -42,7 +48,7 @@ def _create_forward_delivery_note(doc):
         )
 
 
-def _create_return_delivery_note(doc):
+def _create_return_delivery_note(doc, submit_dn=True):
     """Create a return Delivery Note when a Sales Return invoice is submitted."""
     original_invoice = doc.return_against
     if not original_invoice:
@@ -77,8 +83,9 @@ def _create_return_delivery_note(doc):
 
         return_dn.flags.ignore_permissions = True
         return_dn.insert(ignore_permissions=True)
-        return_dn.flags.ignore_permissions = True
-        return_dn.submit()
+        if submit_dn:
+            return_dn.flags.ignore_permissions = True
+            return_dn.submit()
     except Exception:
         frappe.log_error(
             frappe.get_traceback(),
@@ -172,14 +179,12 @@ def _create_return_purchase_receipt(doc):
 
 def validate_target_warehouse(doc, method=None):
     """Block submission if custom_target_warehouse is empty and the invoice has stock items."""
-    if doc.update_stock:
-        return
     if not _has_stock_items(doc.items):
         return
     if not doc.get("custom_target_warehouse"):
         frappe.throw(
             _("Please set the <b>Target Warehouse</b> before submitting. "
-              "It is required to generate the automatic stock document."),
+              "It is required to generate the automatic Delivery Note."),
             title=_("Target Warehouse Required"),
         )
 
