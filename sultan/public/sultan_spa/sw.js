@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sultan-pos-v1780638988096';
+const CACHE_NAME = 'sultan-pos-v1781204695847';
 const URLS_TO_CACHE = [
   "/sultan_spa/",
   "/assets/sultan/sultan_spa/favicon.png",
