@@ -83,25 +83,9 @@
 		});
 	}
 
-	// set_warehouse ("Source Warehouse") has depends_on='update_stock' in ERPNext,
-	// which hides it when update_stock=0.  We always need it for auto-DN/PR creation,
-	// so clear the condition in-memory and force-show the field on every form refresh.
-	function forceShowWarehouseField(frm) {
-		if (!["Sales Invoice", "Purchase Invoice"].includes(frm.doctype)) return;
-		const fd = frm.fields_dict["set_warehouse"];
-		if (!fd) return;
-		fd.df.depends_on = "";
-		fd.df.hidden = 0;
-		fd.df.reqd = 1;
-		fd.df.bold = 1;
-		if (fd.$wrapper) fd.$wrapper.show();
-		frm.refresh_field("set_warehouse");
-	}
-
 	function setupTransactionForm(doctype) {
 		frappe.ui.form.on(doctype, {
 			refresh(frm) {
-				forceShowWarehouseField(frm);
 				if (!frm.doc.custom_exchange_rate_override) {
 					frm.set_value("custom_exchange_rate_override", DEFAULT_LBP_PER_USD);
 				}
