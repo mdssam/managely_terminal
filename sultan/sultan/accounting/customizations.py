@@ -10,7 +10,7 @@ TRANSACTION_DOCTYPES = ("Sales Invoice", "Purchase Invoice", "Payment Entry", "J
 
 
 def setup_custom_fields():
-	"""Create sultan accounting custom fields (safe insert-only — skips existing fields)."""
+	"""Create/update sultan accounting custom fields."""
 	si_parent = _transaction_parent_fields("Sales Invoice", "customer")
 	pi_parent = _transaction_parent_fields("Purchase Invoice", "bill_no", "bill_no")
 	pe_parent = _transaction_parent_fields("Payment Entry", "party", "paid_to_account_currency")
@@ -25,7 +25,10 @@ def setup_custom_fields():
 				"label": "Target Warehouse",
 				"fieldtype": "Link",
 				"options": "Warehouse",
-				"insert_after": "set_warehouse",
+				# Placed right after customer so it's immediately visible on the form
+				"insert_after": "customer",
+				"reqd": 1,
+				"bold": 1,
 				"description": "Warehouse for the auto-generated Delivery Note / Return.",
 			}
 		]
@@ -44,7 +47,10 @@ def setup_custom_fields():
 				"label": "Target Warehouse",
 				"fieldtype": "Link",
 				"options": "Warehouse",
-				"insert_after": "set_warehouse",
+				# Placed right after supplier so it's immediately visible on the form
+				"insert_after": "supplier",
+				"reqd": 1,
+				"bold": 1,
 				"description": "Warehouse for the auto-generated Purchase Receipt / Return.",
 			},
 		]
@@ -58,16 +64,24 @@ def setup_custom_fields():
 
 	count = 0
 	for f in fields:
-		if not frappe.db.exists("Custom Field", {"dt": f["dt"], "fieldname": f["fieldname"]}):
+		cf_name = frappe.db.get_value("Custom Field", {"dt": f["dt"], "fieldname": f["fieldname"]})
+		if not cf_name:
 			doc = frappe.new_doc("Custom Field")
 			doc.update(f)
 			doc.flags.ignore_permissions = True
 			doc.insert(ignore_permissions=True)
 			count += 1
+		else:
+			# Update position and mandatory flag on existing fields (safe direct DB update)
+			update_data = {k: v for k, v in f.items() if k in (
+				"insert_after", "reqd", "bold", "hidden", "description", "label"
+			)}
+			if update_data:
+				frappe.db.set_value("Custom Field", cf_name, update_data)
 
 	frappe.db.commit()
 	frappe.clear_cache()
-	return f"Created {count} accounting custom fields."
+	return f"Created/updated {count} accounting custom fields."
 
 
 def _transaction_parent_fields(dt, insert_after, exchange_insert_after="currency"):
