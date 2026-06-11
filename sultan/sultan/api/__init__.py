@@ -48,16 +48,24 @@ def generate_production_order(doc, method=None):
             continue
             
         # Create a new Work Order
+        source_wh = item.warehouse or doc.set_warehouse
+        wip_wh = (
+            doc.get("wip_warehouse")
+            or frappe.db.get_single_value("Manufacturing Settings", "default_wip_warehouse")
+            or source_wh
+        )
         wo = frappe.get_doc({
             "doctype": "Work Order",
             "production_item": item.item_code,
             "bom_no": bom_no,
             "qty": item.qty,
-            "source_warehouse": item.warehouse or doc.set_warehouse,
-            "wip_warehouse": doc.get("wip_warehouse") or frappe.db.get_single_value("Manufacturing Settings", "default_wip_warehouse") or (item.warehouse or doc.set_warehouse),
-            "fg_warehouse": item.warehouse or doc.set_warehouse,
+            "source_warehouse": source_wh,
+            "wip_warehouse": wip_wh,
+            "fg_warehouse": source_wh,
             "company": doc.company,
             "planned_start_date": frappe.utils.now_datetime(),
+            # Skip material-transfer step so Manufacture SE consumes from source_warehouse directly
+            "skip_transfer": 1,
             "custom_pos_invoice": doc.name if doc.doctype == "POS Invoice" else None,
             "custom_sales_order": doc.name if doc.doctype == "Sales Order" else None,
             "custom_sales_invoice": doc.name if doc.doctype == "Sales Invoice" else None,
@@ -97,6 +105,10 @@ def complete_work_order_manufacture(work_order_name):
             return
 
         stock_entry = frappe.get_doc(make_stock_entry(work_order.name, "Manufacture", pending_qty))
+        # Allow consuming raw materials even if stock goes negative (fresh produce scenario)
+        stock_entry.set_missing_values()
+        for row in stock_entry.items:
+            row.allow_zero_valuation_rate = 1
         stock_entry.flags.ignore_permissions = True
         stock_entry.insert(ignore_permissions=True)
         stock_entry.flags.ignore_permissions = True
