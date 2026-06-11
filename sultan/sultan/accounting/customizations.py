@@ -2,7 +2,6 @@ import re
 
 import frappe
 from frappe import _
-from frappe.custom.doctype.custom_field.custom_field import create_custom_fields
 from frappe.utils import flt
 
 
@@ -11,61 +10,77 @@ TRANSACTION_DOCTYPES = ("Sales Invoice", "Purchase Invoice", "Payment Entry", "J
 
 
 def setup_custom_fields():
-	create_custom_fields(
-		{
-			"Sales Invoice": _transaction_parent_fields("customer") + [
-				{
-					"fieldname": "custom_target_warehouse",
-					"label": "Target Warehouse",
-					"fieldtype": "Link",
-					"options": "Warehouse",
-					"insert_after": "set_warehouse",
-					"reqd": 0,
-					"description": "Warehouse used for the auto-generated Delivery Note / Return. Required when invoice has stock items.",
-					"translatable": 0,
-				}
-			],
-			"Purchase Invoice": _transaction_parent_fields("bill_no")
-			+ [
-				{
-					"fieldname": "custom_supplier_invoice_number",
-					"label": "Supplier Invoice Number",
-					"fieldtype": "Data",
-					"insert_after": "bill_no",
-					"translatable": 0,
-				},
-				{
-					"fieldname": "custom_target_warehouse",
-					"label": "Target Warehouse",
-					"fieldtype": "Link",
-					"options": "Warehouse",
-					"insert_after": "set_warehouse",
-					"reqd": 0,
-					"description": "Warehouse used for the auto-generated Purchase Receipt / Return. Required when invoice has stock items.",
-					"translatable": 0,
-				},
-			],
-			"Payment Entry": _transaction_parent_fields("party", "paid_to_account_currency"),
-			"Journal Entry": _transaction_parent_fields("user_remark", "user_remark"),
-			"Sales Invoice Item": _dual_currency_child_fields("amount"),
-			"Purchase Invoice Item": _dual_currency_child_fields("amount"),
-			"Payment Entry Reference": _dual_currency_child_fields("allocated_amount"),
-			"Journal Entry Account": _dual_currency_child_fields("credit_in_account_currency"),
-		},
-		update=True,
+	"""Create sultan accounting custom fields (safe insert-only — skips existing fields)."""
+	si_parent = _transaction_parent_fields("Sales Invoice", "customer")
+	pi_parent = _transaction_parent_fields("Purchase Invoice", "bill_no", "bill_no")
+	pe_parent = _transaction_parent_fields("Payment Entry", "party", "paid_to_account_currency")
+	je_parent = _transaction_parent_fields("Journal Entry", "user_remark", "user_remark")
+
+	fields = (
+		si_parent
+		+ [
+			{
+				"dt": "Sales Invoice",
+				"fieldname": "custom_target_warehouse",
+				"label": "Target Warehouse",
+				"fieldtype": "Link",
+				"options": "Warehouse",
+				"insert_after": "set_warehouse",
+				"description": "Warehouse for the auto-generated Delivery Note / Return.",
+			}
+		]
+		+ pi_parent
+		+ [
+			{
+				"dt": "Purchase Invoice",
+				"fieldname": "custom_supplier_invoice_number",
+				"label": "Supplier Invoice Number",
+				"fieldtype": "Data",
+				"insert_after": "bill_no",
+			},
+			{
+				"dt": "Purchase Invoice",
+				"fieldname": "custom_target_warehouse",
+				"label": "Target Warehouse",
+				"fieldtype": "Link",
+				"options": "Warehouse",
+				"insert_after": "set_warehouse",
+				"description": "Warehouse for the auto-generated Purchase Receipt / Return.",
+			},
+		]
+		+ pe_parent
+		+ je_parent
+		+ _dual_currency_child_fields("Sales Invoice Item", "amount")
+		+ _dual_currency_child_fields("Purchase Invoice Item", "amount")
+		+ _dual_currency_child_fields("Payment Entry Reference", "allocated_amount")
+		+ _dual_currency_child_fields("Journal Entry Account", "credit_in_account_currency")
 	)
+
+	count = 0
+	for f in fields:
+		if not frappe.db.exists("Custom Field", {"dt": f["dt"], "fieldname": f["fieldname"]}):
+			doc = frappe.new_doc("Custom Field")
+			doc.update(f)
+			doc.flags.ignore_permissions = True
+			doc.insert(ignore_permissions=True)
+			count += 1
+
+	frappe.db.commit()
 	frappe.clear_cache()
+	return f"Created {count} accounting custom fields."
 
 
-def _transaction_parent_fields(insert_after, exchange_insert_after="currency"):
+def _transaction_parent_fields(dt, insert_after, exchange_insert_after="currency"):
 	return [
 		{
+			"dt": dt,
 			"fieldname": "custom_transaction_description",
 			"label": "Description",
 			"fieldtype": "Small Text",
 			"insert_after": insert_after,
 		},
 		{
+			"dt": dt,
 			"fieldname": "custom_exchange_rate_override",
 			"label": "Exchange Rate Override (LBP/USD)",
 			"fieldtype": "Float",
@@ -76,9 +91,10 @@ def _transaction_parent_fields(insert_after, exchange_insert_after="currency"):
 	]
 
 
-def _dual_currency_child_fields(insert_after):
+def _dual_currency_child_fields(dt, insert_after):
 	return [
 		{
+			"dt": dt,
 			"fieldname": "custom_usd_amount",
 			"label": "USD Amount",
 			"fieldtype": "Currency",
@@ -87,6 +103,7 @@ def _dual_currency_child_fields(insert_after):
 			"in_list_view": 1,
 		},
 		{
+			"dt": dt,
 			"fieldname": "custom_lbp_amount",
 			"label": "LBP Amount",
 			"fieldtype": "Currency",

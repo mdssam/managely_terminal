@@ -97,6 +97,11 @@ website_route_rules = [
 # before_install = "sultan.install.before_install"
 # after_install = "sultan.install.after_install"
 
+after_migrate = [
+    "sultan.sultan.api.setup_custom_fields",
+    "sultan.sultan.accounting.customizations.setup_custom_fields",
+]
+
 # Uninstallation
 # ------------
 
