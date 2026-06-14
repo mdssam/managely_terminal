@@ -173,7 +173,10 @@ export function usePOSDetails() {
         if (response.ok && data.message) {
           setPOSDetails(data.message as POSDetails)
           if (typeof window !== 'undefined') {
-            localStorage.setItem('cached_pos_details', JSON.stringify(data.message));
+            // Don't cache the synthetic System Default placeholder — it lacks a real profile
+            if (data.message?.name && data.message.name !== 'System Default') {
+              localStorage.setItem('cached_pos_details', JSON.stringify(data.message));
+            }
           }
         } else {
           throw new Error(data._server_messages || "Failed to fetch POS details")

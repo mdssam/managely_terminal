@@ -921,7 +921,13 @@ def get_stock_updates():
 		pos_doc = None
 
 	if not pos_doc:
-		pos_doc = get_current_pos_profile()
+		try:
+			pos_doc = get_current_pos_profile()
+		except Exception:
+			pos_doc = None
+
+	if not pos_doc:
+		return {}
 
 	warehouse = pos_doc.warehouse
 	hide_unavailable = getattr(pos_doc, "hide_unavailable_items", False)

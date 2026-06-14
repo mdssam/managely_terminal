@@ -15,13 +15,15 @@ interface CurrentUser {
 
 interface POSOpeningEntryGuardProps {
   children: React.ReactNode;
-
   excludePaths?: string[];
 }
 
 /**
- * Guard component that ensures a POS opening entry exists before allowing access to protected pages.
- * Shows the opening entry modal when no entry is found and blocks access to page content.
+ * Guard that ensures a POS opening entry exists before allowing access.
+ *
+ * Cashier role: shows the opening modal when no session is found.
+ * Menu User role: shows a "waiting for cashier" message — they can never
+ *   open/close shifts and are auto-attached via the backend.
  */
 export default function POSOpeningEntryGuard({
   children,
@@ -35,8 +37,8 @@ export default function POSOpeningEntryGuard({
   const [userLoading, setUserLoading] = useState(true);
   const [userError, setUserError] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [posRole, setPosRole] = useState<string>('Cashier');
 
-  // Check POS opening status
   const {
     hasOpenEntry,
     isLoading: statusLoading,
@@ -44,19 +46,17 @@ export default function POSOpeningEntryGuard({
     refetch
   } = usePOSOpeningStatus();
 
-  // Check if current path should be excluded
   const shouldExclude = () => {
     const currentPath = location.pathname;
     return excludePaths.some(path => currentPath.includes(path));
   };
 
-  // Fetch current user
+  // Fetch user + their POS-profile-specific role
   useEffect(() => {
     const fetchCurrentUser = async () => {
       try {
         setUserLoading(true);
         setUserError(null);
-
         erpnextAPI.initializeSession();
 
         const userProfile = await erpnextAPI.getCurrentUserProfile();
@@ -70,18 +70,26 @@ export default function POSOpeningEntryGuard({
             user_image: userProfile.user_image
           });
         } else {
-          // Fallback to basic user info
           const basicUser = await erpnextAPI.getCurrentUser();
           if (basicUser) {
-            setCurrentUser({
-              name: basicUser as string,
-              email: basicUser as string,
-              full_name: basicUser as string,
-              role: 'User'
-            });
+            setCurrentUser({ name: basicUser as string, email: basicUser as string, full_name: basicUser as string, role: 'User' });
           } else {
             setUserError('No user session found');
           }
+        }
+
+        // Fetch POS-profile-specific role from sultan API
+        try {
+          const roleRes = await fetch('/api/method/sultan.sultan.api.user.get_current_user_info', {
+            credentials: 'include',
+            headers: { 'Accept': 'application/json' }
+          });
+          const roleData = await roleRes.json();
+          if (roleData?.message?.success && roleData.message.data?.role) {
+            setPosRole(roleData.message.data.role);
+          }
+        } catch {
+          // Role fetch failure is non-fatal; default to Cashier
         }
       } catch (error) {
         console.error('Error fetching current user:', error);
@@ -94,109 +102,62 @@ export default function POSOpeningEntryGuard({
     fetchCurrentUser();
   }, []);
 
-  // Refetch opening entry status when route changes (silently in background)
-  // This ensures we check for opening entry on every navigation without blocking UI
   useEffect(() => {
-    if (shouldExclude()) {
-      return;
-    }
-
-    // Only refetch if we already have a status (don't block on first load)
-    // This allows background refresh without showing loading screen
-    if (hasOpenEntry !== null && isInitialized) {
-      refetch();
-    }
+    if (shouldExclude()) return;
+    if (hasOpenEntry !== null && isInitialized) refetch();
   }, [location.pathname, refetch, hasOpenEntry, isInitialized]);
 
-  // This helps detect if opening entry was closed from ERPNext while user was away
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        const currentPath = location.pathname;
-        const isExcluded = excludePaths.some(path => currentPath.includes(path));
-        if (!isExcluded) {
-          refetch();
-        }
+        const isExcluded = excludePaths.some(path => location.pathname.includes(path));
+        if (!isExcluded) refetch();
       }
     };
-
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [refetch, location.pathname, excludePaths]);
 
-  // Re-check when route changes or opening entry status changes
   useEffect(() => {
-    if (shouldExclude()) {
-      setIsInitialized(true);
-      setShowOpeningModal(false);
-      return;
-    }
+    if (shouldExclude()) { setIsInitialized(true); setShowOpeningModal(false); return; }
 
-    // On initial load, wait for both status and user to be loaded
-    // On subsequent navigations, use cached data and update when refetch completes
     const isInitialCheck = hasOpenEntry === null;
+    if (isInitialCheck && (statusLoading || userLoading)) return;
+    if (userError) { setIsInitialized(true); setShowOpeningModal(false); return; }
 
-    if (isInitialCheck && (statusLoading || userLoading)) {
-      return; // Wait for initial load
-    }
-
-    if (userError) {
-      setIsInitialized(true);
-      setShowOpeningModal(false);
-      return;
-    }
-
-    // Check opening entry status
-    // If we have cached data, update immediately even if refetch is in progress
     if (hasOpenEntry !== null) {
       if (hasOpenEntry === true) {
-        // Opening entry exists, allow access
         setShowOpeningModal(false);
         setIsInitialized(true);
       } else {
-        setShowOpeningModal(true);
+        // Menu Users never see the opening modal — they wait for a Cashier
+        setShowOpeningModal(posRole !== 'Menu User');
         setIsInitialized(true);
       }
     } else if (!statusLoading && statusError) {
       if (typeof window !== 'undefined' && !navigator.onLine) {
-        // If offline, bypass the block and let the children render
         setShowOpeningModal(false);
-        setIsInitialized(true);
       } else {
-        // Only show error modal if we don't have cached data
-        setShowOpeningModal(true);
-        setIsInitialized(true);
+        setShowOpeningModal(posRole !== 'Menu User');
       }
+      setIsInitialized(true);
     }
-  }, [hasOpenEntry, statusLoading, statusError, userLoading, userError, location.pathname]);
+  }, [hasOpenEntry, statusLoading, statusError, userLoading, userError, location.pathname, posRole]);
 
-  // Handle successful opening entry creation
   const handleOpeningSuccess = () => {
     setShowOpeningModal(false);
     setIsInitialized(true);
     setTimeout(() => {
       refetch();
-      // Redirect to POS after session is opened
-      if (location.pathname !== '/pos') {
-        navigate('/pos');
-      }
+      if (location.pathname !== '/pos') navigate('/pos');
     }, 500);
   };
 
-  const handleOpeningClose = () => {
+  const handleOpeningClose = () => {};
 
-  };
-
-  // If path is excluded, render children directly
-  if (shouldExclude()) {
-    return <>{children}</>;
-  }
-
+  if (shouldExclude()) return <>{children}</>;
 
   const shouldShowLoading = hasOpenEntry === null && (statusLoading || userLoading);
-
   if (shouldShowLoading) {
     return (
       <div className={`min-h-screen bg-gray-50 ${isRTL ? "rtl" : "ltr"} flex items-center justify-center`}>
@@ -209,15 +170,40 @@ export default function POSOpeningEntryGuard({
     );
   }
 
-  // If no opening entry (false or null), show modal and block access to children
+  // Menu User with no active session — cannot open a shift; must wait
+  if (hasOpenEntry !== true && posRole === 'Menu User') {
+    return (
+      <div className={`min-h-screen bg-gray-50 ${isRTL ? "rtl" : "ltr"} flex items-center justify-center`}>
+        <div className="text-center max-w-sm px-6">
+          <div className="w-16 h-16 rounded-full bg-amber-100 flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">Waiting for Session</h2>
+          <p className="text-gray-600 text-sm mb-6">
+            No active POS session has been opened for this branch yet.
+            Please wait for the Cashier to open a shift.
+          </p>
+          <button
+            onClick={() => refetch()}
+            className="px-5 py-2 text-sm font-semibold text-white rounded-lg"
+            style={{ backgroundColor: '#1e2d6b' }}
+          >
+            Check Again
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // No opening entry — show modal for Cashier, block UI
   if (hasOpenEntry !== true) {
     return (
       <>
         <div className="min-h-screen bg-gray-50 flex items-center justify-center pointer-events-none opacity-50">
           {children}
         </div>
-
-        {/* Show opening entry modal */}
         <POSOpeningModal
           isOpen={showOpeningModal}
           onClose={handleOpeningClose}

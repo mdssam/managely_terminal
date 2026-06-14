@@ -16,11 +16,15 @@ _cached_item_accounts = {}
 
 def get_current_pos_opening_entry():
 	"""
-	Get the latest active POS Opening Entry for the current user across ALL profiles.
-	Returns the opening entry name or None if not found.
+	Get the active POS Opening Entry for the current user.
+
+	Cashier: returns their own open entry.
+	Menu User: auto-attaches to the profile's active open entry.
 	"""
 	try:
 		user = frappe.session.user
+
+		# Own session first (Cashier / Admin path)
 		opening_entries = frappe.get_all(
 			"POS Opening Entry",
 			filters={"user": user, "docstatus": 1, "status": "Open"},
@@ -28,9 +32,25 @@ def get_current_pos_opening_entry():
 			order_by="creation desc",
 			limit_page_length=1,
 		)
-
 		if opening_entries:
 			return opening_entries[0].name
+
+		# Menu User: auto-attach to the profile's active session
+		from sultan.sultan.utils import get_user_pos_profile_name, get_user_pos_role
+		pos_profile_name = get_user_pos_profile_name(user)
+		if pos_profile_name:
+			user_role = get_user_pos_role(user, pos_profile_name)
+			if user_role == "Menu User":
+				profile_entries = frappe.get_all(
+					"POS Opening Entry",
+					filters={"pos_profile": pos_profile_name, "docstatus": 1, "status": "Open"},
+					fields=["name"],
+					order_by="creation desc",
+					limit_page_length=1,
+				)
+				if profile_entries:
+					return profile_entries[0].name
+
 		return None
 	except Exception as e:
 		frappe.log_error(f"Error getting current POS opening entry: {e!s}")
@@ -930,6 +950,7 @@ def _set_pos_profile_fields(doc, pos_profile, customer, business_type):
 	doc.conversion_rate = 1.0
 	doc.update_stock = 1
 	doc.warehouse = pos_profile.warehouse
+	doc.set_warehouse = pos_profile.warehouse
 
 	# Determine if this is a POS invoice
 	doc.is_pos = _determine_is_pos(customer, business_type)
@@ -1215,6 +1236,7 @@ def _prepare_item_data(item, item_data_map, pos_profile):
 		"income_account": income_account,
 		"expense_account": expense_account,
 		"warehouse": pos_profile.warehouse,
+		"source_warehouse": pos_profile.warehouse,
 		"cost_center": pos_profile.cost_center,
 	}
 
