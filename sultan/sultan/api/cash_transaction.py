@@ -12,16 +12,23 @@ from sultan.sultan.doctype.pos_suspended_transaction.pos_suspended_transaction i
     create_cash_transaction_from_pos,
 )
 
+_SYNTHETIC_PROFILE = "System Default"
+
 
 @frappe.whitelist()
 def get_cash_io_config(pos_profile=None):
-    """Return whether the Cash I/O feature is enabled for the given POS profile."""
-    if not pos_profile:
+    """Return whether the Cash I/O feature is enabled for the given POS profile.
+
+    "System Default" is a synthetic sentinel returned by get_pos_details when no
+    real POS profile is resolved (e.g. stale localStorage cache). Treat it the same
+    as an absent profile and resolve from the user's active opening entry instead.
+    """
+    if not pos_profile or pos_profile == _SYNTHETIC_PROFILE:
         opening_entry = get_current_pos_opening_entry()
         if opening_entry:
             pos_profile = frappe.db.get_value("POS Opening Entry", opening_entry, "pos_profile")
 
-    if not pos_profile:
+    if not pos_profile or pos_profile == _SYNTHETIC_PROFILE:
         return {"installed": True, "enabled": False, "allowed_modes": []}
 
     allowed_modes = frappe.get_all(

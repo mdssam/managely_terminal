@@ -19,11 +19,15 @@ def get_csrf_token():
 
 @frappe.whitelist()
 def open_pos():
-	"""Check if the current user has an open POS Opening Entry."""
+	"""Check if the current user has an accessible POS Opening Entry.
+
+	Cashier: checks the user's own open entry.
+	Menu User: auto-attaches to any active session on their assigned profile.
+	"""
 	user = frappe.session.user
 
-	# Look for any submitted POS Opening Entry with no linked closing entry for this user
-	open_entry = frappe.db.exists(
+	# Own session (Cashier / Admin path)
+	own_entry = frappe.db.exists(
 		"POS Opening Entry",
 		{
 			"user": user,
@@ -32,8 +36,70 @@ def open_pos():
 			"status": "Open",
 		},
 	)
+	if own_entry:
+		return True
 
-	return True if open_entry else False
+	# Menu User: attach to the profile's active session
+	from sultan.sultan.utils import get_user_pos_profile_name, get_user_pos_role
+	pos_profile_name = get_user_pos_profile_name(user)
+	if pos_profile_name:
+		user_role = get_user_pos_role(user, pos_profile_name)
+		if user_role == "Menu User":
+			profile_entry = frappe.db.exists(
+				"POS Opening Entry",
+				{"pos_profile": pos_profile_name, "docstatus": 1, "status": "Open"},
+			)
+			return bool(profile_entry)
+
+	return False
+
+
+@frappe.whitelist()
+def check_profile_session(pos_profile: str) -> dict:
+	"""Pre-shift validation: return any active session for this POS profile.
+
+	Called by the Cashier before opening a new shift so they can be warned
+	about a previous-day session that was never closed.
+	"""
+	if not pos_profile:
+		return {"has_active_session": False}
+
+	open_entries = frappe.get_all(
+		"POS Opening Entry",
+		filters={"pos_profile": pos_profile, "docstatus": 1, "status": "Open"},
+		fields=["name", "user", "period_start_date", "custom_employee", "custom_employee_name"],
+		limit=1,
+	)
+
+	if not open_entries:
+		return {"has_active_session": False}
+
+	entry = open_entries[0]
+	session_date = entry.period_start_date.date() if entry.period_start_date else None
+	is_previous_day = str(session_date) < str(frappe.utils.today()) if session_date else False
+
+	user_full_name = frappe.db.get_value("User", entry.user, "full_name") or entry.user
+
+	# Resolve employee name: opening entry → Employee doctype via user_id
+	employee_name = entry.custom_employee_name
+	if not employee_name and entry.custom_employee:
+		employee_name = frappe.db.get_value("Employee", entry.custom_employee, "employee_name")
+	if not employee_name:
+		employee_name = frappe.db.get_value(
+			"Employee",
+			{"user_id": entry.user, "status": "Active"},
+			"employee_name",
+		)
+
+	return {
+		"has_active_session": True,
+		"session_name": entry.name,
+		"session_user": entry.user,
+		"session_user_full_name": user_full_name,
+		"employee_name": employee_name,
+		"session_date": str(session_date) if session_date else None,
+		"is_previous_day": is_previous_day,
+	}
 
 
 @frappe.whitelist()

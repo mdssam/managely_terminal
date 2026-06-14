@@ -16,12 +16,16 @@ export function useCashIOFeature(posProfile?: string) {
 
   useEffect(() => {
     const key = posProfile ?? "";
-    if (_cache.config && _cache.posProfile === key) return;
+    // Only use the cache when it holds a positive (enabled) result.
+    // A cached enabled:false may be stale (profile loaded before session was ready).
+    if (_cache.config && _cache.config.enabled && _cache.posProfile === key) return;
 
     getCashIOConfig(posProfile).then((cfg) => {
-      _cache.config = cfg;
-      _cache.posProfile = key;
-      setConfig(cfg);
+      if (cfg?.enabled) {
+        _cache.config = cfg;
+        _cache.posProfile = key;
+      }
+      setConfig(cfg ?? { installed: false, enabled: false, allowed_modes: [] });
     });
   }, [posProfile]);
 

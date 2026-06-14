@@ -1,25 +1,17 @@
 import frappe
 from frappe import _
 
-# Performance optimization: Cache frequently accessed data per user and opening entry
-# Key: f"{user}|{opening_entry or 'none'}", Value: POS Profile name (identity only)
 _cached_pos_profiles = {}
 _cached_company_data = {}
 
 
 def get_current_pos_profile():
-	"""Get the active POS Profile with identity-only caching keyed by user and opening entry.
-
-	Returns a fresh POS Profile Doc each call to avoid stale field values.
-	"""
+	"""Get the active POS Profile with identity-only caching keyed by user and opening entry."""
 	user = frappe.session.user
-
 	from sultan.sultan.api.sales_invoice import get_current_pos_opening_entry
-
 	current_opening_entry = get_current_pos_opening_entry()
 	cache_key = f"{user}|{current_opening_entry or 'none'}"
 
-	# Resolve POS Profile name using cache identity
 	if cache_key in _cached_pos_profiles:
 		pos_profile_name = _cached_pos_profiles[cache_key]
 	else:
@@ -29,7 +21,6 @@ def get_current_pos_profile():
 		else:
 			pos_profile_name = frappe.get_value("POS Profile User", {"user": user}, "parent")
 			if not pos_profile_name:
-				# Fallback: check User Permissions for POS Profile
 				pos_profile_name = frappe.get_value(
 					"User Permission",
 					{"user": user, "allow": "POS Profile"},
@@ -37,14 +28,9 @@ def get_current_pos_profile():
 				)
 			if not pos_profile_name:
 				frappe.throw(_("No POS Profile found for user {0}").format(user))
-
-		# Cache identity (name) only
 		_cached_pos_profiles[cache_key] = pos_profile_name
 
-	# Mania: Always fetch a fresh doc to ensure latest fields -> Issue reported 04/11/2025
 	pos_profile_doc = frappe.get_doc("POS Profile", pos_profile_name)
-
-	# Dynamically override warehouse if user has a custom warehouse set in Applicable Users
 	custom_warehouse = frappe.db.get_value(
 		"POS Profile User",
 		{"parent": pos_profile_name, "user": user},
@@ -52,35 +38,49 @@ def get_current_pos_profile():
 	)
 	if custom_warehouse:
 		pos_profile_doc.warehouse = custom_warehouse
-
 	return pos_profile_doc
 
 
 def clear_pos_profile_cache(user=None):
-	"""Clear cached POS Profile identities. If user provided, clear all entries for that user."""
+	"""Clear cached POS Profile identities."""
 	global _cached_pos_profiles
-
 	if user:
-		# Clear all cache entries matching the user prefix
 		keys_to_delete = [k for k in list(_cached_pos_profiles.keys()) if k.startswith(f"{user}|")]
 		for k in keys_to_delete:
 			del _cached_pos_profiles[k]
 		if keys_to_delete:
 			frappe.logger().info(
-				f"🧹 POS Profile cache cleared for user: {user} ({len(keys_to_delete)} entries)"
+				f"POS Profile cache cleared for user: {user} ({len(keys_to_delete)} entries)"
 			)
 	else:
-		# Clear cache for current user
 		current_user = frappe.session.user
 		keys_to_delete = [k for k in list(_cached_pos_profiles.keys()) if k.startswith(f"{current_user}|")]
 		for k in keys_to_delete:
 			del _cached_pos_profiles[k]
-		if keys_to_delete:
-			frappe.logger().info(
-				f"🧹 POS Profile cache cleared for user: {current_user} ({len(keys_to_delete)} entries)"
-			)
 
 
 def get_user_default_company():
 	user = frappe.session.user
 	return frappe.defaults.get_user_default(user, "Company")
+
+
+def get_user_pos_profile_name(user: str):
+	"""Return the POS Profile name assigned to a user (User Permission first, then Applicable Users)."""
+	profile = frappe.db.get_value(
+		"User Permission",
+		{"user": user, "allow": "POS Profile"},
+		"for_value",
+	)
+	if not profile:
+		profile = frappe.db.get_value("POS Profile User", {"user": user}, "parent")
+	return profile
+
+
+def get_user_pos_role(user: str, pos_profile_name: str) -> str:
+	"""Return the custom POS role for a user within a profile, defaulting to 'Cashier'."""
+	role = frappe.db.get_value(
+		"POS Profile User",
+		{"parent": pos_profile_name, "user": user},
+		"custom_role",
+	)
+	return role or "Cashier"

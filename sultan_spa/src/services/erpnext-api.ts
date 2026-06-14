@@ -200,6 +200,16 @@ class ERPNextAPI {
             this.sessionId = sidMatch[1];
             localStorage.setItem('erpnext_sid', this.sessionId);
             console.log('Session ID stored:', this.sessionId);
+            // Fetch CSRF token so POST requests can proceed
+            try {
+              const csrfRes = await fetch('/api/method/sultan.sultan.api.employee_auth.get_pos_csrf_token', { credentials: 'include' });
+              const csrfData = await csrfRes.json();
+              if (csrfData?.message?.csrf_token) {
+                (window as any).csrf_token = csrfData.message.csrf_token;
+                (window as any).frappe = (window as any).frappe || {};
+                (window as any).frappe.csrf_token = csrfData.message.csrf_token;
+              }
+            } catch { /* non-fatal */ }
           }
         }
 
