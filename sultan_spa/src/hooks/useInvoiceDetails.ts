@@ -59,7 +59,7 @@ export function useInvoiceDetails(invoiceId: string | null) {
               status: "Pending",
               refundAmount: 0,
               custom_zatca_submit_status: "Pending",
-              currency: data.currency || "USD",
+              currency: data.currency || (typeof window !== 'undefined' ? sessionStorage.getItem('pos_currency') : null) || "",
               notes: "Offline Order - Pending Sync",
               posProfile: data.posProfile || "",
               custom_pos_opening_entry: "",

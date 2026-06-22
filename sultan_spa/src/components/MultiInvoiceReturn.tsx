@@ -65,7 +65,7 @@ export default function MultiInvoiceReturn({
   const { customers: searchableCustomers, isLoading: customersLoading } = useCustomers(customerSearchQuery);
   const { posDetails } = usePOSDetails();
   const { modes: paymentModes } = usePaymentModes(typeof posDetails?.name === 'string' ? posDetails.name : '');
-  const currency = posDetails?.currency || 'USD';
+  const currency = posDetails?.currency || '';
   const currencySymbol = getCurrencySymbol(currency);
 
   // Address filter states

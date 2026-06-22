@@ -402,7 +402,7 @@ def set_dual_currency_amounts(doc):
 		total_lbp = total_lbp_debit if total_lbp_debit > 0 else total_lbp_credit
 	elif doc.doctype in ("Sales Invoice", "Purchase Invoice"):
 		final_amount = flt(getattr(doc, "rounded_total", 0)) or flt(getattr(doc, "grand_total", 0))
-		currency = doc.currency or company_currency or "USD"
+		currency = doc.currency or company_currency or frappe.db.get_default("currency") or frappe.db.get_single_value("System Settings", "default_currency") or frappe.db.get_value("Company", {}, "default_currency")
 		total_usd, total_lbp = _to_usd_lbp(final_amount, currency, rate, company_currency)
 
 	# Update parent total fields if present on the doctype

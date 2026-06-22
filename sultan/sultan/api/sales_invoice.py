@@ -442,7 +442,7 @@ def _batch_fetch_payment_methods(invoice_names):
 		return {}
 
 	payment_query = """
-		SELECT parent, mode_of_payment, amount
+		SELECT parent, mode_of_payment, amount, custom_payment_original_amount, custom_payment_currency
 		FROM `tabSales Invoice Payment`
 		WHERE parent IN ({})
 	""".format(",".join([f"'{name}'" for name in invoice_names]))
@@ -454,7 +454,12 @@ def _batch_fetch_payment_methods(invoice_names):
 		if payment.parent not in payment_methods_map:
 			payment_methods_map[payment.parent] = []
 		payment_methods_map[payment.parent].append(
-			{"mode_of_payment": payment.mode_of_payment, "amount": payment.amount}
+			{
+				"mode_of_payment": payment.mode_of_payment,
+				"amount": payment.amount,
+				"custom_payment_original_amount": payment.custom_payment_original_amount,
+				"custom_payment_currency": payment.custom_payment_currency,
+			}
 		)
 
 	return payment_methods_map
@@ -1224,6 +1229,10 @@ def _set_pos_profile_fields(doc, pos_profile, customer, business_type):
 	doc.set_warehouse = pos_profile.warehouse
 	doc.cost_center = pos_profile.cost_center or frappe.get_cached_value("Company", pos_profile.company, "cost_center")
 
+	if pos_profile.get("change_amount_account"):
+		doc.account_for_change_amount = pos_profile.change_amount_account
+
+
 	# Resolve debit_to (Receivable Account)
 	if not doc.get("debit_to"):
 		from erpnext.accounts.party import get_party_account
@@ -1679,6 +1688,25 @@ def _add_payment_entries(doc, mode_of_payment):
 
 	from frappe.utils import flt, nowdate
 
+	# Set Change Amount Account to be the same as the used payment method's account
+	used_mop = None
+	for payment in mode_of_payment:
+		if flt(payment.get("amount", 0)) > 0:
+			used_mop = payment.get("method")
+			break
+	if not used_mop and len(mode_of_payment) > 0:
+		used_mop = mode_of_payment[0].get("method")
+
+	if used_mop:
+		mop_account = frappe.db.get_value(
+			"Mode of Payment Account",
+			{"parent": used_mop, "company": doc.company},
+			"default_account"
+		)
+		if mop_account:
+			doc.account_for_change_amount = mop_account
+
+
 	for payment in mode_of_payment:
 		amount = flt(payment.get("amount", 0))
 		pay_currency = payment.get("currency")
@@ -1690,7 +1718,18 @@ def _add_payment_entries(doc, mode_of_payment):
 		original_amount = amount
 		original_currency = pay_currency or doc.currency
 		if pay_currency and pay_currency != doc.currency and exchange_rate > 0:
-			amount = amount * exchange_rate
+			if pay_currency == "LBP" and doc.currency == "USD":
+				if exchange_rate > 1.0:
+					amount = amount / exchange_rate
+				else:
+					amount = amount * exchange_rate
+			elif pay_currency == "USD" and doc.currency == "LBP":
+				if exchange_rate > 1.0:
+					amount = amount * exchange_rate
+				else:
+					amount = amount / exchange_rate
+			else:
+				amount = amount * exchange_rate
 			# Auto-save today's rate so ERPNext resolves it for all subsequent transactions
 			_upsert_currency_exchange(pay_currency, doc.currency, exchange_rate, nowdate())
 
@@ -2147,8 +2186,17 @@ def _fix_stamp_gl_entries(doc, gl_entries):
 
 class CustomSalesInvoice(SalesInvoice):
 	def validate_account_currency(self, account, account_currency=None):
+		# Skip stamp tax accounts - they use LBP regardless of invoice currency
 		if _is_stamp_account(self, account):
 			return
+		# Skip multi-currency payment accounts (e.g. LBP cash accounts on USD invoices).
+		# When a payment is made in LBP on a USD invoice, the account_currency will be
+		# LBP but the invoice currency is USD - ERPNext would normally reject this.
+		# Our multi-currency GL logic already handles the correct amounts, so we allow it.
+		if account_currency and account_currency != (self.currency or frappe.db.get_default("currency") or frappe.db.get_single_value("System Settings", "default_currency") or frappe.db.get_value("Company", {}, "default_currency")):
+			account_doc_currency = frappe.db.get_value("Account", account, "account_currency")
+			if account_doc_currency and account_doc_currency != self.currency:
+				return
 		super().validate_account_currency(account, account_currency)
 
 	def get_gl_entries(self, warehouse_account=None):

@@ -252,7 +252,7 @@ export async function preloadOfflineDatabase(
               status: status || "Completed",
               refundAmount: status === "Refunded" ? Number(invoice.base_grand_total) || 0 : 0,
               custom_zatca_submit_status: invoice.custom_zatca_submit_status || "Draft",
-              currency: invoice.currency || "USD",
+              currency: invoice.currency || (typeof window !== 'undefined' ? sessionStorage.getItem('pos_currency') : null) || "",
               notes: invoice.remarks || "",
               posProfile: invoice.pos_profile || "",
               custom_pos_opening_entry: invoice.custom_pos_opening_entry || "",

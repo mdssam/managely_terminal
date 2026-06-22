@@ -38,7 +38,7 @@ export default function SingleInvoiceReturn({
 
   // Currency from invoice or POS profile
   const { posDetails } = usePOSDetails();
-  const currency = (invoice && (invoice.currency || invoice.company_currency)) || posDetails?.currency || 'USD';
+  const currency = (invoice && (invoice.currency || invoice.company_currency)) || posDetails?.currency || '';
   const currencySymbol = getCurrencySymbol(currency);
 
   // Payment modes from POS profile

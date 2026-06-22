@@ -29,7 +29,7 @@ import BottomNavigation from "../components/BottomNavigation";
 import MultiInvoiceReturn from "../components/MultiInvoiceReturn";
 import SingleInvoiceReturn from "../components/SingleInvoiceReturn";
 import { useMediaQuery } from "../hooks/useMediaQuery";
-import { formatCurrency } from "../utils/currency";
+import { formatCurrency, formatPaymentMethodName } from "../utils/currency";
 import type { SalesInvoice } from "../../types";
 import { useSalesInvoices } from "../hooks/useSalesInvoices";
 import { useCustomers } from "../hooks/useCustomers";
@@ -395,19 +395,19 @@ const getStatusBadge = (status: string) => {
         },
         {
           label: "Total Amount",
-          value: formatCurrency(filteredInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0), posDetails?.currency || 'USD'),
+          value: formatCurrency(filteredInvoices.reduce((sum, inv) => sum + inv.totalAmount, 0), posDetails?.currency || ''),
           sub: null,
           icon: DollarSign,
         },
         {
           label: "Paid Amount",
-          value: formatCurrency(filteredInvoices.filter(inv => inv.status === "Paid").reduce((sum, inv) => sum + inv.totalAmount, 0), posDetails?.currency || 'USD'),
+          value: formatCurrency(filteredInvoices.filter(inv => inv.status === "Paid").reduce((sum, inv) => sum + inv.totalAmount, 0), posDetails?.currency || ''),
           sub: null,
           icon: CheckCircle,
         },
         {
           label: "Outstanding",
-          value: formatCurrency(filteredInvoices.filter(inv => ["Unpaid", "Partly Paid", "Overdue"].includes(inv.status)).reduce((sum, inv) => sum + inv.totalAmount, 0), posDetails?.currency || 'USD'),
+          value: formatCurrency(filteredInvoices.filter(inv => ["Unpaid", "Partly Paid", "Overdue"].includes(inv.status)).reduce((sum, inv) => sum + inv.totalAmount, 0), posDetails?.currency || ''),
           sub: null,
           icon: AlertTriangle,
         },
@@ -470,7 +470,7 @@ const getStatusBadge = (status: string) => {
                   <td className="px-5 py-3.5 whitespace-nowrap text-sm text-gray-700">{invoice.custom_pos_opening_entry || "-"}</td>
                   <td className="px-5 py-3.5 whitespace-nowrap text-sm text-gray-700">{invoice.customer}</td>
                   <td className="px-5 py-3.5 whitespace-nowrap text-sm text-gray-700">{invoice.cashier}</td>
-                  <td className="px-5 py-3.5 whitespace-nowrap text-sm text-gray-700">{invoice.paymentMethod}</td>
+                  <td className="px-5 py-3.5 whitespace-nowrap text-sm text-gray-700">{formatPaymentMethodName(invoice.paymentMethod)}</td>
                   <td className="px-5 py-3.5 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">{formatCurrency(invoice.totalAmount, invoice.currency)}</div>
                     {invoice.giftCardDiscount > 0 && (
@@ -791,7 +791,7 @@ const getStatusBadge = (status: string) => {
           outstanding_amount: outstandingAmount,
           status: invoice.status || '',
           mode_of_payment: invoice.paymentMethod || '',
-          currency: invoice.currency || 'SAR',
+          currency: invoice.currency || posDetails?.currency || '',
           company: invoice.company || ''
         };
       });

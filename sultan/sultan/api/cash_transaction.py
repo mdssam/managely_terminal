@@ -42,7 +42,7 @@ def get_cash_io_config(pos_profile=None):
     if not company:
         company = frappe.db.get_value("POS Profile", pos_profile, "company")
 
-    company_currency = frappe.get_cached_value("Company", company, "default_currency") if company else "SAR"
+    company_currency = frappe.get_cached_value("Company", company, "default_currency") if company else (frappe.db.get_default("currency") or frappe.db.get_single_value("System Settings", "default_currency") or frappe.db.get_value("Company", {}, "default_currency") or "")
 
     allowed_modes = []
     for am in allowed_modes_raw:
@@ -84,12 +84,6 @@ def get_exchange_rate_for_cash_io(pos_profile, from_currency, to_currency):
         )
         if rate:
             return flt(rate)
-
-        sec_curr = frappe.db.get_value("POS Profile", pos_profile, "custom_secondary_currency")
-        if sec_curr == from_currency:
-            legacy_rate = frappe.db.get_value("POS Profile", pos_profile, "custom_exchange_rate")
-            if legacy_rate:
-                return flt(legacy_rate)
 
     try:
         from erpnext.setup.utils import get_exchange_rate

@@ -140,6 +140,14 @@ export default function PaymentDialog({
   itemDiscounts = {},
 
 }: PaymentDialogProps) {
+  // Hooks
+  const { posDetails, loading: posLoading } = usePOSDetails();
+  const currencies = usePOSCurrencies();
+  const { modes, isLoading, error } = usePaymentModes(typeof posDetails?.name === 'string' ? posDetails.name : '');
+  const { salesTaxCharges, defaultTax } = useSalesTaxCharges();
+  const { personnel: deliveryPersonnelList } = useDeliveryPersonnel();
+  const navigate = useNavigate();
+
   const [selectedSalesTaxCharges, setSelectedSalesTaxCharges] = useState("");
   const [paymentAmounts, setPaymentAmounts] = useState<PaymentAmount>({});
   const [paymentInputs, setPaymentInputs] = useState<Record<string, string>>({});
@@ -199,13 +207,211 @@ export default function PaymentDialog({
   // Raw string values for exchange rate inputs (allows clearing while typing)
   const [sessionRateInputs, setSessionRateInputs] = useState<Record<string, string>>({});
 
-  // Hooks
-  const { posDetails, loading: posLoading } = usePOSDetails();
-  const currencies = usePOSCurrencies();
-  const { modes, isLoading, error } = usePaymentModes(typeof posDetails?.name === 'string' ? posDetails.name : '');
-  const { salesTaxCharges, defaultTax } = useSalesTaxCharges();
-  const { personnel: deliveryPersonnelList } = useDeliveryPersonnel();
-  const navigate = useNavigate();
+  const [selectedMethodPerType, setSelectedMethodPerType] = useState<Record<string, string>>({});
+
+  const uniqueTypes = useMemo(() => {
+    return Array.from(new Set(modes.map(m => m.type || "Default")));
+  }, [modes]);
+
+  // Initialize selectedMethodPerType and paymentCurrencies when modes load
+  useEffect(() => {
+    if (modes && modes.length > 0) {
+      const initialSelected: Record<string, string> = {};
+      const initialCurrencies: Record<string, string> = { ...paymentCurrencies };
+      
+      const types = Array.from(new Set(modes.map(m => m.type || "Default")));
+      types.forEach(type => {
+        const typeModes = modes.filter(m => (m.type || "Default") === type);
+        const defaultMode = typeModes.find(m => m.default === 1) || typeModes[0];
+        if (defaultMode) {
+          const modeId = defaultMode.mode_of_payment || defaultMode.name;
+          if (modeId) {
+            initialSelected[type] = modeId;
+            if (!initialCurrencies[modeId]) {
+              initialCurrencies[modeId] = defaultMode.custom_currency || currencies.baseCurrency;
+            }
+          }
+        }
+      });
+      setSelectedMethodPerType(initialSelected);
+      setPaymentCurrencies(initialCurrencies);
+    }
+  }, [modes, currencies.baseCurrency]);
+
+  const handleTypeCurrencyChange = (type: string, newCurrency: string) => {
+    const typeModes = modes.filter(m => (m.type || "Default") === type);
+    const matchingModes = typeModes.filter(m => (m.custom_currency || currencies.baseCurrency) === newCurrency);
+    if (matchingModes.length > 0) {
+      const selectedMode = matchingModes[0];
+      const selectedId = selectedMode.mode_of_payment || selectedMode.name;
+      if (selectedId) {
+        // Calculate the outstanding amount excluding any modes of this type
+        const otherAmounts = Object.entries(paymentAmounts)
+          .filter(([id]) => !typeModes.some(m => (m.mode_of_payment || m.name) === id))
+          .map(([, amt]) => amt);
+        const outstandingForThisType = calculateRemainingAmount(calculations.grandTotal, otherAmounts);
+
+        setSelectedMethodPerType(prev => ({ ...prev, [type]: selectedId }));
+        setPaymentCurrencies(prev => ({ ...prev, [selectedId]: newCurrency }));
+
+        // Auto-fill the newly selected method with the outstanding amount and reset others
+        setPaymentAmounts(prev => {
+          const newAmounts = { ...prev };
+          typeModes.forEach(m => {
+            const id = m.mode_of_payment || m.name;
+            if (id) newAmounts[id] = 0;
+          });
+          if (selectedId) {
+            newAmounts[selectedId] = outstandingForThisType;
+          }
+          return newAmounts;
+        });
+
+        // Compute new display value immediately
+        const rate = getExchangeRate(newCurrency);
+        let displayVal = "";
+        if (outstandingForThisType > 0) {
+          if (newCurrency !== currencies.baseCurrency && rate > 0) {
+            const sec = rate > 1.0 ? outstandingForThisType * rate : outstandingForThisType / rate;
+            displayVal = formatNumberWithCommas(sec.toFixed(2));
+          } else {
+            displayVal = formatNumberWithCommas(outstandingForThisType.toFixed(2));
+          }
+        }
+
+        setPaymentInputs(prev => {
+          const newInputs = { ...prev };
+          typeModes.forEach(m => {
+            const id = m.mode_of_payment || m.name;
+            if (id) newInputs[id] = "";
+          });
+          if (selectedId) {
+            newInputs[selectedId] = displayVal;
+          }
+          return newInputs;
+        });
+
+        setActiveMethodId(selectedId);
+      }
+    }
+  };
+
+  const handleTypeMethodChange = (type: string, selectedId: string) => {
+    const typeModes = modes.filter(m => (m.type || "Default") === type);
+    // Calculate the outstanding amount excluding any modes of this type
+    const otherAmounts = Object.entries(paymentAmounts)
+      .filter(([id]) => !typeModes.some(m => (m.mode_of_payment || m.name) === id))
+      .map(([, amt]) => amt);
+    const outstandingForThisType = calculateRemainingAmount(calculations.grandTotal, otherAmounts);
+
+    setSelectedMethodPerType(prev => ({ ...prev, [type]: selectedId }));
+    const mode = modes.find(m => (m.mode_of_payment || m.name) === selectedId);
+    const cur = mode ? (mode.custom_currency || currencies.baseCurrency) : currencies.baseCurrency;
+    setPaymentCurrencies(prev => ({ ...prev, [selectedId]: cur }));
+
+    setPaymentAmounts(prev => {
+      const newAmounts = { ...prev };
+      typeModes.forEach(m => {
+        const id = m.mode_of_payment || m.name;
+        if (id) newAmounts[id] = 0;
+      });
+      if (selectedId) {
+        newAmounts[selectedId] = outstandingForThisType;
+      }
+      return newAmounts;
+    });
+
+    // Compute new display value immediately
+    const rate = getExchangeRate(cur);
+    let displayVal = "";
+    if (outstandingForThisType > 0) {
+      if (cur !== currencies.baseCurrency && rate > 0) {
+        const sec = rate > 1.0 ? outstandingForThisType * rate : outstandingForThisType / rate;
+        displayVal = formatNumberWithCommas(sec.toFixed(2));
+      } else {
+        displayVal = formatNumberWithCommas(outstandingForThisType.toFixed(2));
+      }
+    }
+
+    setPaymentInputs(prev => {
+      const newInputs = { ...prev };
+      typeModes.forEach(m => {
+        const id = m.mode_of_payment || m.name;
+        if (id) newInputs[id] = "";
+      });
+      if (selectedId) {
+        newInputs[selectedId] = displayVal;
+      }
+      return newInputs;
+    });
+
+    setActiveMethodId(selectedId);
+  };
+
+  const renderTypeCurrencySelector = (type: string, currentMethodId: string, sizeClass = "text-[10px]") => {
+    const typeModes = modes.filter(m => (m.type || "Default") === type);
+    const availableCurrencies = Array.from(new Set(typeModes.map(m => m.custom_currency || currencies.baseCurrency)));
+    
+    if (availableCurrencies.length <= 1) {
+      return <span className={`${sizeClass} font-semibold text-gray-500`}>{availableCurrencies[0] || currencies.baseCurrency}</span>;
+    }
+
+    const currentCurrency = getMethodCurrency(currentMethodId);
+
+    return (
+      <select
+        value={currentCurrency}
+        onChange={(e) => handleTypeCurrencyChange(type, e.target.value)}
+        disabled={invoiceSubmitted || isProcessingPayment}
+        className={`${sizeClass} px-1.5 py-0.5 rounded border border-ziditech-400 text-gray-900 bg-white dark:bg-gray-700 dark:text-gray-500 font-bold focus:outline-none cursor-pointer disabled:opacity-50`}
+        title="Select currency"
+      >
+        {availableCurrencies.map(c => (
+          <option key={c} value={c}>{c}</option>
+        ))}
+      </select>
+    );
+  };
+
+  const renderTypeMethodSelector = (type: string, currentMethodId: string) => {
+    const typeModes = modes.filter(m => (m.type || "Default") === type);
+    const currentCurrency = getMethodCurrency(currentMethodId);
+    const matchingModes = typeModes.filter(m => (m.custom_currency || currencies.baseCurrency) === currentCurrency);
+
+    if (matchingModes.length <= 1) return null;
+
+    return (
+      <div className="mt-2">
+        <label className="block text-xs font-medium text-gray-500 mb-1">
+          Select Account
+        </label>
+        <select
+          value={currentMethodId}
+          onChange={(e) => handleTypeMethodChange(type, e.target.value)}
+          disabled={invoiceSubmitted || isProcessingPayment}
+          className="w-full px-2 py-1.5 text-xs rounded border border-gray-300 dark:border-gray-600 text-gray-900 bg-white dark:bg-gray-800 dark:text-gray-100 focus:outline-none cursor-pointer disabled:opacity-50 font-semibold"
+          title="Select account"
+        >
+          {matchingModes.map(m => {
+            const id = m.mode_of_payment || m.name;
+            return (
+              <option key={id} value={id}>
+                {id}
+              </option>
+            );
+          })}
+        </select>
+      </div>
+    );
+  };
+
+  const getTypeLabel = (type: string) => {
+    if (type.toLowerCase() === "cash") return "Cash";
+    if (type.toLowerCase() === "bank" || type.toLowerCase() === "card") return "Card / Bank";
+    return type;
+  };
+
+
 
   // Determine if this is B2B business type
   const isB2B = posDetails?.business_type === "B2B";
@@ -581,16 +787,17 @@ export default function PaymentDialog({
       const activeEntries = Object.entries(paymentAmounts).filter(([, amt]) => (amt || 0) > 0);
       if (activeEntries.length <= 1) {
         const defaultMode = modes.find((mode) => mode.default === 1) || modes[0];
-        if (defaultMode) {
+        const activeMethod = activeMethodId || (defaultMode ? (defaultMode.mode_of_payment || defaultMode.name) : null);
+        if (activeMethod) {
           const defaultAmount = parseFloat(calculations.grandTotal.toFixed(2));
-          if (paymentAmounts[defaultMode.mode_of_payment] !== defaultAmount) {
-            setLastModifiedMethodId(defaultMode.mode_of_payment); // Track the auto-filled method
-            setPaymentAmounts({ [defaultMode.mode_of_payment]: defaultAmount });
+          if (paymentAmounts[activeMethod] !== defaultAmount) {
+            setLastModifiedMethodId(activeMethod);
+            setPaymentAmounts({ [activeMethod]: defaultAmount });
           }
         }
       }
     }
-  }, [isOpen, modes, calculations.grandTotal, paymentAmounts, isB2B, isB2C]);
+  }, [isOpen, modes, calculations.grandTotal, paymentAmounts, activeMethodId, isB2B, isB2C]);
 
   useEffect(() => {
 
@@ -639,43 +846,52 @@ export default function PaymentDialog({
     paymentCurrencies[methodId] ?? currencies.baseCurrency;
 
   const isSecondary = (methodId: string) =>
-    currencies.enabled && getMethodCurrency(methodId) !== currencies.baseCurrency;
+    getMethodCurrency(methodId) !== currencies.baseCurrency;
 
   // Effective exchange rate: session override → config entry → legacy rate
-  const getExchangeRate = (currency: string): number => {
+  const getExchangeRate = (currency: string, methodId?: string): number => {
     if (currency === currencies.baseCurrency) return 1;
     if (sessionRates[currency] && sessionRates[currency] > 0) return sessionRates[currency];
+
+    const targetMode = methodId 
+      ? modes.find(m => (m.mode_of_payment || m.name) === methodId)
+      : modes.find(m => (m.custom_currency || currencies.baseCurrency) === currency);
+
+    if (targetMode && (targetMode.custom_currency || currencies.baseCurrency) === currency) {
+      const rate = parseFloat(targetMode.custom_exchange_rate);
+      if (!isNaN(rate) && rate > 0) return rate;
+    }
+
     const entry = currencies.secondaryCurrencies.find(e => e.currency === currency);
     return entry?.exchangeRate ?? currencies.exchangeRate ?? 1;
   };
 
   // Select a specific currency for a method
   const selectMethodCurrency = (methodId: string, currency: string) => {
-    if (!currencies.enabled) return;
     setPaymentCurrencies(prev => ({ ...prev, [methodId]: currency }));
     // Reset the amount so user re-enters in the new currency
     setPaymentAmounts(prev => ({ ...prev, [methodId]: 0 }));
   };
 
   // When user types an amount in secondary currency, store the base equivalent
-  // base = secondary × rate
+  // base = secondary / rate (if rate > 1.0) or secondary * rate (if rate <= 1.0)
   const handleSecondaryAmountChange = (methodId: string, rawValue: string) => {
     const secondary = parseFloat(rawValue) || 0;
     const rate = getExchangeRate(getMethodCurrency(methodId));
     const base = rate > 0
-      ? parseFloat((secondary * rate).toFixed(6))
+      ? (rate > 1.0 ? parseFloat((secondary / rate).toFixed(6)) : parseFloat((secondary * rate).toFixed(6)))
       : 0;
     setLastModifiedMethodId(methodId);
     setPaymentAmounts(prev => ({ ...prev, [methodId]: base }));
   };
 
-  // Display value: if secondary, show base / rate; otherwise show base
+  // Display value: if secondary, show base * rate (if rate > 1.0) or base / rate (if rate <= 1.0)
   const getDisplayAmount = (methodId: string): string => {
     const base = paymentAmounts[methodId] ?? 0;
     if (isSecondary(methodId)) {
       const rate = getExchangeRate(getMethodCurrency(methodId));
       if (rate <= 0) return "";
-      const sec = base / rate;
+      const sec = rate > 1.0 ? base * rate : base / rate;
       return sec === 0 ? "" : formatNumberWithCommas(sec.toFixed(2));
     }
     return base === 0 ? "" : formatNumberWithCommas(base.toFixed(2));
@@ -697,7 +913,7 @@ export default function PaymentDialog({
       });
       return changed ? newInputs : prev;
     });
-  }, [paymentAmounts, focusedMethodId]);
+  }, [paymentAmounts, focusedMethodId, paymentCurrencies, sessionRates, currencies]);
 
   // Update session exchange rate for a currency
   const updateSessionRate = (currency: string, value: string) => {
@@ -1046,9 +1262,12 @@ export default function PaymentDialog({
     if (!isSecondary(methodId)) return null;
     const currency = getMethodCurrency(methodId);
     const rate = getExchangeRate(currency);
+    const isRateUSD = rate > 1.0;
     return (
       <div className="flex items-center gap-1 mt-1">
-        <span className="text-xs text-gray-400">1 {currency} =</span>
+        <span className="text-xs text-gray-400">
+          {isRateUSD ? `1 ${currencies.baseCurrency} =` : `1 ${currency} =`}
+        </span>
         <input
           type="number"
           min="0.0001"
@@ -1066,7 +1285,9 @@ export default function PaymentDialog({
           className="w-24 px-1.5 py-0.5 text-xs border border-amber-300 rounded bg-amber-50 dark:bg-amber-900/20 dark:border-amber-600 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-amber-400 disabled:opacity-50"
           title="Edit exchange rate"
         />
-        <span className="text-xs text-gray-400">{currencies.baseCurrency}</span>
+        <span className="text-xs text-gray-400">
+          {isRateUSD ? currency : currencies.baseCurrency}
+        </span>
       </div>
     );
   };
@@ -1167,10 +1388,10 @@ export default function PaymentDialog({
         const mCurrency = getMethodCurrency(method as string);
         const baseAmount = Number(amount) || 0;
         const rate = getExchangeRate(mCurrency);
-        const isSecondaryCurrency = currencies.enabled && mCurrency !== currencies.baseCurrency && rate > 0;
-        // Backend expects secondary-currency amount; it multiplies by exchange_rate to get base
+        const isSecondaryCurrency = mCurrency !== currencies.baseCurrency && rate > 0;
+        // Backend expects secondary-currency amount; it multiplies or divides by exchange_rate to get base
         const sendAmount = isSecondaryCurrency
-          ? parseFloat((baseAmount / rate).toFixed(6))
+          ? (rate > 1.0 ? parseFloat((baseAmount * rate).toFixed(6)) : parseFloat((baseAmount / rate).toFixed(6)))
           : parseFloat(baseAmount.toFixed(6));
         return {
           method,
@@ -1577,83 +1798,92 @@ export default function PaymentDialog({
                       </div>
                     )}
                     <div className="flex space-x-3 overflow-x-auto pb-2">
-                      {paymentMethods.map((method) => (
-                        <div
-                          key={method.id}
-                          className={`${
-                            paymentMethods.length <= 3
-                              ? "flex-1 min-w-0"
-                              : "min-w-[280px] max-w-[280px] flex-shrink-0"
-                          } border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:border-ziditech-300 transition-colors ${
-                            invoiceSubmitted || isProcessingPayment
-                              ? "bg-gray-50 dark:bg-gray-800"
-                              : ""
-                          }`}
-                        >
-                          <div className="flex items-center space-x-3 mb-3">
-                            <div
-                              className={`w-10 h-10 rounded-lg ${method.color} text-white flex items-center justify-center`}
-                            >
-                              <div className="scale-75">{method.icon}</div>
+                      {uniqueTypes.map((type) => {
+                        const typeModes = modes.filter(m => (m.type || "Default") === type);
+                        const fallbackMode = typeModes.find(m => m.default === 1) || typeModes[0];
+                        const selectedMethodId = selectedMethodPerType[type] || fallbackMode?.mode_of_payment || fallbackMode?.name;
+                        const method = paymentMethods.find(m => m.id === selectedMethodId);
+                        if (!method) return null;
+
+                        return (
+                          <div
+                            key={type}
+                            className={`${
+                              uniqueTypes.length <= 3
+                                ? "flex-1 min-w-0"
+                                : "min-w-[280px] max-w-[280px] flex-shrink-0"
+                            } border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:border-ziditech-300 transition-colors ${
+                              invoiceSubmitted || isProcessingPayment
+                                ? "bg-gray-50 dark:bg-gray-800"
+                                : ""
+                            }`}
+                          >
+                            <div className="flex items-center space-x-3 mb-3">
+                              <div
+                                className={`w-10 h-10 rounded-lg ${method.color} text-white flex items-center justify-center`}
+                              >
+                                <div className="scale-75">{method.icon}</div>
+                              </div>
+                              <div className="flex-1">
+                                <p className="font-medium text-gray-900 dark:text-white text-sm">
+                                  {getTypeLabel(type)}
+                                </p>
+                              </div>
                             </div>
-                            <div className="flex-1">
-                              <p className="font-medium text-gray-900 dark:text-white text-sm">
-                                {method.name}
-                              </p>
-                            </div>
-                          </div>
-                          <div>
-                            <div className="flex items-center justify-between mb-2">
-                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                                Amount
-                              </label>
-                              {renderCurrencySelector(method.id, "text-sm")}
-                            </div>
-                            <input
-                              type="text"
-                              inputMode="decimal"
-                              value={focusedMethodId === method.id ? (paymentInputs[method.id] ?? "") : getDisplayAmount(method.id)}
-                              onFocus={() => {
-                                setFocusedMethodId(method.id);
-                                const displayVal = getDisplayAmount(method.id).replaceAll(',', '');
-                                setPaymentInputs(prev => ({ ...prev, [method.id]: displayVal }));
-                              }}
-                              onBlur={() => {
-                                setFocusedMethodId(null);
-                                if (!isSecondary(method.id)) {
-                                  const numValue = parseFloat(parseNumberFromCommas(paymentInputs[method.id] || "0"));
-                                  if (!isNaN(numValue)) {
-                                    handlePaymentAmountChange(method.id, parseFloat(numValue.toFixed(2)).toString());
+                            <div>
+                              <div className="flex items-center justify-between mb-2">
+                                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                  Amount
+                                </label>
+                                {renderTypeCurrencySelector(type, method.id, "text-sm")}
+                              </div>
+                              <input
+                                type="text"
+                                inputMode="decimal"
+                                value={focusedMethodId === method.id ? (paymentInputs[method.id] ?? "") : getDisplayAmount(method.id)}
+                                onFocus={() => {
+                                  setFocusedMethodId(method.id);
+                                  const displayVal = getDisplayAmount(method.id).replaceAll(',', '');
+                                  setPaymentInputs(prev => ({ ...prev, [method.id]: displayVal }));
+                                }}
+                                onBlur={() => {
+                                  setFocusedMethodId(null);
+                                  if (!isSecondary(method.id)) {
+                                    const numValue = parseFloat(parseNumberFromCommas(paymentInputs[method.id] || "0"));
+                                    if (!isNaN(numValue)) {
+                                      handlePaymentAmountChange(method.id, parseFloat(numValue.toFixed(2)).toString());
+                                    }
                                   }
-                                }
-                              }}
-                              onChange={(e) => {
-                                const rawValue = e.target.value;
-                                setPaymentInputs(prev => ({ ...prev, [method.id]: rawValue }));
-                                const cleanVal = parseNumberFromCommas(rawValue);
-                                if (isSecondary(method.id)) {
-                                  handleSecondaryAmountChange(method.id, cleanVal);
-                                } else {
-                                  handlePaymentAmountChange(method.id, cleanVal);
-                                }
-                              }}
-                              placeholder="0.00"
-                              disabled={invoiceSubmitted || isProcessingPayment}
-                              className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-ziditech-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
-                                invoiceSubmitted || isProcessingPayment
-                                  ? "cursor-not-allowed opacity-50"
-                                  : ""
-                              }`}
-                            />
-                            {renderExchangeRateRow(method.id)}
-                            {isSecondary(method.id) && (paymentAmounts[method.id] ?? 0) > 0 && (
-                              <p className="text-xs text-gray-500 mt-1">
-                                ≈ {currencies.baseSymbol}{(paymentAmounts[method.id] ?? 0).toFixed(2)} {currencies.baseCurrency}
-                              </p>
-                            )}
+                                }}
+                                onChange={(e) => {
+                                  const rawValue = e.target.value;
+                                  setPaymentInputs(prev => ({ ...prev, [method.id]: rawValue }));
+                                  const cleanVal = parseNumberFromCommas(rawValue);
+                                  if (isSecondary(method.id)) {
+                                    handleSecondaryAmountChange(method.id, cleanVal);
+                                  } else {
+                                    handlePaymentAmountChange(method.id, cleanVal);
+                                  }
+                                }}
+                                placeholder="0.00"
+                                disabled={invoiceSubmitted || isProcessingPayment}
+                                className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-ziditech-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
+                                  invoiceSubmitted || isProcessingPayment
+                                    ? "cursor-not-allowed opacity-50"
+                                    : ""
+                                }`}
+                              />
+                              {renderExchangeRateRow(method.id)}
+                              {isSecondary(method.id) && (paymentAmounts[method.id] ?? 0) > 0 && (
+                                <p className="text-xs text-gray-500 mt-1">
+                                  ≈ {currencies.baseSymbol}{(paymentAmounts[method.id] ?? 0).toFixed(2)} {currencies.baseCurrency}
+                                </p>
+                              )}
+                              {renderTypeMethodSelector(type, method.id)}
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -2336,103 +2566,112 @@ export default function PaymentDialog({
                     </div>
                   )}
                   <div className="flex space-x-4 overflow-x-auto pb-2">
-                    {paymentMethods.map((method) => (
-                      <div
-                        key={method.id}
-                        className={`${
-                          paymentMethods.length <= 3
-                            ? "flex-1 min-w-0"
-                            : "min-w-[300px] flex-shrink-0"
-                        } border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:border-ziditech-300 transition-colors ${
-                          invoiceSubmitted || isProcessingPayment
-                            ? "bg-gray-50 dark:bg-gray-800"
-                            : ""
-                        }`}
-                      >
-                        <div className="flex items-center space-x-3 mb-3">
-                          <div
-                            className={`w-8 h-6 rounded-md ${method.color} text-white flex items-center justify-center`}
-                          >
-                            <div className="scale-75">{method.icon}</div>
-                          </div>
-                          <div className="flex-1">
-                            <p className="font-medium text-gray-900 dark:text-white text-sm">
-                              {method.name}
-                            </p>
-                          </div>
-                        </div>
-                        <div>
-                          <div className="flex items-center justify-between mb-1">
-                            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
-                              Amount
-                            </label>
-                            <div className="flex items-center space-x-1">
-                              {renderCurrencySelector(method.id)}
-                              <button
-                                onClick={() => handleAutoFillPayment(method.id)}
-                                disabled={invoiceSubmitted || isProcessingPayment}
-                                className={`p-1 rounded text-xs ${
-                                  invoiceSubmitted || isProcessingPayment
-                                    ? "cursor-not-allowed opacity-50"
-                                    : "hover:bg-ziditech-100 text-gray-900"
-                                }`}
-                                title="Auto-fill with grand total"
-                              >
-                                <CheckCircle size={16} />
-                              </button>
+                    {uniqueTypes.map((type) => {
+                      const typeModes = modes.filter(m => (m.type || "Default") === type);
+                      const fallbackMode = typeModes.find(m => m.default === 1) || typeModes[0];
+                      const selectedMethodId = selectedMethodPerType[type] || fallbackMode?.mode_of_payment || fallbackMode?.name;
+                      const method = paymentMethods.find(m => m.id === selectedMethodId);
+                      if (!method) return null;
+
+                      return (
+                        <div
+                          key={type}
+                          className={`${
+                            uniqueTypes.length <= 3
+                              ? "flex-1 min-w-0"
+                              : "min-w-[300px] flex-shrink-0"
+                          } border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:border-ziditech-300 transition-colors ${
+                            invoiceSubmitted || isProcessingPayment
+                              ? "bg-gray-50 dark:bg-gray-800"
+                              : ""
+                          }`}
+                        >
+                          <div className="flex items-center space-x-3 mb-3">
+                            <div
+                              className={`w-8 h-6 rounded-md ${method.color} text-white flex items-center justify-center`}
+                            >
+                              <div className="scale-75">{method.icon}</div>
+                            </div>
+                            <div className="flex-1">
+                              <p className="font-medium text-gray-900 dark:text-white text-sm">
+                                {getTypeLabel(type)}
+                              </p>
                             </div>
                           </div>
-                          <input
-                            type="text"
-                            inputMode="decimal"
-                            value={focusedMethodId === method.id ? (paymentInputs[method.id] ?? "") : getDisplayAmount(method.id)}
-                            onFocus={() => {
-                              setFocusedMethodId(method.id);
-                              const displayVal = getDisplayAmount(method.id).replaceAll(',', '');
-                              setPaymentInputs(prev => ({ ...prev, [method.id]: displayVal }));
-                            }}
-                            onBlur={(e) => {
-                              setFocusedMethodId(null);
-                              setActiveMethodId(method.id);
-                              if (!isSecondary(method.id)) {
-                                const numValue = parseFloat(parseNumberFromCommas(e.target.value));
-                                if (!isNaN(numValue)) {
-                                  handleManualAmountChange(method.id, parseFloat(numValue.toFixed(2)).toString());
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
+                                Amount
+                              </label>
+                              <div className="flex items-center space-x-1">
+                                {renderTypeCurrencySelector(type, method.id, "text-xs")}
+                                <button
+                                  onClick={() => handleAutoFillPayment(method.id)}
+                                  disabled={invoiceSubmitted || isProcessingPayment}
+                                  className={`p-1 rounded text-xs ${
+                                    invoiceSubmitted || isProcessingPayment
+                                      ? "cursor-not-allowed opacity-50"
+                                      : "hover:bg-ziditech-100 text-gray-900"
+                                  }`}
+                                  title="Auto-fill with grand total"
+                                >
+                                  <CheckCircle size={16} />
+                                </button>
+                              </div>
+                            </div>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={focusedMethodId === method.id ? (paymentInputs[method.id] ?? "") : getDisplayAmount(method.id)}
+                              onFocus={() => {
+                                  setFocusedMethodId(method.id);
+                                  const displayVal = getDisplayAmount(method.id).replaceAll(',', '');
+                                  setPaymentInputs(prev => ({ ...prev, [method.id]: displayVal }));
+                              }}
+                              onBlur={(e) => {
+                                setFocusedMethodId(null);
+                                setActiveMethodId(method.id);
+                                if (!isSecondary(method.id)) {
+                                  const numValue = parseFloat(parseNumberFromCommas(e.target.value));
+                                  if (!isNaN(numValue)) {
+                                    handleManualAmountChange(method.id, parseFloat(numValue.toFixed(2)).toString());
+                                  }
                                 }
-                              }
-                            }}
-                            onChange={(e) => {
-                              setActiveMethodId(method.id);
-                              const rawValue = e.target.value;
-                              setPaymentInputs(prev => ({ ...prev, [method.id]: rawValue }));
-                              const cleanVal = parseNumberFromCommas(rawValue);
-                              if (isSecondary(method.id)) {
-                                handleSecondaryAmountChange(method.id, cleanVal);
-                              } else {
-                                const numValue = cleanVal === "" ? 0 : parseFloat(cleanVal);
-                                handleManualAmountChange(
-                                  method.id,
-                                  isNaN(numValue) ? "0" : numValue.toString()
-                                );
-                              }
-                            }}
-                            placeholder="0.00"
-                            disabled={invoiceSubmitted || isProcessingPayment}
-                            className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-ziditech-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm ${
-                              invoiceSubmitted || isProcessingPayment
-                                ? "cursor-not-allowed opacity-50"
-                                : ""
-                            }`}
-                          />
-                          {renderExchangeRateRow(method.id)}
-                          {isSecondary(method.id) && (paymentAmounts[method.id] ?? 0) > 0 && (
-                            <p className="text-xs text-gray-500 mt-1">
-                              ≈ {currencies.baseSymbol}{(paymentAmounts[method.id] ?? 0).toFixed(2)} {currencies.baseCurrency}
-                            </p>
-                          )}
+                              }}
+                              onChange={(e) => {
+                                setActiveMethodId(method.id);
+                                const rawValue = e.target.value;
+                                setPaymentInputs(prev => ({ ...prev, [method.id]: rawValue }));
+                                const cleanVal = parseNumberFromCommas(rawValue);
+                                if (isSecondary(method.id)) {
+                                  handleSecondaryAmountChange(method.id, cleanVal);
+                                } else {
+                                  const numValue = cleanVal === "" ? 0 : parseFloat(cleanVal);
+                                  handleManualAmountChange(
+                                    method.id,
+                                    isNaN(numValue) ? "0" : numValue.toString()
+                                  );
+                                }
+                              }}
+                              placeholder="0.00"
+                              disabled={invoiceSubmitted || isProcessingPayment}
+                              className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-ziditech-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm ${
+                                invoiceSubmitted || isProcessingPayment
+                                  ? "cursor-not-allowed opacity-50"
+                                  : ""
+                              }`}
+                            />
+                            {renderExchangeRateRow(method.id)}
+                            {isSecondary(method.id) && (paymentAmounts[method.id] ?? 0) > 0 && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                ≈ {currencies.baseSymbol}{(paymentAmounts[method.id] ?? 0).toFixed(2)} {currencies.baseCurrency}
+                              </p>
+                            )}
+                            {renderTypeMethodSelector(type, method.id)}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -2817,7 +3056,7 @@ export default function PaymentDialog({
                             const mCurrency = getMethodCurrency(method);
                             const isSecondary = currencies.enabled && mCurrency !== currencies.baseCurrency;
                             const rate = getExchangeRate(mCurrency);
-                            const secAmount = isSecondary && rate > 0 ? amount / rate : null;
+                            const secAmount = isSecondary && rate > 0 ? (rate > 1.0 ? amount * rate : amount / rate) : null;
                             return (
                               <div key={method} className="flex justify-between text-xs">
                                 <span className="text-gray-600 dark:text-gray-400">

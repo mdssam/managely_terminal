@@ -1,6 +1,6 @@
 import { useRef } from "react"
 import { Printer } from "lucide-react"
-import { formatCurrency } from "../utils/currency"
+import { formatCurrency, formatPaymentMethodName } from "../utils/currency"
 import type { CashTransaction, CashTransactionSummary } from "../services/cashTransaction"
 
 export interface ShiftReceiptData {
@@ -16,6 +16,8 @@ export interface ShiftReceiptData {
     salesAmount: number
     closingAmount: number
     difference: number
+    currency?: string
+    currencyNumberFormat?: string
   }>
   cashTransactions: CashTransaction[]
   cashSummary: CashTransactionSummary
@@ -28,11 +30,33 @@ interface Props {
   onClose: () => void
 }
 
+function formatAmt(amount: number, currency: string, numberFormat?: string): string {
+  let precision = 2;
+  if (numberFormat) {
+    const match = numberFormat.match(/[.,]([#0]+)$/);
+    precision = match ? match[1].length : 0;
+  }
+
+  if (precision === 0) {
+    return Math.round(amount).toLocaleString("en-US");
+  }
+  return amount.toFixed(precision);
+}
+
 function ReceiptContent({ data }: { data: ShiftReceiptData }) {
   const now = new Date()
-  const printedAt = now.toLocaleString("en-SA", { hour12: false })
+  const printedAt = now.toLocaleString("en-US", { hour12: false })
 
-  const grandTotal = data.paymentBreakdown.reduce((s, p) => s + p.salesAmount, 0)
+  // Group paymentBreakdown by currency to show multi-currency totals
+  const currencyTotals: Record<string, number> = {}
+  const currencyFormats: Record<string, string> = {}
+  data.paymentBreakdown.forEach(p => {
+    const cur = p.currency || data.currency || ""
+    currencyTotals[cur] = (currencyTotals[cur] || 0) + p.salesAmount
+    if (p.currencyNumberFormat) {
+      currencyFormats[cur] = p.currencyNumberFormat
+    }
+  })
 
   return (
     <div style={{ fontFamily: "monospace", fontSize: "12px", width: "76mm", margin: "0 auto", color: "#000" }}>
@@ -66,15 +90,18 @@ function ReceiptContent({ data }: { data: ShiftReceiptData }) {
             </tr>
           </thead>
           <tbody>
-            {data.paymentBreakdown.map((p) => (
-              <tr key={p.mode}>
-                <td style={{ maxWidth: "22mm", overflow: "hidden" }}>{p.mode}</td>
-                <td style={{ textAlign: "right" }}>{p.openingAmount.toFixed(2)}</td>
-                <td style={{ textAlign: "right" }}>{p.salesAmount.toFixed(2)}</td>
-                <td style={{ textAlign: "right" }}>{(p.openingAmount + p.salesAmount).toFixed(2)}</td>
-                <td style={{ textAlign: "right" }}>{p.closingAmount.toFixed(2)}</td>
-              </tr>
-            ))}
+            {data.paymentBreakdown.map((p) => {
+              const cur = (p.currency || data.currency || "").toUpperCase();
+              return (
+                <tr key={`${p.mode}-${cur}`}>
+                  <td style={{ maxWidth: "22mm", overflow: "hidden", fontSize: "10px" }}>{formatPaymentMethodName(p.mode)}</td>
+                  <td style={{ textAlign: "right" }}>{formatAmt(p.openingAmount, cur, p.currencyNumberFormat)}</td>
+                  <td style={{ textAlign: "right" }}>{formatAmt(p.salesAmount, cur, p.currencyNumberFormat)}</td>
+                  <td style={{ textAlign: "right" }}>{formatAmt(p.openingAmount + p.salesAmount, cur, p.currencyNumberFormat)}</td>
+                  <td style={{ textAlign: "right" }}>{formatAmt(p.closingAmount, cur, p.currencyNumberFormat)}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -120,18 +147,20 @@ function ReceiptContent({ data }: { data: ShiftReceiptData }) {
         </>
       )}
 
-      {/* Totals */}
+      {/* Totals - per currency */}
       <div style={{ fontSize: "12px" }}>
         <div style={{ display: "flex", justifyContent: "space-between" }}>
           <span>Total Transactions:</span>
           <span>{data.totalQuantity}</span>
         </div>
-        <div style={{ display: "flex", justifyContent: "space-between" }}>
-          <span>Total Sales:</span>
-          <span style={{ fontWeight: "bold" }}>
-            {formatCurrency(grandTotal, data.currency)}
-          </span>
-        </div>
+        {Object.entries(currencyTotals).map(([cur, total]) => (
+          <div key={cur} style={{ display: "flex", justifyContent: "space-between" }}>
+            <span>Total Sales ({cur}):</span>
+            <span style={{ fontWeight: "bold" }}>
+              {formatAmt(total, cur, currencyFormats[cur])} {cur}
+            </span>
+          </div>
+        ))}
         {data.cashSummary.net !== 0 && (
           <div style={{ display: "flex", justifyContent: "space-between" }}>
             <span>Net Cash I/O:</span>
@@ -146,14 +175,17 @@ function ReceiptContent({ data }: { data: ShiftReceiptData }) {
       {data.paymentBreakdown.some(p => p.difference !== 0) && (
         <div style={{ fontSize: "11px", marginBottom: "6px" }}>
           <div style={{ fontWeight: "bold", textAlign: "center" }}>DIFFERENCES</div>
-          {data.paymentBreakdown.filter(p => p.difference !== 0).map(p => (
-            <div key={p.mode} style={{ display: "flex", justifyContent: "space-between" }}>
-              <span>{p.mode}:</span>
-              <span style={{ color: p.difference < 0 ? "#cc0000" : "#006600" }}>
-                {p.difference > 0 ? "+" : ""}{p.difference.toFixed(2)}
-              </span>
-            </div>
-          ))}
+          {data.paymentBreakdown.filter(p => p.difference !== 0).map(p => {
+            const cur = (p.currency || data.currency || "").toUpperCase();
+            return (
+              <div key={`${p.mode}-${cur}`} style={{ display: "flex", justifyContent: "space-between" }}>
+                <span>{formatPaymentMethodName(p.mode)}:</span>
+                <span style={{ color: p.difference < 0 ? "#cc0000" : "#006600" }}>
+                  {p.difference > 0 ? "+" : ""}{formatAmt(p.difference, cur, p.currencyNumberFormat)} {cur}
+                </span>
+              </div>
+            );
+          })}
           <div style={{ borderTop: "1px dashed #000", margin: "4px 0" }} />
         </div>
       )}
@@ -171,6 +203,7 @@ function ReceiptContent({ data }: { data: ShiftReceiptData }) {
     </div>
   )
 }
+
 
 export default function ShiftClosureReceipt({ data, onClose }: Props) {
   const printRef = useRef<HTMLDivElement>(null)

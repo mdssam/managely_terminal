@@ -9,6 +9,9 @@ interface ClosingDetail {
   expected_amount: number;
   closing_amount: number;
   difference: number;
+  custom_currency?: string;
+  currency_number_format?: string;
+  opening_amount?: number;
 }
 
 interface BranchSession {
@@ -24,6 +27,7 @@ interface BranchSession {
   closing_details?: ClosingDetail[];
   grand_total?: number;
   total_quantity?: number;
+  currency?: string;
 }
 
 export default function BranchSessionsPage() {
@@ -85,15 +89,17 @@ export default function BranchSessionsPage() {
       cashierName: session.custom_employee_name || session.user || session.owner || "Unknown User",
       openingDate: new Date(session.period_start_date).toLocaleString(),
       closingDate: session.period_end_date ? new Date(session.period_end_date).toLocaleString() : "-",
-      currency: "SAR", // Adjust currency if needed dynamically
+      currency: session.currency || "",
       totalSales: session.grand_total || 0,
       totalQuantity: session.total_quantity || 0,
       paymentBreakdown: (session.closing_details || []).map(d => ({
         mode: d.mode_of_payment,
-        openingAmount: 0, // Usually fetched separately if needed, fallback to 0
-        salesAmount: d.expected_amount, 
+        openingAmount: d.opening_amount || 0,
+        salesAmount: d.expected_amount - (d.opening_amount || 0), 
         closingAmount: d.closing_amount,
-        difference: d.difference
+        difference: d.difference,
+        currency: d.custom_currency || session.currency || "",
+        currencyNumberFormat: d.currency_number_format
       })),
       cashTransactions: [], // Empty for now, but satisfies the UI
       cashSummary: { cash_in: 0, cash_out: 0, net: 0 }

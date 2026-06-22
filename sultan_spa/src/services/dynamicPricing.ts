@@ -1,3 +1,5 @@
+import { dbGet, APP_CACHE_STORE } from "./offlineDB"
+
 export interface PriceInfo {
   success: boolean;
   price: number;
@@ -11,11 +13,12 @@ export interface PriceInfo {
  */
 export async function getItemPriceForCustomer(itemCode: string, customerId?: string, uom?: string): Promise<PriceInfo> {
   if (typeof window !== "undefined" && !navigator.onLine) {
+    const cachedDetails = await dbGet<any>(APP_CACHE_STORE, 'cached_pos_details').catch(() => null);
     return {
       success: false,
       price: 0,
-      currency: 'SAR',
-      currency_symbol: 'SAR',
+      currency: cachedDetails?.currency || '',
+      currency_symbol: cachedDetails?.currency_symbol || cachedDetails?.currency || '',
       error: 'Offline'
     };
   }
@@ -36,11 +39,12 @@ export async function getItemPriceForCustomer(itemCode: string, customerId?: str
     return result.message || result;
   } catch (error) {
     console.error('Error fetching item price for customer:', error);
+    const cachedDetails = await dbGet<any>(APP_CACHE_STORE, 'cached_pos_details').catch(() => null);
     return {
       success: false,
       price: 0,
-      currency: 'SAR',
-      currency_symbol: 'SAR',
+      currency: cachedDetails?.currency || '',
+      currency_symbol: cachedDetails?.currency_symbol || cachedDetails?.currency || '',
       error: error instanceof Error ? error.message : 'Unknown error'
     };
   }

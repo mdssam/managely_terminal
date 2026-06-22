@@ -332,24 +332,39 @@ def before_validate_pos_closing_entry(doc, method=None):
     invoices = [t.pos_invoice for t in doc.pos_transactions]
     for row in doc.payment_reconciliation:
         mop = row.mode_of_payment
+        rate = frappe.db.get_value(
+            "POS Payment Method",
+            {"parent": doc.pos_profile, "mode_of_payment": mop},
+            "custom_exchange_rate"
+        )
+        rate = flt(rate) or 1.0
+
         invoices_sum = 0.0
         if invoices:
-            payment_sum = frappe.db.get_value(
-                "Sales Invoice Payment",
-                {"parent": ["in", invoices], "mode_of_payment": mop},
-                "sum(amount)",
-            ) or 0.0
+            payment_sum = frappe.db.sql("""
+                SELECT SUM(
+                    CASE 
+                        WHEN custom_payment_original_amount IS NOT NULL AND custom_payment_original_amount > 0 
+                        THEN custom_payment_original_amount 
+                        ELSE amount 
+                    END
+                ) 
+                FROM `tabSales Invoice Payment` 
+                WHERE parent IN %s AND mode_of_payment = %s
+            """, (tuple(invoices), mop))[0][0] or 0.0
+
             is_cash = frappe.db.get_value("Mode of Payment", mop, "type") == "Cash"
             change_sum = 0.0
             if is_cash:
-                change_sum = frappe.db.get_value(
+                base_change_sum = frappe.db.get_value(
                     "POS Invoice",
                     {"name": ["in", invoices], "account_for_change_amount": ["is", "set"]},
                     "sum(change_amount)",
                 ) or 0.0
+                change_sum = flt(base_change_sum) * rate
             invoices_sum = flt(payment_sum) - flt(change_sum)
 
-        suspended_sum = flt(txn_sums.get(mop, 0.0))
+        suspended_sum = flt(txn_sums.get(mop, 0.0)) * rate
         row.expected_amount = flt(row.opening_amount) + invoices_sum + suspended_sum
         row.difference = flt(row.closing_amount) - flt(row.expected_amount)
 
@@ -641,26 +656,66 @@ def download_closing_pdf(closing_name, as_html=0):
     )
     total_expected = sum(flt(row.expected_amount) for row in doc.payment_reconciliation)
 
-    def fmt_num(val):
-        return f"{flt(val):,.2f}"
+    company_currency = frappe.get_cached_value("Company", doc.company, "default_currency") or frappe.db.get_default("currency") or frappe.db.get_single_value("System Settings", "default_currency") or frappe.db.get_value("Company", {}, "default_currency")
+
+    def fmt_num(val, currency=None):
+        if not currency:
+            currency = company_currency
+        precision = 2
+        if currency:
+            number_format = frappe.db.get_value("Currency", currency, "number_format", cache=True)
+            if not number_format:
+                number_format = frappe.db.get_default("number_format") or "#,###.##"
+            
+            from frappe.utils.data import get_number_format_info
+            _, _, precision = get_number_format_info(number_format)
+
+        if precision == 0:
+            return f"{round(flt(val)):,}"
+        return f"{flt(val):,.{precision}f}"
 
     def format_dt(dt):
         return frappe.utils.format_datetime(dt, "dd/MM/yyyy HH:mm:ss") if dt else ""
 
     breakdown_rows = ""
-    total_expected_bd = total_actual_bd = total_diff_bd = 0.0
+    currency_totals = {}
     for row in doc.payment_reconciliation:
+        mop_currency = frappe.db.get_value(
+            "POS Payment Method",
+            {"parent": doc.pos_profile, "mode_of_payment": row.mode_of_payment},
+            "custom_currency"
+        ) or company_currency
+        
         exp = flt(row.expected_amount)
         act = flt(row.closing_amount)
         diff = flt(row.difference)
-        total_expected_bd += exp
-        total_actual_bd += act
-        total_diff_bd += diff
+        
+        if mop_currency not in currency_totals:
+            currency_totals[mop_currency] = {"expected": 0.0, "actual": 0.0, "difference": 0.0}
+        currency_totals[mop_currency]["expected"] += exp
+        currency_totals[mop_currency]["actual"] += act
+        currency_totals[mop_currency]["difference"] += diff
+        
+        mop_clean = row.mode_of_payment
+        if "bank" in mop_clean.lower() or "card" in mop_clean.lower() or "credit" in mop_clean.lower():
+            mop_clean = f"Bank ({mop_currency})"
+        else:
+            mop_clean = f"Cash ({mop_currency})"
+
         breakdown_rows += (
-            f"<tr><td>{row.mode_of_payment}</td>"
-            f"<td class='right'>{fmt_num(exp)}</td>"
-            f"<td class='right'>{fmt_num(act)}</td>"
-            f"<td class='right'>{fmt_num(diff)}</td></tr>"
+            f"<tr><td>{mop_clean}</td>"
+            f"<td class='right'>{fmt_num(exp, mop_currency)}</td>"
+            f"<td class='right'>{fmt_num(act, mop_currency)}</td>"
+            f"<td class='right'>{fmt_num(diff, mop_currency)}</td></tr>"
+        )
+
+    total_rows = ""
+    for cur, totals in currency_totals.items():
+        total_rows += (
+            f"<tr class='total-row'><td>Total ({cur})</td>"
+            f"<td class='right'>{fmt_num(totals['expected'], cur)}</td>"
+            f"<td class='right'>{fmt_num(totals['actual'], cur)}</td>"
+            f"<td class='right'>{fmt_num(totals['difference'], cur)}</td></tr>"
         )
 
     html = f"""<!DOCTYPE html><html><head><meta charset="utf-8">
@@ -690,27 +745,26 @@ width:70mm;margin:0 auto;padding:4mm 3mm;box-sizing:border-box}}
 <tr><td class="label">Closing:</td><td class="value">{format_dt(doc.creation)}</td></tr>
 </table>
 <div class="divider"></div>
-<div class="section-title">Transactions</div>
+<div class="section-title">Transactions ({company_currency})</div>
 <table class="data-table">
 <thead><tr><th>Type</th><th class="right">Amount</th></tr></thead>
 <tbody>
-<tr><td>Opening cash</td><td class="right">{fmt_num(opening_cash)}</td></tr>
-<tr><td>Cash sales</td><td class="right">{fmt_num(cash_sales)}</td></tr>
-<tr><td>Bank sales</td><td class="right">{fmt_num(bank_sales)}</td></tr>
-<tr><td>On account</td><td class="right">{fmt_num(on_account_sales)}</td></tr>
-<tr><td>Cash refund</td><td class="right">({fmt_num(cash_refund)})</td></tr>
-<tr><td>Bank refund</td><td class="right">({fmt_num(bank_refund)})</td></tr>
-<tr><td>Other cash in</td><td class="right">{fmt_num(other_cash_in)}</td></tr>
-<tr><td>Other cash out</td><td class="right">({fmt_num(other_cash_out)})</td></tr>
-<tr class="total-row"><td>Total expected</td><td class="right">{fmt_num(total_expected)}</td></tr>
+<tr><td>Opening cash</td><td class="right">{fmt_num(opening_cash, company_currency)}</td></tr>
+<tr><td>Cash sales</td><td class="right">{fmt_num(cash_sales, company_currency)}</td></tr>
+<tr><td>Bank sales</td><td class="right">{fmt_num(bank_sales, company_currency)}</td></tr>
+<tr><td>On account</td><td class="right">{fmt_num(on_account_sales, company_currency)}</td></tr>
+<tr><td>Cash refund</td><td class="right">({fmt_num(cash_refund, company_currency)})</td></tr>
+<tr><td>Bank refund</td><td class="right">({fmt_num(bank_refund, company_currency)})</td></tr>
+<tr><td>Other cash in</td><td class="right">{fmt_num(other_cash_in, company_currency)}</td></tr>
+<tr><td>Other cash out</td><td class="right">({fmt_num(other_cash_out, company_currency)})</td></tr>
+<tr class="total-row"><td>Total expected</td><td class="right">{fmt_num(total_expected, company_currency)}</td></tr>
 </tbody></table>
 <div class="divider"></div>
 <div class="section-title">Breakdown</div>
 <table class="data-table">
 <thead><tr><th>Account</th><th class="right">Expected</th><th class="right">Actual</th><th class="right">Diff</th></tr></thead>
 <tbody>{breakdown_rows}
-<tr class="total-row"><td>Total</td><td class="right">{fmt_num(total_expected_bd)}</td>
-<td class="right">{fmt_num(total_actual_bd)}</td><td class="right">{fmt_num(total_diff_bd)}</td></tr>
+{total_rows}
 </tbody></table>
 <div class="footer">Closure#{doc.name}</div>
 </body></html>"""

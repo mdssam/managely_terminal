@@ -190,7 +190,9 @@ def fetch_item_price(
 						frappe.defaults.get_user_default("Company"),
 						"default_currency",
 					)
-					or "SAR"
+					or frappe.db.get_default("currency")
+					or frappe.db.get_single_value("System Settings", "default_currency")
+					or frappe.db.get_value("Company", {}, "default_currency")
 				)
 				default_symbol = (
 					frappe.db.get_value("Currency", default_currency, "symbol") or default_currency
@@ -242,7 +244,9 @@ def fetch_item_price(
 					frappe.defaults.get_user_default("Company"),
 					"default_currency",
 				)
-				or "SAR"
+				or frappe.db.get_default("currency")
+				or frappe.db.get_single_value("System Settings", "default_currency")
+				or frappe.db.get_value("Company", {}, "default_currency")
 			)
 			default_symbol = frappe.db.get_value("Currency", default_currency, "symbol") or default_currency
 
@@ -261,7 +265,9 @@ def fetch_item_price(
 
 	except Exception:
 		frappe.log_error(frappe.get_traceback(), f"Error fetching price for {item_code}")
-		return {"price": 0, "currency": "SAR", "currency_symbol": "SAR"}
+		default_currency = frappe.db.get_default("currency") or frappe.db.get_single_value("System Settings", "default_currency") or frappe.db.get_value("Company", {}, "default_currency") or ""
+		default_symbol = frappe.db.get_value("Currency", default_currency, "symbol") or default_currency
+		return {"price": 0, "currency": default_currency, "currency_symbol": default_symbol}
 
 
 @frappe.whitelist(allow_guest=True)
@@ -273,7 +279,9 @@ def get_item_price_for_customer(item_code, customer=None, uom=None):
 	"""
 	try:
 		if not item_code:
-			return {"success": False, "price": 0, "currency": "SAR", "currency_symbol": "SAR"}
+			default_currency = frappe.db.get_default("currency") or frappe.db.get_single_value("System Settings", "default_currency") or frappe.db.get_value("Company", {}, "default_currency")
+			default_symbol = frappe.db.get_value("Currency", default_currency, "symbol") or default_currency
+			return {"success": False, "price": 0, "currency": default_currency, "currency_symbol": default_symbol}
 
 		# Get price using customer-first priority, with UOM filter if provided
 		price_info = fetch_item_price(item_code, customer=customer, uom=uom)
@@ -290,11 +298,13 @@ def get_item_price_for_customer(item_code, customer=None, uom=None):
 			frappe.get_traceback(),
 			f"Error getting item price for customer: {item_code}",
 		)
+		default_currency = frappe.db.get_default("currency") or frappe.db.get_single_value("System Settings", "default_currency") or frappe.db.get_value("Company", {}, "default_currency")
+		default_symbol = frappe.db.get_value("Currency", default_currency, "symbol") or default_currency
 		return {
 			"success": False,
 			"price": 0,
-			"currency": "SAR",
-			"currency_symbol": "SAR",
+			"currency": default_currency,
+			"currency_symbol": default_symbol,
 			"error": str(e),
 		}
 
@@ -580,7 +590,9 @@ def _fetch_batch_prices(item_codes: list, price_list: str | None, uom_map: dict)
 				frappe.defaults.get_user_default("Company"),
 				"default_currency",
 			)
-			or "SAR"
+			or frappe.db.get_default("currency")
+			or frappe.db.get_single_value("System Settings", "default_currency")
+			or frappe.db.get_value("Company", {}, "default_currency")
 		)
 		default_symbol = frappe.db.get_value("Currency", default_currency, "symbol") or default_currency
 
@@ -864,6 +876,15 @@ def get_items_with_balance_and_price(
 		stock_map = _fetch_batch_stock(item_codes, warehouse)
 		price_map = _fetch_batch_prices(item_codes, price_list, uom_map)
 
+		# Get default currency and symbol for fallbacks
+		fallback_curr = (
+			frappe.get_cached_value("Company", pos_doc.company, "default_currency")
+			or frappe.db.get_default("currency")
+			or frappe.db.get_single_value("System Settings", "default_currency")
+			or frappe.db.get_value("Company", {}, "default_currency")
+		)
+		fallback_sym = frappe.db.get_value("Currency", fallback_curr, "symbol") or fallback_curr
+
 		# Build enriched items
 		enriched_items = []
 		for item in items:
@@ -876,7 +897,7 @@ def get_items_with_balance_and_price(
 				continue
 
 			default_uom = item.get("stock_uom", "Nos")
-			price_info = price_map.get(item_code, {"price": 0, "currency": "SAR", "currency_symbol": "SAR"})
+			price_info = price_map.get(item_code, {"price": 0, "currency": fallback_curr, "currency_symbol": fallback_sym})
 			primary_barcode = barcode_map.get(item_code)
 
 			enriched_items.append(
@@ -1288,7 +1309,7 @@ def _build_pricing_context(customer=None):
 		"company": company,
 		"warehouse": pos_profile.warehouse if pos_profile else None,
 		"price_list": pos_profile.selling_price_list if pos_profile else None,
-		"currency": frappe.get_cached_value("Company", company, "default_currency") or "SAR",
+		"currency": frappe.get_cached_value("Company", company, "default_currency") or frappe.db.get_default("currency") or frappe.db.get_single_value("System Settings", "default_currency") or frappe.db.get_value("Company", {}, "default_currency"),
 		"customer": customer,
 		"customer_group": None,
 		"territory": None,

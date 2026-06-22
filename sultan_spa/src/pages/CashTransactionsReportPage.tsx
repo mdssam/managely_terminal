@@ -455,14 +455,14 @@ export default function CashTransactionsReportPage() {
           {[
             {
               label: "Total Cash In",
-              value: formatCurrency(summary.cashIn, posDetails?.currency || "SAR"),
+              value: formatCurrency(summary.cashIn, posDetails?.currency || ""),
               icon: TrendingUp,
               color: "#16a34a",
               bgColor: "#e8f5e9",
             },
             {
               label: "Total Cash Out",
-              value: formatCurrency(summary.cashOut, posDetails?.currency || "SAR"),
+              value: formatCurrency(summary.cashOut, posDetails?.currency || ""),
               icon: TrendingDown,
               color: "#ef4444",
               bgColor: "#ffebee",
@@ -530,7 +530,7 @@ export default function CashTransactionsReportPage() {
                       <td className="px-5 py-3.5 whitespace-nowrap text-sm text-gray-700">{tx.mode_of_payment}</td>
                       <td className="px-5 py-3.5 whitespace-nowrap">
                         <div className="text-sm font-bold text-gray-900">
-                          {formatCurrency(tx.amount, posDetails?.currency || "SAR")}
+                          {formatCurrency(tx.amount, posDetails?.currency || "")}
                         </div>
                       </td>
                       <td className="px-5 py-3.5 text-sm text-gray-500 max-w-[200px] truncate" title={tx.description}>

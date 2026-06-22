@@ -484,13 +484,18 @@ def _calculate_payment_reconciliation(opening_entry, data):
 	"""
 	Calculate payment reconciliation data including opening balances,
 	sales amounts, and expected vs closing amounts.
+
+	For multi-currency setups, each mode of payment may have payments in
+	different currencies (e.g. LBP cash and USD cash). We group by
+	(mode_of_payment, currency) and use the original payment amounts so
+	the receipt shows real currency figures instead of USD conversions.
 	"""
 	opening_entry_name = opening_entry.name
 	opening_start = opening_entry.period_start_date
 	opening_date = opening_start.date()
 	opening_time = opening_start.time().strftime("%H:%M:%S")
 
-	# Fetch opening balances
+	# Fetch opening balances (always in base/invoice currency)
 	opening_modes = frappe.get_all(
 		"POS Opening Entry Detail",
 		filters={"parent": opening_entry_name},
@@ -498,62 +503,81 @@ def _calculate_payment_reconciliation(opening_entry, data):
 	)
 	opening_balance_map = {row.mode_of_payment: row.opening_amount for row in opening_modes}
 
-	# Aggregate sales by payment mode strictly scoped to this specific opening entry session
+	# Aggregate sales by (mode_of_payment, currency).
+	# Use custom_payment_original_amount + custom_payment_currency when available,
+	# otherwise fall back to the converted USD amount + invoice currency.
 	sales_data = frappe.db.sql(
 		"""
 		SELECT sip.mode_of_payment,
-		       SUM(sip.amount) as total_amount,
+		       COALESCE(NULLIF(sip.custom_payment_currency, ''), si.currency) AS currency,
+		       SUM(
+		           CASE
+		               WHEN sip.custom_payment_original_amount IS NOT NULL
+		                    AND sip.custom_payment_original_amount > 0
+		               THEN sip.custom_payment_original_amount
+		               ELSE sip.amount
+		           END
+		       ) as total_amount,
 		       COUNT(DISTINCT si.name) as transactions
 		FROM `tabSales Invoice` si
 		JOIN `tabSales Invoice Payment` sip ON si.name = sip.parent
 		WHERE si.custom_pos_opening_entry = %s
 		  AND si.docstatus = 1
-		GROUP BY sip.mode_of_payment
+		GROUP BY sip.mode_of_payment, COALESCE(NULLIF(sip.custom_payment_currency, ''), si.currency)
 		""",
 		(opening_entry_name,),
 		as_dict=True,
 	)
-	sales_map = {row.mode_of_payment: row.total_amount for row in sales_data}
 
-	# Build reconciliation entries
+	# Build a map: (mode, currency) -> total_amount
+	company_currency = frappe.get_cached_value("Company", opening_entry.company or opening_entry.get("company"), "default_currency") or frappe.db.get_default("currency") or frappe.db.get_single_value("System Settings", "default_currency") or frappe.db.get_value("Company", {}, "default_currency")
+	sales_map = {}
+	for row in sales_data:
+		key = (row.mode_of_payment, row.currency or company_currency)
+		sales_map[key] = row.total_amount
+
+	# Build reconciliation entries grouped by (mode, currency)
 	closing_balance = data.get("closing_balance", {})
 	reconciliation = []
+	processed_keys = set()
 
-	# Process modes with closing amounts
-	for mode, closing_amount in closing_balance.items():
+	# Process all (mode, currency) pairs that appeared in sales
+	for (mode, currency), sales_amount in sales_map.items():
 		opening_amount = opening_balance_map.get(mode, 0)
-		sales_amount = sales_map.get(mode, 0)
 		expected_amount = float(opening_amount) + float(sales_amount)
-		difference = float(closing_amount) - float(expected_amount)
+		closing_key = f"{mode}||{currency}"
+		closing_amount = float(closing_balance.get(closing_key, closing_balance.get(mode, 0)))
+		difference = closing_amount - expected_amount
+		reconciliation.append({
+			"mode_of_payment": mode,
+			"currency": currency,
+			"opening_amount": float(opening_amount),
+			"sales_amount": float(sales_amount),
+			"expected_amount": expected_amount,
+			"closing_amount": closing_amount,
+			"difference": difference,
+		})
+		processed_keys.add(mode)
 
-		reconciliation.append(
-			{
+	# Add modes that have opening balances but no sales
+	for mode, opening_amount in opening_balance_map.items():
+		if mode not in processed_keys:
+			closing_amount = float(closing_balance.get(mode, 0))
+			expected_amount = float(opening_amount)
+			difference = closing_amount - expected_amount
+			reconciliation.append({
 				"mode_of_payment": mode,
-				"opening_amount": opening_amount,
+				"currency": company_currency,
+				"opening_amount": float(opening_amount),
+				"sales_amount": 0.0,
 				"expected_amount": expected_amount,
 				"closing_amount": closing_amount,
 				"difference": difference,
-			}
-		)
-
-	# Process modes without closing amounts (including all opening modes if no closing data)
-	for mode, opening_amount in opening_balance_map.items():
-		if mode not in closing_balance:
-			sales_amount = sales_map.get(mode, 0)
-			expected_amount = float(opening_amount) + float(sales_amount)
-			difference = 0 - float(expected_amount)
-
-			reconciliation.append(
-				{
-					"mode_of_payment": mode,
-					"opening_amount": opening_amount,
-					"expected_amount": expected_amount,
-					"closing_amount": 0,
-					"difference": difference,
-				}
-			)
+			})
 
 	return reconciliation
+
+
 
 
 def _calculate_closing_entry_totals(opening_entry_name):
@@ -831,6 +855,12 @@ def get_branch_sessions():
 		select
 			ope.name as name,
 			ope.pos_profile as pos_profile,
+			COALESCE(
+				p.currency,
+				(select default_currency from tabCompany where name = p.company),
+				(select defvalue from tabDefaultValue where defkey='currency' limit 1),
+				(select defvalue from tabDefaultValue where defkey='default_currency' limit 1)
+			) as currency,
 			ope.period_start_date as period_start_date,
 			clo.period_end_date as period_end_date,
 			ope.status as status,
@@ -867,13 +897,29 @@ def get_branch_sessions():
 		else:
 			s['display_status'] = s.get('status')
 			
-	# Fetch closing details
 	closing_entries = [s.get('pos_closing_entry') for s in sessions if s.get('pos_closing_entry')]
 	if closing_entries:
 		closing_details = frappe.db.sql("""
-			select parent, mode_of_payment, expected_amount, closing_amount, difference
-			from `tabPOS Closing Entry Detail`
-			where parent in %s
+			select 
+				d.parent, 
+				d.mode_of_payment, 
+				d.opening_amount,
+				d.expected_amount, 
+				d.closing_amount, 
+				d.difference,
+				COALESCE(
+					ppm.custom_currency, 
+					(select currency from `tabPOS Profile` where name = c.pos_profile), 
+					(select default_currency from `tabCompany` where name = c.company), 
+					(select defvalue from tabDefaultValue where defkey='currency' limit 1),
+					(select defvalue from tabDefaultValue where defkey='default_currency' limit 1)
+				) as custom_currency,
+				COALESCE(cur.number_format, '#,###.##') as currency_number_format
+			from `tabPOS Closing Entry Detail` d
+			join `tabPOS Closing Entry` c on d.parent = c.name
+			left join `tabPOS Payment Method` ppm on c.pos_profile = ppm.parent and d.mode_of_payment = ppm.mode_of_payment
+			left join `tabCurrency` cur on ppm.custom_currency = cur.name
+			where d.parent in %s
 		""", (tuple(closing_entries),), as_dict=True)
 		
 		# Map details to sessions

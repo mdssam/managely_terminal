@@ -3,7 +3,7 @@ import { useState } from "react"
 import { useNavigate, useLocation, Navigate } from "react-router-dom"
 import { useAuth } from "../hooks/useAuth"
 import { employeePosLogin } from "../services/employeeAuth"
-import { dbSet, dbGet, APP_CACHE_STORE } from "../services/offlineDB"
+import { dbSet, dbGet, APP_CACHE_STORE, sha256Fallback } from "../services/offlineDB"
 import { usePOSDetails } from "../hooks/usePOSProfile"
 
 export default function EmployeeLoginScreen() {
@@ -55,10 +55,19 @@ export default function EmployeeLoginScreen() {
         }
 
         // Salted SHA-256 password hash comparison
-        const msgBuffer = new TextEncoder().encode(password + emp.employee);
-        const hashBuffer = await window.crypto.subtle.digest("SHA-256", msgBuffer);
-        const hashArray = Array.from(new Uint8Array(hashBuffer));
-        const computedHash = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+        let computedHash: string;
+        if (typeof window !== "undefined" && window.crypto && window.crypto.subtle) {
+          try {
+            const msgBuffer = new TextEncoder().encode(password + emp.employee);
+            const hashBuffer = await window.crypto.subtle.digest("SHA-256", msgBuffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            computedHash = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+          } catch {
+            computedHash = sha256Fallback(password + emp.employee);
+          }
+        } else {
+          computedHash = sha256Fallback(password + emp.employee);
+        }
 
         if (computedHash === emp.hash) {
           await dbSet(APP_CACHE_STORE, 'pos_employee', {

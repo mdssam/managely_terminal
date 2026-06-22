@@ -270,7 +270,7 @@ export default function DashboardPage() {
   const totalTransactions = filteredInvoices.length
   const averageOrderValue = totalTransactions > 0 ? totalRevenue / totalTransactions : 0
   const totalItems = filteredInvoices.reduce((s: number, inv: SalesInvoice) => s + inv.items.length, 0)
-  const currency = posDetails?.currency || "USD"
+  const currency = posDetails?.currency || (typeof window !== 'undefined' ? sessionStorage.getItem('pos_currency') : null) || ""
 
   const handleExportCSV = () => {
     if (!filteredInvoices.length) {

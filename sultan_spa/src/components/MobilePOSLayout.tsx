@@ -366,7 +366,7 @@ export default function MobilePOSLayout({
         <div className="fixed bottom-16 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 px-4 py-3 z-40">
           <div className="flex items-center justify-between">
             <div className="text-sm text-gray-600 dark:text-gray-400">{totalItems} items</div>
-            <div className="text-lg font-bold text-gray-900 dark:text-gray-500">{formatCurrency(totalAmount, posDetails?.currency || 'USD')}</div>
+            <div className="text-lg font-bold text-gray-900 dark:text-gray-500">{formatCurrency(totalAmount, posDetails?.currency || '')}</div>
             <button
               onClick={() => navigate('/cart')}
               className="bg-ziditech-600 text-white px-6 py-2 rounded-lg hover:bg-ziditech-700 transition-colors font-medium"

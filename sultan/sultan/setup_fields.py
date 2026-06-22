@@ -287,104 +287,8 @@ def run():
 	else:
 		print("custom_show_in_opening_entry field already exists.")
 
-	# ── Multi-Currency Payment ───────────────────────────────────────────────
-	for cf_def in [
-		{
-			"cf_name": "POS Profile-custom_multi_currency_section",
-			"dt": "POS Profile", "fieldname": "custom_multi_currency_section",
-			"label": "Multi-Currency Payments", "fieldtype": "Section Break",
-			"insert_after": "disable_rounded_total",
-		},
-		{
-			"cf_name": "POS Profile-custom_enable_multi_currency",
-			"dt": "POS Profile", "fieldname": "custom_enable_multi_currency",
-			"label": "Enable Multi-Currency", "fieldtype": "Check",
-			"insert_after": "custom_multi_currency_section",
-			"description": "Allow cashiers to accept payment in a secondary currency (e.g., LBP alongside USD).",
-		},
-		{
-			"cf_name": "POS Profile-custom_secondary_currency",
-			"dt": "POS Profile", "fieldname": "custom_secondary_currency",
-			"label": "Secondary Currency", "fieldtype": "Link",
-			"options": "Currency",
-			"insert_after": "custom_enable_multi_currency",
-			"depends_on": "eval:doc.custom_enable_multi_currency",
-		},
-		{
-			"cf_name": "POS Profile-custom_exchange_rate",
-			"dt": "POS Profile", "fieldname": "custom_exchange_rate",
-			"label": "Exchange Rate (Secondary per Base)", "fieldtype": "Float",
-			"precision": "2",
-			"insert_after": "custom_secondary_currency",
-			"depends_on": "eval:doc.custom_enable_multi_currency",
-			"description": "Units of secondary currency per 1 unit of base currency (e.g., 89500 if 1 USD = 89,500 LBP).",
-		},
-	]:
-		cf_name = cf_def.pop("cf_name")
-		if not frappe.db.exists("Custom Field", cf_name):
-			doc = frappe.new_doc("Custom Field")
-			for k, v in cf_def.items():
-				setattr(doc, k, v)
-			doc.insert(ignore_permissions=True)
-			print(f"Created {cf_name}.")
-		else:
-			print(f"{cf_name} already exists.")
-
-	# ── Consolidate Invoice on Close ─────────────────────────────────────────
-	consolidate_cf = "POS Profile-custom_consolidate_invoicing"
-	if not frappe.db.exists("Custom Field", consolidate_cf):
-		frappe.get_doc({
-			"doctype": "Custom Field",
-			"dt": "POS Profile",
-			"fieldname": "custom_consolidate_invoicing",
-			"label": "Consolidate Invoice on Close",
-			"fieldtype": "Check",
-			"insert_after": "write_off_account",
-			"description": (
-				"When enabled, each order is saved as a draft (no GL or stock impact). "
-				"All drafts are submitted in batch when the session is closed."
-			),
-		}).insert(ignore_permissions=True)
-		print("Created custom_consolidate_invoicing on POS Profile.")
-	else:
-		print("custom_consolidate_invoicing already exists.")
-
-	# ── POS Print Format per terminal ────────────────────────────────────────
-	for fieldname, label, after in [
-		("custom_pos_print_format_en", "POS Print Template (English)", "write_off_account"),
-		("custom_pos_print_format_ar", "POS Print Template (Arabic)", "custom_pos_print_format_en"),
-	]:
-		cf = f"POS Profile-{fieldname}"
-		if not frappe.db.exists("Custom Field", cf):
-			frappe.get_doc({
-				"doctype": "Custom Field",
-				"dt": "POS Profile",
-				"fieldname": fieldname,
-				"label": label,
-				"fieldtype": "Link",
-				"options": "Print Format",
-				"insert_after": after,
-				"description": "Thermal receipt print format used by the Sultan POS SPA",
-			}).insert(ignore_permissions=True)
-			print(f"Created {fieldname} on POS Profile.")
-		else:
-			print(f"{fieldname} already exists.")
-
-	# ── Is Branch ───────────────────────────────────────────────────────────
-	is_branch_cf = "POS Profile-custom_is_branch"
-	if not frappe.db.exists("Custom Field", is_branch_cf):
-		frappe.get_doc({
-			"doctype": "Custom Field",
-			"dt": "POS Profile",
-			"fieldname": "custom_is_branch",
-			"label": "Is Branch",
-			"fieldtype": "Check",
-			"insert_after": "custom_exchange_rate_editable",
-			"description": "Mark this POS Profile as a branch (instead of a delegate/salesman)."
-		}).insert(ignore_permissions=True)
-		print("Created custom_is_branch on POS Profile.")
-	else:
-		print("custom_is_branch already exists.")
+	# ── Reorganize POS Profile custom fields ─────────────────────────────────
+	ensure_sultan_pos_profile_fields()
 
 	# ── Items 1 & 7: Sultan POS Cash Transaction doctype ─────────────────────
 	if not frappe.db.exists("DocType", "Sultan POS Cash Transaction"):
@@ -704,4 +608,231 @@ def setup_sultan_spa_sw_link():
 				print(f"Copied sw.js to {dest_sw_path}")
 			except Exception as copy_err:
 				print(f"Failed to link/copy sw.js: {copy_err}")
+
+
+def ensure_sultan_pos_profile_fields():
+	"""Set up Sultan app config fields under a unified Tab Break on POS Profile."""
+	# 1. Define fields to keep (excluding old multi-currency fields)
+	pos_fields = [
+		{
+			"fieldname": "custom_sultan_pos_settings_tab",
+			"label": "Sultan POS Settings",
+			"fieldtype": "Tab Break",
+		},
+		{
+			"fieldname": "custom_sultan_business_section",
+			"label": "Business Configuration",
+			"fieldtype": "Section Break",
+		},
+		{
+			"fieldname": "custom_is_branch",
+			"label": "Is Branch",
+			"fieldtype": "Check",
+			"description": "Mark this POS Profile as a branch (instead of a delegate/salesman).",
+		},
+		{
+			"fieldname": "custom_business_type",
+			"label": "Business Type",
+			"fieldtype": "Select",
+			"options": "\nB2C\nB2B\nB2B & B2C",
+			"default": "B2C",
+			"translatable": 0,
+		},
+		{
+			"fieldname": "custom_default_view",
+			"label": "Default View",
+			"fieldtype": "Select",
+			"options": "\nGrid View\nList View",
+			"default": "Grid View",
+			"translatable": 0,
+		},
+		{
+			"fieldname": "custom_sultan_printing_section",
+			"label": "Receipt Printing Templates",
+			"fieldtype": "Section Break",
+		},
+		{
+			"fieldname": "custom_pos_print_format_en",
+			"label": "POS Print Template (English)",
+			"fieldtype": "Link",
+			"options": "Print Format",
+			"description": "Thermal receipt print format used by the Sultan POS SPA",
+		},
+		{
+			"fieldname": "custom_pos_print_format_ar",
+			"label": "POS Print Template (Arabic)",
+			"fieldtype": "Link",
+			"options": "Print Format",
+			"description": "Thermal receipt print format used by the Sultan POS SPA",
+		},
+		{
+			"fieldname": "custom_sultan_hardware_section",
+			"label": "Hardware & Scale Settings",
+			"fieldtype": "Section Break",
+		},
+		{
+			"fieldname": "custom_use_scanner_fully",
+			"label": "Use Scanner Fully",
+			"fieldtype": "Check",
+		},
+		{
+			"fieldname": "custom_scale_barcodes_start_with",
+			"label": "Barcode Start Pattern",
+			"fieldtype": "Data",
+		},
+		{
+			"fieldname": "custom_autofetch_batchserial_",
+			"label": "Auto-fetch Batch/Serial ",
+			"fieldtype": "Check",
+		},
+		{
+			"fieldname": "custom_sultan_checkout_section",
+			"label": "Checkout & Session Settings",
+			"fieldtype": "Section Break",
+		},
+		{
+			"fieldname": "custom_delivery_required",
+			"label": "Delivery Required?",
+			"fieldtype": "Check",
+		},
+		{
+			"fieldname": "custom_consolidate_invoicing",
+			"label": "Consolidate Invoice on Close",
+			"fieldtype": "Check",
+			"description": "When enabled, each order is saved as a draft (no GL or stock impact). All drafts are submitted in batch when the session is closed.",
+		},
+		{
+			"fieldname": "custom_hide_expected_amount",
+			"label": "Hide Expected Amount",
+			"fieldtype": "Check",
+		},
+		{
+			"fieldname": "custom_sultan_notifications_section",
+			"label": "Customer Notifications",
+			"fieldtype": "Section Break",
+		},
+		{
+			"fieldname": "custom_enable_whatsapp",
+			"label": "Enable Whatsapp",
+			"fieldtype": "Check",
+		},
+		{
+			"fieldname": "custom_enable_sms",
+			"label": "Enable SMS",
+			"fieldtype": "Check",
+		},
+		{
+			"fieldname": "custom_email_template",
+			"label": "Email Template",
+			"fieldtype": "Link",
+			"options": "Email Template",
+		},
+		{
+			"fieldname": "custom_sultan_write_off_section",
+			"label": "Write-Off Settings",
+			"fieldtype": "Section Break",
+		},
+		{
+			"fieldname": "custom_allow_write_off",
+			"label": "Allow Write Off",
+			"fieldtype": "Check",
+		},
+		{
+			"fieldname": "custom_ignore_write_off_on_partial_returns",
+			"label": "Ignore Write Off on Partial Returns",
+			"fieldtype": "Check",
+			"default": "1",
+		},
+	]
+
+	# Clean up old multi-currency fields on POS Profile if they exist
+	old_pos_profile_fields = [
+		"custom_enable_multi_currency",
+		"custom_allow_edit_exchange_rate",
+		"custom_multi_currency_rates",
+		"custom_multi_currency_section"
+	]
+	for fieldname in old_pos_profile_fields:
+		cf_name = f"POS Profile-{fieldname}"
+		if frappe.db.exists("Custom Field", cf_name):
+			frappe.delete_doc("Custom Field", cf_name, ignore_permissions=True)
+			print(f"Deleted old POS Profile field: {cf_name}")
+
+	# Insert or update POS Profile custom fields
+	prev_fieldname = "applicable_user"
+	for f in pos_fields:
+		cf_name = f"POS Profile-{f['fieldname']}"
+		f["dt"] = "POS Profile"
+		f["insert_after"] = prev_fieldname
+
+		if not frappe.db.exists("Custom Field", cf_name):
+			doc = frappe.new_doc("Custom Field")
+			for k, v in f.items():
+				setattr(doc, k, v)
+			doc.insert(ignore_permissions=True)
+			print(f"Created {cf_name}.")
+		else:
+			doc = frappe.get_doc("Custom Field", cf_name)
+			changed = False
+			for k, v in f.items():
+				if getattr(doc, k, None) != v:
+					setattr(doc, k, v)
+					changed = True
+			if changed:
+				doc.save(ignore_permissions=True)
+				print(f"Updated {cf_name}.")
+			else:
+				print(f"{cf_name} already exists and is up to date.")
+
+		prev_fieldname = f["fieldname"]
+
+	# Clean up any leftover old klik POS settings section break
+	if frappe.db.exists("Custom Field", "POS Profile-custom_klik_pos_settings"):
+		frappe.delete_doc("Custom Field", "POS Profile-custom_klik_pos_settings", ignore_permissions=True)
+		print("Deleted old POS Profile-custom_klik_pos_settings section break")
+
+	# Add custom fields to POS Payment Method child table
+	payment_method_fields = [
+		{
+			"fieldname": "custom_currency",
+			"label": "Currency",
+			"fieldtype": "Link",
+			"options": "Currency",
+			"in_list_view": 1,
+			"read_only": 1,
+			"insert_after": "mode_of_payment"
+		},
+		{
+			"fieldname": "custom_exchange_rate",
+			"label": "Exchange Rate",
+			"fieldtype": "Float",
+			"in_list_view": 1,
+			"default": "1.0",
+			"read_only_depends_on": "eval:!doc.custom_currency || doc.custom_currency == parent.currency",
+			"insert_after": "custom_currency"
+		}
+	]
+	for f in payment_method_fields:
+		cf_name = f"POS Payment Method-{f['fieldname']}"
+		f["dt"] = "POS Payment Method"
+		if not frappe.db.exists("Custom Field", cf_name):
+			doc = frappe.new_doc("Custom Field")
+			for k, v in f.items():
+				setattr(doc, k, v)
+			doc.insert(ignore_permissions=True)
+			print(f"Created {cf_name}.")
+		else:
+			doc = frappe.get_doc("Custom Field", cf_name)
+			changed = False
+			for k, v in f.items():
+				if getattr(doc, k, None) != v:
+					setattr(doc, k, v)
+					changed = True
+			if changed:
+				doc.save(ignore_permissions=True)
+				print(f"Updated {cf_name}.")
+
+	frappe.clear_cache(doctype="POS Profile")
+	frappe.clear_cache(doctype="POS Payment Method")
+
 

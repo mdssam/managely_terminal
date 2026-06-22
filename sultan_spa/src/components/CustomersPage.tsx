@@ -13,6 +13,7 @@ import {
   ShoppingCart,
 } from "lucide-react"
 import { useCustomers } from "../hooks/useCustomers" // Import the hook
+import { usePOSDetails } from "../hooks/usePOSProfile"
 import AddCustomerModal from "./AddCustomerModal"
 import type { Customer } from "../types/customer"
 
@@ -27,6 +28,7 @@ export default function CustomersPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null)
   const [prefilledData, setPrefilledData] = useState<{name?: string, email?: string, phone?: string}>({})
   const [globalTotals, setGlobalTotals] = useState<{ total_customers: number; total_invoices: number } | null>(null)
+  const { posDetails } = usePOSDetails()
 
   // Use the customers hook with search to fetch from server when searching
   const { customers, isLoading, error, totalCount, loadMore, addCustomer } = useCustomers(searchQuery)
@@ -104,27 +106,18 @@ export default function CustomersPage() {
   }
 
   const formatCurrency = (amount: number, currency?: string) => {
-    // Validate currency code and provide fallbacks
-    let validCurrency = 'USD'; // Default fallback
-
-    if (currency && currency.trim() && currency.length === 3) {
-      try {
-        // Test if the currency is valid by trying to create a NumberFormat
-        new Intl.NumberFormat('en-US', {
-          style: 'currency',
-          currency: currency
-        });
-        validCurrency = currency;
-      } catch {
-        console.warn(`Invalid currency code: ${currency}, falling back to AED`);
-        validCurrency = 'USD';
-      }
+    let validCurrency = currency || posDetails?.currency || (typeof window !== 'undefined' ? sessionStorage.getItem('pos_currency') || '' : '');
+    if (!validCurrency) {
+      return Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
-
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: validCurrency
-    }).format(amount)
+    try {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: validCurrency
+      }).format(amount)
+    } catch {
+      return Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
   }
 
   const formatDate = (dateString: string) => {

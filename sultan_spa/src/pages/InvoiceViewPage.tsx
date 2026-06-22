@@ -39,7 +39,7 @@ import DisplayPrintPreview from "../utils/invoicePrint";
 import { handlePrintInvoice } from "../utils/printHandler";
 import SingleInvoiceReturn from "../components/SingleInvoiceReturn";
 import MultiInvoiceReturn from "../components/MultiInvoiceReturn";
-import { formatCurrency } from "../utils/currency";
+import { formatCurrency, formatPaymentMethodName } from "../utils/currency";
 import AddCustomerModal from "../components/AddCustomerModal";
 
 export default function InvoiceViewPage() {
@@ -504,7 +504,7 @@ export default function InvoiceViewPage() {
                           </div>
                           <div className="flex justify-between">
                             <span className="text-sm text-gray-600 dark:text-gray-400">Payment:</span>
-                            <span className="text-sm text-gray-900 dark:text-white">{invoice.paymentMethod}</span>
+                            <span className="text-sm text-gray-900 dark:text-white">{formatPaymentMethodName(invoice.paymentMethod)}</span>
                           </div>
                         </div>
                       </div>
@@ -678,7 +678,7 @@ export default function InvoiceViewPage() {
                       <div className="space-y-2">
                         <div className="flex justify-between">
                           <span className="text-orange-700 dark:text-orange-300">Payment Method:</span>
-                          <span className="text-orange-900 dark:text-orange-100 font-medium">{invoice.paymentMethod || 'Cash'}</span>
+                          <span className="text-orange-900 dark:text-orange-100 font-medium">{formatPaymentMethodName(invoice.paymentMethod || 'Cash')}</span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-orange-700 dark:text-orange-300">Status:</span>

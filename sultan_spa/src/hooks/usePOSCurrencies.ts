@@ -24,8 +24,8 @@ export function usePOSCurrencies(): POSCurrencyConfig {
 
   return useMemo(() => {
     const enabled = !!(posDetails?.custom_enable_multi_currency)
-    const baseCurrency = posDetails?.currency ?? "USD"
-    const baseSymbol = posDetails?.currency_symbol ?? "$"
+    const baseCurrency = posDetails?.currency ?? (typeof window !== 'undefined' ? sessionStorage.getItem('pos_currency') || '' : '')
+    const baseSymbol = posDetails?.currency_symbol ?? (typeof window !== 'undefined' ? sessionStorage.getItem('pos_currency_symbol') || '' : '')
     const allowEditRate = !!(posDetails?.custom_allow_edit_exchange_rate)
 
     // Build secondaryCurrencies from the table first
@@ -43,20 +43,7 @@ export function usePOSCurrencies(): POSCurrencyConfig {
         exchangeRate: r.exchange_rate,
       }))
 
-    // Fallback: if table is empty, use the legacy single-currency fields
-    if (secondaryCurrencies.length === 0) {
-      const legacyCurrency = posDetails?.custom_secondary_currency as string | null ?? null
-      const legacyRate = (posDetails?.custom_exchange_rate as number) ?? 0
-      const legacySymbol = (posDetails as any)?.custom_secondary_currency_symbol as string | null ?? legacyCurrency
 
-      if (legacyCurrency && legacyRate > 0) {
-        secondaryCurrencies = [{
-          currency: legacyCurrency,
-          symbol: legacySymbol ?? legacyCurrency,
-          exchangeRate: legacyRate,
-        }]
-      }
-    }
 
     const isEnabled = enabled && secondaryCurrencies.length > 0
 

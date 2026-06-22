@@ -18,7 +18,7 @@ def get_payment_modes():
 		payment_modes = frappe.get_all(
 			"POS Payment Method",
 			filters={"parent": pos_doc.name},
-			fields=["mode_of_payment", "default", "allow_in_returns", "custom_show_in_opening_entry"],
+			fields=["mode_of_payment", "default", "allow_in_returns", "custom_show_in_opening_entry", "custom_currency"],
 		)
 
 		for mode in payment_modes:
@@ -128,7 +128,7 @@ def _fetch_daily_sales_data(pos_profile, opening_date):
 		"""
         SELECT
             sip.mode_of_payment,
-            SUM(sip.amount) as total_amount,
+            SUM(CASE WHEN sip.custom_payment_original_amount IS NOT NULL AND sip.custom_payment_original_amount != 0 THEN (CASE WHEN si.is_return = 1 THEN -ABS(sip.custom_payment_original_amount) ELSE sip.custom_payment_original_amount END) ELSE sip.amount END) as total_amount,
             COUNT(DISTINCT si.name) as transactions
         FROM `tabSales Invoice` si
         JOIN `tabSales Invoice Payment` sip ON si.name = sip.parent
@@ -150,7 +150,7 @@ def _fetch_opening_sales_data(opening_entry_name):
 		"""
         SELECT
             sip.mode_of_payment,
-            SUM(sip.amount) as total_amount,
+            SUM(CASE WHEN sip.custom_payment_original_amount IS NOT NULL AND sip.custom_payment_original_amount != 0 THEN (CASE WHEN si.is_return = 1 THEN -ABS(sip.custom_payment_original_amount) ELSE sip.custom_payment_original_amount END) ELSE sip.amount END) as total_amount,
             COUNT(DISTINCT si.name) as transactions
         FROM `tabSales Invoice` si
         JOIN `tabSales Invoice Payment` sip ON si.name = sip.parent
@@ -173,20 +173,28 @@ def _build_payment_summary(opening_modes, sales_data, pos_profile):
 	all_profile_modes = frappe.get_all(
 		"POS Payment Method",
 		filters={"parent": pos_profile},
-		fields=["mode_of_payment"],
+		fields=["mode_of_payment", "custom_currency"],
 		order_by="idx asc",
 	)
 
 	summary = []
+	pos_profile_currency = frappe.db.get_value("POS Profile", pos_profile, "currency", cache=True)
+	pos_profile_company = frappe.db.get_value("POS Profile", pos_profile, "company", cache=True)
+	company_currency = frappe.get_cached_value("Company", pos_profile_company, "default_currency") if pos_profile_company else None
 	for profile_mode in all_profile_modes:
 		mop = profile_mode.mode_of_payment
 		sales_info = sales_map.get(mop, {})
+		currency_code = profile_mode.custom_currency or pos_profile_currency or company_currency or frappe.db.get_default("currency") or frappe.db.get_single_value("System Settings", "default_currency") or frappe.db.get_value("Company", {}, "default_currency")
+		number_format = frappe.db.get_value("Currency", currency_code, "number_format", cache=True) or "#,###.##"
+		
 		summary.append(
 			{
 				"name": mop,
 				"openingAmount": opening_map.get(mop, 0.0),
 				"amount": float(sales_info.get("total_amount", 0.0)),
 				"transactions": int(sales_info.get("transactions", 0)),
+				"custom_currency": currency_code,
+				"currency_number_format": number_format,
 			}
 		)
 

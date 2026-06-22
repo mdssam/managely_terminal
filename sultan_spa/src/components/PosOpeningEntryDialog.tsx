@@ -417,7 +417,7 @@ const POSOpeningModal: React.FC<POSOpeningModalProps> = ({
                       <div className="mt-4 pt-3 border-t border-gray-200">
                         <div className="flex justify-between items-center font-semibold">
                           <span>Total Opening Balance:</span>
-                          <span className="text-gray-900">{formatCurrency(totalAmount, posDetails?.currency || 'USD')}</span>
+                          <span className="text-gray-900">{formatCurrency(totalAmount, posDetails?.currency || '')}</span>
                         </div>
                       </div>
                     </div>

@@ -29,7 +29,7 @@ function generateOfflineReceiptHTML(invoice: any, posDetails: any, language: "en
   const id = rawId.startsWith("OFFLINE-") ? rawId.replace("OFFLINE-", "") : rawId;
   
   const items = invoice.items || [];
-  const currency = invoice.currency || posDetails?.currency || "USD";
+  const currency = invoice.currency || posDetails?.currency || "";
   
   // Calculate totals and subtotal properly for offline invoice objects (which use base_grand_total / grandTotal)
   const totalAmount = invoice.totalAmount || invoice.grand_total || invoice.base_grand_total || 0;

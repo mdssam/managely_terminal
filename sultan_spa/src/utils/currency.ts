@@ -107,10 +107,15 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
  * @returns Currency symbol (e.g., '$', 'ر.س', '€')
  */
 export const getCurrencySymbol = (currency: string): string => {
-  if (!currency) return '$';
+  if (!currency) {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('pos_currency_symbol') || sessionStorage.getItem('pos_currency') || '';
+    }
+    return '';
+  }
 
   const symbol = CURRENCY_SYMBOLS[currency.toUpperCase()];
-  return symbol || currency; // Return currency code if symbol not found
+  return symbol !== undefined ? symbol : currency; // Return currency code if symbol not found
 };
 
 /**
@@ -122,9 +127,10 @@ export const getCurrencySymbol = (currency: string): string => {
 export const formatCurrency = (amount: number, currency?: string): string => {
   if (!amount && amount !== 0) return '0.00';
 
-  const symbol = getCurrencySymbol(currency || 'USD');
+  const activeCurrency = currency || (typeof window !== 'undefined' ? sessionStorage.getItem('pos_currency') || '' : '');
+  const symbol = getCurrencySymbol(activeCurrency);
   const formattedAmount = Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return `${symbol} ${formattedAmount}`;
+  return symbol ? `${symbol} ${formattedAmount}` : formattedAmount;
 };
 
 /**
@@ -136,9 +142,10 @@ export const formatCurrency = (amount: number, currency?: string): string => {
 export const formatCurrencyCompact = (amount: number, currency?: string): string => {
   if (!amount && amount !== 0) return '0.00';
 
-  const symbol = getCurrencySymbol(currency || 'USD');
+  const activeCurrency = currency || (typeof window !== 'undefined' ? sessionStorage.getItem('pos_currency') || '' : '');
+  const symbol = getCurrencySymbol(activeCurrency);
   const formattedAmount = Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return `${symbol}${formattedAmount}`;
+  return symbol ? `${symbol}${formattedAmount}` : formattedAmount;
 };
 
 /**
@@ -171,4 +178,29 @@ export const formatNumberWithCommas = (value: string | number): string => {
  */
 export const parseNumberFromCommas = (value: string): string => {
   return value.replace(/,/g, "");
+};
+
+/**
+ * Formats full payment method name to a clean version like "Cash (USD)" or "Bank (LBP)".
+ * @param method - Raw payment method name from database
+ * @returns Cleaned payment method name
+ */
+export const formatPaymentMethodName = (method: string): string => {
+  if (!method || method === "-") return "-";
+  
+  if (method.includes("/")) {
+    return method.split("/").map(m => formatPaymentMethodName(m.trim())).join("/");
+  }
+
+  const lower = method.toLowerCase();
+  let type = "Cash";
+  if (lower.includes("bank") || lower.includes("card") || lower.includes("credit")) {
+    type = "Bank";
+  }
+
+  // Extract currency from parentheses, e.g. "(LBP)" or "(USD)"
+  const match = method.match(/\(([^)]+)\)/);
+  const currency = match ? match[1] : (typeof window !== 'undefined' ? sessionStorage.getItem('pos_currency') || '' : '');
+
+  return currency ? `${type} (${currency})` : type;
 };

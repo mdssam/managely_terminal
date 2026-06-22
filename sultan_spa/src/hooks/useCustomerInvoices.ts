@@ -71,7 +71,7 @@ export function useCustomerInvoices(customerName: string) {
         status: "Pending",
         refundAmount: 0,
         custom_zatca_submit_status: "Pending",
-        currency: data.currency || "USD",
+        currency: data.currency || (typeof window !== 'undefined' ? sessionStorage.getItem('pos_currency') : null) || "",
         notes: "Offline Order - Pending Sync",
         posProfile: data.posProfile || "",
         custom_pos_opening_entry: "",
@@ -177,7 +177,7 @@ export function useCustomerInvoices(customerName: string) {
           refundAmount: Number((invoice as any).refund_amount) || 0,
                             //eslint-disable-next-line @typescript-eslint/no-explicit-any
           notes: ((invoice as any).remarks as string) || "",
-          currency: (invoice.currency as string) || "USD",
+          currency: (invoice.currency as string) || (typeof window !== 'undefined' ? sessionStorage.getItem('pos_currency') : null) || "",
           customer_address_doc: undefined,
           company_address_doc: undefined,
                     //eslint-disable-next-line @typescript-eslint/no-explicit-any

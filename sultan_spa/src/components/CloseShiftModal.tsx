@@ -72,6 +72,8 @@ export default function CloseShiftModal({ isOpen, onClose, onSuccess }: CloseShi
           openingAmount: mode.openingAmount || 0,
           amount: 0,
           transactions: 0,
+          custom_currency: mode.custom_currency || posDetails?.currency || "",
+          currency_number_format: mode.currency_number_format || "#,###.##",
         };
       }
       return acc;
@@ -82,7 +84,11 @@ export default function CloseShiftModal({ isOpen, onClose, onSuccess }: CloseShi
         invoice.payment_methods.forEach((payment: any) => {
           if (stats[payment.mode_of_payment]) {
             const isReturn = invoice.status === "Return";
-            const amount = isReturn ? -Math.abs(payment.amount || 0) : (payment.amount || 0);
+            const useOriginal = payment.custom_payment_original_amount &&
+                                payment.custom_payment_currency &&
+                                payment.custom_payment_currency !== (posDetails?.currency || "");
+            const rawAmount = useOriginal ? payment.custom_payment_original_amount : (payment.amount || 0);
+            const amount = isReturn ? -Math.abs(rawAmount) : rawAmount;
             stats[payment.mode_of_payment].amount += amount;
 
             if (invoice.payment_methods.indexOf(payment) === 0) {
@@ -156,6 +162,8 @@ export default function CloseShiftModal({ isOpen, onClose, onSuccess }: CloseShi
         salesAmount: stat.amount - (stat.openingAmount || 0),
         closingAmount: closingAmounts[stat.name] || 0,
         difference: (closingAmounts[stat.name] || 0) - stat.amount,
+        currency: stat.custom_currency || posDetails?.currency || "",
+        currencyNumberFormat: stat.currency_number_format,
       }));
 
       const receipt: ShiftReceiptData = {
@@ -164,7 +172,7 @@ export default function CloseShiftModal({ isOpen, onClose, onSuccess }: CloseShi
         cashierName: userInfo?.full_name || userInfo?.user || "",
         openingDate: posDetails?.current_opening_entry ? new Date().toLocaleString("en-SA", { hour12: false }) : "",
         closingDate: new Date().toLocaleString("en-SA", { hour12: false }),
-        currency: posDetails?.currency || "SAR",
+        currency: posDetails?.currency || "",
         paymentBreakdown: breakdown,
         cashTransactions,
         cashSummary,
@@ -270,16 +278,26 @@ export default function CloseShiftModal({ isOpen, onClose, onSuccess }: CloseShi
                     </span>
                   </div>
 
-                  <div className="flex items-center">
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      placeholder="Enter actual amount"
-                      required
-                      value={closingInputs[name] || ""}
-                      onChange={(e) => handleClosingAmountChange(name, e.target.value)}
-                      className="w-44 px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-ziditech-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm font-bold shadow-sm"
-                    />
+                  <div className="flex flex-col items-end gap-1.5">
+                    {!posDetails?.custom_hide_expected_amount && (
+                      <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                        Expected: {formatNumberWithCommas((paymentStats[name]?.amount || 0).toFixed(2))} {mode.custom_currency || posDetails?.currency || ""}
+                      </span>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="0.00"
+                        required
+                        value={closingInputs[name] || ""}
+                        onChange={(e) => handleClosingAmountChange(name, e.target.value)}
+                        className="w-40 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-ziditech-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm font-bold shadow-sm text-right"
+                      />
+                      <span className="text-sm font-semibold text-gray-600 dark:text-gray-300 w-10">
+                        {mode.custom_currency || posDetails?.currency || ""}
+                      </span>
+                    </div>
                   </div>
                 </div>
               );

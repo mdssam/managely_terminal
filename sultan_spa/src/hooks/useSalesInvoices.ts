@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import type { SalesInvoice, SalesInvoiceItem } from "../../types";
 import { backgroundSyncService } from "../services/backgroundSyncService";
-import { dbGet, dbSet, AUTH_STORE, APP_CACHE_STORE } from "../services/offlineDB";
+import { dbGet, dbSet, secureDbGet, secureDbSet, AUTH_STORE, APP_CACHE_STORE } from "../services/offlineDB";
 
 async function getOfflineCashier(data: any) {
   const userData = await dbGet<{ full_name?: string; name?: string; email?: string }>(AUTH_STORE, "user_data");
@@ -87,7 +87,7 @@ export function useSalesInvoices(
         status: "Pending",
         refundAmount: 0,
         custom_zatca_submit_status: "Pending",
-        currency: data.currency || "USD",
+        currency: data.currency || "",
         notes: inv.syncError ? `Sync Error: ${inv.syncError}` : "Offline Order - Pending Sync",
         posProfile: data.posProfile || "",
         custom_pos_opening_entry: "",
@@ -107,7 +107,7 @@ export function useSalesInvoices(
 
     if (typeof window !== 'undefined' && !navigator.onLine) {
       const cacheKey = getCacheKey();
-      const cached = await dbGet<{ invoices: SalesInvoice[]; totalCount: number }>(APP_CACHE_STORE, cacheKey);
+      const cached = await secureDbGet<{ invoices: SalesInvoice[]; totalCount: number }>(APP_CACHE_STORE, cacheKey);
       const cachedInvoices = cached?.invoices || [];
       const totalCountCached = cached?.totalCount || 0;
 
@@ -243,7 +243,7 @@ export function useSalesInvoices(
               | "Not Reported"
               | "Cleared"
               | "Not Cleared") || "Draft",
-          currency: invoice.currency || "USD",
+          currency: invoice.currency || invoice.company_currency || "",
           notes: invoice.remarks || "",
           posProfile: invoice.pos_profile || "",
           custom_pos_opening_entry: invoice.custom_pos_opening_entry || "",
@@ -262,7 +262,7 @@ export function useSalesInvoices(
 
         // Cache page-0 results for offline fallback
         if (!debouncedSearchTerm) {
-          dbSet(APP_CACHE_STORE, getCacheKey(), {
+          secureDbSet(APP_CACHE_STORE, getCacheKey(), {
             invoices: transformed,
             totalCount: totalCountFromAPI,
             timestamp: Date.now(),
@@ -277,7 +277,7 @@ export function useSalesInvoices(
     } catch (err: any) {
       // Fall back to cached invoices rather than showing an error screen
       if (page === 0 && !debouncedSearchTerm) {
-        const cached = await dbGet<{ invoices: SalesInvoice[]; totalCount: number }>(APP_CACHE_STORE, getCacheKey());
+        const cached = await secureDbGet<{ invoices: SalesInvoice[]; totalCount: number }>(APP_CACHE_STORE, getCacheKey());
         if (cached) {
           setInvoices([...transformedOffline, ...cached.invoices]);
           setTotalLoaded(cached.invoices.length + transformedOffline.length);

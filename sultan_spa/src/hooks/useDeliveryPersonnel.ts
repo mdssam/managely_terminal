@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { dbGet, dbSet, APP_CACHE_STORE } from "../services/offlineDB";
+import { secureDbGet, secureDbSet, APP_CACHE_STORE } from "../services/offlineDB";
 import { makeAPICall } from "../utils/apiUtils";
 
 export interface DeliveryPersonnel {
@@ -16,7 +16,7 @@ export function useDeliveryPersonnel() {
     const fetchDeliveryPersonnel = async () => {
       const cacheKey = "cached_delivery_personnel";
       if (typeof window !== "undefined" && !navigator.onLine) {
-        const cached = await dbGet<DeliveryPersonnel[]>(APP_CACHE_STORE, cacheKey);
+        const cached = await secureDbGet<DeliveryPersonnel[]>(APP_CACHE_STORE, cacheKey);
         if (cached) {
           setPersonnel(cached);
           setLoading(false);
@@ -43,13 +43,13 @@ export function useDeliveryPersonnel() {
         if (response.ok && data.message && data.message.success) {
           const list = data.message.data || [];
           setPersonnel(list);
-          await dbSet(APP_CACHE_STORE, cacheKey, list);
+          await secureDbSet(APP_CACHE_STORE, cacheKey, list);
         } else {
           throw new Error(data.message?.error || "Failed to fetch delivery personnel");
         }
       } catch (err: unknown) {
         console.error("Error loading delivery personnel:", err);
-        const cached = await dbGet<DeliveryPersonnel[]>(APP_CACHE_STORE, cacheKey);
+        const cached = await secureDbGet<DeliveryPersonnel[]>(APP_CACHE_STORE, cacheKey);
         setPersonnel(cached ?? []);
         setError(null);
       } finally {

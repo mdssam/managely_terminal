@@ -27,7 +27,7 @@ import BottomNavigation from "../components/BottomNavigation";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { deleteDraftInvoice } from "../services/salesInvoice";
 import { ConfirmDialog } from "../components/ui/ConfirmDialog";
-import { formatCurrency, formatNumberWithCommas, parseNumberFromCommas } from "../utils/currency";
+import { formatCurrency, formatNumberWithCommas, parseNumberFromCommas, formatPaymentMethodName } from "../utils/currency";
 import { isToday, isThisWeek, isThisMonth, isThisYear } from "../utils/time";
 import { clearAllCache } from "../utils/clearCache";
 import { getCashTransactions } from "../services/cashTransaction";
@@ -228,7 +228,9 @@ export default function ClosingShiftPage() {
         name: mode.name,
         openingAmount: mode.openingAmount || 0,
         amount: 0,
-        transactions: 0
+        transactions: 0,
+        custom_currency: mode.custom_currency || posDetails?.currency || "",
+        currency_number_format: mode.currency_number_format || "#,###.##",
       };
       return acc;
     }, {});
@@ -242,7 +244,11 @@ export default function ClosingShiftPage() {
                 // @ts-expect-error just ignore for now
           if (stats[payment.mode_of_payment]) {
             const isReturn = invoice.status === "Return";
-            const amount = isReturn ? -Math.abs(payment.amount || 0) : (payment.amount || 0);
+            const useOriginal = payment.custom_payment_original_amount &&
+                                payment.custom_payment_currency &&
+                                payment.custom_payment_currency !== (posDetails?.currency || "");
+            const rawAmount = useOriginal ? payment.custom_payment_original_amount : (payment.amount || 0);
+            const amount = isReturn ? -Math.abs(rawAmount) : rawAmount;
       // @ts-expect-error just ignore for now
             stats[payment.mode_of_payment].amount += amount;
 
@@ -444,21 +450,32 @@ export default function ClosingShiftPage() {
       setShowCloseModal(false);
 
       // Build receipt data before clearing cache
-      const breakdown = Object.values(paymentStats).map((stat: any) => ({
-        mode: stat.name,
-        openingAmount: stat.openingAmount || 0,
-        salesAmount: stat.amount - (stat.openingAmount || 0),
-        closingAmount: (closingAmounts as any)[stat.name] || 0,
-        difference: ((closingAmounts as any)[stat.name] || 0) - stat.amount,
-      }));
+      // Each payment mode may have payments in multiple currencies (e.g. USD cash and LBP cash).
+      // paymentStats stores the per-mode totals already accumulated with original amounts.
+      const breakdown = Object.values(paymentStats).map((stat: any) => {
+        const modeCurrency = stat.custom_currency || posDetails?.currency || "";
+        const salesOnly = stat.amount - (stat.openingAmount || 0);
+        const closing = (closingAmounts as any)[stat.name] || 0;
+        const expected = (stat.openingAmount || 0) + salesOnly;
+        return {
+          mode: stat.name,
+          openingAmount: stat.openingAmount || 0,
+          salesAmount: salesOnly,
+          closingAmount: closing,
+          difference: closing - expected,
+          currency: modeCurrency,
+          currencyNumberFormat: stat.currency_number_format,
+        };
+      });
 
+      const baseCurrency = posDetails?.currency || "";
       const receipt: ShiftReceiptData = {
         companyName: posDetails?.company || posDetails?.name,
         posProfile: posDetails?.name || "",
         cashierName: userInfo?.full_name || userInfo?.user || "",
-        openingDate: posDetails?.current_opening_entry ? new Date().toLocaleString("en-SA", { hour12: false }) : "",
-        closingDate: new Date().toLocaleString("en-SA", { hour12: false }),
-        currency: posDetails?.currency || "SAR",
+        openingDate: posDetails?.current_opening_entry ? new Date().toLocaleString("en-US", { hour12: false }) : "",
+        closingDate: new Date().toLocaleString("en-US", { hour12: false }),
+        currency: baseCurrency,
         paymentBreakdown: breakdown,
         cashTransactions,
         cashSummary,
@@ -552,7 +569,7 @@ export default function ClosingShiftPage() {
                   <div className="space-y-2">
                     <div className="text-2xl font-bold text-gray-900 dark:text-white">
                                             {/* @ts-expect-error just ignore */}
-                      {formatCurrency(stat.amount, posDetails?.currency || 'USD')}
+                      {formatCurrency(stat.amount, (stat as any).custom_currency || posDetails?.currency || '')}
                     </div>
                     {/* <div className="text-sm text-gray-600 dark:text-gray-400">
                       {stat.transactions} transactions
@@ -814,18 +831,28 @@ export default function ClosingShiftPage() {
                       <span className="font-medium text-gray-900 dark:text-white">{stat.name}</span>
                     </div>
 
-                    <div className="flex flex-col space-y-2 flex-1 max-w-[200px]">
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        placeholder="Enter actual amount"
-                        required
-                        // @ts-expect-error just ignore for now
-                        value={closingInputs[stat.name] || ""}
-                        // @ts-expect-error just ignore for now
-                        onChange={(e) => handleClosingAmountChange(stat.name, e.target.value)}
-                        className="w-full px-3 py-2 border-2 border-ziditech-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-ziditech-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm font-bold"
-                      />
+                    <div className="flex flex-col items-end gap-1.5 flex-1">
+                      {!posDetails?.custom_hide_expected_amount && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                          Expected: {formatNumberWithCommas(((stat as any).amount || 0).toFixed(2))} {(stat as any).custom_currency || posDetails?.currency || ""}
+                        </span>
+                      )}
+                      <div className="flex items-center gap-2 w-full">
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          placeholder="0.00"
+                          required
+                          // @ts-expect-error just ignore for now
+                          value={closingInputs[stat.name] || ""}
+                          // @ts-expect-error just ignore for now
+                          onChange={(e) => handleClosingAmountChange(stat.name, e.target.value)}
+                          className="w-full px-3 py-2 border-2 border-ziditech-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-ziditech-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm font-bold text-right"
+                        />
+                        <span className="text-sm font-semibold text-gray-600 dark:text-gray-300 w-10 flex-shrink-0">
+                          {(stat as any).custom_currency || posDetails?.currency || ""}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -943,7 +970,7 @@ export default function ClosingShiftPage() {
                     <div className="space-y-2">
                       <div className="text-2xl font-bold text-gray-900 dark:text-white">
                                               {/* @ts-expect-error just ignore */}
-                        {formatCurrency(stat.amount, posDetails?.currency || 'USD')}
+                        {formatCurrency(stat.amount, (stat as any).custom_currency || posDetails?.currency || '')}
                       </div>
                       <div className="text-sm text-gray-600 dark:text-gray-400">
                                               {/* @ts-expect-error just ignore */}
@@ -962,10 +989,10 @@ export default function ClosingShiftPage() {
               <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Cash In / Out Transactions</h3>
                 <div className="flex gap-4 text-sm font-medium">
-                  <span className="text-green-600">In: {formatCurrency(cashSummary.cash_in, posDetails?.currency || 'SAR')}</span>
-                  <span className="text-red-600">Out: {formatCurrency(cashSummary.cash_out, posDetails?.currency || 'SAR')}</span>
+                  <span className="text-green-600">In: {formatCurrency(cashSummary.cash_in, posDetails?.currency || '')}</span>
+                  <span className="text-red-600">Out: {formatCurrency(cashSummary.cash_out, posDetails?.currency || '')}</span>
                   <span className={cashSummary.net >= 0 ? 'text-gray-900' : 'text-red-600'}>
-                    Net: {formatCurrency(cashSummary.net, posDetails?.currency || 'SAR')}
+                    Net: {formatCurrency(cashSummary.net, posDetails?.currency || '')}
                   </span>
                 </div>
               </div>
@@ -989,7 +1016,7 @@ export default function ClosingShiftPage() {
                             </span>
                           </td>
                           <td className="px-6 py-3 whitespace-nowrap text-sm font-bold text-gray-900 dark:text-white">
-                            {formatCurrency(txn.amount, posDetails?.currency || 'SAR')}
+                            {formatCurrency(txn.amount, posDetails?.currency || '')}
                           </td>
                           <td className="px-6 py-3 text-sm text-gray-600 dark:text-gray-400">{txn.description}</td>
                           <td className="px-6 py-3 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
@@ -1121,7 +1148,7 @@ export default function ClosingShiftPage() {
                         {invoice.cashier}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-gray-900 dark:text-white">{invoice.paymentMethod}</span>
+                        <span className="text-sm text-gray-900 dark:text-white">{formatPaymentMethodName(invoice.paymentMethod)}</span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900 dark:text-white">
@@ -1256,19 +1283,27 @@ export default function ClosingShiftPage() {
                       <span className="font-medium text-gray-900 dark:text-white">{stat.name}</span>
                     </div>
 
-                    <div className="flex items-center space-x-4">
-                      <div className="flex-shrink-0">
+                    <div className="flex flex-col items-end gap-1.5 font-medium">
+                      {!posDetails?.custom_hide_expected_amount && (
+                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                          Expected: {formatNumberWithCommas(((stat as any).amount || 0).toFixed(2))} {(stat as any).custom_currency || posDetails?.currency || ""}
+                        </span>
+                      )}
+                      <div className="flex items-center gap-2">
                         <input
                           type="text"
                           inputMode="decimal"
-                          placeholder="Enter actual amount"
+                          placeholder="0.00"
                           required
                           // @ts-expect-error just ignore for now
                           value={closingInputs[stat.name] || ""}
                           // @ts-expect-error just ignore for now
                           onChange={(e) => handleClosingAmountChange(stat.name, e.target.value)}
-                          className="w-40 px-3 py-2 border-2 border-ziditech-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-ziditech-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm font-bold"
+                          className="w-40 px-3 py-2 border-2 border-ziditech-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-ziditech-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm font-bold text-right"
                         />
+                        <span className="text-sm font-semibold text-gray-600 dark:text-gray-300 w-10">
+                          {(stat as any).custom_currency || posDetails?.currency || ""}
+                        </span>
                       </div>
                     </div>
                   </div>

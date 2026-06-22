@@ -52,6 +52,7 @@ doctype_js = {
 	"Account": "public/js/doctype/account_autonumber.js",
 	"Employee": "public/js/doctype/employee_pos_login.js",
 	"POS Closing Entry": "public/js/pos_closing_entry_extension.js",
+	"POS Profile": "public/js/doctype/pos_profile.js",
 }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 doctype_tree_js = {"Account": "public/js/doctype/account_autonumber.js"}

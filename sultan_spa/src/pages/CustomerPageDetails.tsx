@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { formatCurrency } from "../utils/currency";
+import { formatCurrency, formatPaymentMethodName } from "../utils/currency";
 import { usePOSDetails } from "../hooks/usePOSProfile";
 import {
   FileText,
@@ -429,7 +429,7 @@ export default function CustomerDetailsPage() {
                 <div>
                   <p className="text-xs text-gray-600 dark:text-gray-400">Total Revenue</p>
                   <p className="text-lg font-bold text-gray-900 dark:text-white">
-                    {formatCurrency(customerMetrics.totalRevenue, posDetails?.currency || 'USD')}
+                    {formatCurrency(customerMetrics.totalRevenue, posDetails?.currency)}
                   </p>
                 </div>
                 <DollarSign className="w-6 h-6 text-gray-900 dark:text-gray-500" />
@@ -441,7 +441,7 @@ export default function CustomerDetailsPage() {
                 <div>
                   <p className="text-xs text-gray-600 dark:text-gray-400">Outstanding</p>
                   <p className="text-lg font-bold text-gray-900 dark:text-white">
-                    {formatCurrency(customerMetrics.outstandingAmount, posDetails?.currency || 'USD')}
+                    {formatCurrency(customerMetrics.outstandingAmount, posDetails?.currency)}
                   </p>
                 </div>
                 <AlertCircle className={`w-6 h-6 ${customerMetrics.outstandingAmount > 0 ? 'text-red-600' : 'text-gray-400'}`} />
@@ -453,7 +453,7 @@ export default function CustomerDetailsPage() {
                 <div>
                   <p className="text-xs text-gray-600 dark:text-gray-400">Avg Order</p>
                   <p className="text-lg font-bold text-gray-900 dark:text-white">
-                    {formatCurrency(customerMetrics.avgOrderValue, posDetails?.currency || 'USD')}
+                    {formatCurrency(customerMetrics.avgOrderValue, posDetails?.currency)}
                   </p>
                 </div>
                 <TrendingUp className="w-6 h-6 text-gray-900 dark:text-gray-500" />
@@ -794,7 +794,7 @@ export default function CustomerDetailsPage() {
                   <div>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Total Revenue</p>
                     <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                      {formatCurrency(customerMetrics.totalRevenue, posDetails?.currency || 'USD')}
+                      {formatCurrency(customerMetrics.totalRevenue, posDetails?.currency)}
                     </p>
                   </div>
                   <DollarSign className="w-8 h-8 text-gray-900 dark:text-gray-500" />
@@ -806,7 +806,7 @@ export default function CustomerDetailsPage() {
                   <div>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Outstanding Balance</p>
                     <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                      {formatCurrency(customerMetrics.outstandingAmount, posDetails?.currency || 'USD')}
+                      {formatCurrency(customerMetrics.outstandingAmount, posDetails?.currency)}
                     </p>
                   </div>
                   <AlertCircle className={`w-8 h-8 ${customerMetrics.outstandingAmount > 0 ? 'text-red-600' : 'text-gray-400'}`} />
@@ -818,7 +818,7 @@ export default function CustomerDetailsPage() {
                   <div>
                     <p className="text-sm text-gray-600 dark:text-gray-400">Avg Order Value</p>
                     <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                      {formatCurrency(customerMetrics.avgOrderValue, posDetails?.currency || 'USD')}
+                      {formatCurrency(customerMetrics.avgOrderValue, posDetails?.currency)}
                     </p>
                   </div>
                   <TrendingUp className="w-8 h-8 text-gray-900 dark:text-gray-500" />
@@ -931,7 +931,7 @@ export default function CustomerDetailsPage() {
                             {invoice.cashier}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="text-sm text-gray-900 dark:text-white">{invoice.paymentMethod}</span>
+                            <span className="text-sm text-gray-900 dark:text-white">{formatPaymentMethodName(invoice.paymentMethod)}</span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm font-medium text-gray-900 dark:text-white">

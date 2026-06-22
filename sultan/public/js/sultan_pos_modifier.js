@@ -9,7 +9,7 @@
 // per session, clears every localStorage key that contains the affected
 // doctype names, and forces a page reload so the fresh metadata is fetched.
 (function purgeStaleMeta() {
-    var VER = "sultan_meta_v8_multi_currency";
+    var VER = "sultan_meta_v9_pos_profile_js";
     if (sessionStorage.getItem(VER)) return;
     sessionStorage.setItem(VER, "1");
     try {

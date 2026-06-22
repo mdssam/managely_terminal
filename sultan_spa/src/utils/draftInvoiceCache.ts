@@ -70,6 +70,7 @@ export async function loadCachedItemsToCart(): Promise<boolean> {
     };
     await addToCartWithQuantity(cartItem, item.quantity);
   }
+  await clearDraftInvoiceCache();
   return true;
 }
 

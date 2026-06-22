@@ -14,7 +14,7 @@ interface Props {
 }
 
 export default function CashIOModal({
-  isOpen, onClose, onSuccess, currency = "SAR", allowedModes = [], posSession,
+  isOpen, onClose, onSuccess, currency = "", allowedModes = [], posSession,
 }: Props) {
   const [type, setType] = useState<"Cash In" | "Cash Out">("Cash In")
   const [amount, setAmount] = useState("")
