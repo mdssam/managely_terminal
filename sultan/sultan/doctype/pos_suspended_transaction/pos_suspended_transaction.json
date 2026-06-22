@@ -17,6 +17,8 @@
   "posting_date_time",
   "transaction_type",
   "mode_of_payment",
+  "currency",
+  "exchange_rate",
   "pos_cash_account",
   "sec_amounts",
   "debit",
@@ -119,6 +121,23 @@
    "in_list_view": 1,
    "read_only": 1,
    "reqd": 1
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency",
+   "in_list_view": 0,
+   "read_only": 1
+  },
+  {
+   "fieldname": "exchange_rate",
+   "fieldtype": "Float",
+   "label": "Exchange Rate",
+   "description": "Units of base currency per 1 unit of transaction currency",
+   "default": "1",
+   "precision": "6",
+   "read_only": 1
   },
   {
    "fieldname": "pos_cash_account",

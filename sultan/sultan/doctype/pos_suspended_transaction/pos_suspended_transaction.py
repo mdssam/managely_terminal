@@ -122,9 +122,11 @@ class POSSuspendedTransaction(Document):
         company_currency = frappe.get_cached_value("Company", self.company, "default_currency")
         is_cash_in = flt(self.total_amount) >= 0.0 or flt(self.debit) > 0.0
 
-        cash_currency = frappe.db.get_value("Account", self.pos_cash_account, "account_currency") or company_currency
-        from sultan.sultan.api.cash_transaction import get_exchange_rate_for_cash_io
-        rate_cash = get_exchange_rate_for_cash_io(pos_profile, cash_currency, company_currency)
+        cash_currency = self.currency or frappe.db.get_value("Account", self.pos_cash_account, "account_currency") or company_currency
+        rate_cash = flt(self.exchange_rate)
+        if not rate_cash:
+            from sultan.sultan.api.cash_transaction import get_exchange_rate_for_cash_io
+            rate_cash = get_exchange_rate_for_cash_io(pos_profile, cash_currency, company_currency)
 
         gl_entries = []
         for row in self.accounts:
@@ -238,6 +240,8 @@ def create_cash_transaction_from_pos(pos_session, amount, mode_of_payment,
     else:
         doc.employee_name = frappe.db.get_value("User", frappe.session.user, "full_name") or frappe.session.user
     doc.mode_of_payment = mode_of_payment
+    doc.currency = cash_currency
+    doc.exchange_rate = rate_cash or 1.0
     doc.posting_date_time = frappe.utils.now_datetime()
     doc.total_amount = amount_val
     doc.description = description
