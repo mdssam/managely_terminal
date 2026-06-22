@@ -104,7 +104,9 @@ export async function createPartialReturn(
   invoiceName: string,
   returnItems: ReturnItem[],
   paymentMethod?: string,
-  returnAmount?: number
+  returnAmount?: number,
+  returnCurrency?: string,
+  returnOriginalAmount?: number
 ): Promise<{success: boolean; returnInvoice?: string; message?: string; error?: string}> {
 
   const csrfToken = window.csrf_token;
@@ -119,7 +121,9 @@ export async function createPartialReturn(
         invoice_name: invoiceName,
         return_items: returnItems,
         payment_method: paymentMethod || 'Cash',
-        return_amount: returnAmount || 0
+        return_amount: returnAmount || 0,
+        return_currency: returnCurrency,
+        return_original_amount: returnOriginalAmount
       }),
        credentials: 'include'
     });

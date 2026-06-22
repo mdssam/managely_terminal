@@ -266,6 +266,9 @@ def _auto_insert_stamp_taxes(doc):
 	if doc.doctype not in ("Sales Invoice", "Purchase Invoice") or doc.docstatus != 0:
 		return
 
+	if getattr(doc, "is_return", False):
+		return
+
 	# Only auto-insert if it is a new document (never saved to database yet)
 	if not (doc.is_new() or not frappe.db.exists(doc.doctype, doc.name)):
 		return

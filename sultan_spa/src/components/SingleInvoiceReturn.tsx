@@ -12,6 +12,7 @@ import { toast } from "react-toastify";
 import { formatCurrency, getCurrencySymbol } from "../utils/currency";
 import { usePOSDetails } from "../hooks/usePOSProfile";
 import { usePaymentModes } from "../hooks/usePaymentModes";
+import { usePOSCurrencies } from "../hooks/usePOSCurrencies";
 import { createPartialReturn, getReturnedQty, type ReturnItem } from "../services/returnService";
 import { getInvoiceDetails } from "../services/salesInvoice";
 
@@ -35,9 +36,13 @@ export default function SingleInvoiceReturn({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [originalInvoiceGrandTotal, setOriginalInvoiceGrandTotal] = useState<number>(0);
   const [originalInvoicePaidAmount, setOriginalInvoicePaidAmount] = useState<number>(0);
+  const [originalInvoiceNetTotal, setOriginalInvoiceNetTotal] = useState<number>(0);
+  const [originalInvoiceTotalTaxes, setOriginalInvoiceTotalTaxes] = useState<number>(0);
+  const [originalPayments, setOriginalPayments] = useState<any[]>([]);
 
   // Currency from invoice or POS profile
   const { posDetails } = usePOSDetails();
+  const currencies = usePOSCurrencies();
   const currency = (invoice && (invoice.currency || invoice.company_currency)) || posDetails?.currency || '';
   const currencySymbol = getCurrencySymbol(currency);
 
@@ -48,14 +53,32 @@ export default function SingleInvoiceReturn({
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("");
   const [returnAmount, setReturnAmount] = useState<number>(0);
 
+  const selectedModeObj = paymentModes.find(
+    (mode) => mode.mode_of_payment === selectedPaymentMethod
+  );
+  const modeCurrency = selectedModeObj?.custom_currency || currencies.baseCurrency;
+  const modeCurrencySymbol = getCurrencySymbol(modeCurrency);
+
+  const getExchangeRate = (curr: string): number => {
+    if (!curr || curr === currencies.baseCurrency) return 1;
+    const entry = currencies.secondaryCurrencies.find(e => e.currency === curr);
+    return entry?.exchangeRate ?? currencies.exchangeRate ?? 1;
+  };
+
   useEffect(() => {
     if (isOpen && invoice) {
       initializeReturnItems();
     }
   }, [isOpen, invoice]);
 
-  // Update return amount when items change
+  // Update return amount when items change (always in base/USD currency)
   useEffect(() => {
+    const taxFactor = originalInvoiceNetTotal > 0
+      ? (1 + originalInvoiceTotalTaxes / originalInvoiceNetTotal)
+      : (originalInvoiceGrandTotal > 0 && originalInvoiceNetTotal > 0
+         ? originalInvoiceGrandTotal / originalInvoiceNetTotal
+         : 1);
+
     if (originalInvoicePaidAmount > 0) {
       // Check if we should ignore writeoff on partial returns
       const ignoreWriteoffOnPartialReturns = posDetails?.custom_ignore_write_off_on_partial_returns || false;
@@ -75,8 +98,8 @@ export default function SingleInvoiceReturn({
       let calculatedReturnAmount;
 
       if (ignoreWriteoffOnPartialReturns && isPartialReturn) {
-        // For partial returns when checkbox is ticked: ignore writeoff, use original item rates
-        calculatedReturnAmount = returnedItemsAmount;
+        // For partial returns when checkbox is ticked: ignore writeoff, use original item rates scaled by tax factor
+        calculatedReturnAmount = returnedItemsAmount * taxFactor;
       } else {
         // Original logic: Calculate percentage of items being returned
         const returnPercentage = totalItemsAmount > 0 ? returnedItemsAmount / totalItemsAmount : 0;
@@ -91,9 +114,9 @@ export default function SingleInvoiceReturn({
       const total = returnItems.reduce((sum, item) => {
         return sum + ((item.return_qty || 0) * item.rate);
       }, 0);
-      setReturnAmount(Math.round(total * 100) / 100);
+      setReturnAmount(Math.round(total * taxFactor * 100) / 100);
     }
-  }, [returnItems, originalInvoicePaidAmount, posDetails?.custom_ignore_write_off_on_partial_returns]);
+  }, [returnItems, originalInvoicePaidAmount, originalInvoiceNetTotal, originalInvoiceTotalTaxes, originalInvoiceGrandTotal, posDetails?.custom_ignore_write_off_on_partial_returns]);
 
   // Set default payment method when payment modes are loaded
 
@@ -118,9 +141,13 @@ export default function SingleInvoiceReturn({
 
       if (invoiceDetails.success && invoiceDetails.data) {
         invoiceWithItems = invoiceDetails.data.data || invoiceDetails.data;
+        // Store the original payments
+        setOriginalPayments(invoiceWithItems.payments || []);
         // Store the original invoice grand total and paid amount for return calculations
         setOriginalInvoiceGrandTotal(invoiceWithItems.grand_total || 0);
         setOriginalInvoicePaidAmount(invoiceWithItems.paid_amount || invoiceWithItems.grand_total || 0);
+        setOriginalInvoiceNetTotal(invoiceWithItems.net_total || 0);
+        setOriginalInvoiceTotalTaxes(invoiceWithItems.total_taxes_and_charges || 0);
       } else {
         console.error('Failed to fetch invoice details:', invoiceDetails.error);
         throw new Error(invoiceDetails.error || 'Failed to fetch invoice details from backend');
@@ -213,15 +240,20 @@ export default function SingleInvoiceReturn({
     setIsLoading(true);
     const invoiceName = invoice.id || invoice.name
     try {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const returnData = {
-        items: itemsToReturn,
-        paymentMethod: selectedPaymentMethod,
-        returnAmount: returnAmount
-      };
+      const rate = getExchangeRate(modeCurrency);
+      const originalAmountInMode = rate > 0
+        ? (rate > 1.0 ? returnAmount * rate : returnAmount / rate)
+        : returnAmount;
+      const roundedOriginalAmount = Math.round(originalAmountInMode * 100) / 100;
 
-
-      const result = await createPartialReturn(invoiceName, itemsToReturn, selectedPaymentMethod, returnAmount);
+      const result = await createPartialReturn(
+        invoiceName,
+        itemsToReturn,
+        selectedPaymentMethod,
+        returnAmount,           // USD amount
+        modeCurrency,           // Selected currency (e.g. LBP)
+        roundedOriginalAmount   // LBP amount
+      );
 
       if (result.success) {
         toast.success(`Return created successfully (${selectedPaymentMethod})`);
@@ -238,10 +270,18 @@ export default function SingleInvoiceReturn({
     }
   };
 
-  const totalReturnAmount = returnItems.reduce(
+  const totalReturnAmountNet = returnItems.reduce(
     (sum, item) => sum + (item.return_qty || 0) * item.rate,
     0
   );
+
+  const taxFactor = originalInvoiceNetTotal > 0
+    ? (1 + originalInvoiceTotalTaxes / originalInvoiceNetTotal)
+    : (originalInvoiceGrandTotal > 0 && originalInvoiceNetTotal > 0
+       ? originalInvoiceGrandTotal / originalInvoiceNetTotal
+       : 1);
+
+  const totalReturnAmount = Math.round(totalReturnAmountNet * taxFactor * 100) / 100;
 
   const hasItemsToReturn = returnItems.some(item => (item.return_qty || 0) > 0);
 
@@ -470,6 +510,31 @@ export default function SingleInvoiceReturn({
         {/* Fixed Footer with Payment Methods and Return Button */}
         {hasItemsToReturn && (
           <div className="px-6 py-4 bg-gray-50 dark:bg-gray-700 border-t border-gray-200 dark:border-gray-600 flex-shrink-0">
+            {/* Original Payment Methods Used */}
+            {originalPayments && originalPayments.length > 0 && (
+              <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-lg">
+                <h4 className="text-xs font-semibold text-blue-800 dark:text-blue-200 uppercase tracking-wider mb-2">
+                  Original Payments Made:
+                </h4>
+                <div className="flex flex-wrap gap-x-6 gap-y-1">
+                  {originalPayments.map((p: any, idx: number) => {
+                    const amt = parseFloat(p.amount || 0);
+                    const origAmt = parseFloat(p.custom_payment_original_amount || 0);
+                    if (amt === 0 && origAmt === 0) return null;
+                    const displayAmt = p.custom_payment_currency && origAmt
+                      ? `${formatCurrency(origAmt, p.custom_payment_currency)}`
+                      : `${formatCurrency(amt, currency)}`;
+                    return (
+                      <div key={idx} className="text-sm text-blue-950 dark:text-blue-300">
+                        <span className="font-medium">{p.mode_of_payment}:</span>{" "}
+                        <span className="font-semibold">{displayAmt}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Payment Method Selection */}
             <div className="mb-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
@@ -505,20 +570,29 @@ export default function SingleInvoiceReturn({
                 {/* Return Amount Input with currency symbol */}
                 <div>
                   <div className="relative">
-                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500 dark:text-gray-400 text-sm">
-                      {currencySymbol}
+                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500 dark:text-gray-400 text-sm font-semibold">
+                      {modeCurrencySymbol}
                     </span>
                     <input
                       type="number"
-                      value={returnAmount}
+                      value={(() => {
+                        const rate = getExchangeRate(modeCurrency);
+                        const displayAmt = rate > 0
+                          ? (rate > 1.0 ? returnAmount * rate : returnAmount / rate)
+                          : returnAmount;
+                        return Math.round(displayAmt * 100) / 100;
+                      })()}
                       onChange={(e) => {
-                        const value = parseFloat(e.target.value) || 0;
-                        // Round to 2 decimal places to avoid floating point precision issues
-                        setReturnAmount(Math.round(value * 100) / 100);
+                        const valueInMode = parseFloat(e.target.value) || 0;
+                        const rate = getExchangeRate(modeCurrency);
+                        const valueInUSD = rate > 0
+                          ? (rate > 1.0 ? valueInMode / rate : valueInMode * rate)
+                          : valueInMode;
+                        setReturnAmount(Math.round(valueInUSD * 100) / 100);
                       }}
                       step="0.01"
                       min="0"
-                      className="w-full pl-8 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-ziditech-500 focus:border-ziditech-500 transition-colors text-right text-lg font-semibold"
+                      className="w-full pl-12 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-ziditech-500 focus:border-ziditech-500 transition-colors text-right text-lg font-semibold"
                       placeholder="0.00"
                     />
                   </div>

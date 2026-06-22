@@ -1879,6 +1879,9 @@ def return_sales_invoice(invoice_name):
 					"doctype": "Sales Invoice Item",
 					"field_map": {"name": "prevdoc_detail_docname"},
 				},
+				"Sales Taxes and Charges": {
+					"doctype": "Sales Taxes and Charges",
+				},
 			},
 		)
 
@@ -1887,6 +1890,8 @@ def return_sales_invoice(invoice_name):
 
 		for item in return_doc.items:
 			item.qty = -abs(item.qty)
+			item.sales_invoice_item = item.prevdoc_detail_docname
+			item.pos_invoice_item = item.prevdoc_detail_docname
 
 		# Mirror original round-off/write-off as POSITIVE on return; totals logic handles sign for returns
 		try:
@@ -2788,7 +2793,8 @@ def get_customer_invoices_for_return(customer, start_date=None, end_date=None, s
 
 @frappe.whitelist()
 def create_partial_return(
-	invoice_name, return_items, payment_method=None, return_amount=None, expected_return_amount=None
+	invoice_name, return_items, payment_method=None, return_amount=None, expected_return_amount=None,
+	return_currency=None, return_original_amount=None
 ):
 	"""Create a partial return for selected items from an invoice with custom payment method"""
 
@@ -2819,6 +2825,9 @@ def create_partial_return(
 				item_doctype: {
 					"doctype": item_doctype,
 					"field_map": {"name": "prevdoc_detail_docname"},
+				},
+				"Sales Taxes and Charges": {
+					"doctype": "Sales Taxes and Charges",
 				},
 			},
 		)
@@ -2855,6 +2864,8 @@ def create_partial_return(
 				for item in return_doc.items:
 					if item.item_code == item_code:
 						item.qty = -abs(r_qty)
+						item.sales_invoice_item = item.prevdoc_detail_docname
+						item.pos_invoice_item = item.prevdoc_detail_docname
 						filtered_items.append(item)
 						break
 
@@ -2865,15 +2876,21 @@ def create_partial_return(
 		# Clear existing payments
 		return_doc.payments = []
 
-		# Calculate total returned amount (baseline expected refund)
+		# Calculate taxes and totals to get baseline returned amount including taxes
+		try:
+			return_doc.calculate_taxes_and_totals()
+		except Exception:
+			pass
+
+		# Calculate total returned amount (baseline expected refund, including taxes)
 		# Prefer client-provided expected amount; fallback to backend computation
 		if expected_return_amount is not None:
 			try:
 				total_returned_amount = flt(expected_return_amount, return_doc.precision("grand_total") or 2)
 			except Exception:
-				total_returned_amount = sum(abs(item.qty * item.rate) for item in return_doc.items)
+				total_returned_amount = abs(return_doc.grand_total)
 		else:
-			total_returned_amount = sum(abs(item.qty * item.rate) for item in return_doc.items)
+			total_returned_amount = abs(return_doc.grand_total)
 
 		final_return_amount = return_amount if return_amount is not None else total_returned_amount
 
@@ -2928,26 +2945,40 @@ def create_partial_return(
 			final_return_amount = abs(original_paid_amount)
 
 		if final_return_amount > 0:
-			return_doc.append(
-				"payments",
-				{
-					"mode_of_payment": final_payment_method,
-					"amount": -abs(final_return_amount),
-				},
-			)
+			payment_row = {
+				"mode_of_payment": final_payment_method,
+				"amount": -abs(final_return_amount),
+			}
+			if return_currency:
+				payment_row["custom_payment_currency"] = return_currency
+			if return_original_amount:
+				payment_row["custom_payment_original_amount"] = -abs(flt(return_original_amount))
+			return_doc.append("payments", payment_row)
 		
-		# Explicitly set payment and change fields to prevent validation errors in POS Invoice
-		return_doc.paid_amount = -abs(final_return_amount) if final_return_amount else 0.0
-		return_doc.base_paid_amount = (return_doc.paid_amount) * (return_doc.conversion_rate or 1)
-		return_doc.change_amount = 0.0
-		return_doc.base_change_amount = 0.0
-
-		print("Mko 3", -abs(final_return_amount))
 		# Recalculate totals (payment amount stays as user entered)
 		try:
 			return_doc.calculate_taxes_and_totals()
 		except Exception:
 			pass
+
+		# Explicitly set payment and change fields to prevent validation errors in POS Invoice
+		final_invoice_total = return_doc.rounded_total or return_doc.grand_total
+		if final_invoice_total:
+			return_doc.paid_amount = final_invoice_total
+			return_doc.base_paid_amount = final_invoice_total * (return_doc.conversion_rate or 1)
+			if return_doc.payments:
+				return_doc.payments[0].amount = final_invoice_total
+				if hasattr(return_doc.payments[0], "base_amount"):
+					return_doc.payments[0].base_amount = final_invoice_total * (return_doc.conversion_rate or 1)
+				if return_currency and return_original_amount and final_return_amount:
+					rate = flt(return_original_amount) / flt(final_return_amount)
+					return_doc.payments[0].custom_payment_original_amount = -abs(flt(final_invoice_total * rate))
+		else:
+			return_doc.paid_amount = -abs(final_return_amount) if final_return_amount else 0.0
+			return_doc.base_paid_amount = (return_doc.paid_amount) * (return_doc.conversion_rate or 1)
+
+		return_doc.change_amount = 0.0
+		return_doc.base_change_amount = 0.0
 
 		return_doc.save(ignore_permissions=True)
 		return_doc.submit()
