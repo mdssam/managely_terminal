@@ -77,6 +77,17 @@ def get_exchange_rate_for_cash_io(pos_profile, from_currency, to_currency):
         return 1.0
 
     if pos_profile:
+        custom_rate = frappe.db.sql("""
+            SELECT ppm.custom_exchange_rate
+            FROM `tabPOS Payment Method` ppm
+            JOIN `tabMode of Payment Account` mopa ON mopa.parent = ppm.mode_of_payment
+            JOIN `tabAccount` acc ON acc.name = mopa.default_account
+            WHERE ppm.parent = %s AND acc.account_currency = %s
+            LIMIT 1
+        """, (pos_profile, from_currency))
+        if custom_rate and flt(custom_rate[0][0]) > 0:
+            return 1.0 / flt(custom_rate[0][0])
+
         rate = frappe.db.get_value(
             "POS Multi Currency Rate",
             {"parent": pos_profile, "parenttype": "POS Profile", "currency": from_currency},

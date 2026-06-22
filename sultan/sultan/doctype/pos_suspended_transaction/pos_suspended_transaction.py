@@ -410,6 +410,28 @@ def on_pos_closing_entry_submit(doc, method=None):
         if doc.pos_opening_entry:
             employee = frappe.db.get_value("POS Opening Entry", doc.pos_opening_entry, "custom_employee")
 
+        company_currency = frappe.get_cached_value("Company", doc.company, "default_currency")
+        cash_account = frappe.db.get_value(
+            "Mode of Payment Account",
+            {"parent": row.mode_of_payment, "company": doc.company},
+            "default_account",
+        )
+        cash_currency = (
+            frappe.db.get_value("Account", cash_account, "account_currency")
+            or company_currency
+        )
+        from sultan.sultan.api.cash_transaction import get_exchange_rate_for_cash_io
+        rate_cash = get_exchange_rate_for_cash_io(doc.pos_profile, cash_currency, company_currency)
+
+        base_difference = flt(row.difference) * rate_cash
+
+        write_off_currency = (
+            frappe.db.get_value("Account", write_off_account, "account_currency")
+            or company_currency
+        )
+        rate_write_off = get_exchange_rate_for_cash_io(doc.pos_profile, write_off_currency, company_currency)
+        write_off_amount_in_ac = abs(base_difference) / rate_write_off if rate_write_off else abs(base_difference)
+
         txn = frappe.new_doc("POS Suspended Transaction")
         txn.pos_session = doc.pos_opening_entry
         txn.pos_closing_entry = doc.name
@@ -420,8 +442,10 @@ def on_pos_closing_entry_submit(doc, method=None):
         else:
             txn.employee_name = frappe.db.get_value("User", doc.owner, "full_name") or doc.owner
         txn.mode_of_payment = row.mode_of_payment
+        txn.currency = cash_currency
+        txn.exchange_rate = rate_cash or 1.0
         txn.posting_date_time = frappe.utils.now_datetime()
-        txn.total_amount = flt(row.difference)
+        txn.total_amount = base_difference
         txn.description = (
             _("Closing Difference (Gain)") if flt(row.difference) > 0.0
             else _("Closing Difference (Loss)")
@@ -429,8 +453,9 @@ def on_pos_closing_entry_submit(doc, method=None):
         txn.transaction_type = "Closing Difference"
         txn.append("accounts", {
             "account": write_off_account,
-            "amount_in_account_currency": abs(flt(row.difference)),
-            "exchange_rate": 1.0,
+            "account_currency": write_off_currency,
+            "amount_in_account_currency": write_off_amount_in_ac,
+            "exchange_rate": rate_write_off,
         })
         txn.flags.from_pos_api = True
         txn.flags.ignore_permissions = True
