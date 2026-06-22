@@ -96,7 +96,7 @@ export default function NavBar() {
                       <div className="flex-1 min-w-0">
                         <p className="font-bold text-gray-900 dark:text-white truncate">{posProfileName}</p>
                         <div className="flex items-center space-x-1 mt-1">
-                          <Store size={14} className="text-ziditech-500 flex-shrink-0" />
+                          <Store size={14} className="text-gray-900 flex-shrink-0" />
                           <p className="text-xs text-gray-600 dark:text-gray-400 truncate">
                             {displayName}
                           </p>
@@ -112,7 +112,7 @@ export default function NavBar() {
                       onClick={() => setShowUserMenu(false)}
                       className="flex items-center w-full px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-ziditech-50 dark:hover:bg-ziditech-900/10 transition-colors"
                     >
-                      <Settings size={18} className="mr-3 text-ziditech-500" />
+                      <Settings size={18} className="mr-3 text-gray-900" />
                       <span className="font-medium">Settings</span>
                     </Link>
 
@@ -125,9 +125,9 @@ export default function NavBar() {
                       type="button"
                     >
                       {theme === 'dark' ? (
-                        <Sun size={18} className="mr-3 text-ziditech-500" />
+                        <Sun size={18} className="mr-3 text-gray-900" />
                       ) : (
-                        <Moon size={18} className="mr-3 text-ziditech-500" />
+                        <Moon size={18} className="mr-3 text-gray-900" />
                       )}
                       <span className="font-medium">{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
                     </button>
@@ -140,7 +140,7 @@ export default function NavBar() {
                       className="flex items-center w-full px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-ziditech-50 dark:hover:bg-ziditech-900/10 transition-colors"
                       type="button"
                     >
-                      <Globe className="mr-3 text-ziditech-500" size={18} />
+                      <Globe className="mr-3 text-gray-900" size={18} />
                       <span className="font-medium">{language === "en" ? "Switch to Arabic" : "Switch to English"}</span>
                     </button>
 
@@ -150,7 +150,7 @@ export default function NavBar() {
                         onClick={() => setShowUserMenu(false)}
                         className="flex items-center w-full px-4 py-3 text-sm text-gray-700 dark:text-gray-300 hover:bg-ziditech-50 dark:hover:bg-ziditech-900/10 transition-colors"
                       >
-                        <Monitor size={18} className="mr-3 text-ziditech-500" />
+                        <Monitor size={18} className="mr-3 text-gray-900" />
                         <span className="font-medium">Closing Session</span>
                       </Link>
                     )}
@@ -162,7 +162,7 @@ export default function NavBar() {
                         handleLogout()
                         setShowUserMenu(false)
                       }}
-                      className="flex items-center w-full px-4 py-3 text-sm text-ziditech-600 hover:bg-ziditech-50 transition-colors"
+                      className="flex items-center w-full px-4 py-3 text-sm text-gray-900 hover:bg-ziditech-50 transition-colors"
                       type="button"
                     >
                       <LogOut size={18} className="mr-3" />

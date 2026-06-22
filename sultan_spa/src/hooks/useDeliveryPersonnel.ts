@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { dbGet, dbSet, APP_CACHE_STORE } from "../services/offlineDB";
+import { makeAPICall } from "../utils/apiUtils";
 
 export interface DeliveryPersonnel {
   name: string;
@@ -14,9 +16,9 @@ export function useDeliveryPersonnel() {
     const fetchDeliveryPersonnel = async () => {
       const cacheKey = "cached_delivery_personnel";
       if (typeof window !== "undefined" && !navigator.onLine) {
-        const cached = localStorage.getItem(cacheKey);
+        const cached = await dbGet<DeliveryPersonnel[]>(APP_CACHE_STORE, cacheKey);
         if (cached) {
-          setPersonnel(JSON.parse(cached));
+          setPersonnel(cached);
           setLoading(false);
           return;
         }
@@ -24,7 +26,7 @@ export function useDeliveryPersonnel() {
 
       try {
         setLoading(true);
-        const response = await fetch(
+        const response = await makeAPICall(
           "/api/method/sultan.sultan.api.delivery_personnel.get_delivery_personnel_list",
           {
             method: "GET",
@@ -32,6 +34,8 @@ export function useDeliveryPersonnel() {
               "Accept": "application/json",
             },
             credentials: "include",
+            timeout: 2000,
+            retries: 0
           }
         );
 
@@ -39,20 +43,14 @@ export function useDeliveryPersonnel() {
         if (response.ok && data.message && data.message.success) {
           const list = data.message.data || [];
           setPersonnel(list);
-          if (typeof window !== "undefined") {
-            localStorage.setItem(cacheKey, JSON.stringify(list));
-          }
+          await dbSet(APP_CACHE_STORE, cacheKey, list);
         } else {
           throw new Error(data.message?.error || "Failed to fetch delivery personnel");
         }
       } catch (err: unknown) {
         console.error("Error loading delivery personnel:", err);
-        const cached = typeof window !== "undefined" ? localStorage.getItem(cacheKey) : null;
-        if (cached) {
-          setPersonnel(JSON.parse(cached));
-        } else {
-          setPersonnel([]);
-        }
+        const cached = await dbGet<DeliveryPersonnel[]>(APP_CACHE_STORE, cacheKey);
+        setPersonnel(cached ?? []);
         setError(null);
       } finally {
         setLoading(false);

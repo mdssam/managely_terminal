@@ -35,6 +35,13 @@ def generate_production_order(doc, method=None):
     Called via hooks on POS Invoice or Sales Order submission.
     Loops through items and creates an instant Work Order for fresh items.
     """
+    if getattr(doc, "is_return", 0):
+        return
+
+    # Skip POS-related Sales Invoices to avoid duplicate Work Orders (already handled by POS Invoices)
+    if doc.doctype == "Sales Invoice" and (doc.is_pos or doc.get("custom_pos_opening_entry") or doc.get("pos_profile")):
+        return
+
     for item in doc.items:
         # Check if item is marked as fresh produce / needs instant manufacturing
         is_fresh_produce = frappe.db.get_value("Item", item.item_code, "is_fresh_produce")
@@ -42,7 +49,7 @@ def generate_production_order(doc, method=None):
             continue
 
         # Deduplication: Order Station may have already completed a WO for this item
-        # within the last 15 minutes — if so, the finished good is already in stock, skip.
+        # within the last 15 minutes — if so, link it to the current document and skip.
         cutoff = frappe.utils.add_to_date(frappe.utils.now_datetime(), minutes=-15)
         already_done = frappe.db.get_value(
             "Work Order",
@@ -52,10 +59,18 @@ def generate_production_order(doc, method=None):
                 "status": "Completed",
                 "company": doc.company,
                 "creation": [">", cutoff],
+                "custom_pos_invoice": ("is", "not set"),
+                "custom_sales_invoice": ("is", "not set"),
+                "custom_sales_order": ("is", "not set"),
+                "sales_order": ("is", "not set"),
             },
             "name",
         )
         if already_done:
+            field_to_set = "custom_pos_invoice" if doc.doctype == "POS Invoice" else (
+                "custom_sales_invoice" if doc.doctype == "Sales Invoice" else "custom_sales_order"
+            )
+            frappe.db.set_value("Work Order", already_done, field_to_set, doc.name)
             continue
 
         # Get active BOM for the item
@@ -113,6 +128,7 @@ def generate_production_order(doc, method=None):
 
 def complete_work_order_manufacture(work_order_name):
     """Submit a Manufacture Stock Entry so POS-created Work Orders are actually completed."""
+    frappe.flags.mute_messages = True
     try:
         from erpnext.manufacturing.doctype.work_order.work_order import make_stock_entry
 
@@ -121,13 +137,30 @@ def complete_work_order_manufacture(work_order_name):
         if work_order.docstatus != 1 or pending_qty <= 0:
             return
 
-        stock_entry = frappe.get_doc(make_stock_entry(work_order.name, "Manufacture", pending_qty))
-        # Allow consuming raw materials even if stock goes negative (fresh produce scenario)
-        stock_entry.set_missing_values()
-        for row in stock_entry.items:
-            row.allow_zero_valuation_rate = 1
-        stock_entry.flags.ignore_permissions = True
-        stock_entry.insert(ignore_permissions=True)
+        existing_se = frappe.db.get_value("Stock Entry", {"work_order": work_order.name, "docstatus": 0}, "name")
+        if existing_se:
+            stock_entry = frappe.get_doc("Stock Entry", existing_se)
+        else:
+            stock_entry = frappe.get_doc(make_stock_entry(work_order.name, "Manufacture", pending_qty))
+            # Allow consuming raw materials even if stock goes negative (fresh produce scenario)
+            from erpnext.stock.stock_ledger import get_valuation_rate
+            for row in stock_entry.items:
+                warehouse = row.s_warehouse or row.t_warehouse or stock_entry.from_warehouse or stock_entry.to_warehouse
+                val_rate = 0
+                if warehouse:
+                    try:
+                        val_rate = get_valuation_rate(row.item_code, warehouse)
+                    except Exception:
+                        pass
+                if val_rate > 0:
+                    row.allow_zero_valuation_rate = 0
+                else:
+                    row.allow_zero_valuation_rate = 1
+
+            stock_entry.set_missing_values()
+            stock_entry.flags.ignore_permissions = True
+            stock_entry.insert(ignore_permissions=True)
+
         stock_entry.flags.ignore_permissions = True
         stock_entry.submit()
     except Exception:
@@ -135,6 +168,8 @@ def complete_work_order_manufacture(work_order_name):
             frappe.get_traceback(),
             f"Failed to complete manufacture for Work Order {work_order_name}",
         )
+    finally:
+        frappe.flags.mute_messages = False
 
 def apply_custom_ingredients(wo, custom_ingredients_data):
     """
@@ -460,10 +495,27 @@ def fix_invoice_items_valuation(doc, method=None):
     Hook executed before save/submit to bypass rigid accounting blocks for 
     new items by dynamically enabling 'Allow Zero Valuation Rate'.
     """
-    has_changes = False
+    try:
+        from erpnext.stock.stock_ledger import get_valuation_rate
+    except ImportError:
+        for item in doc.get("items"):
+            if not item.allow_zero_valuation_rate:
+                item.allow_zero_valuation_rate = 1
+        return
+
     for item in doc.get("items"):
-        # 1. Enable Zero Valuation to prevent rigid accounting traps for new items
-        if not item.allow_zero_valuation_rate:
+        # 1. Dynamically toggle Zero Valuation based on valuation rate availability
+        warehouse = item.get("warehouse") or doc.get("set_warehouse")
+        val_rate = 0
+        if warehouse:
+            try:
+                val_rate = get_valuation_rate(item.item_code, warehouse)
+            except Exception:
+                pass
+
+        if val_rate > 0:
+            item.allow_zero_valuation_rate = 0
+        else:
             item.allow_zero_valuation_rate = 1
             
         # 2. Auto-enable Negative Stock on parent item for fresh produce
@@ -582,3 +634,91 @@ def pay_draft_invoice(invoice_name, mode_of_payment, amount=None):
     except Exception as e:
         frappe.log_error(frappe.get_traceback(), "Cashier Pay Invoice Error")
         return {"success": False, "message": str(e)}
+
+
+@frappe.whitelist()
+def add_mcp_workspace_link():
+    import json
+    doc = frappe.get_doc("Workspace", "Accounting")
+    payment_entry_idx = -1
+    for i, link in enumerate(doc.links):
+        if link.link_to == "Payment Entry" and link.type == "Link":
+            payment_entry_idx = i
+            break
+
+    modified = False
+    if payment_entry_idx != -1:
+        has_mcp = any(link.link_to == "Multi Currency Payment" for link in doc.links)
+        if not has_mcp:
+            new_link = frappe.new_doc("Workspace Link")
+            new_link.parent = "Accounting"
+            new_link.parentfield = "links"
+            new_link.parenttype = "Workspace"
+            new_link.link_to = "Multi Currency Payment"
+            new_link.link_type = "DocType"
+            new_link.label = "Multi Currency Payment"
+            new_link.type = "Link"
+            new_link.hidden = 0
+            new_link.is_query_report = 0
+            new_link.onboard = 0
+            
+            doc.links.insert(payment_entry_idx + 1, new_link)
+            modified = True
+
+    trial_balance_idx = -1
+    for i, shortcut in enumerate(doc.shortcuts):
+        if shortcut.label == "Trial Balance" and shortcut.type == "Report":
+            trial_balance_idx = i
+            break
+
+    if trial_balance_idx != -1:
+        has_mctb = any(shortcut.label == "Multi Currency Trial Balance" for shortcut in doc.shortcuts)
+        if not has_mctb:
+            new_shortcut = frappe.new_doc("Workspace Shortcut")
+            new_shortcut.parent = "Accounting"
+            new_shortcut.parentfield = "shortcuts"
+            new_shortcut.parenttype = "Workspace"
+            new_shortcut.label = "Multi Currency Trial Balance"
+            new_shortcut.link_to = "Multi Currency Trial Balance"
+            new_shortcut.type = "Report"
+            
+            doc.shortcuts.insert(trial_balance_idx + 1, new_shortcut)
+            modified = True
+
+    # Also update block content json if present
+    if doc.content:
+        content_list = json.loads(doc.content)
+        trial_balance_content_idx = -1
+        for idx, block in enumerate(content_list):
+            if block.get("type") == "shortcut" and block.get("data", {}).get("shortcut_name") == "Trial Balance":
+                trial_balance_content_idx = idx
+                break
+        
+        if trial_balance_content_idx != -1:
+            has_mctb_content = any(block.get("type") == "shortcut" and block.get("data", {}).get("shortcut_name") == "Multi Currency Trial Balance" for block in content_list)
+            if not has_mctb_content:
+                new_block = {
+                    "id": frappe.generate_hash(length=10),
+                    "type": "shortcut",
+                    "data": {
+                        "shortcut_name": "Multi Currency Trial Balance",
+                        "col": 3
+                    }
+                }
+                content_list.insert(trial_balance_content_idx + 1, new_block)
+                doc.content = json.dumps(content_list)
+                modified = True
+
+    if modified:
+        # Re-index links
+        for idx, link in enumerate(doc.links):
+            link.idx = idx + 1
+        # Re-index shortcuts
+        for idx, shortcut in enumerate(doc.shortcuts):
+            shortcut.idx = idx + 1
+            
+        doc.save(ignore_permissions=True)
+        frappe.db.commit()
+        return "Successfully added Multi Currency Payment and Multi Currency Trial Balance to Accounting workspace in DB"
+    else:
+        return "Workspace already has both link and shortcut"

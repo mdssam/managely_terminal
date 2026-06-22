@@ -1,6 +1,7 @@
 import type React from "react"
 import { useState, useEffect, createContext, useContext } from "react"
 import erpnextAPI from "../services/erpnext-api"
+import { dbGet, dbSet, dbRemove, dbClearStore, AUTH_STORE, APP_CACHE_STORE } from "../services/offlineDB"
 
 interface User {
   name: string
@@ -10,6 +11,8 @@ interface User {
   first_name?: string
   last_name?: string
   user_image?: string
+  is_employee?: boolean
+  allowed_pos_profiles?: string[]
 }
 
 interface AuthContextType {
@@ -31,7 +34,9 @@ interface AuthContextType {
       token_delivery?: boolean
     }
   }>
+  loginAsEmployee: (employeeId: string, employeeDisplayName: string, role?: string, allowedPosProfiles?: string[]) => Promise<void>
   logout: () => Promise<void>
+  lockEmployee: () => Promise<void>
   checkSession: () => Promise<boolean>
   loading: boolean
   isAuthenticated: boolean
@@ -53,60 +58,91 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const initAuth = async () => {
       try {
-        // Initialize ERPNext API session
-        erpnextAPI.initializeSession()
+        // Initialize ERPNext API session from IndexedDB
+        await erpnextAPI.initializeSession()
 
-        // Check if user has local credentials
-        const token = localStorage.getItem("erpnext_token")
-        const userData = localStorage.getItem("user_data")
+        // Check if user has cached credentials in IndexedDB
+        const token    = await dbGet<string>(AUTH_STORE, "erpnext_token")
+        const userData = await dbGet<User>(AUTH_STORE, "user_data")
 
         if (token && userData) {
+          // If offline, trust cached credentials — don't call the server
+          if (!navigator.onLine) {
+            console.log("[Auth] Offline: using cached session without server validation")
+            setUser(userData)
+            return
+          }
+
+          // Online: validate session with server
+          let isSessionValid = false
           try {
-            const parsedUser = JSON.parse(userData)
-            
-            // IMMEDIATELY validate session synchronously BEFORE releasing lock
-            const isSessionValid = await erpnextAPI.validateSession()
-            
-            if (isSessionValid) {
-              // Session verified, establish safe authenticated state
-              setUser(parsedUser)
-              
-              // Attempt a profile refresh passively to capture updates
-              try {
-                const freshUserData = await erpnextAPI.getCurrentUserProfile()
-                if (freshUserData) {
-                  const updatedUser = {
-                    name: freshUserData.name || parsedUser.name,
-                    email: freshUserData.email || freshUserData.name || parsedUser.email,
-                    full_name: freshUserData.full_name || freshUserData.first_name + ' ' + (freshUserData.last_name || '') || parsedUser.full_name,
-                    role: freshUserData.role_profile_name || freshUserData.role || parsedUser.role || "User",
-                    first_name: freshUserData.first_name,
-                    last_name: freshUserData.last_name,
-                    user_image: freshUserData.user_image
-                  }
-                  setUser(updatedUser)
-                  localStorage.setItem("user_data", JSON.stringify(updatedUser))
+            isSessionValid = await erpnextAPI.validateSession()
+          } catch (networkErr) {
+            // Network error during validation — treat as offline, keep session
+            console.warn("[Auth] Session validation network error, keeping cached session:", networkErr)
+            setUser(userData)
+            return
+          }
+
+          if (isSessionValid) {
+            setUser(userData)
+
+            // Attempt a profile refresh passively to capture updates
+            try {
+              const freshUserData = await erpnextAPI.getCurrentUserProfile()
+              if (freshUserData) {
+                const updatedUser: User = {
+                  name:       userData.is_employee ? userData.name : (freshUserData.name || userData.name),
+                  email:      userData.is_employee ? userData.email : (freshUserData.email || freshUserData.name || userData.email),
+                  full_name:  userData.is_employee ? userData.full_name : (freshUserData.full_name || `${freshUserData.first_name} ${freshUserData.last_name || ""}`.trim() || userData.full_name),
+                  role:       userData.is_employee ? userData.role : (freshUserData.role_profile_name || freshUserData.role || userData.role || "User"),
+                  first_name: freshUserData.first_name as string | undefined,
+                  last_name:  freshUserData.last_name  as string | undefined,
+                  user_image: freshUserData.user_image as string | undefined,
+                  is_employee: userData.is_employee
                 }
-              } catch (e) {
-                console.warn("Passive user profile sync failed:", e)
+                setUser(updatedUser)
+                await dbSet(AUTH_STORE, "user_data", updatedUser)
               }
-            } else {
-              // Remote session died, purge cache instantly
-              console.warn("Stale session detected on boot, purging local cache")
-              localStorage.removeItem("erpnext_token")
-              localStorage.removeItem("user_data")
-              localStorage.removeItem("erpnext_sid")
-              setUser(null)
+            } catch (e) {
+              console.warn("Passive user profile sync failed:", e)
             }
-          } catch (error) {
-            console.error("Malformed cached auth data:", error)
-            localStorage.removeItem("erpnext_token")
-            localStorage.removeItem("user_data")
-            localStorage.removeItem("erpnext_sid")
+          } else {
+            // Server explicitly said session is invalid — purge cached auth
+            console.warn("Stale session detected on boot, purging auth cache")
+            await dbClearStore(AUTH_STORE)
+            setUser(null)
+          }
+        } else if (navigator.onLine) {
+          // No cached data, but user might be logged in via Frappe desk (session cookie)
+          try {
+            const isSessionValid = await erpnextAPI.validateSession()
+            if (isSessionValid) {
+              const freshUserData = await erpnextAPI.getCurrentUserProfile()
+              if (freshUserData) {
+                const newUser: User = {
+                  name: freshUserData.name,
+                  email: freshUserData.email || freshUserData.name,
+                  full_name: freshUserData.full_name || `${freshUserData.first_name} ${freshUserData.last_name || ""}`.trim(),
+                  role: freshUserData.role_profile_name || freshUserData.role || "User",
+                  first_name: freshUserData.first_name,
+                  last_name: freshUserData.last_name,
+                  user_image: freshUserData.user_image,
+                  is_employee: false
+                }
+                setUser(newUser)
+                await dbSet(AUTH_STORE, "user_data", newUser)
+                // Use a dummy token or standard "session" token
+                await dbSet(AUTH_STORE, "erpnext_token", "frappe-session")
+              }
+            }
+          } catch (e) {
+            console.warn("No active session cookie found:", e)
           }
         }
+      } catch (error) {
+        console.error("Auth init error:", error)
       } finally {
-        // Safe to unblock UI only after true deterministic state reached
         setLoading(false)
       }
     }
@@ -118,7 +154,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setLoading(true)
 
-      // Use the real ERPNext API
       const result = await erpnextAPI.login(username, password, otp, tmpId)
 
       if (result.requires_otp) {
@@ -132,17 +167,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       if (result.success && result.user) {
-        console.log("Login successful:", result.user)
-        const userData = {
-          name: result.user.name || username,
-          email: result.user.email || username,
+        const userData: User = {
+          name:      result.user.name      || username,
+          email:     result.user.email     || username,
           full_name: result.user.full_name || result.user.name || username,
-          role: result.user.role || "User",
+          role:      result.user.role      || "User",
         }
 
         setUser(userData)
-        localStorage.setItem("erpnext_token", "authenticated")
-        localStorage.setItem("user_data", JSON.stringify(userData))
+        await dbSet(AUTH_STORE, "erpnext_token", "authenticated")
+        await dbSet(AUTH_STORE, "user_data",     userData)
+        if (typeof window !== "undefined") {
+          sessionStorage.removeItem("pos_db_preloaded")
+        }
 
         return { success: true, message: result.message }
       } else {
@@ -156,18 +193,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  const loginAsEmployee = async (employeeId: string, employeeDisplayName: string, role?: string, allowedPosProfiles?: string[]) => {
+    const userData: User = {
+      name:      employeeId,
+      email:     employeeId,
+      full_name: employeeDisplayName,
+      role:      role || "Cashier",
+      is_employee: true,
+      allowed_pos_profiles: allowedPosProfiles,
+    }
+    setUser(userData)
+    await dbSet(AUTH_STORE, "erpnext_token", "authenticated")
+    await dbSet(AUTH_STORE, "user_data",     userData)
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("pos_db_preloaded")
+    }
+  }
+
   const logout = async () => {
     await erpnextAPI.logout()
     setUser(null)
-    localStorage.removeItem("erpnext_token")
-    localStorage.removeItem("user_data")
-    localStorage.removeItem("erpnext_sid")
+    await dbClearStore(AUTH_STORE)
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("pos_db_preloaded")
+    }
   }
 
-  // Method to check if session is still valid
+  const lockEmployee = async () => {
+    try {
+      await dbRemove(APP_CACHE_STORE, 'pos_employee')
+      if (typeof window !== "undefined") {
+        sessionStorage.removeItem("pos_db_preloaded")
+      }
+      const userData = await dbGet<User>(AUTH_STORE, "user_data")
+      if (userData) {
+        userData.is_employee = false
+        await dbSet(AUTH_STORE, "user_data", userData)
+        setUser({ ...userData, is_employee: false })
+      } else {
+        setUser(null)
+      }
+    } catch (e) {
+      console.error("lockEmployee error:", e)
+    }
+  }
+
   const checkSession = async () => {
     if (!user) return false
-
     try {
       const isValid = await erpnextAPI.validateSession()
       if (!isValid) {
@@ -187,7 +259,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       value={{
         user,
         login,
+        loginAsEmployee,
         logout,
+        lockEmployee,
         checkSession,
         loading,
         isAuthenticated: !!user,
@@ -197,6 +271,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     </AuthContext.Provider>
   )
 }
+
 // eslint-disable-next-line react-refresh/only-export-components
 export function useAuth(): AuthContextType {
   const context = useContext(AuthContext)

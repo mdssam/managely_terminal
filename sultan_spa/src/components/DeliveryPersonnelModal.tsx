@@ -108,7 +108,7 @@ export default function DeliveryPersonnelModal({
         <div className="p-4">
           {loading ? (
             <div className="flex items-center justify-center py-8">
-              <Loader2 size={24} className="animate-spin text-ziditech-600" />
+              <Loader2 size={24} className="animate-spin text-gray-900" />
               <span className="ml-2 text-gray-600 dark:text-gray-400">Loading...</span>
             </div>
           ) : error ? (
@@ -154,7 +154,7 @@ export default function DeliveryPersonnelModal({
                           onClick={() => handleSelect(person.name, person.delivery_personnel)}
                           className={`w-full text-left px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${
                             selectedPersonnel === person.name
-                              ? "bg-ziditech-50 dark:bg-ziditech-900/20 text-ziditech-600 dark:text-ziditech-400"
+                              ? "bg-ziditech-50 dark:bg-ziditech-900/20 text-gray-900 dark:text-gray-500"
                               : "text-gray-900 dark:text-white"
                           }`}
                         >

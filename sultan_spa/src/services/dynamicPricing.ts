@@ -100,7 +100,11 @@ export async function applyPricingRulesToCart(
     }
 
     const result = await response.json();
-    return result.message || cartItems; // Return original items if API fails
+    const data = result.message || result;
+    if (Array.isArray(data)) {
+      return data;
+    }
+    return cartItems;
   } catch (error) {
     console.error('Error applying pricing rules to cart:', error);
     // Return original items if pricing rule application fails

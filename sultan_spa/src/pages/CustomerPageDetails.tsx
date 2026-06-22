@@ -62,7 +62,7 @@ export default function CustomerDetailsPage() {
   const { id: customerId } = useParams();
   // @ts-expect-error just ignore
   const { customer, isLoadingC, errorC } = useCustomerDetails(customerId);
-  const { invoices, isLoading, error, hasMore, totalLoaded, loadMore } = useCustomerInvoices(customer?.name || "");
+  const { invoices, isLoading, error, hasMore, totalLoaded, loadMore, refetch } = useCustomerInvoices(customer?.name || "");
   const { posDetails } = usePOSDetails();
 
 
@@ -120,7 +120,7 @@ export default function CustomerDetailsPage() {
     switch (normalized) {
       // Payment statuses
       case "paid":
-        return `${baseClasses} bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900/20 dark:text-ziditech-400`;
+        return `${baseClasses} bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900/20 dark:text-gray-500`;
       case "unpaid":
         return `${baseClasses} bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400`;
       case "partly paid":
@@ -130,7 +130,7 @@ export default function CustomerDetailsPage() {
       case "draft":
         return `${baseClasses} bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400`;
       case "return":
-        return `${baseClasses} bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900/20 dark:text-ziditech-400`;
+        return `${baseClasses} bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900/20 dark:text-gray-500`;
       case "cancelled":
         return `${baseClasses} bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400`;
 
@@ -142,7 +142,7 @@ export default function CustomerDetailsPage() {
       case "not reported":
         return `${baseClasses} bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400`;
       case "cleared":
-        return `${baseClasses} bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900/20 dark:text-ziditech-400`;
+        return `${baseClasses} bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900/20 dark:text-gray-500`;
       case "not cleared":
         return `${baseClasses} bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400`;
 
@@ -169,7 +169,6 @@ export default function CustomerDetailsPage() {
   };
 
   const handleViewInvoice = (invoice: SalesInvoice) => {
-    navigate(`/invoice/${invoice.id}`)
     setSelectedInvoice(invoice);
     setShowInvoiceModal(true);
   };
@@ -218,8 +217,8 @@ export default function CustomerDetailsPage() {
       toast.success(`Draft invoice ${invoice.id} submitted successfully`);
       setShowEditDraftDialog(false);
       setDraftInvoiceToEdit(null);
-      // Refresh the invoices list
-      window.location.reload();
+      // Refresh the invoices list without full reload
+      refetch();
       //eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       console.error("Error submitting draft invoice:", error);
@@ -241,8 +240,8 @@ export default function CustomerDetailsPage() {
   const handleSingleReturnSuccess = () => {
     setShowSingleReturn(false);
     setSelectedInvoiceForReturn(null);
-    // Refresh the invoices list
-    window.location.reload();
+    // Refresh the invoices list without full reload
+    refetch();
   };
 
  const handleReturnClick = async (invoiceName: string) => {
@@ -404,7 +403,7 @@ export default function CustomerDetailsPage() {
                 </div>
               </div>
               <div className="text-right">
-                <span className="px-2 py-1 rounded-full text-xs font-medium bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900/20 dark:text-ziditech-400">
+                <span className="px-2 py-1 rounded-full text-xs font-medium bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900/20 dark:text-gray-500">
                   Active
                 </span>
               </div>
@@ -421,7 +420,7 @@ export default function CustomerDetailsPage() {
                     {customerMetrics.totalInvoices}
                   </p>
                 </div>
-                <FileText className="w-6 h-6 text-ziditech-600 dark:text-ziditech-400" />
+                <FileText className="w-6 h-6 text-gray-900 dark:text-gray-500" />
               </div>
             </div>
 
@@ -433,7 +432,7 @@ export default function CustomerDetailsPage() {
                     {formatCurrency(customerMetrics.totalRevenue, posDetails?.currency || 'USD')}
                   </p>
                 </div>
-                <DollarSign className="w-6 h-6 text-ziditech-600 dark:text-ziditech-400" />
+                <DollarSign className="w-6 h-6 text-gray-900 dark:text-gray-500" />
               </div>
             </div>
 
@@ -457,7 +456,7 @@ export default function CustomerDetailsPage() {
                     {formatCurrency(customerMetrics.avgOrderValue, posDetails?.currency || 'USD')}
                   </p>
                 </div>
-                <TrendingUp className="w-6 h-6 text-ziditech-600 dark:text-ziditech-400" />
+                <TrendingUp className="w-6 h-6 text-gray-900 dark:text-gray-500" />
               </div>
             </div>
           </div>
@@ -560,7 +559,7 @@ export default function CustomerDetailsPage() {
                           <div className="flex space-x-2">
                             <button
                               onClick={() => handleViewInvoice(invoice)}
-                              className="text-ziditech-600 hover:text-ziditech-900 dark:text-ziditech-400 dark:hover:text-ziditech-300"
+                              className="text-gray-900 hover:text-ziditech-900 dark:text-gray-500 dark:hover:text-gray-500"
                             >
                               View
                             </button>
@@ -568,13 +567,13 @@ export default function CustomerDetailsPage() {
                             {invoice.status === "Draft" && (
                               <button
                                 onClick={() => handleEditInvoice(invoice)}
-                                className="text-ziditech-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
+                                className="text-gray-900 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
                               >
                                 Edit
                               </button>
                             )}
                                                   {/* @ts-expect-error just ignore */}
-                            {["Paid", "Unpaid", "Overdue", "Partly Paid", "Credit Note Issued"].includes(invoice.status) && !invoice.is_return && hasReturnableItems(invoice) && (
+                            {["Paid", "Unpaid", "Overdue", "Partly Paid", "Credit Note Issued", "Consolidated"].includes(invoice.status) && !invoice.is_return && hasReturnableItems(invoice) && (
                               <button
                                 onClick={() => handleSingleReturnClick(invoice)}
                                 className="text-orange-600 hover:text-orange-900 dark:text-orange-400 dark:hover:text-orange-300"
@@ -675,7 +674,7 @@ export default function CustomerDetailsPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex pb-12">
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Fixed Header */}
-        <div className="fixed top-0 left-20 right-0 z-50 bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+        <div className="fixed top-0 left-28 right-0 z-50 bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
           <div className="px-6 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
@@ -710,7 +709,7 @@ export default function CustomerDetailsPage() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-auto pt-20 ml-20">
+        <div className="flex-1 overflow-auto pt-20 ml-28">
           <div className="px-6 py-8 max-w-none">
             {/* Customer Info Card */}
             <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 mb-6">
@@ -748,7 +747,7 @@ export default function CustomerDetailsPage() {
                 </div>
                 <div className="text-right space-y-1">
                   <div className="flex items-center space-x-2">
-                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900/20 dark:text-ziditech-400">
+                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900/20 dark:text-gray-500">
                       Active
                     </span>
                   </div>
@@ -786,7 +785,7 @@ export default function CustomerDetailsPage() {
                       {customerMetrics.totalInvoices}
                     </p>
                   </div>
-                  <FileText className="w-8 h-8 text-ziditech-600 dark:text-ziditech-400" />
+                  <FileText className="w-8 h-8 text-gray-900 dark:text-gray-500" />
                 </div>
               </div>
 
@@ -798,7 +797,7 @@ export default function CustomerDetailsPage() {
                       {formatCurrency(customerMetrics.totalRevenue, posDetails?.currency || 'USD')}
                     </p>
                   </div>
-                  <DollarSign className="w-8 h-8 text-ziditech-600 dark:text-ziditech-400" />
+                  <DollarSign className="w-8 h-8 text-gray-900 dark:text-gray-500" />
                 </div>
               </div>
 
@@ -822,7 +821,7 @@ export default function CustomerDetailsPage() {
                       {formatCurrency(customerMetrics.avgOrderValue, posDetails?.currency || 'USD')}
                     </p>
                   </div>
-                  <TrendingUp className="w-8 h-8 text-ziditech-600 dark:text-ziditech-400" />
+                  <TrendingUp className="w-8 h-8 text-gray-900 dark:text-gray-500" />
                 </div>
               </div>
             </div>
@@ -939,7 +938,7 @@ export default function CustomerDetailsPage() {
                               {formatCurrency(invoice.totalAmount, invoice.currency)}
                             </div>
                             {invoice.giftCardDiscount > 0 && (
-                              <div className="text-xs text-orange-600 dark:text-ziditech-400">
+                              <div className="text-xs text-orange-600 dark:text-gray-500">
                                 -{formatCurrency(invoice.giftCardDiscount, invoice.currency)} gift card
                               </div>
                             )}
@@ -957,7 +956,7 @@ export default function CustomerDetailsPage() {
                             <div className="flex space-x-2">
                               <button
                                 onClick={() => handleViewInvoice(invoice)}
-                                className="text-ziditech-600 hover:text-ziditech-900 dark:text-ziditech-400 dark:hover:text-ziditech-300"
+                                className="text-gray-900 hover:text-ziditech-900 dark:text-gray-500 dark:hover:text-gray-500"
                               >
                                 View
                               </button>
@@ -965,13 +964,13 @@ export default function CustomerDetailsPage() {
                               {invoice.status === "Draft" && (
                                 <button
                                   onClick={() => handleEditInvoice(invoice)}
-                                  className="text-ziditech-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
+                                  className="text-gray-900 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
                                 >
                                   Edit
                                 </button>
                               )}
                                                     {/* @ts-expect-error just ignore */}
-                              {["Paid", "Unpaid", "Overdue", "Partly Paid", "Credit Note Issued"].includes(invoice.status) && !invoice.is_return && hasReturnableItems(invoice) && (
+                              {["Paid", "Unpaid", "Overdue", "Partly Paid", "Credit Note Issued", "Consolidated"].includes(invoice.status) && !invoice.is_return && hasReturnableItems(invoice) && (
                                 <button
                                   onClick={() => handleSingleReturnClick(invoice)}
                                   className="text-orange-600 hover:text-orange-900 dark:text-orange-400 dark:hover:text-orange-300"

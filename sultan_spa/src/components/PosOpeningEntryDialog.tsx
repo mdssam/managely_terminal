@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { X, CreditCard, Banknote, Wallet, AlertCircle, CheckCircle2, AlertTriangle, UserCircle2 } from 'lucide-react';
-import { formatCurrency } from '../utils/currency';
+import { formatCurrency, formatNumberWithCommas, parseNumberFromCommas } from '../utils/currency';
 import { useCreatePOSOpeningEntry } from '../services/opeiningEntry';
 import { usePaymentModes } from "../hooks/usePaymentModes"
 import { usePOSProfiles, usePOSDetails } from '../hooks/usePOSProfile';
+import { useAuth } from '../hooks/useAuth';
 import { clearAllCache } from '../utils/clearCache';
 import EmployeeLoginModal from './EmployeeLoginModal';
 
@@ -54,12 +55,15 @@ const POSOpeningModal: React.FC<POSOpeningModalProps> = ({
   const [employeeInfo, setEmployeeInfo] = useState<{employee: string; employee_name: string} | null>(null);
   const [profileSession, setProfileSession] = useState<ProfileSession | null>(null);
   const [checkingSession, setCheckingSession] = useState(false);
+  const [actionType, setActionType] = useState<'create' | 'resume'>('create');
+  const [openingInputs, setOpeningInputs] = useState<Record<string, string>>({});
 
   const { createOpeningEntry, isCreating, error: createError, success } = useCreatePOSOpeningEntry();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { profiles: posProfiles, loading: profilesLoading, error: _profilesError } = usePOSProfiles();
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { posDetails, loading: _posDetailsLoading } = usePOSDetails();
+  const { user } = useAuth();
 
   const activeProfileName = posDetails?.name && posDetails.name !== 'System Default' ? posDetails.name as string : undefined;
   const profileForPaymentModes: string = selectedProfile || activeProfileName || "";
@@ -97,8 +101,8 @@ const POSOpeningModal: React.FC<POSOpeningModalProps> = ({
 
   const getPaymentIcon = (type: string) => {
     switch (type.toLowerCase()) {
-      case 'cash': return <Banknote className="w-5 h-5 text-ziditech-600" />;
-      case 'bank': return <CreditCard className="w-5 h-5 text-ziditech-600" />;
+      case 'cash': return <Banknote className="w-5 h-5 text-gray-900" />;
+      case 'bank': return <CreditCard className="w-5 h-5 text-gray-900" />;
       default: return <Wallet className="w-5 h-5 text-gray-600" />;
     }
   };
@@ -139,6 +143,12 @@ const POSOpeningModal: React.FC<POSOpeningModalProps> = ({
         account: payment.default_account || payment.account
       }));
       setPaymentMethods(methods);
+      
+      const inputs: Record<string, string> = {};
+      methods.forEach(m => {
+        inputs[m.mode_of_payment] = "";
+      });
+      setOpeningInputs(inputs);
     }
   }, [paymentModes, paymentModesLoading, selectedProfile]);
 
@@ -146,8 +156,12 @@ const POSOpeningModal: React.FC<POSOpeningModalProps> = ({
     if (paymentModesError) setError(paymentModesError);
   }, [paymentModesError]);
 
-  const updatePaymentAmount = (index: number, amount: number) => {
+  const updatePaymentAmount = (index: number, modeName: string, valStr: string) => {
     if (index < 0 || index >= paymentMethods.length) return;
+    const formatted = formatNumberWithCommas(valStr);
+    setOpeningInputs(prev => ({ ...prev, [modeName]: formatted }));
+    
+    const amount = parseFloat(parseNumberFromCommas(valStr)) || 0;
     setPaymentMethods(prev => {
       const next = [...prev];
       if (next[index]) next[index] = { ...next[index], opening_amount: amount };
@@ -155,12 +169,73 @@ const POSOpeningModal: React.FC<POSOpeningModalProps> = ({
     });
   };
 
-  const handleStartSession = () => setShowEmployeeLogin(true);
+  const handleStartSession = () => {
+    setActionType('create');
+    if (user?.is_employee) {
+      // If already logged in as employee, skip the login modal
+      handleCreateOpeningEntry(user.name, user.full_name);
+    } else {
+      setShowEmployeeLogin(true);
+    }
+  };
+
+  const handleResumeSessionClick = () => {
+    setActionType('resume');
+    if (user?.is_employee) {
+      handleResumeSession(user.name, user.full_name);
+    } else {
+      setShowEmployeeLogin(true);
+    }
+  };
 
   const handleEmployeeLoginSuccess = (employee: string, employee_name: string) => {
     setEmployeeInfo({ employee, employee_name });
     setShowEmployeeLogin(false);
-    handleCreateOpeningEntry(employee, employee_name);
+    if (actionType === 'resume') {
+      handleResumeSession(employee, employee_name);
+    } else {
+      handleCreateOpeningEntry(employee, employee_name);
+    }
+  };
+
+  const handleResumeSession = async (employee?: string, employee_name?: string) => {
+    try {
+      setStep('creating');
+      setError('');
+      const payload = {
+        pos_profile: selectedProfile,
+        employee: employee || undefined,
+        employee_name: employee_name || undefined
+      };
+      const res = await fetch('/api/method/sultan.sultan.api.pos_entry.resume_profile_session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'X-Frappe-CSRF-Token': (window as any).csrf_token || ''
+        },
+        body: JSON.stringify(payload),
+        credentials: 'include'
+      });
+      const data = await res.json();
+      if (data.exception || data.message?.success === false) {
+        throw new Error(data._server_messages ? JSON.parse(data._server_messages).join('\n') : 'Failed to resume session');
+      }
+      clearAllCache();
+      try {
+        await fetch('/api/method/sultan.sultan.api.cache.clear_backend_cache', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-Frappe-CSRF-Token': (window as any).csrf_token || '' },
+          credentials: 'include'
+        });
+      } catch (e) { console.warn('Failed to clear backend cache:', e); }
+      setStep('success');
+      setTimeout(() => { window.location.reload(); }, 1500);
+    } catch (err: any) {
+      console.error('Error resuming session:', err);
+      setError(err.message || 'Failed to resume session');
+      setStep('form');
+    }
   };
 
   const handleCreateOpeningEntry = async (employee?: string, employee_name?: string) => {
@@ -222,11 +297,11 @@ const POSOpeningModal: React.FC<POSOpeningModalProps> = ({
 
   if (!isOpen) return null;
 
-  const hasPreviousDaySession = profileSession?.has_active_session && profileSession.is_previous_day;
+  const hasActiveSession = profileSession?.has_active_session;
   const isLoadingPaymentModes = selectedProfile && paymentModesLoading;
 
   return (
-    <div className="fixed inset-0 bg-ziditech-300 bg-opacity-10 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-xl w-full max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="bg-ziditech-600 text-white px-6 py-4 flex items-center justify-between">
@@ -268,15 +343,20 @@ const POSOpeningModal: React.FC<POSOpeningModalProps> = ({
                 </div>
               )}
 
-              {!checkingSession && hasPreviousDaySession && (
+              {!checkingSession && hasActiveSession && (
                 <div className="bg-amber-50 border border-amber-300 rounded-lg p-4">
                   <div className="flex gap-3">
                     <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                     <div className="flex-1">
-                      <p className="font-semibold text-amber-800 text-sm">Previous Day Session Still Open</p>
+                      <p className="font-semibold text-amber-800 text-sm">
+                        {profileSession!.is_previous_day ? 'Previous Day Session Still Open' : 'POS Session Already Open'}
+                      </p>
                       <p className="text-amber-700 text-xs mt-1">
-                        A shift from <strong>{profileSession!.session_date}</strong> was never closed.
-                        You must close it before starting a new one.
+                        {profileSession!.is_previous_day ? (
+                          <>A shift from <strong>{profileSession!.session_date}</strong> was never closed. You must close it or resume it.</>
+                        ) : (
+                          <>There is an active session currently open for this profile.</>
+                        )}
                       </p>
                       <div className="mt-2 space-y-1">
                         <div className="flex items-center gap-2 text-xs text-amber-800">
@@ -291,10 +371,10 @@ const POSOpeningModal: React.FC<POSOpeningModalProps> = ({
                         )}
                       </div>
                       <button
-                        onClick={handleGoToExistingSession}
+                        onClick={handleResumeSessionClick}
                         className="mt-3 px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-semibold rounded-md transition-colors"
                       >
-                        Open Existing Session to Close It →
+                        Resume & Enter Session →
                       </button>
                     </div>
                   </div>
@@ -302,7 +382,7 @@ const POSOpeningModal: React.FC<POSOpeningModalProps> = ({
               )}
 
               {/* Payment Methods — only shown when no blocking session */}
-              {!hasPreviousDaySession && (
+              {!hasActiveSession && (
                 <>
                   {isLoadingPaymentModes && (
                     <div className="text-center py-4">
@@ -323,11 +403,10 @@ const POSOpeningModal: React.FC<POSOpeningModalProps> = ({
                               <div className="text-xs text-gray-500">{method.type}</div>
                             </div>
                             <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={method.opening_amount || ''}
-                              onChange={(e) => updatePaymentAmount(index, parseFloat(e.target.value) || 0)}
+                              type="text"
+                              inputMode="decimal"
+                              value={openingInputs[method.mode_of_payment] || ""}
+                              onChange={(e) => updatePaymentAmount(index, method.mode_of_payment, e.target.value)}
                               className="w-24 px-2 py-1 border border-gray-300 rounded text-right focus:outline-none focus:ring-1 focus:ring-ziditech-500"
                               placeholder="0.00"
                               disabled={profilesLoading}
@@ -338,7 +417,7 @@ const POSOpeningModal: React.FC<POSOpeningModalProps> = ({
                       <div className="mt-4 pt-3 border-t border-gray-200">
                         <div className="flex justify-between items-center font-semibold">
                           <span>Total Opening Balance:</span>
-                          <span className="text-ziditech-600">{formatCurrency(totalAmount, posDetails?.currency || 'USD')}</span>
+                          <span className="text-gray-900">{formatCurrency(totalAmount, posDetails?.currency || 'USD')}</span>
                         </div>
                       </div>
                     </div>
@@ -369,7 +448,7 @@ const POSOpeningModal: React.FC<POSOpeningModalProps> = ({
                     !!isCreating ||
                     !!isLoadingPaymentModes ||
                     checkingSession ||
-                    !!hasPreviousDaySession ||
+                    !!hasActiveSession ||
                     !selectedProfile ||
                     paymentMethods.length === 0
                   }
@@ -396,7 +475,7 @@ const POSOpeningModal: React.FC<POSOpeningModalProps> = ({
           {step === 'success' && (
             <div className="text-center py-8">
               <div className="w-16 h-16 bg-ziditech-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <CheckCircle2 className="w-8 h-8 text-ziditech-600" />
+                <CheckCircle2 className="w-8 h-8 text-gray-900" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">POS Session Started!</h3>
               <p className="text-gray-600 mb-4">Opening entry created successfully. Redirecting to POS...</p>

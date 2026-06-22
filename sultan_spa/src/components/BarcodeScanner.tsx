@@ -206,12 +206,12 @@ export default function BarcodeScannerModal({ onBarcodeDetected, onClose, isOpen
         {success && (
           <div className="mb-4 p-4 bg-ziditech-50 dark:bg-ziditech-900/20 border border-ziditech-200 dark:border-ziditech-800 rounded-lg">
             <div className="flex items-center">
-              <CheckCircle className="text-ziditech-600 dark:text-ziditech-400 mr-2" size={20} />
+              <CheckCircle className="text-gray-900 dark:text-gray-500 mr-2" size={20} />
               <span className="text-ziditech-800 dark:text-ziditech-200 font-medium">
                 Barcode detected: {scannedBarcode}
               </span>
             </div>
-            <p className="text-ziditech-600 dark:text-ziditech-400 text-sm mt-1">
+            <p className="text-gray-900 dark:text-gray-500 text-sm mt-1">
               Adding item to cart...
             </p>
           </div>
@@ -249,7 +249,7 @@ export default function BarcodeScannerModal({ onBarcodeDetected, onClose, isOpen
 
             <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
               <div className="border-2 border-ziditech-400 border-dashed rounded-lg w-64 h-32 flex items-center justify-center">
-                <div className="text-ziditech-400 text-center">
+                <div className="text-gray-500 text-center">
                   <Camera size={32} className="mx-auto mb-2 opacity-75" />
                   <p className="text-sm">Point at barcode</p>
                 </div>

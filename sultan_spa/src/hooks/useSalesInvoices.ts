@@ -2,19 +2,11 @@
 import { useEffect, useState, useCallback } from "react";
 import type { SalesInvoice, SalesInvoiceItem } from "../../types";
 import { backgroundSyncService } from "../services/backgroundSyncService";
+import { dbGet, dbSet, AUTH_STORE, APP_CACHE_STORE } from "../services/offlineDB";
 
-function getOfflineCashier(data: any) {
-  const cachedUser = localStorage.getItem("user_data");
-  let currentUserName = "";
-
-  if (cachedUser) {
-    try {
-      const user = JSON.parse(cachedUser);
-      currentUserName = user.full_name || user.name || user.email || "";
-    } catch {
-      currentUserName = "";
-    }
-  }
+async function getOfflineCashier(data: any) {
+  const userData = await dbGet<{ full_name?: string; name?: string; email?: string }>(AUTH_STORE, "user_data");
+  const currentUserName = userData?.full_name || userData?.name || userData?.email || "";
 
   return {
     name: data.cashier_name || data.employee_name || data.customer?.owner || currentUserName || "Unknown",
@@ -26,7 +18,8 @@ export function useSalesInvoices(
   searchTerm: string = "",
   skipOpeningEntryFilter: boolean = false,
   cashierName?: string,
-  submittedOnly: boolean = false
+  submittedOnly: boolean = false,
+  posProfile?: string
 ) {
   const [invoices, setInvoices] = useState<SalesInvoice[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -52,7 +45,7 @@ export function useSalesInvoices(
   }, [searchTerm]);
 
   const getCacheKey = () =>
-    `sultan_invoices_cache_${skipOpeningEntryFilter}_${cashierName || ''}_${submittedOnly}`;
+    `sultan_invoices_cache_${skipOpeningEntryFilter}_${cashierName || ''}_${submittedOnly}_${posProfile || ''}`;
 
   const fetchInvoices = useCallback(async (page = 0, append = false) => {
     if (append) {
@@ -63,9 +56,9 @@ export function useSalesInvoices(
 
     // Get unsynced offline invoices
     const offlineList = backgroundSyncService.getOfflineInvoices().filter(inv => !inv.synced);
-    let transformedOffline: SalesInvoice[] = offlineList.map(inv => {
+    let transformedOffline: SalesInvoice[] = await Promise.all(offlineList.map(async inv => {
       const data = inv.data;
-      const offlineCashier = getOfflineCashier(data);
+      const offlineCashier = await getOfflineCashier(data);
       return {
         id: inv.id,
         date: new Date(inv.timestamp).toISOString().split("T")[0],
@@ -95,12 +88,13 @@ export function useSalesInvoices(
         refundAmount: 0,
         custom_zatca_submit_status: "Pending",
         currency: data.currency || "USD",
-        notes: "Offline Order - Pending Sync",
+        notes: inv.syncError ? `Sync Error: ${inv.syncError}` : "Offline Order - Pending Sync",
         posProfile: data.posProfile || "",
         custom_pos_opening_entry: "",
         canReturn: false,
+        syncError: inv.syncError,
       };
-    });
+    }));
 
     // Filter offline invoices client-side if a search query is active
     if (debouncedSearchTerm) {
@@ -112,16 +106,31 @@ export function useSalesInvoices(
     }
 
     if (typeof window !== 'undefined' && !navigator.onLine) {
+      const cacheKey = getCacheKey();
+      const cached = await dbGet<{ invoices: SalesInvoice[]; totalCount: number }>(APP_CACHE_STORE, cacheKey);
+      const cachedInvoices = cached?.invoices || [];
+      const totalCountCached = cached?.totalCount || 0;
+
+      // Merge transformedOffline and cachedInvoices, ensuring no duplicates by ID
+      const mergedInvoices = [...transformedOffline];
+      const offlineIds = new Set(transformedOffline.map(i => i.id));
+      for (const inv of cachedInvoices) {
+        if (!offlineIds.has(inv.id)) {
+          mergedInvoices.push(inv);
+        }
+      }
+
       if (append) {
         setIsLoadingMore(false);
       } else {
-        setInvoices(transformedOffline);
-        setTotalLoaded(transformedOffline.length);
-        setTotalCount(transformedOffline.length);
+        setInvoices(mergedInvoices);
+        setTotalLoaded(mergedInvoices.length);
+        setTotalCount(totalCountCached + transformedOffline.length);
         setIsLoading(false);
       }
       return;
     }
+
 
     try {
       const start = page * LIMIT;
@@ -133,8 +142,15 @@ export function useSalesInvoices(
       const cashierParam = cashierName && cashierName !== 'all' ? `&cashier_name=${encodeURIComponent(cashierName)}` : '';
       // Only submitted invoices (exclude Draft and Cancelled) - for Sales Dashboard
       const submittedOnlyParam = submittedOnly ? '&submitted_only=true' : '';
+      // Filter by POS Profile if provided
+      const posProfileParam = posProfile ? `&pos_profile=${encodeURIComponent(posProfile)}` : '';
+
+      // Fetch employee context from local storage
+      const userData = await dbGet<{ name?: string; is_employee?: boolean }>(AUTH_STORE, "user_data");
+      const employeeParam = userData?.is_employee ? `&employee=${encodeURIComponent(userData.name || "")}` : "";
+
       const response = await fetch(
-        `/api/method/sultan.sultan.api.sales_invoice.get_sales_invoices?limit=${LIMIT}&start=${start}${searchParam}${skipOpeningFilter}${cashierParam}${submittedOnlyParam}`,
+        `/api/method/sultan.sultan.api.sales_invoice.get_sales_invoices?limit=${LIMIT}&start=${start}${searchParam}${skipOpeningFilter}${cashierParam}${submittedOnlyParam}${posProfileParam}${employeeParam}`,
         {
           method: 'GET',
           headers: {
@@ -173,7 +189,7 @@ export function useSalesInvoices(
 
         let canReturn = true;
 
-        if (status === "Credit Note Issued") {
+        if (status === "Credit Note Issued" || status === "Consolidated") {
           const itemsWithAvailableQty = items.filter((item: SalesInvoiceItem & { available_qty?: number }) => (item.available_qty || 0) > 0);
           canReturn = itemsWithAvailableQty.length > 0;
 
@@ -214,6 +230,7 @@ export function useSalesInvoices(
               | "Cancelled"
               | "Return"
               | "Credit Note Issued"
+              | "Consolidated"
               | "Completed"
               | "Pending"
               | "Refunded") || "Completed",
@@ -231,6 +248,7 @@ export function useSalesInvoices(
           posProfile: invoice.pos_profile || "",
           custom_pos_opening_entry: invoice.custom_pos_opening_entry || "",
           canReturn: canReturn,
+          is_return: !!invoice.is_return,
         };
       });
 
@@ -244,13 +262,11 @@ export function useSalesInvoices(
 
         // Cache page-0 results for offline fallback
         if (!debouncedSearchTerm) {
-          try {
-            localStorage.setItem(getCacheKey(), JSON.stringify({
-              invoices: transformed,
-              totalCount: totalCountFromAPI,
-              timestamp: Date.now(),
-            }));
-          } catch (_) { /* storage full — skip */ }
+          dbSet(APP_CACHE_STORE, getCacheKey(), {
+            invoices: transformed,
+            totalCount: totalCountFromAPI,
+            timestamp: Date.now(),
+          }).catch(() => {});
         }
       }
 
@@ -261,26 +277,21 @@ export function useSalesInvoices(
     } catch (err: any) {
       // Fall back to cached invoices rather than showing an error screen
       if (page === 0 && !debouncedSearchTerm) {
-        try {
-          const cached = localStorage.getItem(getCacheKey());
-          if (cached) {
-            const parsed = JSON.parse(cached);
-            setInvoices([...transformedOffline, ...parsed.invoices]);
-            setTotalLoaded(parsed.invoices.length + transformedOffline.length);
-            setTotalCount(parsed.totalCount + transformedOffline.length);
-            setHasMore(false);
-            setError(null);
-          } else if (transformedOffline.length > 0) {
-            setInvoices(transformedOffline);
-            setTotalLoaded(transformedOffline.length);
-            setTotalCount(transformedOffline.length);
-            setHasMore(false);
-            setError(null);
-          } else {
-            setError(err.message || "Unable to load invoices. Please check your connection.");
-          }
-        } catch (_) {
-          setError(err.message || "Unknown error occurred");
+        const cached = await dbGet<{ invoices: SalesInvoice[]; totalCount: number }>(APP_CACHE_STORE, getCacheKey());
+        if (cached) {
+          setInvoices([...transformedOffline, ...cached.invoices]);
+          setTotalLoaded(cached.invoices.length + transformedOffline.length);
+          setTotalCount(cached.totalCount + transformedOffline.length);
+          setHasMore(false);
+          setError(null);
+        } else if (transformedOffline.length > 0) {
+          setInvoices(transformedOffline);
+          setTotalLoaded(transformedOffline.length);
+          setTotalCount(transformedOffline.length);
+          setHasMore(false);
+          setError(null);
+        } else {
+          setError(err.message || "Unable to load invoices. Please check your connection.");
         }
       } else {
         setError(err.message || "Unknown error occurred");
@@ -289,7 +300,7 @@ export function useSalesInvoices(
       setIsLoading(false);
       setIsLoadingMore(false);
     }
-  }, [debouncedSearchTerm, skipOpeningEntryFilter, cashierName, submittedOnly]);
+  }, [debouncedSearchTerm, skipOpeningEntryFilter, cashierName, submittedOnly, posProfile]);
 
   const loadMore = useCallback(() => {
     if (!isLoadingMore && hasMore) {

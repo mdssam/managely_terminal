@@ -46,7 +46,7 @@ export default function CartItemRow({ item, onUpdateQty }: CartItemRowProps) {
         <button
         //eslint-disable-next-line @typescript-eslint/no-explicit-any
           onClick={() => onUpdateQty((item as any).item_code ?? item.id, qty + 1)}
-          className="w-6 h-6 rounded-full bg-ziditech-50 border border-ziditech-200 text-ziditech-600 flex items-center justify-center hover:bg-blue-100"
+          className="w-6 h-6 rounded-full bg-ziditech-50 border border-ziditech-200 text-gray-900 flex items-center justify-center hover:bg-blue-100"
         >
           +
         </button>

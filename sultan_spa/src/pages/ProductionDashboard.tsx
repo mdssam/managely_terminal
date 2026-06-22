@@ -66,7 +66,7 @@ export default function ProductionDashboard() {
     <div className="min-h-screen bg-gray-50 pb-12 text-gray-900">
       <header className="px-6 py-8 bg-white border-b border-gray-200 shadow-sm">
         <div className="flex items-center space-x-4">
-          <div className="p-3 bg-ziditech-100 dark:bg-ziditech-900/30 rounded-xl text-ziditech-600 dark:text-ziditech-400">
+          <div className="p-3 bg-ziditech-100 dark:bg-ziditech-900/30 rounded-xl text-gray-900 dark:text-gray-500">
             <Factory size={28} />
           </div>
           <div>
@@ -82,12 +82,12 @@ export default function ProductionDashboard() {
           <div className="flex justify-between items-start">
             <div>
               <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">Today's Production</p>
-              <h3 className="text-3xl font-bold mt-2 group-hover:text-ziditech-600 transition-colors">{todayStats.total_qty}</h3>
+              <h3 className="text-3xl font-bold mt-2 group-hover:text-gray-900 transition-colors">{todayStats.total_qty}</h3>
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 flex items-center">
                 <ClipboardList size={12} className="mr-1"/> {todayStats.total_orders} work orders today
               </p>
             </div>
-            <div className="p-3 bg-ziditech-50 dark:bg-ziditech-900/20 text-ziditech-600 dark:text-ziditech-400 rounded-lg">
+            <div className="p-3 bg-ziditech-50 dark:bg-ziditech-900/20 text-gray-900 dark:text-gray-500 rounded-lg">
               <Activity size={20} />
             </div>
           </div>
@@ -97,12 +97,12 @@ export default function ProductionDashboard() {
           <div className="flex justify-between items-start">
             <div>
               <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">Total Produced (30 Days)</p>
-              <h3 className="text-3xl font-bold mt-2 group-hover:text-ziditech-600 transition-colors">{totalProduced}</h3>
+              <h3 className="text-3xl font-bold mt-2 group-hover:text-gray-900 transition-colors">{totalProduced}</h3>
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 flex items-center">
                 <Box size={12} className="mr-1"/> Cumulative item volume
               </p>
             </div>
-            <div className="p-3 bg-ziditech-50 dark:bg-ziditech-900/20 text-ziditech-600 dark:text-ziditech-400 rounded-lg">
+            <div className="p-3 bg-ziditech-50 dark:bg-ziditech-900/20 text-gray-900 dark:text-gray-500 rounded-lg">
               <Box size={20} />
             </div>
           </div>
@@ -112,12 +112,12 @@ export default function ProductionDashboard() {
           <div className="flex justify-between items-start">
             <div>
               <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">Total Completed Orders</p>
-              <h3 className="text-3xl font-bold mt-2 group-hover:text-ziditech-600 transition-colors">{totalOrders}</h3>
+              <h3 className="text-3xl font-bold mt-2 group-hover:text-gray-900 transition-colors">{totalOrders}</h3>
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 flex items-center">
                 <Calendar size={12} className="mr-1"/> Last 30 active days
               </p>
             </div>
-            <div className="p-3 bg-ziditech-50 dark:bg-ziditech-900/20 text-ziditech-600 dark:text-ziditech-400 rounded-lg">
+            <div className="p-3 bg-ziditech-50 dark:bg-ziditech-900/20 text-gray-900 dark:text-gray-500 rounded-lg">
               <ClipboardList size={20} />
             </div>
           </div>
@@ -127,12 +127,12 @@ export default function ProductionDashboard() {
           <div className="flex justify-between items-start">
             <div>
               <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">Avg Yield per Order</p>
-              <h3 className="text-3xl font-bold mt-2 group-hover:text-ziditech-600 transition-colors">{avgPerOrder}</h3>
+              <h3 className="text-3xl font-bold mt-2 group-hover:text-gray-900 transition-colors">{avgPerOrder}</h3>
               <p className="text-xs text-gray-400 dark:text-gray-500 mt-2 flex items-center">
                 <TrendingUp size={12} className="mr-1"/> Unit conversion metric
               </p>
             </div>
-            <div className="p-3 bg-ziditech-50 dark:bg-ziditech-900/20 text-ziditech-600 dark:text-ziditech-400 rounded-lg">
+            <div className="p-3 bg-ziditech-50 dark:bg-ziditech-900/20 text-gray-900 dark:text-gray-500 rounded-lg">
               <TrendingUp size={20} />
             </div>
           </div>

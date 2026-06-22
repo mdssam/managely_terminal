@@ -5,12 +5,14 @@ import type { Customer } from '../types/customer'
 import { toast } from 'react-toastify'
 import { clearDraftInvoiceCache } from '../utils/draftInvoiceCache'
 import { updateItemPricesForCustomer, getItemPriceForCustomer, applyPricingRulesToCart } from '../services/dynamicPricing'
+import { idbStorage } from '../services/offlineDB'
 
 interface CartState {
   cartItems: CartItem[]
   appliedCoupons: GiftCoupon[]
   selectedCustomer: Customer | null
   workOrderRefs: string[]
+  draftInvoiceId: string | null
 
   // Actions
   addWorkOrderRef: (woName: string) => void
@@ -18,6 +20,7 @@ interface CartState {
   addToCartWithQuantity: (item: Omit<CartItem, 'quantity'>, quantity: number) => Promise<void>
   updateQuantity: (id: string, quantity: number) => Promise<void>
   updateUOM: (id: string, uom: string, price: number) => Promise<void>
+  updateItemMods: (id: string, mods: string, notes: string) => void
   removeItem: (id: string) => void
   clearCart: () => void
   applyCoupon: (coupon: GiftCoupon) => void
@@ -25,6 +28,7 @@ interface CartState {
   setSelectedCustomer: (customer: Customer | null) => Promise<void>
   updatePricesForCustomer: (customerId?: string) => Promise<void>
   applyPricingRules: () => Promise<void>
+  setDraftInvoiceId: (id: string | null) => void
 }
 
 export const useCartStore = create<CartState>()(
@@ -34,6 +38,9 @@ export const useCartStore = create<CartState>()(
       appliedCoupons: [],
       selectedCustomer: null,
       workOrderRefs: [],
+      draftInvoiceId: null,
+
+      setDraftInvoiceId: (id) => set({ draftInvoiceId: id }),
 
       addWorkOrderRef: (woName) => set((state) => ({
         workOrderRefs: state.workOrderRefs.includes(woName)
@@ -83,10 +90,8 @@ export const useCartStore = create<CartState>()(
             }
           }
 
-          const newCartItems = [...state.cartItems, { ...item, price: finalPrice, quantity: 1 }];
-
-          set((state) => ({
-            cartItems: newCartItems
+          set((currentState) => ({
+            cartItems: [...currentState.cartItems, { ...item, price: finalPrice, quantity: 1 }]
           }));
 
           // Apply pricing rules after adding item
@@ -139,10 +144,8 @@ export const useCartStore = create<CartState>()(
             }
           }
 
-          const newCartItems = [...state.cartItems, { ...item, price: finalPrice, quantity }];
-
-          set((state) => ({
-            cartItems: newCartItems
+          set((currentState) => ({
+            cartItems: [...currentState.cartItems, { ...item, price: finalPrice, quantity }]
           }));
 
           // Apply pricing rules after adding item
@@ -219,6 +222,12 @@ export const useCartStore = create<CartState>()(
         }
       },
 
+      updateItemMods: (id, mods, notes) => set((state) => ({
+        cartItems: state.cartItems.map((item) =>
+          item.id === id ? { ...item, custom_ingredients: mods, custom_notes: notes } : item
+        )
+      })),
+
       removeItem: (id) => set((state) => ({
         cartItems: state.cartItems.filter((item) => item.id !== id)
       })),
@@ -230,7 +239,8 @@ export const useCartStore = create<CartState>()(
           cartItems: [],
           appliedCoupons: [],
           selectedCustomer: null,
-          workOrderRefs: []
+          workOrderRefs: [],
+          draftInvoiceId: null
         }));
       },
 
@@ -372,7 +382,15 @@ export const useCartStore = create<CartState>()(
       }
     }),
     {
-      name: 'ziditech-cart-storage'
+      name: 'sultan-cart-storage',
+      storage: idbStorage,
+      // Only persist data fields — never functions (they can't be cloned by IDB)
+      partialize: (state): Pick<CartState, 'cartItems' | 'appliedCoupons' | 'selectedCustomer' | 'workOrderRefs'> => ({
+        cartItems: state.cartItems,
+        appliedCoupons: state.appliedCoupons,
+        selectedCustomer: state.selectedCustomer,
+        workOrderRefs: state.workOrderRefs,
+      }),
     }
   )
 )

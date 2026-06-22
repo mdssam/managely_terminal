@@ -4,6 +4,11 @@ import { usePOSOpeningStatus } from '../hooks/usePOSOpeningEntry';
 import POSOpeningModal from './PosOpeningEntryDialog';
 import erpnextAPI from '../services/erpnext-api';
 import { useI18n } from '../hooks/useI18n';
+import { preloadOfflineDatabase } from '../utils/preloader';
+import type { PreloadProgress } from '../utils/preloader';
+import { secureDbGet, APP_CACHE_STORE } from '../services/offlineDB';
+
+
 
 interface CurrentUser {
   name?: string;
@@ -38,6 +43,13 @@ export default function POSOpeningEntryGuard({
   const [userError, setUserError] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [posRole, setPosRole] = useState<string>('Cashier');
+  const [preloadStatus, setPreloadStatus] = useState<PreloadProgress>({
+    status: 'idle',
+    step: '',
+    percentage: 0
+  });
+  const [verificationError, setVerificationError] = useState<string | null>(null);
+
 
   const {
     hasOpenEntry,
@@ -85,8 +97,20 @@ export default function POSOpeningEntryGuard({
             headers: { 'Accept': 'application/json' }
           });
           const roleData = await roleRes.json();
-          if (roleData?.message?.success && roleData.message.data?.role) {
-            setPosRole(roleData.message.data.role);
+          let finalRole = roleData?.message?.data?.role;
+          
+          try {
+            const { dbGet, AUTH_STORE } = await import("../services/offlineDB");
+            const userData = await dbGet<any>(AUTH_STORE, "user_data");
+            if (userData && userData.is_employee && userData.role) {
+              finalRole = userData.role;
+            }
+          } catch (e) {
+            console.error("Failed to read user_data from DB in guard:", e);
+          }
+
+          if (finalRole) {
+            setPosRole(finalRole);
           }
         } catch {
           // Role fetch failure is non-fatal; default to Cashier
@@ -155,9 +179,74 @@ export default function POSOpeningEntryGuard({
 
   const handleOpeningClose = () => {};
 
+  const verifyOfflineCaches = async (): Promise<boolean> => {
+    try {
+      await secureDbGet(APP_CACHE_STORE, "cached_user_info");
+      await secureDbGet(APP_CACHE_STORE, "cached_pos_details");
+      await secureDbGet(APP_CACHE_STORE, "cached_sales_tax_charges");
+      await secureDbGet(APP_CACHE_STORE, "sultan_products_cache");
+      return true;
+    } catch (e) {
+      console.error("Cache tampering check failed:", e);
+      return false;
+    }
+  };
+
+  useEffect(() => {
+    if (shouldExclude() || hasOpenEntry !== true || !isInitialized) return;
+
+    let active = true;
+
+    const startOfflineSyncChecks = async () => {
+      if (navigator.onLine) {
+        if (sessionStorage.getItem('pos_db_preloaded') === 'true') {
+          setPreloadStatus({ status: 'success', step: 'Database initialized', percentage: 100 });
+          return;
+        }
+
+        setPreloadStatus({ status: 'loading', step: 'Initializing POS Offline Database...', percentage: 0 });
+        try {
+          await preloadOfflineDatabase((p) => {
+            if (active) setPreloadStatus(p);
+          });
+          sessionStorage.setItem('pos_db_preloaded', 'true');
+          if (active) setPreloadStatus({ status: 'success', step: 'Ready', percentage: 100 });
+        } catch (err: any) {
+          console.error("Preload database error in guard:", err);
+          if (active) {
+            setPreloadStatus({
+              status: 'error',
+              step: 'Synchronization failed',
+              percentage: 100,
+              errorMessage: err.message || 'Verification or Network error'
+            });
+          }
+        }
+      } else {
+        setPreloadStatus({ status: 'loading', step: 'Verifying database signature...', percentage: 50 });
+        const isTamperFree = await verifyOfflineCaches();
+        if (isTamperFree) {
+          if (active) setPreloadStatus({ status: 'success', step: 'Verified secure cache', percentage: 100 });
+        } else {
+          if (active) {
+            setVerificationError("Security signature mismatch. Local databases might have been tampered with. Shift locked.");
+            setPreloadStatus({ status: 'error', step: 'Security check failed', percentage: 100 });
+          }
+        }
+      }
+    };
+
+    startOfflineSyncChecks();
+
+    return () => {
+      active = false;
+    };
+  }, [hasOpenEntry, isInitialized]);
+
   if (shouldExclude()) return <>{children}</>;
 
-  const shouldShowLoading = hasOpenEntry === null && (statusLoading || userLoading);
+
+  const shouldShowLoading = hasOpenEntry === null || statusLoading || userLoading;
   if (shouldShowLoading) {
     return (
       <div className={`min-h-screen bg-gray-50 ${isRTL ? "rtl" : "ltr"} flex items-center justify-center`}>
@@ -170,8 +259,78 @@ export default function POSOpeningEntryGuard({
     );
   }
 
+  if (preloadStatus.status === 'loading') {
+    return (
+      <div className={`min-h-screen bg-[#0D0033] ${isRTL ? "rtl" : "ltr"} flex items-center justify-center relative overflow-hidden`}>
+        <div className="absolute inset-0 bg-grid-pattern opacity-5 pointer-events-none"></div>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-ziditech-600/10 rounded-full blur-[120px]" />
+        
+        <div className="relative z-10 text-center max-w-sm w-full px-6">
+          <div className="flex justify-center mb-6">
+            <div className="p-1 bg-gradient-to-tr from-ziditech-600 to-ziditech-400 rounded-3xl shadow-2xl animate-pulse">
+              <img src="/assets/sultan/sultan_spa/managelyLogo.webp" alt="Managely" className="w-20 h-20 rounded-[22px] object-cover" />
+            </div>
+          </div>
+          
+          <h2 className="text-lg font-black text-white mb-2 tracking-wide uppercase">Securing POS Database</h2>
+          <p className="text-gray-400 text-xs mb-6">{preloadStatus.step}</p>
+          
+          <div className="w-full bg-white/5 rounded-full h-2 mb-4 overflow-hidden border border-white/10 p-0.5">
+            <div 
+              className="bg-gradient-to-r from-[#1e59db] to-blue-400 h-full rounded-full transition-all duration-300 shadow-[0_0_12px_rgba(30,89,219,0.5)]"
+              style={{ width: `${preloadStatus.percentage}%` }}
+            ></div>
+          </div>
+          <div className="text-right text-[10px] font-black text-gray-500 uppercase tracking-widest">
+            {preloadStatus.percentage}% Completed
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (preloadStatus.status === 'error' || verificationError) {
+    return (
+      <div className={`min-h-screen bg-[#0D0033] ${isRTL ? "rtl" : "ltr"} flex items-center justify-center relative overflow-hidden`}>
+        <div className="absolute inset-0 bg-grid-pattern opacity-5 pointer-events-none"></div>
+        <div className="relative z-10 text-center max-w-md w-full px-6">
+          <div className="w-16 h-16 rounded-full bg-red-950/50 border border-red-500/30 flex items-center justify-center mx-auto mb-4 animate-bounce">
+            <svg className="w-8 h-8 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          </div>
+          
+          <h2 className="text-xl font-black text-white mb-2 uppercase tracking-wider">Security Violation</h2>
+          <p className="text-red-400 text-sm mb-6">
+            {verificationError || preloadStatus.errorMessage || "Shift entry locked due to security validation failure."}
+          </p>
+          
+          <div className="flex gap-3">
+            <button
+              onClick={() => window.location.reload()}
+              className="flex-1 px-5 py-3 text-xs font-black text-white bg-red-600 rounded-xl hover:bg-red-700 uppercase tracking-widest transition-colors shadow-lg shadow-red-600/20"
+            >
+              Retry
+            </button>
+            <button
+              onClick={() => {
+                sessionStorage.clear();
+                localStorage.clear();
+                window.location.href = '/login';
+              }}
+              className="flex-1 px-5 py-3 text-xs font-black text-gray-400 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 uppercase tracking-widest transition-colors"
+            >
+              Logout Cashier
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Menu User with no active session — cannot open a shift; must wait
   if (hasOpenEntry !== true && posRole === 'Menu User') {
+
     return (
       <div className={`min-h-screen bg-gray-50 ${isRTL ? "rtl" : "ltr"} flex items-center justify-center`}>
         <div className="text-center max-w-sm px-6">

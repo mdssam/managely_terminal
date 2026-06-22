@@ -16,9 +16,9 @@ export default function DisplayPrintPreview({
 }) {
   // Ensure invoice has required fields for PrintPreview
   const invoiceWithRequiredFields = {
+    ...invoice,
     pos_profile: (typeof invoice.pos_profile === 'string' ? invoice.pos_profile : '') || '',
     name: (typeof invoice.name === 'string' ? invoice.name : invoice.id) || '',
-    ...invoice
   };
 
   return (

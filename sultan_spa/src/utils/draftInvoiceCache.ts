@@ -1,114 +1,85 @@
 import { useCartStore } from '../stores/cartStore';
 import type { CartItem, Customer } from '../../types';
+import { dbGet, dbSet, dbRemove, DRAFT_STORE } from '../services/offlineDB';
 
 interface DraftInvoiceCache {
   items: CartItem[];
   timestamp: number;
   invoiceId: string;
   customer: Customer | null;
-  originalDraftInvoiceId: string; // Track the original draft invoice to delete later
+  originalDraftInvoiceId: string;
 }
 
 const CACHE_KEY = 'draft-invoice-cache';
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
-export function cacheDraftInvoiceItems(invoiceId: string, items: CartItem[], customer: Customer | null): void {
+export async function cacheDraftInvoiceItems(invoiceId: string, items: CartItem[], customer: Customer | null): Promise<void> {
   const cache: DraftInvoiceCache = {
     items,
     timestamp: Date.now(),
     invoiceId,
     customer,
-    originalDraftInvoiceId: invoiceId // Store the original draft invoice ID
+    originalDraftInvoiceId: invoiceId,
   };
-
   console.log("cacheDraftInvoiceItems - storing cache:", cache);
-  localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+  await dbSet(DRAFT_STORE, CACHE_KEY, cache);
 }
 
-export function getCachedDraftInvoiceItems(): DraftInvoiceCache | null {
+export async function getCachedDraftInvoiceItems(): Promise<DraftInvoiceCache | null> {
   try {
-    const cached = localStorage.getItem(CACHE_KEY);
+    const cache = await dbGet<DraftInvoiceCache>(DRAFT_STORE, CACHE_KEY);
+    if (!cache) return null;
 
-    if (!cached) {
-      return null;
-    }
-
-    const cache: DraftInvoiceCache = JSON.parse(cached);
-    // console.log("getCachedDraftInvoiceItems - parsed cache:", cache);
-
-    // Check if cache is expired
-    const now = Date.now();
-    const age = now - cache.timestamp;
-
+    const age = Date.now() - cache.timestamp;
     if (age > CACHE_DURATION) {
-      clearDraftInvoiceCache();
+      await clearDraftInvoiceCache();
       return null;
     }
-
     return cache;
   } catch (error) {
     console.error('Error retrieving cached draft invoice items:', error);
-    clearDraftInvoiceCache();
+    await clearDraftInvoiceCache();
     return null;
   }
 }
 
-export function clearDraftInvoiceCache(): void {
-  localStorage.removeItem(CACHE_KEY);
+export async function clearDraftInvoiceCache(): Promise<void> {
+  await dbRemove(DRAFT_STORE, CACHE_KEY);
 }
 
 export async function loadCachedItemsToCart(): Promise<boolean> {
-  const cachedData = getCachedDraftInvoiceItems();
-  if (!cachedData || cachedData.items.length === 0) {
-    return false;
-  }
+  const cachedData = await getCachedDraftInvoiceItems();
+  if (!cachedData || cachedData.items.length === 0) return false;
 
   const { setSelectedCustomer, addToCartWithQuantity } = useCartStore.getState();
 
-  // Set customer if available
   if (cachedData.customer) {
     setSelectedCustomer(cachedData.customer);
   }
 
-  // Add cached items to cart with correct quantities
   for (const item of cachedData.items) {
     const cartItem = {
-      id: item.id,
-      name: item.name,
-      category: item.category,
-      price: item.price,
-      image: item.image,
-      available: item.available,
-      uom: item.uom,
-      item_code: item.id,
+      id:         item.id,
+      name:       item.name,
+      category:   item.category,
+      price:      item.price,
+      image:      item.image,
+      available:  item.available,
+      uom:        item.uom,
+      item_code:  item.id,
     };
-
-    // Use the new method to add items with specific quantities
     await addToCartWithQuantity(cartItem, item.quantity);
   }
-
   return true;
 }
 
-export function hasCachedDraftInvoiceItems(): boolean {
-  const cached = localStorage.getItem(CACHE_KEY);
-
-  if (!cached) {
-    return false;
-  }
-
-  try {
-    const cache: DraftInvoiceCache = JSON.parse(cached);
-    const isValid = Date.now() - cache.timestamp <= CACHE_DURATION;
-    return isValid;
-  } catch (error) {
-    console.error('Error checking cache validity:', error);
-    return false;
-  }
+export async function hasCachedDraftInvoiceItems(): Promise<boolean> {
+  const cache = await dbGet<DraftInvoiceCache>(DRAFT_STORE, CACHE_KEY);
+  if (!cache) return false;
+  return Date.now() - cache.timestamp <= CACHE_DURATION;
 }
 
-export function getOriginalDraftInvoiceId(): string | null {
-  const cachedData = getCachedDraftInvoiceItems();
-
+export async function getOriginalDraftInvoiceId(): Promise<string | null> {
+  const cachedData = await getCachedDraftInvoiceItems();
   return cachedData?.originalDraftInvoiceId || null;
 }

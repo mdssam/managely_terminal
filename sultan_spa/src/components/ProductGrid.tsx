@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useCallback } from "react"
+import { Search } from "lucide-react"
 import ProductCard from "./ProductCard"
 import ProductLineView from "./ProductLineView"
 import type { MenuItem } from "../../types"
@@ -95,7 +96,9 @@ export default function ProductGrid({
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <div className="text-6xl mb-4">🔍</div>
+          <div className="flex justify-center mb-4">
+            <Search size={64} className="text-gray-500" strokeWidth={1.5} />
+          </div>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">No items found</h3>
           <p className="text-gray-500">Try adjusting your search or filters</p>
         </div>

@@ -1,62 +1,29 @@
 import { useCartStore } from '../stores/cartStore';
 import { clearDraftInvoiceCache } from './draftInvoiceCache';
+import { dbClearStore, APP_CACHE_STORE, DRAFT_STORE } from '../services/offlineDB';
 
-// Cache keys used throughout the application
-const CACHE_KEYS = {
-  PRODUCTS: 'sultan_products_cache',
-  PRODUCTS_EXPIRY: 'sultan_products_cache_expiry',
-  DRAFT_INVOICE: 'draft-invoice-cache',
-  CART: 'ziditech-cart-storage',
-};
-
-
-export function clearAllCache(): void {
+export async function clearAllCache(): Promise<void> {
   try {
     console.log('🧹 Clearing all application cache...');
 
-    // Clear product cache
-    localStorage.removeItem(CACHE_KEYS.PRODUCTS);
-    localStorage.removeItem(CACHE_KEYS.PRODUCTS_EXPIRY);
-    console.log('✅ Product cache cleared');
+    // Clear app caches in IndexedDB (categories, delivery, pos details, etc.)
+    await dbClearStore(APP_CACHE_STORE);
+    console.log('✅ App cache (IndexedDB) cleared');
 
     // Clear draft invoice cache
-    clearDraftInvoiceCache();
+    await clearDraftInvoiceCache();
     console.log('✅ Draft invoice cache cleared');
 
-    // Clear cart cache
-    localStorage.removeItem(CACHE_KEYS.CART);
-    console.log('✅ Cart cache cleared');
-
-    // Clear cart state in memory
+    // Clear cart state in memory (Zustand IDB store cleared on next persist)
     const { clearCart } = useCartStore.getState();
     clearCart();
     console.log('✅ Cart state cleared');
 
-    // Clear any other app-related localStorage items
-    // (excluding theme, language, and other user preferences)
-    const keysToKeep = [
-      'theme',
-      'language',
-      'i18n',
-      'auth-token',
-      'user-session',
-    ];
-
-    const allKeys = Object.keys(localStorage);
-    const appKeys = allKeys.filter(key =>
-      key.startsWith('sultan_') ||
-      key.startsWith('ziditech-') ||
-      key.startsWith('draft-') ||
-      (key.includes('cache') && !keysToKeep.includes(key))
-    );
-
-    appKeys.forEach(key => {
-      localStorage.removeItem(key);
-      console.log(`✅ Cleared cache key: ${key}`);
-    });
+    // Also clear draft store in IDB
+    await dbClearStore(DRAFT_STORE);
+    console.log('✅ Draft store cleared');
 
     console.log('🎉 All cache cleared successfully!');
-
   } catch (error) {
     console.error('❌ Error clearing cache:', error);
     throw error;
@@ -98,18 +65,13 @@ async function clearBackendCache(): Promise<void> {
  */
 export async function clearCacheAndReload(): Promise<void> {
   try {
-    clearAllCache();
-
+    await clearAllCache();
     await clearBackendCache();
 
-    // Show a brief message before reload
     console.log('🔄 Reloading page with fresh data...');
-
-    // Reload the page after a short delay to ensure cache is cleared
     setTimeout(() => {
       window.location.reload();
     }, 100);
-
   } catch (error) {
     console.error('❌ Error during cache clear and reload:', error);
     window.location.reload();

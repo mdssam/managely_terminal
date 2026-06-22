@@ -12,6 +12,30 @@
 		return flt(frm.doc.custom_exchange_rate_override) || DEFAULT_LBP_PER_USD;
 	}
 
+	function recalculateStampTaxes(frm) {
+		if (frm.doctype !== "Sales Invoice" && frm.doctype !== "Purchase Invoice") return;
+		const taxes = frm.doc.taxes || [];
+		const currency = frm.doc.currency || "USD";
+		const rate = getRate(frm);
+		let changed = false;
+
+		taxes.forEach(tax => {
+			if (!tax.custom_is_stamp || !flt(tax.custom_stamp_amount_lbp)) return;
+			const lbpAmount = flt(tax.custom_stamp_amount_lbp);
+			const taxAmount = currency === "LBP" ? lbpAmount : flt(lbpAmount / rate);
+
+			if (tax.charge_type !== "Actual" || flt(tax.rate) !== 0 ||
+				Math.abs(flt(tax.tax_amount) - taxAmount) > 0.001) {
+				frappe.model.set_value(tax.doctype, tax.name, "charge_type", "Actual");
+				frappe.model.set_value(tax.doctype, tax.name, "rate", 0);
+				frappe.model.set_value(tax.doctype, tax.name, "tax_amount", taxAmount);
+				changed = true;
+			}
+		});
+
+		if (changed) frm.refresh_field("taxes");
+	}
+
 	function getCurrency(frm) {
 		return frm.doc.currency || frm.doc.paid_from_account_currency || "USD";
 	}
@@ -37,18 +61,83 @@
 		const amount = getLineAmount(row);
 		const rate = getRate(frm);
 		const currency = row.account_currency || getCurrency(frm);
-		const usdAmount = currency === "LBP" ? amount / rate : amount;
-		const lbpAmount = currency === "LBP" ? amount : amount * rate;
+		const companyCurrency = frm.doc.company_currency || (frappe.boot && frappe.boot.sysdefaults && frappe.boot.sysdefaults.currency) || "USD";
 
-		frappe.model.set_value(row.doctype, row.name, "custom_usd_amount", usdAmount);
-		frappe.model.set_value(row.doctype, row.name, "custom_lbp_amount", Math.round(lbpAmount));
+		let usdAmount = amount;
+		let lbpAmount = amount;
+
+		if (currency === "LBP") {
+			usdAmount = amount / rate;
+			lbpAmount = amount;
+		} else if (currency === "USD") {
+			usdAmount = amount;
+			lbpAmount = amount * rate;
+		} else {
+			// Generic currency: convert to USD
+			const rowExchangeRate = flt(row.exchange_rate) || flt(frm.doc.conversion_rate) || 1.0;
+			if (companyCurrency === "USD") {
+				usdAmount = amount * rowExchangeRate;
+			} else {
+				const baseAmount = amount * rowExchangeRate;
+				usdAmount = baseAmount / rate;
+			}
+			lbpAmount = usdAmount * rate;
+		}
+
+		const roundedLbp = Math.round(lbpAmount);
+
+		// Only call set_value when the value actually changed — calling set_value
+		// unconditionally (even with the same value) can mark the parent form dirty
+		// which causes the "Not Saved" banner to reappear immediately after every save.
+		if (Math.abs(flt(row.custom_usd_amount) - usdAmount) > 0.001) {
+			frappe.model.set_value(row.doctype, row.name, "custom_usd_amount", usdAmount);
+		}
+		if (flt(row.custom_lbp_amount) !== roundedLbp) {
+			frappe.model.set_value(row.doctype, row.name, "custom_lbp_amount", roundedLbp);
+		}
 	}
 
 	function refreshDualCurrency(frm) {
+		let totalUsd = 0;
+		let totalLbp = 0;
+		let totalUsdDebit = 0;
+		let totalLbpDebit = 0;
+		let totalUsdCredit = 0;
+		let totalLbpCredit = 0;
+		const isJe = frm.doctype === "Journal Entry";
+
 		(transactionTables[frm.doctype] || []).forEach((tableField) => {
-			(frm.doc[tableField] || []).forEach((row) => setDualCurrencyValues(frm, row));
+			(frm.doc[tableField] || []).forEach((row) => {
+				setDualCurrencyValues(frm, row);
+				if (isJe) {
+					const isDebit = flt(row.debit) > 0 || flt(row.debit_in_account_currency) > 0;
+					if (isDebit) {
+						totalUsdDebit += flt(row.custom_usd_amount);
+						totalLbpDebit += flt(row.custom_lbp_amount);
+					} else {
+						totalUsdCredit += flt(row.custom_usd_amount);
+						totalLbpCredit += flt(row.custom_lbp_amount);
+					}
+				} else {
+					totalUsd += flt(row.custom_usd_amount);
+					totalLbp += flt(row.custom_lbp_amount);
+				}
+			});
 			frm.refresh_field(tableField);
 		});
+
+		if (isJe) {
+			totalUsd = totalUsdDebit > 0 ? totalUsdDebit : totalUsdCredit;
+			totalLbp = totalLbpDebit > 0 ? totalLbpDebit : totalLbpCredit;
+		}
+
+		const roundedLbp = Math.round(totalLbp);
+		if (frappe.meta.has_field(frm.doctype, "custom_total_usd") && Math.abs(flt(frm.doc.custom_total_usd) - totalUsd) > 0.001) {
+			frm.set_value("custom_total_usd", totalUsd);
+		}
+		if (frappe.meta.has_field(frm.doctype, "custom_total_lbp") && flt(frm.doc.custom_total_lbp) !== roundedLbp) {
+			frm.set_value("custom_total_lbp", roundedLbp);
+		}
 	}
 
 	function syncPaymentEntryAmounts(frm) {
@@ -86,17 +175,41 @@
 	function setupTransactionForm(doctype) {
 		frappe.ui.form.on(doctype, {
 			refresh(frm) {
-				if (!frm.doc.custom_exchange_rate_override) {
-					frm.set_value("custom_exchange_rate_override", DEFAULT_LBP_PER_USD);
+				// Only set the default on new unsaved documents — the server hook sets it on save,
+				// and calling frm.set_value on an already-saved doc marks it dirty immediately.
+				if (frm.is_new() && !frm.doc.custom_exchange_rate_override) {
+					frappe.call({
+						method: "sultan.sultan.accounting.customizations.get_lbp_usd_rate",
+						callback: function(r) {
+							if (r.message && !frm.doc.custom_exchange_rate_override) {
+								frm.set_value("custom_exchange_rate_override", r.message);
+							} else if (!frm.doc.custom_exchange_rate_override) {
+								frm.set_value("custom_exchange_rate_override", DEFAULT_LBP_PER_USD);
+							}
+						}
+					});
 				}
 				attachEnterToAddRows(frm);
 				refreshDualCurrency(frm);
+				// Do NOT call recalculateStampTaxes here. ERPNext rounds tax_amount to 2dp on
+				// save (e.g. 200 LBP / 89500 = 0.0022 → stored as 0.00). On reload the JS
+				// recomputes 0.0022 which differs from the stored 0.00 by > 0.001, so calling
+				// set_value marks the form dirty on every page load. The server-side
+				// _apply_stamp_taxes hook sets the correct value before each save; JS only
+				// recalculates when the user actually changes a stamp-related field.
 			},
-			custom_exchange_rate_override: refreshDualCurrency,
-			currency: refreshDualCurrency,
+			custom_exchange_rate_override(frm) {
+				refreshDualCurrency(frm);
+				recalculateStampTaxes(frm);
+			},
+			currency(frm) {
+				refreshDualCurrency(frm);
+				recalculateStampTaxes(frm);
+			},
 			paid_from_account_currency: refreshDualCurrency,
 			validate(frm) {
 				refreshDualCurrency(frm);
+				recalculateStampTaxes(frm);
 				syncPaymentEntryAmounts(frm);
 			},
 		});
@@ -146,4 +259,12 @@
 	function setRowDualCurrency(frm, cdt, cdn) {
 		setDualCurrencyValues(frm, locals[cdt][cdn]);
 	}
+	// Stamp tax — child table events
+	["Sales Taxes and Charges", "Purchase Taxes and Charges"].forEach(childDt => {
+		frappe.ui.form.on(childDt, {
+			custom_is_stamp(frm) { recalculateStampTaxes(frm); },
+			custom_stamp_amount_lbp(frm) { recalculateStampTaxes(frm); },
+		});
+	});
+
 })();

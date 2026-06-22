@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FileText,
@@ -20,6 +20,8 @@ import {
   RotateCcw,
   Check,
   FileMinus,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 
 import InvoiceViewModal from "../components/InvoiceViewModal";
@@ -33,6 +35,7 @@ import { useSalesInvoices } from "../hooks/useSalesInvoices";
 import { useCustomers } from "../hooks/useCustomers";
 import { useUserInfo } from "../hooks/useUserInfo";
 import { usePOSDetails } from "../hooks/usePOSProfile";
+import { useAuth } from "../hooks/useAuth";
 import { toast } from "react-toastify";
 import { extractErrorFromException } from "../utils/errorExtraction";
 import { createSalesReturn, deleteDraftInvoice, submitDraftInvoice } from "../services/salesInvoice";
@@ -53,7 +56,7 @@ export default function InvoiceHistoryPage() {
   const [paymentFilter, setPaymentFilter] = useState("all");
   const [cashierFilter, setCashierFilter] = useState("all");
   const [viewMode, setViewMode] = useState<"cards" | "list">("list");
-  const [selectedInvoice] = useState<SalesInvoice | null>(null);
+  const [selectedInvoice, setSelectedInvoice] = useState<SalesInvoice | null>(null);
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
 
   // Multi-Invoice Return states
@@ -75,24 +78,38 @@ export default function InvoiceHistoryPage() {
   const [showEditOptions, setShowEditOptions] = useState(false);
   const [selectedDraftInvoice, setSelectedDraftInvoice] = useState<SalesInvoice | null>(null);
 
-  // Skip opening entry filter for Invoice History - show all invoices for cashier regardless of opening entry
-  // Pass cashier filter to API so it filters on server side (more efficient)
-  const { invoices, isLoading, isLoadingMore, error, hasMore, totalLoaded, totalCount, loadMore } = useSalesInvoices(searchTerm, true, cashierFilter);
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pendingPageAdvance, setPendingPageAdvance] = useState(false);
+  const itemsPerPage = 20;
+
   const { modes } = useAllPaymentModes();
   const { customers } = useCustomers();
   const { posDetails } = usePOSDetails();
   const { userInfo, isLoading: userInfoLoading } = useUserInfo();
+  const { user } = useAuth();
 
   // Role-based filtering
-  const isAdminUser = userInfo?.is_admin_user || false;
+  const roleLower = user?.role?.toLowerCase() || userInfo?.role?.toLowerCase() || "";
+  const isAuditor = roleLower === "auditor";
+  const isBranchManager = roleLower === "branch manager";
+  const isAdminUser = user?.is_employee
+    ? (roleLower === "administrator" || isAuditor)
+    : ((userInfo?.is_admin_user || false) || roleLower === "administrator" || isAuditor);
   const currentUserCashier = userInfo?.full_name || "";
 
-  // Set default cashier filter for non-admin users
-  useEffect(() => {
-    if (!isAdminUser && currentUserCashier && cashierFilter === "all") {
-      setCashierFilter(currentUserCashier);
-    }
-  }, [isAdminUser, currentUserCashier, cashierFilter]);
+  // Cashier only sees their branch invoices, Admin/Auditor/Branch Manager can see all of theirs
+  const cashierFilterParam = (isAdminUser || isBranchManager) ? cashierFilter : undefined;
+  const posProfileFilterParam = (isAdminUser || isBranchManager) ? undefined : (posDetails?.name || undefined);
+
+  // Skip opening entry filter for Invoice History - show all invoices for cashier regardless of opening entry
+  const { invoices, isLoading, isLoadingMore, error, hasMore, totalLoaded, totalCount, loadMore, refetch } = useSalesInvoices(
+    searchTerm,
+    true,
+    cashierFilterParam,
+    false,
+    posProfileFilterParam
+  );
 
   // Keyboard event handler for Escape key
   useEffect(() => {
@@ -119,9 +136,9 @@ export default function InvoiceHistoryPage() {
     { id: "Draft", name: "Draft", icon: FilePlus, color: "text-gray-500" },
     { id: "Unpaid", name: "Unpaid", icon: Clock, color: "text-gray-600" },
     { id: "Partly Paid", name: "Partly Paid", icon: AlertTriangle, color: "text-gray-600" },
-    { id: "Paid", name: "Paid", icon: CheckCircle, color: "text-ziditech-600" },
-    { id: "Overdue", name: "Overdue", icon: XCircle, color: "text-ziditech-600" },
-    { id: "Return", name: "Returns", icon: RefreshCw, color: "text-ziditech-600" },
+    { id: "Paid", name: "Paid", icon: CheckCircle, color: "text-gray-900" },
+    { id: "Overdue", name: "Overdue", icon: XCircle, color: "text-gray-900" },
+    { id: "Return", name: "Returns", icon: RefreshCw, color: "text-gray-900" },
     { id: "Cancelled", name: "Cancelled", icon: XCircle, color: "text-gray-500" },
   ];
 
@@ -164,17 +181,17 @@ const getStatusBadge = (status: string) => {
   const normalized = status?.toLowerCase() || "";
 
   switch (normalized) {
-    case "paid":      return `${baseClasses} bg-ziditech-100 text-ziditech-600`;
+    case "paid":      return `${baseClasses} bg-ziditech-100 text-gray-900`;
     case "unpaid":    return `${baseClasses} bg-gray-100 text-gray-700`;
     case "partly paid": return `${baseClasses} bg-gray-100 text-gray-700`;
-    case "overdue":   return `${baseClasses} bg-ziditech-100 text-ziditech-700`;
+    case "overdue":   return `${baseClasses} bg-ziditech-100 text-gray-900`;
     case "draft":     return `${baseClasses} bg-gray-100 text-gray-700`;
-    case "return":    return `${baseClasses} bg-ziditech-50 text-ziditech-600`;
+    case "return":    return `${baseClasses} bg-ziditech-50 text-gray-900`;
     case "cancelled": return `${baseClasses} bg-gray-100 text-gray-700`;
     case "pending":   return `${baseClasses} bg-gray-100 text-gray-700`;
-    case "reported":  return `${baseClasses} bg-ziditech-100 text-ziditech-600`;
+    case "reported":  return `${baseClasses} bg-ziditech-100 text-gray-900`;
     case "not reported": return `${baseClasses} bg-gray-100 text-gray-700`;
-    case "cleared":   return `${baseClasses} bg-ziditech-100 text-ziditech-600`;
+    case "cleared":   return `${baseClasses} bg-ziditech-100 text-gray-900`;
     case "not cleared": return `${baseClasses} bg-gray-100 text-gray-700`;
     default:          return `${baseClasses} bg-gray-100 text-gray-700`;
   }
@@ -195,8 +212,9 @@ const getStatusBadge = (status: string) => {
       const matchesPayment = paymentFilter === "all" || invoice.paymentMethod === paymentFilter;
       const matchesCashier = cashierFilter === "all" || invoice.cashier === cashierFilter;
       const matchesDate = filterInvoiceByDate(invoice.date);
+      const matchesPOSProfile = isAdminUser || isBranchManager || !posDetails?.name || invoice.posProfile === posDetails.name;
 
-      return matchesPayment && matchesCashier && matchesStatus && matchesDate;
+      return matchesPayment && matchesCashier && matchesStatus && matchesDate && matchesPOSProfile;
     });
 
     // Debug: Log filtering results
@@ -211,6 +229,25 @@ const getStatusBadge = (status: string) => {
 
     return filtered;
   }, [invoices, activeTab, dateFilter, paymentFilter, cashierFilter, isLoading, error]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+    setPendingPageAdvance(false);
+  }, [searchTerm, activeTab, dateFilter, paymentFilter, cashierFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredInvoices.length / itemsPerPage));
+  const paginatedInvoices = useMemo(() => {
+    return filteredInvoices.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  }, [filteredInvoices, currentPage]);
+
+  // Automatically advance to the next page when more invoices are finished loading after user clicked next
+  useEffect(() => {
+    if (pendingPageAdvance && !isLoadingMore) {
+      setCurrentPage((prev) => Math.min(prev + 1, totalPages));
+      setPendingPageAdvance(false);
+    }
+  }, [isLoadingMore, pendingPageAdvance, totalPages]);
 
   const uniqueCashiers = useMemo(() => {
     return [...new Set(invoices.map(invoice => invoice.cashier).filter(Boolean))];
@@ -264,7 +301,7 @@ const getStatusBadge = (status: string) => {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#eef1f8' }}>
         <div className="text-center">
-          <div className="animate-spin rounded-full h-10 w-10 border-2 border-t-transparent mx-auto mb-4" style={{ borderColor: '#1e2d6b', borderTopColor: 'transparent' }}></div>
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-t-transparent mx-auto mb-4" style={{ borderColor: '#1a53d3', borderTopColor: 'transparent' }}></div>
           <p className="text-gray-500 font-medium">Loading invoices...</p>
         </div>
       </div>
@@ -282,7 +319,7 @@ const getStatusBadge = (status: string) => {
           <button
             onClick={() => window.location.reload()}
             className="mt-4 px-4 py-2 text-white rounded-xl text-sm font-semibold transition-all"
-            style={{ backgroundColor: '#1e2d6b' }}
+            style={{ background: 'linear-gradient(135deg, #3a76fc 0%, #1a53d3 100%)' }}
           >
             Retry
           </button>
@@ -302,18 +339,18 @@ const getStatusBadge = (status: string) => {
             placeholder="Search invoices..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-[#1e2d6b] bg-gray-50 text-gray-900 text-sm"
+            className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-ziditech-600 bg-gray-50 text-gray-900 text-sm"
           />
           {isLoading && invoices.length > 0 && (
             <div className="absolute right-3 top-1/2 -translate-y-1/2">
-              <div className="animate-spin h-4 w-4 border-2 border-t-transparent rounded-full" style={{ borderColor: '#1e2d6b', borderTopColor: 'transparent' }}></div>
+              <div className="animate-spin h-4 w-4 border-2 border-t-transparent rounded-full" style={{ borderColor: '#1a53d3', borderTopColor: 'transparent' }}></div>
             </div>
           )}
         </div>
         <select
           value={dateFilter}
           onChange={(e) => setDateFilter(e.target.value)}
-          className="px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-[#1e2d6b] bg-gray-50 text-gray-900 text-sm"
+          className="px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-ziditech-600 bg-gray-50 text-gray-900 text-sm"
         >
           <option value="all">All Time</option>
           <option value="today">Today</option>
@@ -326,7 +363,7 @@ const getStatusBadge = (status: string) => {
           value={cashierFilter}
           onChange={(e) => setCashierFilter(e.target.value)}
           disabled={!isAdminUser}
-          className={`px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-[#1e2d6b] bg-gray-50 text-gray-900 text-sm ${!isAdminUser ? 'opacity-50 cursor-not-allowed' : ''}`}
+          className={`px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-ziditech-600 bg-gray-50 text-gray-900 text-sm ${!isAdminUser ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           <option value="all">All Cashiers</option>
           {uniqueCashiers.map((cashier) => (
@@ -336,7 +373,7 @@ const getStatusBadge = (status: string) => {
         <select
           value={paymentFilter}
           onChange={(e) => setPaymentFilter(e.target.value)}
-          className="px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-[#1e2d6b] bg-gray-50 text-gray-900 text-sm"
+          className="px-3 py-2.5 border border-gray-200 rounded-lg focus:outline-none focus:border-ziditech-600 bg-gray-50 text-gray-900 text-sm"
         >
           <option value="all">All Payments</option>
           {modes.map((mode) => (
@@ -383,7 +420,7 @@ const getStatusBadge = (status: string) => {
               {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
             </div>
             <div className="p-2.5 rounded-xl" style={{ backgroundColor: '#eef1f8' }}>
-              <Icon className="w-5 h-5" style={{ color: '#1e2d6b' }} />
+              <Icon className="w-5 h-5" style={{ color: '#111827' }} />
             </div>
           </div>
         </div>
@@ -418,18 +455,19 @@ const getStatusBadge = (status: string) => {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
-                {["Invoice", "Customer", "Cashier", "Payment", "Amount", "Status", ...(posDetails?.is_zatca_enabled ? ["Zatca Status"] : []), "Actions"].map(h => (
+                {["Invoice", "Session ID", "Customer", "Employee", "Payment", "Amount", "Status", ...(posDetails?.is_zatca_enabled ? ["Zatca Status"] : []), "Actions"].map(h => (
                   <th key={h} className="px-5 py-3 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wider">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {filteredInvoices.map((invoice) => (
+              {paginatedInvoices.map((invoice) => (
                 <tr key={`${activeTab}-${invoice.id}`} className="hover:bg-gray-50 transition-colors">
                   <td className="px-5 py-3.5 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">{invoice.id}</div>
                     <div className="text-xs text-gray-400">{invoice.date} {invoice.time}</div>
                   </td>
+                  <td className="px-5 py-3.5 whitespace-nowrap text-sm text-gray-700">{invoice.custom_pos_opening_entry || "-"}</td>
                   <td className="px-5 py-3.5 whitespace-nowrap text-sm text-gray-700">{invoice.customer}</td>
                   <td className="px-5 py-3.5 whitespace-nowrap text-sm text-gray-700">{invoice.cashier}</td>
                   <td className="px-5 py-3.5 whitespace-nowrap text-sm text-gray-700">{invoice.paymentMethod}</td>
@@ -450,7 +488,7 @@ const getStatusBadge = (status: string) => {
                   )}
                   <td className="px-5 py-3.5 whitespace-nowrap text-sm font-medium">
                     <div className="flex items-center space-x-3">
-                      <button onClick={() => handleViewInvoice(invoice)} className="flex items-center space-x-1 text-[#1e2d6b] hover:opacity-70 transition-opacity">
+                      <button onClick={() => handleViewInvoice(invoice)} className="flex items-center space-x-1 text-ziditech-600 hover:opacity-70 transition-opacity">
                         <Eye className="w-4 h-4" /><span>View</span>
                       </button>
                       {invoice.status === "Draft" && (
@@ -459,7 +497,7 @@ const getStatusBadge = (status: string) => {
                         </button>
                       )}
                       {/* @ts-expect-error just ignore */}
-                      {["Paid", "Unpaid", "Overdue", "Partly Paid", "Credit Note Issued"].includes(invoice.status) && !invoice.is_return && hasReturnableItems(invoice) && (
+                      {["Paid", "Unpaid", "Overdue", "Partly Paid", "Credit Note Issued", "Consolidated"].includes(invoice.status) && !invoice.is_return && hasReturnableItems(invoice) && (
                         <button onClick={() => handleSingleReturnClick(invoice)} className="flex items-center space-x-1 text-orange-600 hover:opacity-70 transition-opacity">
                           <RotateCcw className="w-4 h-4" /><span>Return</span>
                         </button>
@@ -478,7 +516,7 @@ const getStatusBadge = (status: string) => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-5">
-          {filteredInvoices.map((invoice) => (
+          {paginatedInvoices.map((invoice) => (
             <div key={`${activeTab}-${invoice.id}`} className="bg-gray-50 rounded-xl p-4 border border-gray-200 hover:shadow-sm transition-shadow">
               <div className="flex items-center justify-between mb-3">
                 <div className="text-sm font-semibold text-gray-900">{invoice.id}</div>
@@ -498,13 +536,13 @@ const getStatusBadge = (status: string) => {
                 ))}
               </div>
               <div className="mt-4 flex space-x-2">
-                <button onClick={() => handleViewInvoice(invoice)} className="flex-1 text-xs px-3 py-2 text-white rounded-lg transition-colors" style={{ backgroundColor: '#1e2d6b' }}>View</button>
+                <button onClick={() => handleViewInvoice(invoice)} className="flex-1 text-xs px-3 py-2 text-white rounded-lg transition-colors" style={{ background: 'linear-gradient(135deg, #3a76fc 0%, #1a53d3 100%)' }}>View</button>
                 {invoice.status === "Draft" && (
                   <button onClick={() => handleEditDraftClick(invoice)} className="flex-1 text-xs px-3 py-2 bg-blue-600 text-white rounded-lg flex items-center justify-center space-x-1 transition-colors">
                     <Edit className="w-3 h-3" /><span>Edit</span>
                   </button>
                 )}
-                {["Paid", "Unpaid", "Overdue", "Partly Paid", "Credit Note Issued"].includes(invoice.status) && hasReturnableItems(invoice) && (
+                {["Paid", "Unpaid", "Overdue", "Partly Paid", "Credit Note Issued", "Consolidated"].includes(invoice.status) && hasReturnableItems(invoice) && (
                   <button onClick={() => handleSingleReturnClick(invoice)} className="flex-1 text-xs px-3 py-2 bg-orange-600 text-white rounded-lg transition-colors">Return</button>
                 )}
               </div>
@@ -513,38 +551,48 @@ const getStatusBadge = (status: string) => {
         </div>
       )}
 
-      {hasMore && (
-        <div className="flex justify-center p-5 border-t border-gray-100">
+      {/* Pagination Controls */}
+      <div className="p-4 border-t border-gray-100 flex items-center justify-between bg-gray-50 mt-auto">
+        <span className="text-sm text-gray-600">
+          Showing <span className="font-medium">{filteredInvoices.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</span> to <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredInvoices.length)}</span> of <span className="font-medium">{filteredInvoices.length}</span> results
+        </span>
+        <div className="flex items-center gap-2">
           <button
-            onClick={loadMore}
-            disabled={isLoadingMore}
-            className="px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-colors disabled:opacity-40"
-            style={{ backgroundColor: '#1e2d6b' }}
+            onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+            disabled={currentPage === 1}
+            className="p-1 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronLeft size={20} />
+          </button>
+          <span className="text-sm font-medium text-gray-700 px-2">
+            Page {currentPage} of {totalPages}
+          </span>
+          <button
+            onClick={() => {
+              if (currentPage === totalPages && hasMore) {
+                setPendingPageAdvance(true);
+                loadMore();
+              } else {
+                setCurrentPage((prev) => Math.min(prev + 1, totalPages));
+              }
+            }}
+            disabled={currentPage === totalPages && !hasMore}
+            className="p-1 rounded-lg border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {isLoadingMore ? (
-              <div className="flex items-center space-x-2">
-                <div className="animate-spin rounded-full h-4 w-4 border-2 border-t-transparent border-white"></div>
-                <span>Loading...</span>
-              </div>
-            ) : `Load More (${totalLoaded}/${totalCount})`}
+              <div className="animate-spin rounded-full h-5 w-5 border-2 border-t-transparent border-gray-600"></div>
+            ) : (
+              <ChevronRight size={20} />
+            )}
           </button>
         </div>
-      )}
-
-      {!hasMore && totalLoaded > 0 && (
-        <div className="text-center py-4 border-t border-gray-100">
-          <p className="text-xs text-gray-400">
-            {filteredInvoices.length > 0
-              ? `Showing ${filteredInvoices.length} invoice${filteredInvoices.length !== 1 ? 's' : ''}`
-              : `All ${totalCount} invoices loaded`}
-          </p>
-        </div>
-      )}
+      </div>
     </div>
   );
 
   const handleViewInvoice = (invoice: SalesInvoice) => {
-    navigate(`/invoice/${invoice.id}`);
+    setSelectedInvoice(invoice);
+    setShowInvoiceModal(true);
   };
 
 
@@ -593,8 +641,8 @@ const getStatusBadge = (status: string) => {
       toast.success(`Draft invoice ${invoiceToDelete.id} deleted successfully`);
       setShowDeleteConfirm(false);
       setInvoiceToDelete(null);
-      // Refresh the invoices list
-      window.location.reload();
+      // Refresh the invoices list without full reload
+      refetch();
       //eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       toast.error(error.message || "Failed to delete invoice");
@@ -639,8 +687,8 @@ const getStatusBadge = (status: string) => {
       toast.success(`Draft invoice ${invoice.id} submitted successfully`);
       setShowEditOptions(false);
       setSelectedDraftInvoice(null);
-      // Refresh the invoices list
-      window.location.reload();
+      // Refresh the invoices list without full reload
+      refetch();
       //eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
       console.error("Error submitting draft invoice:", error);
@@ -691,8 +739,8 @@ const getStatusBadge = (status: string) => {
     const handleSingleReturnSuccess = () => {
       setShowSingleReturn(false);
       setSelectedInvoiceForReturn(null);
-      // Refresh the invoices list
-      window.location.reload();
+      // Refresh the invoices list without full reload
+      refetch();
     };
 
 
@@ -711,6 +759,7 @@ const getStatusBadge = (status: string) => {
     // toast.success(`Created ${returnInvoices.length} return invoices successfully`);
     setShowMultiReturn(false);
     setSelectedCustomer("");
+    refetch();
   };
 
   const handleCloseCustomerSelection = () => {
@@ -775,7 +824,8 @@ const getStatusBadge = (status: string) => {
 
                 <button
                   onClick={handleExportInvoices}
-                  className="flex items-center space-x-2 px-3 py-2 bg-ziditech-600 text-white rounded-lg hover:bg-ziditech-700 transition-colors text-sm"
+                  className="flex items-center justify-center space-x-2 px-5 py-2.5 text-white rounded-lg text-sm font-medium transition-all shadow-sm hover:opacity-90"
+                  style={{ background: 'linear-gradient(135deg, #3a76fc 0%, #1a53d3 100%)' }}
                 >
                   <Download className="w-4 h-4" />
                   <span>Export</span>
@@ -798,7 +848,7 @@ const getStatusBadge = (status: string) => {
                       onClick={() => setActiveTab(tab.id)}
                       className={`flex items-center space-x-2 py-2 px-1 border-b-2 font-medium text-xs whitespace-nowrap ${
                         activeTab === tab.id
-                          ? "border-ziditech-500 text-ziditech-600 dark:text-ziditech-400"
+                          ? "border-ziditech-500 text-gray-900 dark:text-gray-500"
                           : `border-transparent ${tab.color} dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300`
                       }`}
                     >
@@ -933,8 +983,8 @@ const getStatusBadge = (status: string) => {
             <h1 className="text-lg font-bold text-gray-900">Invoice History</h1>
             <button
               onClick={handleExportInvoices}
-              className="flex items-center space-x-2 px-4 py-2 text-white rounded-xl text-sm font-semibold transition-colors"
-              style={{ backgroundColor: '#1e2d6b' }}
+              className="flex items-center justify-center space-x-2 px-5 py-2.5 text-white rounded-lg text-sm font-medium transition-all shadow-sm hover:opacity-90"
+              style={{ background: 'linear-gradient(135deg, #3a76fc 0%, #1a53d3 100%)' }}
             >
               <Download className="w-4 h-4" />
               <span>Export</span>
@@ -953,7 +1003,7 @@ const getStatusBadge = (status: string) => {
                     onClick={() => setActiveTab(tab.id)}
                     className={`flex items-center space-x-1.5 py-3 px-1 border-b-2 font-medium text-sm whitespace-nowrap transition-colors ${
                       activeTab === tab.id
-                        ? "border-[#1e2d6b] text-[#1e2d6b]"
+                        ? "border-ziditech-600 text-ziditech-600"
                         : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
                     }`}
                   >
@@ -1114,7 +1164,7 @@ const getStatusBadge = (status: string) => {
                   className="w-full flex items-center space-x-3 p-4 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors text-left"
                   style={{ backgroundColor: '#eef1f8' }}
                 >
-                  <Check className="w-5 h-5" style={{ color: '#1e2d6b' }} />
+                  <Check className="w-5 h-5" style={{ color: '#111827' }} />
                   <span className="font-medium text-gray-800">Submit Invoice</span>
                 </button>
               </div>

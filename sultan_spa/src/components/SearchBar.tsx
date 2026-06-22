@@ -62,7 +62,7 @@ export default function SearchBar({
         {onScanBarcode && (
           <button
             onClick={onScanBarcode}
-            className="absolute right-3 top-1/2 transform -translate-y-1/2 p-2 text-gray-400 hover:text-ziditech-600 dark:hover:text-ziditech-400 transition-colors focus:outline-none focus:ring-2 focus:ring-ziditech-500 focus:ring-offset-2 rounded-lg"
+            className="absolute right-3 top-1/2 transform -translate-y-1/2 p-2 text-gray-400 hover:text-gray-900 dark:hover:text-gray-500 transition-colors focus:outline-none focus:ring-2 focus:ring-ziditech-500 focus:ring-offset-2 rounded-lg"
             title="Scan Barcode"
           >
             <Scan size={20} />

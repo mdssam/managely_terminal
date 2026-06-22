@@ -39,7 +39,7 @@ export default function ConnectionStatus({ className = '' }: ConnectionStatusPro
 
   const getStatusColor = () => {
     if (!syncStatus.isOnline) return 'text-red-500';
-    if (wsStatus.connected) return 'text-ziditech-500';
+    if (wsStatus.connected) return 'text-gray-900';
     if (syncStatus.isSyncing) return 'text-yellow-500';
     return 'text-orange-500';
   };

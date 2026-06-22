@@ -5,6 +5,8 @@ from frappe import _
 def create_delivery_note_from_sales_invoice(doc, method=None):
     if doc.doctype != "Sales Invoice" or doc.docstatus != 1:
         return
+    if getattr(doc, "is_pos", 0):
+        return
     if not _has_stock_items(doc.items):
         return
 

@@ -1,3 +1,5 @@
+import { dbGet, dbSet, dbRemove, AUTH_STORE, APP_CACHE_STORE } from './offlineDB';
+
 interface ERPNextConfig {
   baseUrl: string;
   apiKey: string;
@@ -198,7 +200,7 @@ class ERPNextAPI {
           const sidMatch = setCookieHeader.match(/sid=([^;]+)/);
           if (sidMatch && sidMatch[1]) {
             this.sessionId = sidMatch[1];
-            localStorage.setItem('erpnext_sid', this.sessionId);
+            await dbSet(AUTH_STORE, 'erpnext_sid', this.sessionId);
             console.log('Session ID stored:', this.sessionId);
             // Fetch CSRF token so POST requests can proceed
             try {
@@ -320,22 +322,11 @@ class ERPNextAPI {
       console.error('Logout error:', error);
     } finally {
       this.sessionId = null;
-      localStorage.removeItem('erpnext_sid');
+      await dbRemove(AUTH_STORE, 'erpnext_sid');
     }
   }
 
   async getCurrentUser(): Promise<unknown> {
-    if (typeof window !== 'undefined' && !navigator.onLine) {
-      const cached = localStorage.getItem('cached_user_profile');
-      if (cached) {
-        try {
-          const profile = JSON.parse(cached);
-          return profile.name || null;
-        } catch (e) {
-          console.error("Error parsing cached user profile in getCurrentUser:", e);
-        }
-      }
-    }
     try {
       const response = await fetch(`${this.config.baseUrl}/api/method/frappe.auth.get_logged_user`, {
         method: 'GET',
@@ -347,27 +338,25 @@ class ERPNextAPI {
       return data.message;
     } catch (error) {
       console.error('Get current user error:', error);
+      if (typeof window !== 'undefined') {
+        const profile = await dbGet<Record<string, unknown>>(APP_CACHE_STORE, 'cached_user_profile');
+        if (profile) return profile.name || null;
+      }
       return null;
     }
   }
 
-  async getCurrentUserProfile(): Promise<UserProfile | null> {
-    if (typeof window !== 'undefined' && !navigator.onLine) {
-      const cached = localStorage.getItem('cached_user_profile');
-      if (cached) {
-        try {
-          return JSON.parse(cached);
-        } catch (e) {
-          console.error("Error parsing cached user profile in getCurrentUserProfile:", e);
-        }
-      }
-    }
+  async getCurrentUserProfile(timeoutMs: number = 2000): Promise<UserProfile | null> {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeoutMs);
+
     try {
       // Try to get user profile using the frappe.auth.get_logged_user method first
       const response = await fetch(`${this.config.baseUrl}/api/method/frappe.auth.get_logged_user`, {
         method: 'GET',
         headers: this.getHeaders(),
-        credentials: 'include'
+        credentials: 'include',
+        signal: controller.signal
       });
 
       if (!response.ok) {
@@ -385,8 +374,10 @@ class ERPNextAPI {
       const userResponse = await fetch(`${this.config.baseUrl}/api/resource/User/${username}`, {
         method: 'GET',
         headers: this.getHeaders(),
-        credentials: 'include'
+        credentials: 'include',
+        signal: controller.signal
       });
+      clearTimeout(id);
 
       if (!userResponse.ok) {
         throw new Error(`Failed to fetch user profile: ${userResponse.status}`);
@@ -394,12 +385,19 @@ class ERPNextAPI {
 
       const userData = await userResponse.json();
       if (typeof window !== 'undefined' && userData.data) {
-        localStorage.setItem('cached_user_profile', JSON.stringify(userData.data));
+        await dbSet(APP_CACHE_STORE, 'cached_user_profile', userData.data);
       }
-      // console.log('Full user profile data:', userData.data);
       return userData.data;
     } catch (error) {
+      clearTimeout(id);
       console.error('Get user profile error:', error);
+      if (typeof window !== 'undefined') {
+        const profile = await dbGet<UserProfile>(APP_CACHE_STORE, 'cached_user_profile');
+        if (profile) {
+          console.log('Serving cached user profile offline:', profile);
+          return profile;
+        }
+      }
       throw error;
     }
   }
@@ -589,13 +587,18 @@ class ERPNextAPI {
   }
 
   // Validate session by checking if user is still logged in
-  async validateSession(): Promise<boolean> {
+  async validateSession(timeoutMs: number = 2000): Promise<boolean> {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeoutMs);
+
     try {
       const response = await fetch(`${this.config.baseUrl}/api/method/frappe.auth.get_logged_user`, {
         method: 'GET',
         headers: this.getHeaders(),
-        credentials: 'include'
+        credentials: 'include',
+        signal: controller.signal
       });
+      clearTimeout(id);
 
       if (response.ok) {
         const data = await response.json();
@@ -603,9 +606,10 @@ class ERPNextAPI {
       }
       return false;
     } catch (error) {
-      if (error instanceof TypeError) {
-        // Network unavailable — assume session still valid to avoid logging out offline users
-        console.warn('Session validation skipped (network unavailable)');
+      clearTimeout(id);
+      if (error instanceof TypeError || (error instanceof Error && error.name === 'AbortError')) {
+        // Network unavailable or timed out — assume session still valid to avoid logging out offline users
+        console.warn('Session validation skipped (network unavailable or timed out)');
         return true;
       }
       console.error('Session validation failed:', error);
@@ -613,12 +617,12 @@ class ERPNextAPI {
     }
   }
 
-  // Initialize session from localStorage
-  initializeSession(): void {
-    const storedSid = localStorage.getItem('erpnext_sid');
+  // Initialize session from IndexedDB (async)
+  async initializeSession(): Promise<void> {
+    const storedSid = await dbGet<string>(AUTH_STORE, 'erpnext_sid');
     if (storedSid) {
       this.sessionId = storedSid;
-      console.log('Session restored from localStorage:', storedSid);
+      console.log('Session restored from IndexedDB:', storedSid);
     }
   }
 }

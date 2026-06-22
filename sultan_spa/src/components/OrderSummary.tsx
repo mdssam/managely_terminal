@@ -270,7 +270,7 @@
 //                   type="button"
 //                   onClick={() => handleUOMSelect(uom)}
 //                   className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${
-//                     uom === selectedUOM ? 'bg-ziditech-50 dark:bg-ziditech-900/20 text-ziditech-600 dark:text-ziditech-400' : 'text-gray-900 dark:text-white'
+//                     uom === selectedUOM ? 'bg-ziditech-50 dark:bg-ziditech-900/20 text-gray-900 dark:text-gray-500' : 'text-gray-900 dark:text-white'
 //                   }`}
 //                 >
 //                   {uom}
@@ -339,7 +339,7 @@
 //                 key={b.batch_id}
 //                 type="button"
 //                 onClick={() => handleSelect(b.batch_id)}
-//                 className={`w-full px-2 py-1 text-left text-xs hover:bg-gray-100 dark:hover:bg-gray-700 ${value === b.batch_id ? 'bg-ziditech-50 dark:bg-ziditech-900/20 text-ziditech-600 dark:text-ziditech-400' : 'text-gray-900 dark:text-white'}`}
+//                 className={`w-full px-2 py-1 text-left text-xs hover:bg-gray-100 dark:hover:bg-gray-700 ${value === b.batch_id ? 'bg-ziditech-50 dark:bg-ziditech-900/20 text-gray-900 dark:text-gray-500' : 'text-gray-900 dark:text-white'}`}
 //               >
 //                 {b.batch_id} - {b.qty}
 //               </button>
@@ -403,7 +403,7 @@
 //                 key={sn}
 //                 type="button"
 //                 onClick={() => handleSelect(sn)}
-//                 className={`w-full px-2 py-1 text-left text-xs hover:bg-gray-100 dark:hover:bg-gray-700 ${value === sn ? 'bg-ziditech-50 dark:bg-ziditech-900/20 text-ziditech-600 dark:text-ziditech-400' : 'text-gray-900 dark:text-white'}`}
+//                 className={`w-full px-2 py-1 text-left text-xs hover:bg-gray-100 dark:hover:bg-gray-700 ${value === sn ? 'bg-ziditech-50 dark:bg-ziditech-900/20 text-gray-900 dark:text-gray-500' : 'text-gray-900 dark:text-white'}`}
 //               >
 //                 {sn}
 //               </button>
@@ -886,11 +886,11 @@
 //   const getCustomerTypeIcon = (customer: Customer) => {
 //     switch (customer.type) {
 //       case "company":
-//         return <Building size={14} className="text-ziditech-600" />;
+//         return <Building size={14} className="text-gray-900" />;
 //       case "walk-in":
 //         return <User size={14} className="text-gray-600" />;
 //       default:
-//         return <User size={14} className="text-ziditech-600" />;
+//         return <User size={14} className="text-gray-900" />;
 //     }
 //   };
 
@@ -1418,7 +1418,7 @@
 //                         <svg
 //                           className={`${
 //                             isMobile ? "w-3 h-3" : "w-4 h-4"
-//                           } text-ziditech-500 dark:text-gray-400 transform transition-transform duration-200 ${
+//                           } text-gray-900 dark:text-gray-400 transform transition-transform duration-200 ${
 //                             expandedItems.has(item.id) ? "rotate-90" : ""
 //                           }`}
 //                           fill="none"
@@ -1473,13 +1473,13 @@
 //                               {item.price.toFixed(2)}
 //                             </span>
 
-//                             <span className="text-ziditech-600 dark:text-ziditech-400 font-semibold">
+//                             <span className="text-gray-900 dark:text-gray-500 font-semibold">
 //                               {currency_symbol}
 //                               {discountedPrice.toFixed(2)}
 //                             </span>
 //                           </div>
 //                         ) : (
-//                           <div className="text-ziditech-600 dark:text-ziditech-400 font-semibold">
+//                           <div className="text-gray-900 dark:text-gray-500 font-semibold">
 //                             {currency_symbol}
 //                             {item.price.toFixed(2)}
 //                           </div>
@@ -1517,7 +1517,7 @@
 //                           isMobile ? "w-8 h-8" : "w-7 h-7"
 //                         } rounded-full bg-ziditech-50 dark:bg-blue-900/20 border border-ziditech-200 dark:border-blue-800 flex items-center justify-center hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors`}
 //                       >
-//                         <Plus size={isMobile ? 16 : 14} className="text-ziditech-600 dark:text-blue-400" />
+//                         <Plus size={isMobile ? 16 : 14} className="text-gray-900 dark:text-blue-400" />
 //                       </button>
 //                     </div>
 
@@ -1530,7 +1530,7 @@
 //                             {originalTotal.toFixed(2)}
 //                           </p>
 //                           <p
-//                             className={`text-ziditech-600 dark:text-ziditech-400 font-semibold ${
+//                             className={`text-gray-900 dark:text-gray-500 font-semibold ${
 //                               isMobile ? "text-base" : "text-sm"
 //                             }`}
 //                           >
@@ -1540,7 +1540,7 @@
 //                         </div>
 //                       ) : (
 //                         <p
-//                           className={`text-ziditech-600 dark:text-ziditech-400 font-semibold ${
+//                           className={`text-gray-900 dark:text-gray-500 font-semibold ${
 //                             isMobile ? "text-base" : "text-sm"
 //                           }`}
 //                         >
@@ -1679,11 +1679,11 @@
 //                       {(itemDiscount.discountPercentage > 0 ||
 //                         itemDiscount.discountAmount > 0) && (
 //                         <div className="mt-3 p-2 bg-ziditech-50 dark:bg-ziditech-900/20 rounded-md border border-ziditech-200 dark:border-ziditech-800">
-//                           <div className="text-xs text-ziditech-800 dark:text-ziditech-300 font-medium">
+//                           <div className="text-xs text-ziditech-800 dark:text-gray-500 font-medium">
 //                             Discount Applied:
 //                           </div>
 //                           <div className="flex justify-between items-center mt-1">
-//                             <span className="text-xs text-ziditech-700 dark:text-ziditech-400">
+//                             <span className="text-xs text-gray-900 dark:text-gray-500">
 //                               {itemDiscount.discountPercentage > 0 &&
 //                                 `${itemDiscount.discountPercentage}% off`}
 //                               {itemDiscount.discountPercentage > 0 &&
@@ -1692,7 +1692,7 @@
 //                               {itemDiscount.discountAmount > 0 &&
 //                                 `${itemDiscount.discountAmount.toFixed(2)} off`}
 //                             </span>
-//                             <span className="text-xs font-semibold text-ziditech-800 dark:text-ziditech-300">
+//                             <span className="text-xs font-semibold text-ziditech-800 dark:text-gray-500">
 //                               Save $
 //                               {(originalTotal - discountedTotal).toFixed(2)}
 //                             </span>
@@ -1746,7 +1746,7 @@
 
 //                 handleHoldOrder(orderData);
 //               }}
-//               className="px-3 py-2 border border-ziditech-600 text-ziditech-600 dark:text-ziditech-400 rounded-lg font-medium hover:bg-ziditech-600 hover:text-white transition-colors text-sm"
+//               className="px-3 py-2 border border-ziditech-600 text-gray-900 dark:text-gray-500 rounded-lg font-medium hover:bg-ziditech-600 hover:text-white transition-colors text-sm"
 //             >
 //               Hold
 //             </button>
@@ -1819,7 +1819,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Minus,
   Plus,
@@ -1829,22 +1829,30 @@ import {
   User,
   Building,
   Copy,
+  ShoppingCart,
+  Printer,
+  FileText,
+  ScanBarcode,
 } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import MyDraftsModal from "./MyDraftsModal";
 import type { CartItem, GiftCoupon } from "../../types";
 import type { Customer } from "../types/customer";
 import PaymentDialog from "./PaymentDialog";
 import AddCustomerModal from "./AddCustomerModal";
 import { createDraftSalesInvoice } from "../services/salesInvoice";
+import { clearDraftInvoiceCache } from "../utils/draftInvoiceCache";
 import { useCustomers } from "../hooks/useCustomers";
 import { useProducts } from "../hooks/useProducts";
 import { toast } from "react-toastify";
-import { extractErrorFromException } from "../utils/errorExtraction";
+import { extractErrorFromException, extractErrorMessage } from "../utils/errorExtraction";
 import { getBatches } from "../utils/batch";
 import { getSerials } from "../utils/serial";
 import { usePOSDetails } from "../hooks/usePOSProfile";
 import { useCustomerStatistics } from "../hooks/useCustomerStatistics";
 import { useCustomerPermission } from "../hooks/useCustomerPermission";
 import { useCartStore } from "../stores/cartStore";
+import { formatNumberWithCommas, parseNumberFromCommas } from "../utils/currency";
 
 
 interface OrderSummaryProps {
@@ -1853,13 +1861,15 @@ interface OrderSummaryProps {
   onRemoveItem?: (id: string) => void;
   onClearCart?: () => void;
   onDuplicateItem?: (item: CartItem) => void;
+  onEditItem?: (item: CartItem) => void;
   appliedCoupons: GiftCoupon[];
   onApplyCoupon: (coupon: GiftCoupon) => void;
   onRemoveCoupon: (couponCode: string) => void;
   isMobile?: boolean;
+  isOrderStation?: boolean;
 }
 
-// Component to handle quantity input with local state
+// Component to handle quantity input with local state and thousands separator formatting
 interface QuantityInputProps {
   item: CartItem;
   onUpdateQuantity: (id: string, quantity: number) => void;
@@ -1867,34 +1877,35 @@ interface QuantityInputProps {
 }
 
 const QuantityInput = ({ item, onUpdateQuantity, isMobile }: QuantityInputProps) => {
-  const [inputValue, setInputValue] = useState(item.quantity.toString());
+  const [inputValue, setInputValue] = useState(formatNumberWithCommas(item.quantity.toString()));
   const [isEditing, setIsEditing] = useState(false);
 
   // Update input value when item quantity changes externally
   useEffect(() => {
     if (!isEditing) {
-      setInputValue(item.quantity.toString());
+      setInputValue(formatNumberWithCommas(item.quantity.toString()));
     }
   }, [item.quantity, isEditing]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    setInputValue(value);
+    setInputValue(formatNumberWithCommas(value));
   };
 
   const handleBlur = () => {
     setIsEditing(false);
-    const numValue = Number(inputValue);
+    const rawValue = parseNumberFromCommas(inputValue);
+    const numValue = Number(rawValue);
 
     if (isNaN(numValue) || numValue <= 0) {
       // Invalid input - reset to original value
-      setInputValue(item.quantity.toString());
+      setInputValue(formatNumberWithCommas(item.quantity.toString()));
       if (numValue <= 0) {
         onUpdateQuantity(item.id, 0);
       }
     } else {
       // Valid input - update quantity
-      setInputValue(numValue.toString());
+      setInputValue(formatNumberWithCommas(numValue.toString()));
       onUpdateQuantity(item.id, numValue);
     }
   };
@@ -1905,9 +1916,8 @@ const QuantityInput = ({ item, onUpdateQuantity, isMobile }: QuantityInputProps)
 
   return (
     <input
-      type="number"
-      step="0.01"
-      min="0"
+      type="text"
+      inputMode="decimal"
       value={inputValue}
       onChange={handleChange}
       onFocus={handleFocus}
@@ -1915,6 +1925,128 @@ const QuantityInput = ({ item, onUpdateQuantity, isMobile }: QuantityInputProps)
       className={`w-full ${
         isMobile ? "text-sm" : "text-sm"
       } px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-ziditech-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white`}
+    />
+  );
+};
+
+interface DiscountAmountInputProps {
+  itemId: string;
+  discountAmount: number;
+  updateItemDiscount: (itemId: string, field: string, value: number) => void;
+  allowDiscountChange?: boolean;
+  isMobile?: boolean;
+}
+
+const DiscountAmountInput = ({
+  itemId,
+  discountAmount,
+  updateItemDiscount,
+  allowDiscountChange,
+  isMobile
+}: DiscountAmountInputProps) => {
+  const [inputValue, setInputValue] = useState(discountAmount === 0 ? "" : formatNumberWithCommas(discountAmount.toString()));
+  const [isEditing, setIsEditing] = useState(false);
+
+  useEffect(() => {
+    if (!isEditing) {
+      setInputValue(discountAmount === 0 ? "" : formatNumberWithCommas(discountAmount.toString()));
+    }
+  }, [discountAmount, isEditing]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setInputValue(formatNumberWithCommas(val));
+    const cleanVal = parseNumberFromCommas(val);
+    const num = parseFloat(cleanVal);
+    if (!isNaN(num)) {
+      updateItemDiscount(itemId, "discountAmount", num);
+    } else {
+      updateItemDiscount(itemId, "discountAmount", 0);
+    }
+  };
+
+  const handleBlur = () => {
+    setIsEditing(false);
+    const cleanVal = parseNumberFromCommas(inputValue);
+    const num = parseFloat(cleanVal) || 0;
+    setInputValue(num === 0 ? "" : formatNumberWithCommas(num.toFixed(2)));
+    updateItemDiscount(itemId, "discountAmount", num);
+  };
+
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      value={inputValue}
+      onChange={handleChange}
+      onFocus={() => setIsEditing(true)}
+      onBlur={handleBlur}
+      placeholder="0.00"
+      readOnly={!allowDiscountChange}
+      disabled={!allowDiscountChange}
+      className={`w-full ${isMobile ? "text-sm" : "text-sm"} px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-ziditech-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white
+        ${!allowDiscountChange ? "opacity-50 cursor-not-allowed bg-gray-100 dark:bg-gray-700" : ""}`}
+    />
+  );
+};
+
+interface DiscountPercentageInputProps {
+  itemId: string;
+  discountPercentage: number;
+  updateItemDiscount: (itemId: string, field: string, value: number) => void;
+  allowDiscountChange?: boolean;
+  isMobile?: boolean;
+}
+
+const DiscountPercentageInput = ({
+  itemId,
+  discountPercentage,
+  updateItemDiscount,
+  allowDiscountChange,
+  isMobile
+}: DiscountPercentageInputProps) => {
+  const [inputValue, setInputValue] = useState(discountPercentage === 0 ? "" : formatNumberWithCommas(discountPercentage.toString()));
+  const [isEditing, setIsEditing] = useState(false);
+
+  useEffect(() => {
+    if (!isEditing) {
+      setInputValue(discountPercentage === 0 ? "" : formatNumberWithCommas(discountPercentage.toString()));
+    }
+  }, [discountPercentage, isEditing]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setInputValue(formatNumberWithCommas(val));
+    const cleanVal = parseNumberFromCommas(val);
+    const num = parseFloat(cleanVal);
+    if (!isNaN(num)) {
+      updateItemDiscount(itemId, "discountPercentage", Math.min(100, num));
+    } else {
+      updateItemDiscount(itemId, "discountPercentage", 0);
+    }
+  };
+
+  const handleBlur = () => {
+    setIsEditing(false);
+    const cleanVal = parseNumberFromCommas(inputValue);
+    const num = Math.min(100, parseFloat(cleanVal) || 0);
+    setInputValue(num === 0 ? "" : formatNumberWithCommas(num.toFixed(1)));
+    updateItemDiscount(itemId, "discountPercentage", num);
+  };
+
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      value={inputValue}
+      onChange={handleChange}
+      onFocus={() => setIsEditing(true)}
+      onBlur={handleBlur}
+      placeholder="0.0"
+      readOnly={!allowDiscountChange}
+      disabled={!allowDiscountChange}
+      className={`w-full ${isMobile ? "text-sm" : "text-sm"} px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-ziditech-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white
+        ${!allowDiscountChange ? "opacity-50 cursor-not-allowed bg-gray-100 dark:bg-gray-700" : ""}`}
     />
   );
 };
@@ -2082,7 +2214,7 @@ const UOMSelectField = ({ item, onUOMChange, isMobile, selectedCustomer }: UOMSe
                   type="button"
                   onClick={() => handleUOMSelect(uom)}
                   className={`w-full px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-gray-700 ${
-                    uom === selectedUOM ? 'bg-ziditech-50 dark:bg-ziditech-900/20 text-ziditech-600 dark:text-ziditech-400' : 'text-gray-900 dark:text-white'
+                    uom === selectedUOM ? 'bg-ziditech-50 dark:bg-ziditech-900/20 text-gray-900 dark:text-gray-500' : 'text-gray-900 dark:text-white'
                   }`}
                 >
                   {uom}
@@ -2151,7 +2283,7 @@ const BatchSelectField = ({ itemId: _itemId, itemCode: _itemCode, options, value
                 key={b.batch_id}
                 type="button"
                 onClick={() => handleSelect(b.batch_id)}
-                className={`w-full px-2 py-1 text-left text-xs hover:bg-gray-100 dark:hover:bg-gray-700 ${value === b.batch_id ? 'bg-ziditech-50 dark:bg-ziditech-900/20 text-ziditech-600 dark:text-ziditech-400' : 'text-gray-900 dark:text-white'}`}
+                className={`w-full px-2 py-1 text-left text-xs hover:bg-gray-100 dark:hover:bg-gray-700 ${value === b.batch_id ? 'bg-ziditech-50 dark:bg-ziditech-900/20 text-gray-900 dark:text-gray-500' : 'text-gray-900 dark:text-white'}`}
               >
                 {b.batch_id} - {b.qty}
               </button>
@@ -2215,7 +2347,7 @@ const SerialSelectField = ({ itemId: _itemId, itemCode: _itemCode, options, valu
                 key={sn}
                 type="button"
                 onClick={() => handleSelect(sn)}
-                className={`w-full px-2 py-1 text-left text-xs hover:bg-gray-100 dark:hover:bg-gray-700 ${value === sn ? 'bg-ziditech-50 dark:bg-ziditech-900/20 text-ziditech-600 dark:text-ziditech-400' : 'text-gray-900 dark:text-white'}`}
+                className={`w-full px-2 py-1 text-left text-xs hover:bg-gray-100 dark:hover:bg-gray-700 ${value === sn ? 'bg-ziditech-50 dark:bg-ziditech-900/20 text-gray-900 dark:text-gray-500' : 'text-gray-900 dark:text-white'}`}
               >
                 {sn}
               </button>
@@ -2235,12 +2367,95 @@ export default function OrderSummary({
   onRemoveItem,
   onClearCart,
   onDuplicateItem,
+  onEditItem,
   appliedCoupons,
   // onApplyCoupon,
   onRemoveCoupon,
   isMobile = false,
+  isOrderStation = false,
 }: OrderSummaryProps) {
   const { selectedCustomer, setSelectedCustomer, updateUOM, updatePricesForCustomer } = useCartStore();
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { posDetails, loading: _posLoading } = usePOSDetails();
+  const [isCreatingDraft, setIsCreatingDraft] = useState(false);
+  const [createdDraftId, setCreatedDraftId] = useState<string | null>(null);
+  const [lastDraftItems, setLastDraftItems] = useState<any[]>([]);
+  const [isMyDraftsOpen, setIsMyDraftsOpen] = useState(false);
+  const [draftCount, setDraftCount] = useState<number>(0);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [recallInput, setRecallInput] = useState("");
+
+  const handleRecallOrder = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanId = recallInput.trim();
+    if (!cleanId) return;
+    setSearchParams({ draft_id: cleanId });
+    setRecallInput("");
+  };
+
+  useEffect(() => {
+    import("../services/salesInvoice").then(({ getMyUnpaidDrafts }) => {
+      getMyUnpaidDrafts()
+        .then((drafts) => setDraftCount(drafts.length))
+        .catch((err) => console.error("Error fetching drafts count:", err));
+    });
+  }, [isMyDraftsOpen, createdDraftId]);
+
+  const handleCreateDraftOrder = async () => {
+    if (cartItems.length === 0) return;
+    setIsCreatingDraft(true);
+    try {
+      const data = {
+        draft_id: useCartStore.getState().draftInvoiceId,
+        customer: selectedCustomer || { 
+          id: posDetails?.name || "Walk-in Customer",
+          name: posDetails?.name || "Walk-in Customer"
+        },
+        items: cartItems.map(item => ({
+          ...item,
+          id: item.item_code || item.id,
+          item_code: item.item_code || item.id,
+          qty: item.quantity,
+          quantity: item.quantity,
+          rate: item.price,
+          custom_ingredients: item.custom_ingredients || "",
+          custom_notes: item.custom_notes || "",
+          uom: item.uom || item.base_uom || "Nos"
+        })),
+        is_pos: 1
+      };
+
+      const result = await fetch('/api/method/sultan.sultan.api.sales_invoice.create_draft_invoice', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Frappe-CSRF-Token': (window as any).csrf_token || ""
+        },
+        body: JSON.stringify({ data })
+      });
+
+      const json = await result.json();
+      if (!result.ok || json.message?.success === false) {
+        const errorMsg = json.message?.message || json.message?.error || extractErrorMessage(json, "Failed to create draft");
+        throw new Error(errorMsg);
+      }
+
+      setLastDraftItems(cartItems.map(item => ({
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+        total: item.price * item.quantity
+      })));
+      setCreatedDraftId(json.message.invoice.name);
+      toast.success("Draft Order Created!");
+      onClearCart();
+
+    } catch (error: any) {
+      toast.error(error.message || "An error occurred");
+    } finally {
+      setIsCreatingDraft(false);
+    }
+  };
 
   // Track if user has manually removed the default customer
   const [userRemovedDefaultCustomer, setUserRemovedDefaultCustomer] = useState(false);
@@ -2270,8 +2485,6 @@ export default function OrderSummary({
   const { customers, isLoading, refetch: refetchCustomers } = useCustomers(customerSearchQuery);
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { refetch: _refetchProducts, refreshStockOnly, updateStockForItems: _updateStockForItems, updateBatchQuantitiesForItems } = useProducts();
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { posDetails, loading: _posLoading } = usePOSDetails();
   const { checkCustomerPermission } = useCustomerPermission();
 
   // Get customer statistics for the selected customer
@@ -2284,6 +2497,23 @@ export default function OrderSummary({
   }>({});
 
   const currency_symbol = posDetails?.currency_symbol;
+
+  const customerSearchRef = useRef<HTMLDivElement>(null);
+  const mobileCustomerSearchRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      const isInsideDesktop = customerSearchRef.current?.contains(event.target as Node);
+      const isInsideMobile = mobileCustomerSearchRef.current?.contains(event.target as Node);
+      if (!isInsideDesktop && !isInsideMobile) {
+        setShowCustomerDropdown(false);
+      }
+    }
+    document.addEventListener("click", handleClickOutside);
+    return () => {
+      document.removeEventListener("click", handleClickOutside);
+    };
+  }, []);
 
   // UOM change handler
   const handleUOMChange = useCallback((itemId: string, selectedUOM: string, newPrice: number) => {
@@ -2617,28 +2847,31 @@ export default function OrderSummary({
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const handleHoldOrder = async (orderData: any) => {
+  const handleHoldOrder = async (orderData: any, alreadySaved: boolean = false) => {
     if (!selectedCustomer) {
       toast.error("Kindly select a customer");
       return;
     }
 
     try {
-      // Creates a draft invoice and saves the order
-      setShowPaymentDialog(false);
-
-      const result = await createDraftSalesInvoice(orderData);
-
-      if (result && result.success) {
-        handleClearCart();
-        toast.success("Draft invoice created and order held successfully!");
-      } else {
-        toast.error("Failed to create draft invoice");
+      if (!alreadySaved) {
+        const result = await createDraftSalesInvoice(orderData);
+        if (!result || !result.success) {
+          toast.error("Failed to hold order");
+          return;
+        }
       }
+
+      await clearDraftInvoiceCache();
+      useCartStore.getState().setDraftInvoiceId(null);
+
+      setShowPaymentDialog(false);
+      handleClearCart();
+      toast.success("Draft invoice created and order held successfully!");
       //eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
-      console.error("Error creating draft invoice:", error);
-      const errorMessage = extractErrorFromException(error, "Failed to create draft invoice");
+      console.error("Error holding order:", error);
+      const errorMessage = extractErrorFromException(error, "Failed to hold order");
       toast.error(errorMessage);
     }
   };
@@ -2695,11 +2928,11 @@ export default function OrderSummary({
   const getCustomerTypeIcon = (customer: Customer) => {
     switch (customer.type) {
       case "company":
-        return <Building size={14} className="text-ziditech-600" />;
+        return <Building size={14} className="text-gray-900" />;
       case "walk-in":
         return <User size={14} className="text-gray-600" />;
       default:
-        return <User size={14} className="text-ziditech-600" />;
+        return <User size={14} className="text-gray-900" />;
     }
   };
 
@@ -2714,7 +2947,7 @@ export default function OrderSummary({
   };
 
   useEffect(() => {
-    if (customers.length === 1 && !selectedCustomer && !isLoading) {
+    if (customerSearchQuery.trim() !== "" && customers.length === 1 && !selectedCustomer && !isLoading) {
       const singleCustomer = customers[0];
       if (singleCustomer) {
         setSelectedCustomer(singleCustomer);
@@ -2722,7 +2955,7 @@ export default function OrderSummary({
       }
       setShowCustomerDropdown(false);
     }
-  }, [customers, selectedCustomer, isLoading]);
+  }, [customers, selectedCustomer, isLoading, customerSearchQuery]);
 
   // Set default customer from POS profile when available
   useEffect(() => {
@@ -2956,10 +3189,64 @@ export default function OrderSummary({
       {/* Header */}
       {!isMobile && (
         <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700">
+          <div className="mb-3 flex gap-2 items-center">
+            {!isOrderStation ? (
+              <>
+                <form onSubmit={handleRecallOrder} className="flex-1 relative flex items-center">
+                  <div className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400">
+                    <ScanBarcode size={16} />
+                  </div>
+                  <input
+                    type="text"
+                    placeholder="Recall Order / Invoice #"
+                    value={recallInput}
+                    onChange={(e) => setRecallInput(e.target.value)}
+                    className="w-full pl-8 pr-16 py-1.5 text-xs border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-ziditech-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  />
+                  <button
+                    type="submit"
+                    disabled={!recallInput.trim()}
+                    className="absolute right-1 top-1/2 transform -translate-y-1/2 px-2 py-0.5 text-[10px] font-semibold bg-[#1e2d6b] text-white rounded hover:bg-[#1e2d6b]/90 transition-colors disabled:opacity-40"
+                  >
+                    Recall
+                  </button>
+                </form>
+                <button
+                  type="button"
+                  onClick={() => setIsMyDraftsOpen(true)}
+                  className="relative flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-ziditech-600 dark:text-ziditech-400 bg-ziditech-50 dark:bg-ziditech-900/30 rounded-lg hover:bg-ziditech-100 dark:hover:bg-ziditech-900/50 transition-colors"
+                  title="My Drafts"
+                >
+                  <FileText size={16} />
+                  {draftCount > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
+                      {draftCount}
+                    </span>
+                  )}
+                </button>
+              </>
+            ) : (
+              <div className="w-full flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setIsMyDraftsOpen(true)}
+                  className="relative flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-ziditech-600 dark:text-ziditech-400 bg-ziditech-50 dark:bg-ziditech-900/30 rounded-lg hover:bg-ziditech-100 dark:hover:bg-ziditech-900/50 transition-colors"
+                >
+                  <FileText size={16} />
+                  Drafts
+                  {draftCount > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
+                      {draftCount}
+                    </span>
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
           {/* Customer Search */}
           <div className="relative">
             <div className="flex items-center">
-              <div className="relative flex-1">
+              <div ref={customerSearchRef} className="relative flex-1">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                 <input
                   type="text"
@@ -3056,7 +3343,7 @@ export default function OrderSummary({
       {isMobile && (
         <div className="flex-shrink-0 p-4 border-b border-gray-100 dark:border-gray-700">
           <div className="flex items-center space-x-2">
-            <div className="relative flex-1">
+            <div ref={mobileCustomerSearchRef} className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
               <input
                 type="text"
@@ -3155,7 +3442,9 @@ export default function OrderSummary({
         <div className="space-y-4">
           {cartItems.length === 0 ? (
             <div className="text-center py-8">
-              <div className="text-6xl mb-4">🛒</div>
+              <div className="flex justify-center mb-4 text-gray-500 dark:text-gray-500">
+                <ShoppingCart size={64} strokeWidth={1.5} />
+              </div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                 Your cart is empty
               </h3>
@@ -3201,7 +3490,7 @@ export default function OrderSummary({
                         <svg
                           className={`${
                             isMobile ? "w-3 h-3" : "w-4 h-4"
-                          } text-ziditech-500 dark:text-gray-400 transform transition-transform duration-200 ${
+                          } text-gray-900 dark:text-gray-400 transform transition-transform duration-200 ${
                             expandedItems.has(item.id) ? "rotate-90" : ""
                           }`}
                           fill="none"
@@ -3253,18 +3542,18 @@ export default function OrderSummary({
                           <div className="flex items-center space-x-2">
                             <span className="text-gray-400 line-through text-xs">
                               {currency_symbol}
-                              {item.price.toFixed(2)}
+                              {formatNumberWithCommas(item.price.toFixed(2))}
                             </span>
 
-                            <span className="text-ziditech-600 dark:text-ziditech-400 font-semibold">
+                            <span className="text-gray-900 dark:text-gray-500 font-semibold">
                               {currency_symbol}
-                              {discountedPrice.toFixed(2)}
+                              {formatNumberWithCommas(discountedPrice.toFixed(2))}
                             </span>
                           </div>
                         ) : (
-                          <div className="text-ziditech-600 dark:text-ziditech-400 font-semibold">
+                          <div className="text-gray-900 dark:text-gray-500 font-semibold">
                             {currency_symbol}
-                            {item.price.toFixed(2)}
+                            {formatNumberWithCommas(item.price.toFixed(2))}
                           </div>
                         )}
                       </div>
@@ -3290,7 +3579,7 @@ export default function OrderSummary({
                           isMobile ? "w-10" : "w-8"
                         } text-center font-semibold text-gray-900 dark:text-white text-sm`}
                       >
-                        {item.quantity}
+                        {formatNumberWithCommas(item.quantity)}
                       </span>
                       <button
                         onClick={() =>
@@ -3300,7 +3589,7 @@ export default function OrderSummary({
                           isMobile ? "w-8 h-8" : "w-7 h-7"
                         } rounded-full bg-ziditech-50 dark:bg-blue-900/20 border border-ziditech-200 dark:border-blue-800 flex items-center justify-center hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors`}
                       >
-                        <Plus size={isMobile ? 16 : 14} className="text-ziditech-600 dark:text-blue-400" />
+                        <Plus size={isMobile ? 16 : 14} className="text-gray-900 dark:text-blue-400" />
                       </button>
                     </div>
 
@@ -3310,28 +3599,43 @@ export default function OrderSummary({
                         <div>
                           <p className="text-gray-400 line-through text-xs">
                             {currency_symbol}
-                            {originalTotal.toFixed(2)}
+                            {formatNumberWithCommas(originalTotal.toFixed(2))}
                           </p>
                           <p
-                            className={`text-ziditech-600 dark:text-ziditech-400 font-semibold ${
+                            className={`text-gray-900 dark:text-gray-500 font-semibold ${
                               isMobile ? "text-base" : "text-sm"
                             }`}
                           >
                             {currency_symbol}
-                            {discountedTotal.toFixed(2)}
+                            {formatNumberWithCommas(discountedTotal.toFixed(2))}
                           </p>
                         </div>
                       ) : (
                         <p
-                          className={`text-ziditech-600 dark:text-ziditech-400 font-semibold ${
+                          className={`text-gray-900 dark:text-gray-500 font-semibold ${
                             isMobile ? "text-base" : "text-sm"
                           }`}
                         >
                           {currency_symbol}
-                          {discountedTotal.toFixed(2)}
+                          {formatNumberWithCommas(discountedTotal.toFixed(2))}
                         </p>
                       )}
                     </div>
+
+                    {/* Edit Button */}
+                    {onEditItem && (
+                      <div className="flex-shrink-0 ml-1">
+                        <button
+                          onClick={() => onEditItem(item)}
+                          className={`${
+                            isMobile ? "w-8 h-8" : "w-6 h-6"
+                          } rounded-full bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-blue-600 dark:text-blue-400 flex items-center justify-center hover:bg-blue-100 hover:border-blue-300 transition-colors`}
+                          title="Edit Customizations"
+                        >
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                        </button>
+                      </div>
+                    )}
 
                     {/* Remove Button */}
                     <div className="flex-shrink-0 ml-2">
@@ -3385,55 +3689,24 @@ export default function OrderSummary({
                             <label className={`block text-gray-700 dark:text-gray-300 font-medium ${isMobile ? "text-sm" : "text-sm"} mb-2`}>
                               Discount Amount
                             </label>
-                            <input
-                              type="number"
-                              min="0"
-                              step="0.01"
-                              value={itemDiscount.discountAmount || ""}
-                              onChange={(e) =>
-                                updateItemDiscount(
-                                  item.id,
-                                  "discountAmount",
-                                  parseFloat(e.target.value) || 0
-                                )
-                              }
-                              placeholder="0.00"
-                              readOnly={!posDetails?.allow_discount_change}
-                              disabled={!posDetails?.allow_discount_change}
-                              // className={`w-full ${isMobile ? "text-sm" : "text-sm"} px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-ziditech-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white`}
-                              className={`w-full ${isMobile ? "text-sm" : "text-sm"} px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-ziditech-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white
-                                ${!posDetails?.allow_discount_change 
-                                  ? "opacity-50 cursor-not-allowed bg-gray-100 dark:bg-gray-700" 
-                                  : ""
-                                }`}
+                            <DiscountAmountInput
+                              itemId={item.id}
+                              discountAmount={itemDiscount.discountAmount || 0}
+                              updateItemDiscount={updateItemDiscount}
+                              allowDiscountChange={posDetails?.allow_discount_change}
+                              isMobile={isMobile}
                             />
                           </div>
                           <div>
                             <label className={`block text-gray-700 dark:text-gray-300 font-medium ${isMobile ? "text-sm" : "text-sm"} mb-2`}>
                               Discount (%)
                             </label>
-                            <input
-                              type="number"
-                              min="0"
-                              max="100"
-                              step="0.1"
-                              value={itemDiscount.discountPercentage || ""}
-                              onChange={(e) =>
-                                updateItemDiscount(
-                                  item.id,
-                                  "discountPercentage",
-                                  parseFloat(e.target.value) || 0
-                                )
-                              }
-                              placeholder="0.0"
-                              // className={`w-full ${isMobile ? "text-sm" : "text-sm"} px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-ziditech-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white`}
-                              readOnly={!posDetails?.allow_discount_change}  // ✅
-                              disabled={!posDetails?.allow_discount_change}  // ✅
-                              className={`w-full ${isMobile ? "text-sm" : "text-sm"} px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:ring-2 focus:ring-ziditech-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white
-                                ${!posDetails?.allow_discount_change 
-                                  ? "opacity-50 cursor-not-allowed bg-gray-100 dark:bg-gray-700" 
-                                  : ""
-                                }`}
+                            <DiscountPercentageInput
+                              itemId={item.id}
+                              discountPercentage={itemDiscount.discountPercentage || 0}
+                              updateItemDiscount={updateItemDiscount}
+                              allowDiscountChange={posDetails?.allow_discount_change}
+                              isMobile={isMobile}
                             />
                           </div>
                         </div>
@@ -3476,7 +3749,7 @@ export default function OrderSummary({
                           <button
                             type="button"
                             onClick={() => handleDuplicateItem(item)}
-                            className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md border border-dashed border-ziditech-400 dark:border-ziditech-500 text-ziditech-600 dark:text-ziditech-400 bg-ziditech-50 dark:bg-ziditech-900/20 hover:bg-ziditech-100 dark:hover:bg-ziditech-900/40 transition-colors ${
+                            className={`w-full flex items-center justify-center gap-2 px-3 py-2 rounded-md border border-dashed border-ziditech-400 dark:border-ziditech-500 text-gray-900 dark:text-gray-500 bg-ziditech-50 dark:bg-ziditech-900/20 hover:bg-ziditech-100 dark:hover:bg-ziditech-900/40 transition-colors ${
                               isMobile ? "text-sm" : "text-xs"
                             } font-medium`}
                             title="Add another line for the same product with a different batch, serial or UOM"
@@ -3492,22 +3765,22 @@ export default function OrderSummary({
                       {(itemDiscount.discountPercentage > 0 ||
                         itemDiscount.discountAmount > 0) && (
                         <div className="mt-3 p-2 bg-ziditech-50 dark:bg-ziditech-900/20 rounded-md border border-ziditech-200 dark:border-ziditech-800">
-                          <div className="text-xs text-ziditech-800 dark:text-ziditech-300 font-medium">
+                          <div className="text-xs text-ziditech-800 dark:text-gray-500 font-medium">
                             Discount Applied:
                           </div>
                           <div className="flex justify-between items-center mt-1">
-                            <span className="text-xs text-ziditech-700 dark:text-ziditech-400">
+                            <span className="text-xs text-gray-900 dark:text-gray-500">
                               {itemDiscount.discountPercentage > 0 &&
                                 `${itemDiscount.discountPercentage}% off`}
                               {itemDiscount.discountPercentage > 0 &&
                                 itemDiscount.discountAmount > 0 &&
                                 " + "}
                               {itemDiscount.discountAmount > 0 &&
-                                `${itemDiscount.discountAmount.toFixed(2)} off`}
+                                `${formatNumberWithCommas(itemDiscount.discountAmount.toFixed(2))} off`}
                             </span>
-                            <span className="text-xs font-semibold text-ziditech-800 dark:text-ziditech-300">
+                            <span className="text-xs font-semibold text-ziditech-800 dark:text-gray-500">
                               Save $
-                              {(originalTotal - discountedTotal).toFixed(2)}
+                              {formatNumberWithCommas((originalTotal - discountedTotal).toFixed(2))}
                             </span>
                           </div>
                         </div>
@@ -3542,12 +3815,25 @@ export default function OrderSummary({
                 if (!sc) return;
 
                 const orderData = {
+                  draft_id: useCartStore.getState().draftInvoiceId,
                   items: cartItems.map((item) => ({
-                    id: item.id,
+                    ...item,
+                    id: item.item_code || item.id,
+                    item_code: item.item_code || item.id,
+                    qty: item.quantity,
                     quantity: item.quantity,
-                    price: getDiscountedPrice(item),
+                    rate: item.price || getDiscountedPrice(item),
+                    price: item.price || getDiscountedPrice(item),
+                    batchNumber: itemDiscounts[item.id]?.batchNumber || null,
+                    serialNumber: itemDiscounts[item.id]?.serialNumber || null,
+                    uom: item.uom || item.base_uom || "Nos",
+                    conversion_factor: item.conversion_factor,
+                    discountPercentage: itemDiscounts[item.id]?.discountPercentage || 0,
+                    discountAmount: itemDiscounts[item.id]?.discountAmount || 0,
+                    custom_ingredients: item.custom_ingredients || "",
+                    custom_notes: item.custom_notes || "",
                   })),
-                  customer: { id: sc.id },
+                  customer: selectedCustomer,
                   subtotal,
                   total,
                   appliedCoupons,
@@ -3555,11 +3841,12 @@ export default function OrderSummary({
                   totalItemDiscount,
                   totalSavings: totalItemDiscount + couponDiscount,
                   status: "held",
+                  businessType: posDetails?.business_type,
                 };
 
-                handleHoldOrder(orderData);
+                handleHoldOrder(orderData, false);
               }}
-              className="px-3 py-2 border border-ziditech-600 text-ziditech-600 dark:text-ziditech-400 rounded-lg font-medium hover:bg-ziditech-600 hover:text-white transition-colors text-sm"
+              className="px-3 py-2 border border-ziditech-600 text-gray-900 dark:text-gray-500 rounded-lg font-medium hover:bg-ziditech-600 hover:text-white transition-colors text-sm"
             >
               Hold
             </button>
@@ -3571,19 +3858,176 @@ export default function OrderSummary({
             </button>
           </div>
 
-          {/* Pay Button */}
-          <button
-            onClick={() => {
-              if (!validateCustomer()) return;
-              setShowPaymentDialog(true);
-            }}
-            className={`w-full bg-ziditech-600 text-white rounded-xl font-semibold hover:bg-ziditech-700 transition-colors ${
-              isMobile ? "py-3 text-base" : "py-2 text-sm"
-            }`}
-          >
-            Checkout {currency_symbol}
-            {total.toFixed(2)}
-          </button>
+          {/* Pay Button / Create Draft Button */}
+          {isOrderStation ? (
+            <button
+              onClick={handleCreateDraftOrder}
+              disabled={isCreatingDraft || cartItems.length === 0}
+              className={`w-full bg-[#1e2d6b] text-white rounded-xl font-semibold hover:bg-[#1e2d6b]/90 transition-colors flex items-center justify-center gap-2 ${
+                isMobile ? "py-3 text-base" : "py-2 text-sm"
+              } ${isCreatingDraft ? 'opacity-70 cursor-not-allowed' : ''}`}
+            >
+              {isCreatingDraft ? "Creating..." : "Print Order"}
+            </button>
+          ) : (
+            <button
+              onClick={() => {
+                if (!validateCustomer()) return;
+                setShowPaymentDialog(true);
+              }}
+              className={`w-full bg-ziditech-600 text-white rounded-xl font-semibold hover:bg-ziditech-700 transition-colors ${
+                isMobile ? "py-3 text-base" : "py-2 text-sm"
+              }`}
+            >
+              Checkout {currency_symbol}
+              {formatNumberWithCommas(total.toFixed(2))}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* My Drafts Modal */}
+      <MyDraftsModal 
+        isOpen={isMyDraftsOpen} 
+        onClose={() => setIsMyDraftsOpen(false)} 
+        onSelectDraft={(draftId) => {
+          setIsMyDraftsOpen(false);
+          setSearchParams({ draft_id: draftId });
+        }}
+      />
+
+      {/* Draft Created Barcode Modal */}
+      {createdDraftId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white dark:bg-card rounded-2xl shadow-xl max-w-sm w-full p-6 text-center animate-in fade-in zoom-in duration-200">
+            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Order Ready</h3>
+            <p className="text-sm text-gray-500 mb-6">Please proceed to cashier with this barcode</p>
+            
+            <div className="bg-white p-4 rounded-xl border-2 border-gray-100 flex flex-col items-center justify-center mb-6">
+              <img 
+                src={`https://barcode.orcascan.com/?type=code128&data=${createdDraftId}`} 
+                alt="Barcode"
+                className="w-full max-h-32 object-contain"
+              />
+              <p className="mt-2 font-mono text-lg tracking-wider text-gray-900">{createdDraftId}</p>
+            </div>
+
+            <button
+              onClick={() => {
+                const printWindow = window.open('', '_blank', 'width=400,height=600');
+                if (printWindow) {
+                  printWindow.document.write(`
+                    <html>
+                      <head>
+                        <title>Print Order</title>
+                        <style>
+                          @page {
+                            margin: 0;
+                            size: 80mm auto;
+                          }
+                          body { 
+                            width: 72mm; /* Leave a small margin */
+                            margin: 0 auto; 
+                            padding: 10px 0;
+                            display: flex; 
+                            flex-direction: column; 
+                            align-items: center; 
+                            font-family: 'Courier New', Courier, monospace; 
+                            text-align: center;
+                            background: white;
+                            color: black;
+                          }
+                          h1 { margin: 10px 0; font-size: 22px; text-transform: uppercase; border-bottom: 2px dashed black; padding-bottom: 10px; width: 100%; }
+                          img { max-width: 100%; height: auto; margin: 15px 0; }
+                          h2 { margin: 5px 0; font-size: 18px; font-weight: bold; }
+                          .items-table {
+                            width: 100%;
+                            border-collapse: collapse;
+                            margin: 15px 0;
+                            font-size: 13px;
+                            text-align: left;
+                          }
+                          .items-table th {
+                            border-bottom: 1.5px solid black;
+                            padding: 4px 0;
+                            font-weight: bold;
+                          }
+                          .items-table td {
+                            padding: 4px 0;
+                            vertical-align: top;
+                          }
+                          .totals-section {
+                            width: 100%;
+                            text-align: right;
+                            font-size: 15px;
+                            font-weight: bold;
+                            border-top: 1.5px solid black;
+                            padding-top: 6px;
+                            margin-bottom: 15px;
+                          }
+                          .footer { margin-top: 20px; font-size: 14px; border-top: 2px dashed black; padding-top: 10px; width: 100%; }
+                        </style>
+                      </head>
+                      <body>
+                        <h1>Order Ready</h1>
+                        
+                        <table class="items-table">
+                          <thead>
+                            <tr>
+                              <th>Item</th>
+                              <th style="text-align: center; width: 15%;">Qty</th>
+                              <th style="text-align: right; width: 25%;">Price</th>
+                              <th style="text-align: right; width: 25%;">Total</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            ${lastDraftItems.map(item => `
+                              <tr>
+                                <td style="font-weight: bold;">${item.name}</td>
+                                <td style="text-align: center;">${item.quantity}</td>
+                                <td style="text-align: right;">${item.price.toFixed(2)}</td>
+                                <td style="text-align: right; font-weight: bold;">${item.total.toFixed(2)}</td>
+                              </tr>
+                            `).join('')}
+                          </tbody>
+                        </table>
+
+                        <div class="totals-section">
+                          Total: ${currency_symbol || "$"}${lastDraftItems.reduce((sum, item) => sum + item.total, 0).toFixed(2)}
+                        </div>
+
+                        <img src="https://barcode.orcascan.com/?type=code128&data=${createdDraftId}" />
+                        <h2>${createdDraftId}</h2>
+                        
+                        <div class="footer">Please proceed to cashier</div>
+                        <script>
+                          window.onload = () => {
+                            window.print();
+                            setTimeout(() => window.close(), 500);
+                          };
+                        </script>
+                      </body>
+                    </html>
+                  `);
+                  printWindow.document.close();
+                }
+              }}
+              className="w-full bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white rounded-xl font-semibold py-3 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors mb-3 flex items-center justify-center gap-2 border border-gray-200 dark:border-gray-700"
+            >
+              <Printer size={20} />
+              Print Barcode
+            </button>
+ 
+            <button
+              onClick={() => {
+                setCreatedDraftId(null);
+                setLastDraftItems([]);
+              }}
+              className="w-full bg-[#1e2d6b] text-white rounded-xl font-semibold py-3 hover:bg-[#1e2d6b]/90 transition-colors"
+            >
+              Start New Order
+            </button>
+          </div>
         </div>
       )}
 

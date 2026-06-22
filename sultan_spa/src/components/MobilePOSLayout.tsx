@@ -12,6 +12,7 @@ import CategoryTabs from "./CategoryTabs"
 import ProductGrid from "./ProductGrid"
 import BottomNavigation from "./BottomNavigation"
 import type { MenuItem, CartItem } from "../../types"
+import CloseShiftModal from "./CloseShiftModal"
 
 interface MobilePOSLayoutProps {
   items: MenuItem[]
@@ -44,12 +45,13 @@ export default function MobilePOSLayout({
   isSearching = false,
 }: MobilePOSLayoutProps) {
   const { t } = useI18n()
-  const { user, logout } = useAuth()
+  const { user, logout, lockEmployee } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const { posDetails, loading: posLoading } = usePOSDetails()
   const { cartItems, addToCart } = useCartStore()
   const navigate = useNavigate()
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const [showCloseShiftModal, setShowCloseShiftModal] = useState(false)
 
   // Initialize viewMode based on POS profile
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
@@ -92,6 +94,15 @@ export default function MobilePOSLayout({
     }
   }
 
+  const handleLock = async () => {
+    try {
+      await lockEmployee();
+      navigate("/employee-login");
+    } catch (e) {
+      console.error("Lock error:", e);
+    }
+  }
+
   // Generate initials from user's full name
   const getInitials = (name: string) => {
     return name
@@ -114,8 +125,8 @@ export default function MobilePOSLayout({
       <div className="sticky top-0 z-20 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between px-4 py-3">
           <div className="flex items-center space-x-3">
-            <img src="/assets/sultan/sultan_spa/bev_logo.jpeg" alt="Sultan POS" className="w-8 h-8 rounded-full object-cover" />
-            <span className="font-bold text-ziditech-600 dark:text-ziditech-400">Sultan POS</span>
+            <img src="/assets/sultan/sultan_spa/managelyLogo.webp" alt="Managely" className="w-8 h-8 rounded-full object-cover" />
+            <span className="font-bold text-gray-900 dark:text-gray-500">Managely</span>
             {scannerOnly && (
               <div className="bg-ziditech-600/90 text-white px-2 py-1 rounded-md text-xs font-medium">
                 <div className="flex items-center space-x-1">
@@ -160,7 +171,7 @@ export default function MobilePOSLayout({
                           {displayName}
                         </p>
                       </div>
-                      <p className="text-xs text-ziditech-600 dark:text-ziditech-400 font-medium mt-1">{user?.role || "User"}</p>
+                      <p className="text-xs text-gray-900 dark:text-gray-500 font-medium mt-1">{user?.role || "User"}</p>
                     </div>
                   </div>
                 </div>
@@ -205,14 +216,26 @@ export default function MobilePOSLayout({
                   </button>
 
                   {(user as any)?.role !== "Menu User" && (
-                    <Link
-                      to="/closing_shift?open=true"
-                      onClick={() => setShowUserMenu(false)}
-                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                    <button
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        const roleLower = user?.role?.toLowerCase() || "";
+                        const isAuditor = roleLower === "auditor";
+                        const isAdmin = user?.is_employee
+                          ? roleLower === "administrator"
+                          : (roleLower === "administrator" || user?.name === "Administrator");
+                        if (!isAdmin && !isAuditor) {
+                          setShowCloseShiftModal(true);
+                        } else {
+                          navigate('/closing_shift?open=true');
+                        }
+                      }}
+                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors text-left"
+                      type="button"
                     >
                       <MonitorX size={14} className="mr-3 text-gray-500 dark:text-gray-400" />
                       <span>Closing Session</span>
-                    </Link>
+                    </button>
                   )}
 
                   <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>
@@ -249,7 +272,7 @@ export default function MobilePOSLayout({
               {onScanBarcode && (
                 <button
                   onClick={onScanBarcode}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1.5 text-gray-400 hover:text-ziditech-600 dark:hover:text-ziditech-400 transition-colors focus:outline-none focus:ring-2 focus:ring-ziditech-500 focus:ring-offset-2 rounded-lg"
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1.5 text-gray-400 hover:text-gray-900 dark:hover:text-gray-500 transition-colors focus:outline-none focus:ring-2 focus:ring-ziditech-500 focus:ring-offset-2 rounded-lg"
                   title="Scan Barcode"
                 >
                   <Scan className="w-4 h-4" />
@@ -263,7 +286,7 @@ export default function MobilePOSLayout({
                 onClick={() => setViewMode('grid')}
                 className={`p-2 rounded-md transition-colors ${
                   viewMode === 'grid'
-                    ? 'bg-white dark:bg-gray-600 text-ziditech-600 dark:text-ziditech-400 shadow-sm'
+                    ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-500 shadow-sm'
                     : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                 }`}
                 title="Grid View"
@@ -274,7 +297,7 @@ export default function MobilePOSLayout({
                 onClick={() => setViewMode('list')}
                 className={`p-2 rounded-md transition-colors ${
                   viewMode === 'list'
-                    ? 'bg-white dark:bg-gray-600 text-ziditech-600 dark:text-ziditech-400 shadow-sm'
+                    ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-500 shadow-sm'
                     : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
                 }`}
                 title="List View"
@@ -343,7 +366,7 @@ export default function MobilePOSLayout({
         <div className="fixed bottom-16 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 px-4 py-3 z-40">
           <div className="flex items-center justify-between">
             <div className="text-sm text-gray-600 dark:text-gray-400">{totalItems} items</div>
-            <div className="text-lg font-bold text-ziditech-600 dark:text-ziditech-400">{formatCurrency(totalAmount, posDetails?.currency || 'USD')}</div>
+            <div className="text-lg font-bold text-gray-900 dark:text-gray-500">{formatCurrency(totalAmount, posDetails?.currency || 'USD')}</div>
             <button
               onClick={() => navigate('/cart')}
               className="bg-ziditech-600 text-white px-6 py-2 rounded-lg hover:bg-ziditech-700 transition-colors font-medium"
@@ -357,6 +380,13 @@ export default function MobilePOSLayout({
       {/* Bottom Navigation */}
       <BottomNavigation />
 
+      {showCloseShiftModal && (
+        <CloseShiftModal
+          isOpen={showCloseShiftModal}
+          onClose={() => setShowCloseShiftModal(false)}
+          onSuccess={handleLock}
+        />
+      )}
     </div>
   )
 }

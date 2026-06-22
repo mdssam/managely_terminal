@@ -23,6 +23,8 @@ export interface CartItem {
   is_fresh_produce?: boolean
   supports_weight_price?: boolean
   is_stock_item?: boolean | number
+  custom_ingredients?: string
+  custom_notes?: string
 }
 
 export interface MenuItem {
@@ -133,8 +135,10 @@ export interface SalesInvoice {
   status: "Draft" | "Completed" | "Pending" | "Cancelled" | "Refunded" | "Paid" | "Unpaid" | "Overdue" | "Return";
   custom_zatca_submit_status?: string;
   refundAmount: number;
+  is_return?: boolean;
   notes: string;
   currency: string;
+  syncError?: string;
   customer_address_doc?: AddressDoc;
   company_address_doc?: AddressDoc;
   company: string;

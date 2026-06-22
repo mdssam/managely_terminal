@@ -1,6 +1,7 @@
 "use client"
 
 import type { MenuItem } from "../../types"
+import { ChefHat } from "lucide-react"
 
 interface ProductCardProps {
   item: MenuItem
@@ -57,15 +58,11 @@ export default function ProductCard({ item, onAddToCart, isMobile = false, scann
             <div className="text-white px-3 py-1.5 rounded-lg text-xs font-black shadow-md border border-white/20" style={{ backgroundColor: '#10b981' }}>
               SERVICE
             </div>
-          ) : item.available > 0 ? (
-            <div className="text-white px-3 py-1.5 rounded-lg text-xs font-black shadow-md border border-white/20" style={{ backgroundColor: '#1e59db' }}>
-              IN STOCK
-            </div>
-          ) : (
+          ) : (item.available <= 0 && !canBeManufactured) ? (
             <div className="text-white px-3 py-1.5 rounded-lg text-xs font-black shadow-md border-2 border-white" style={{ backgroundColor: '#1e59db' }}>
               OUT OF STOCK
             </div>
-          )}
+          ) : null}
         </div>
 
         {/* Discount badge — top-left */}
@@ -96,19 +93,20 @@ export default function ProductCard({ item, onAddToCart, isMobile = false, scann
 
       {/* Card info */}
       <div className={`p-3 flex flex-col gap-1 flex-1 ${isOutOfStock && !canBeManufactured ? "opacity-50" : ""}`}>
-        <h3 className={`font-black text-gray-900 leading-tight ${isMobile ? "text-xs" : "text-sm"} line-clamp-2 uppercase`}>
-          {item.name}
-        </h3>
+        <div className="flex items-start justify-between gap-1">
+          <h3 className={`font-black text-gray-900 leading-tight ${isMobile ? "text-xs" : "text-sm"} line-clamp-2 uppercase`}>
+            {item.name}
+          </h3>
+          {canBeManufactured && (
+            <ChefHat size={16} className="text-[#1e59db] shrink-0" title="Made to Order" />
+          )}
+        </div>
         <p className={`text-[10px] text-gray-600 font-bold uppercase tracking-wider`}>{item.category}</p>
         <div className="mt-auto pt-2 flex items-center justify-between border-t border-gray-100">
-          <span className={`font-black ${isMobile ? "text-sm" : "text-base"}`} style={{ color: '#1e59db' }}>
+          <span className={`font-black ${isMobile ? "text-sm" : "text-base"}`} style={{ color: '#111827' }}>
             {formattedPrice}
           </span>
-          {canBeManufactured && isOutOfStock && (
-            <span className="text-[10px] font-black px-2 py-0.5 bg-ziditech-50 rounded-md border border-ziditech-200" style={{ color: '#1e59db' }}>
-              MADE TO ORDER
-            </span>
-          )}
+          {/* removed bottom badge */}
         </div>
       </div>
     </div>

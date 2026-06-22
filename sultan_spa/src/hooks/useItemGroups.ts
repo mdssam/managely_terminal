@@ -1,4 +1,8 @@
 import { useEffect, useState } from "react";
+import { dbGet, dbSet, APP_CACHE_STORE } from "../services/offlineDB";
+import { makeAPICall } from "../utils/apiUtils";
+
+const CACHE_KEY = 'sultan_categories_cache';
 
 interface ItemGroup {
   id: string;
@@ -18,32 +22,27 @@ interface UseItemGroupsReturn {
 }
 
 export function useItemGroups(): UseItemGroupsReturn {
-  const [itemGroups, setItemGroups] = useState<ItemGroup[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [totalItemCount, setTotalItemCount] = useState<number>(0); // <-- track total
+  const [itemGroups, setItemGroups]       = useState<ItemGroup[]>([]);
+  const [isLoading, setIsLoading]         = useState<boolean>(true);
+  const [errorMessage, setErrorMessage]   = useState<string | null>(null);
+  const [totalItemCount, setTotalItemCount] = useState<number>(0);
 
   const fetchItemGroups = async () => {
     setIsLoading(true);
 
     if (!navigator.onLine) {
-      const cached = localStorage.getItem('sultan_categories_cache');
+      const cached = await dbGet<{ groups: ItemGroup[]; total_items: number }>(APP_CACHE_STORE, CACHE_KEY);
       if (cached) {
-        try {
-          const parsed = JSON.parse(cached);
-          console.log(`[Offline POS] Loading ${parsed.groups.length} categories from cache...`);
-          setItemGroups(parsed.groups);
-          setTotalItemCount(parsed.total_items);
-          setIsLoading(false);
-          return;
-        } catch (e) {
-          console.error('[Offline POS] Failed to parse cached categories:', e);
-        }
+        console.log(`[Offline POS] Loading ${cached.groups.length} categories from IndexedDB...`);
+        setItemGroups(cached.groups);
+        setTotalItemCount(cached.total_items);
+        setIsLoading(false);
+        return;
       }
     }
 
     try {
-      const response = await fetch(`/api/method/sultan.sultan.api.item.get_item_groups_for_pos`);
+      const response = await makeAPICall(`/api/method/sultan.sultan.api.item.get_item_groups_for_pos`, { timeout: 2000, retries: 0 });
       const resData = await response.json();
 
       if (
@@ -53,10 +52,10 @@ export function useItemGroups(): UseItemGroupsReturn {
       ) {
         setItemGroups(resData.message.groups);
         setTotalItemCount(resData.message.total_items);
-        localStorage.setItem('sultan_categories_cache', JSON.stringify({
-          groups: resData.message.groups,
-          total_items: resData.message.total_items
-        }));
+        await dbSet(APP_CACHE_STORE, CACHE_KEY, {
+          groups:      resData.message.groups,
+          total_items: resData.message.total_items,
+        });
       } else {
         throw new Error("Invalid response format");
       }
@@ -64,18 +63,13 @@ export function useItemGroups(): UseItemGroupsReturn {
     } catch (error: any) {
       console.error("Error fetching item groups:", error);
 
-      const cached = localStorage.getItem('sultan_categories_cache');
+      const cached = await dbGet<{ groups: ItemGroup[]; total_items: number }>(APP_CACHE_STORE, CACHE_KEY);
       if (cached) {
-        try {
-          const parsed = JSON.parse(cached);
-          console.log(`[Offline POS Fallback] Loading ${parsed.groups.length} categories from cache...`);
-          setItemGroups(parsed.groups);
-          setTotalItemCount(parsed.total_items);
-          setErrorMessage(null);
-          return;
-        } catch (e) {
-          console.error('[Offline POS Fallback] Failed to parse cached categories:', e);
-        }
+        console.log(`[Offline POS Fallback] Loading ${cached.groups.length} categories from IndexedDB...`);
+        setItemGroups(cached.groups);
+        setTotalItemCount(cached.total_items);
+        setErrorMessage(null);
+        return;
       }
 
       setErrorMessage(error.message || "Unknown error occurred");
@@ -91,7 +85,7 @@ export function useItemGroups(): UseItemGroupsReturn {
   return {
     itemGroups,
     isLoading,
-    total_item_count: totalItemCount, // ✅ returned here
+    total_item_count: totalItemCount,
     error: errorMessage,
     refetch: fetchItemGroups,
     count: itemGroups.length,

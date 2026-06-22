@@ -3,6 +3,8 @@ import type { ReactNode } from 'react';
 import type { MenuItem } from '../../types';
 import { useAuth } from '../hooks/useAuth';
 import { checkBatchExpiryAlerts } from '../utils/expiryAlerts';
+import { dbGet, dbSet, APP_CACHE_STORE } from '../services/offlineDB';
+import { makeAPICall } from '../utils/apiUtils';
 
 interface ProductContextType {
   products: MenuItem[];
@@ -78,8 +80,9 @@ export function ProductProvider({ children }: ProductProviderProps) {
       if (category && category !== 'all') {
         params.append('category', category);
       }
-      const response = await fetch(
-        `/api/method/sultan.sultan.api.item.get_items_with_balance_and_price?${params.toString()}`
+      const response = await makeAPICall(
+        `/api/method/sultan.sultan.api.item.get_items_with_balance_and_price?${params.toString()}`,
+        { timeout: 3000, retries: 0 }
       );
 
       if (!response.ok) {
@@ -199,8 +202,9 @@ export function ProductProvider({ children }: ProductProviderProps) {
       const itemCodes = products.map(p => p.id).join(',');
       if (!itemCodes) return {};
 
-      const batchResponse = await fetch(
-        `/api/method/sultan.sultan.api.item.get_items_stock_batch?item_codes=${encodeURIComponent(itemCodes)}`
+      const batchResponse = await makeAPICall(
+        `/api/method/sultan.sultan.api.item.get_items_stock_batch?item_codes=${encodeURIComponent(itemCodes)}`,
+        { timeout: 2000, retries: 0 }
       );
 
       if (batchResponse.ok) {
@@ -216,14 +220,14 @@ export function ProductProvider({ children }: ProductProviderProps) {
     }
   };
 
-  // Synchronize memory products to localStorage cache
+  // Synchronize memory products to IndexedDB cache
   useEffect(() => {
     if (products.length > 0) {
-      localStorage.setItem('sultan_products_cache', JSON.stringify({
+      dbSet(APP_CACHE_STORE, 'sultan_products_cache', {
         items: products,
         total_count: totalCount,
         timestamp: Date.now()
-      }));
+      }).catch(() => {});
     }
   }, [products, totalCount]);
 
@@ -234,22 +238,61 @@ export function ProductProvider({ children }: ProductProviderProps) {
     setSearchQuery(''); // Clear search on initial fetch
     backgroundLoadStartedRef.current = false; // Reset background load flag
 
-    // Check if offline and we have a cached version
+    // Try to load from cache first for instant startup (SWR)
+    if (!forceRefresh) {
+      const cached = await dbGet<{ items: MenuItem[]; total_count: number; timestamp: number }>(APP_CACHE_STORE, 'sultan_products_cache');
+      if (cached && cached.items && cached.items.length > 0) {
+        try {
+          console.log(`[Cache POS] Instant load of ${cached.items.length} products from IndexedDB...`);
+          setProducts(cached.items);
+          setTotalCount(cached.total_count || cached.items.length);
+          setHasMore(cached.total_count > cached.items.length);
+          setCurrentOffset(cached.items.length);
+          setLastUpdated(new Date(cached.timestamp || Date.now()));
+          setIsLoading(false);
+
+          // If online, trigger background revalidation silently
+          if (navigator.onLine) {
+            console.log('[Cache POS] Revalidating products in background...');
+            fetchProductsFromAPI(PAGE_SIZE, 0).then(result => {
+              if (result.items && result.items.length > 0) {
+                setProducts(prev => {
+                  const updatedMap = new Map(result.items.map(item => [item.id, item]));
+                  const merged = prev.map(item => updatedMap.get(item.id) || item);
+                  const prevIds = new Set(prev.map(item => item.id));
+                  const brandNew = result.items.filter(item => !prevIds.has(item.id));
+                  return [...merged, ...brandNew];
+                });
+                setTotalCount(result.total_count);
+                setHasMore(result.has_more);
+                setCurrentOffset(prevOffset => Math.max(prevOffset, result.items.length));
+              }
+            }).catch(err => {
+              console.error('[Cache POS] Background revalidation failed:', err);
+            });
+          }
+          return;
+        } catch (e) {
+          console.error('[Cache POS] Failed to load cached products:', e);
+        }
+      }
+    }
+
+    // Check if offline and we have a cached version (fallback if above failed or forced)
     if (!navigator.onLine) {
-      const cached = localStorage.getItem('sultan_products_cache');
+      const cached = await dbGet<{ items: MenuItem[]; total_count: number; timestamp: number }>(APP_CACHE_STORE, 'sultan_products_cache');
       if (cached) {
         try {
-          const parsed = JSON.parse(cached);
-          console.log(`[Offline POS] Loading ${parsed.items.length} products from local storage cache...`);
-          setProducts(parsed.items);
-          setTotalCount(parsed.total_count || parsed.items.length);
+          console.log(`[Offline POS] Loading ${cached.items.length} products from IndexedDB cache...`);
+          setProducts(cached.items);
+          setTotalCount(cached.total_count || cached.items.length);
           setHasMore(false);
-          setCurrentOffset(parsed.items.length);
-          setLastUpdated(new Date(parsed.timestamp || Date.now()));
+          setCurrentOffset(cached.items.length);
+          setLastUpdated(new Date(cached.timestamp || Date.now()));
           setIsLoading(false);
           return;
         } catch (e) {
-          console.error('[Offline POS] Failed to parse cached products:', e);
+          console.error('[Offline POS] Failed to load cached products:', e);
         }
       }
     }
@@ -269,20 +312,19 @@ export function ProductProvider({ children }: ProductProviderProps) {
       console.error("Error fetching products:", error);
 
       // Fallback to cache on network failure
-      const cached = localStorage.getItem('sultan_products_cache');
+      const cached = await dbGet<{ items: MenuItem[]; total_count: number; timestamp: number }>(APP_CACHE_STORE, 'sultan_products_cache');
       if (cached) {
         try {
-          const parsed = JSON.parse(cached);
-          console.log(`[Offline POS Fallback] Loading ${parsed.items.length} products from cache due to fetch error...`);
-          setProducts(parsed.items);
-          setTotalCount(parsed.total_count || parsed.items.length);
+          console.log(`[Offline POS Fallback] Loading ${cached.items.length} products from cache due to fetch error...`);
+          setProducts(cached.items);
+          setTotalCount(cached.total_count || cached.items.length);
           setHasMore(false);
-          setCurrentOffset(parsed.items.length);
-          setLastUpdated(new Date(parsed.timestamp || Date.now()));
+          setCurrentOffset(cached.items.length);
+          setLastUpdated(new Date(cached.timestamp || Date.now()));
           setError(null);
           return;
         } catch (e) {
-          console.error('[Offline POS Fallback] Failed to parse cached products:', e);
+          console.error('[Offline POS Fallback] Failed to load cached products:', e);
         }
       }
 
@@ -496,8 +538,9 @@ export function ProductProvider({ children }: ProductProviderProps) {
       // Create comma-separated string for the API
       const itemCodesString = itemCodes.join(',');
 
-      const response = await fetch(
-        `/api/method/sultan.sultan.api.item.get_items_stock_batch?item_codes=${encodeURIComponent(itemCodesString)}`
+      const response = await makeAPICall(
+        `/api/method/sultan.sultan.api.item.get_items_stock_batch?item_codes=${encodeURIComponent(itemCodesString)}`,
+        { timeout: 2000, retries: 0 }
       );
 
       if (!response.ok) {
@@ -535,8 +578,9 @@ export function ProductProvider({ children }: ProductProviderProps) {
       // Update batch quantities for each item individually
       const batchUpdatePromises = itemCodes.map(async (itemCode) => {
         try {
-          const response = await fetch(
-            `/api/method/sultan.sultan.api.item.get_batch_nos_with_qty?item_code=${encodeURIComponent(itemCode)}`
+          const response = await makeAPICall(
+            `/api/method/sultan.sultan.api.item.get_batch_nos_with_qty?item_code=${encodeURIComponent(itemCode)}`,
+            { timeout: 2000, retries: 0 }
           );
           const resData = await response.json();
           // console.log(`Batch API response for ${itemCode}:`, resData);

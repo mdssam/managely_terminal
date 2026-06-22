@@ -55,6 +55,7 @@ export default function InvoiceViewPage() {
   // PaymentDialog state for sharing
   const [showPaymentDialog, setShowPaymentDialog] = useState(false)
   const [sharingMode, setSharingMode] = useState<string | null>(null)
+  const [receiptLanguage, setReceiptLanguage] = useState<"en" | "ar">("en");
 
   // Return modals state
   const [showSingleReturn, setShowSingleReturn] = useState(false)
@@ -112,7 +113,7 @@ export default function InvoiceViewPage() {
     switch (status) {
       case "Completed":
       case "Paid":
-        return `${baseClasses} bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900/20 dark:text-ziditech-400`;
+        return `${baseClasses} bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900/20 dark:text-gray-500`;
       case "Pending":
       case "Unpaid":
         return `${baseClasses} bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400`;
@@ -234,7 +235,7 @@ export default function InvoiceViewPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
-        <div className="flex-1 flex items-center justify-center ml-20">
+        <div className="flex-1 flex items-center justify-center ml-28">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
             <p className="text-gray-600 dark:text-gray-400">Loading invoice...</p>
@@ -248,7 +249,7 @@ export default function InvoiceViewPage() {
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
-        <div className="flex-1 flex items-center justify-center ml-20">
+        <div className="flex-1 flex items-center justify-center ml-28">
           <div className="text-center">
             <AlertTriangle className="h-12 w-12 text-red-500 mx-auto mb-4" />
             <p className="text-red-600 dark:text-red-400">Error loading invoice: {error}</p>
@@ -268,7 +269,7 @@ export default function InvoiceViewPage() {
   if (!invoice) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
-        <div className="flex-1 flex items-center justify-center ml-20">
+        <div className="flex-1 flex items-center justify-center ml-28">
           <div className="text-center">
             <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <p className="text-gray-600 dark:text-gray-400">Invoice not found</p>
@@ -280,9 +281,9 @@ export default function InvoiceViewPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex pb-12">
-      <div className="flex-1 flex flex-col overflow-hidden ml-20">
+      <div className="flex-1 flex flex-col overflow-hidden ml-28">
         {/* Header */}
-        <div className="fixed top-0 left-20 right-0 z-50 bg-ziditech-50 dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+        <div className="fixed top-0 left-28 right-0 z-50 bg-ziditech-50 dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
           <div className="px-6 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
@@ -310,8 +311,7 @@ export default function InvoiceViewPage() {
               <div className="flex items-center space-x-3">
                 <div className="sr-only">
                              {/* @ts-expect-error just ignore */}
-
-                  <DisplayPrintPreview invoice={invoice} />
+                  <DisplayPrintPreview invoice={invoice} language={receiptLanguage} />
                 </div>
 
                 <button
@@ -325,8 +325,56 @@ export default function InvoiceViewPage() {
                   </span>
                 </button>
 
+                {/* Thermal receipt buttons — shown when configured on POS Profile */}
+                {posDetails?.custom_pos_print_format_en && invoice && (invoice.name || invoice.id) && (
+                  <button
+                    className="group relative p-2 text-green-600 dark:text-green-400 hover:bg-green-100 dark:hover:bg-green-900/20 rounded-lg transition-all duration-200"
+                    title="Print Thermal (EN)"
+                    onClick={() => {
+                      const name = invoice.name || invoice.id || "";
+                      if (!navigator.onLine) {
+                        setReceiptLanguage("en");
+                        setTimeout(() => {
+                          handlePrintInvoice(invoice);
+                        }, 150);
+                      } else {
+                        const fmt = encodeURIComponent(posDetails.custom_pos_print_format_en as string);
+                        window.open(`/printview?doctype=Sales+Invoice&name=${name}&format=${fmt}&no_letterhead=1`, "_blank");
+                      }
+                    }}
+                  >
+                    <Printer size={20} className="text-green-600" />
+                    <span className="absolute top-full left-1/2 transform -translate-x-1/2 mt-0.5 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-50">
+                      Receipt EN
+                    </span>
+                  </button>
+                )}
+                {posDetails?.custom_pos_print_format_ar && invoice && (invoice.name || invoice.id) && (
+                  <button
+                    className="group relative p-2 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/20 rounded-lg transition-all duration-200"
+                    title="Print Thermal (AR)"
+                    onClick={() => {
+                      const name = invoice.name || invoice.id || "";
+                      if (!navigator.onLine) {
+                        setReceiptLanguage("ar");
+                        setTimeout(() => {
+                          handlePrintInvoice(invoice);
+                        }, 150);
+                      } else {
+                        const fmt = encodeURIComponent(posDetails.custom_pos_print_format_ar as string);
+                        window.open(`/printview?doctype=Sales+Invoice&name=${name}&format=${fmt}&no_letterhead=1`, "_blank");
+                      }
+                    }}
+                  >
+                    <Printer size={20} className="text-amber-600" />
+                    <span className="absolute top-full left-1/2 transform -translate-x-1/2 mt-0.5 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-50">
+                      Receipt AR
+                    </span>
+                  </button>
+                )}
+
                 <button
-                  className="group relative p-2 text-ziditech-600 hover:bg-blue-100 dark:text-blue-400 dark:hover:bg-blue-900 rounded-lg transition-all duration-200"
+                  className="group relative p-2 text-gray-900 hover:bg-blue-100 dark:text-blue-400 dark:hover:bg-blue-900 rounded-lg transition-all duration-200"
                   onClick={() => {
                     setSharingMode('email')
                     setShowPaymentDialog(true)
@@ -340,7 +388,7 @@ export default function InvoiceViewPage() {
 
                 {(posDetails?.custom_enable_whatsapp === 1 || posDetails?.custom_enable_whatsapp === '1' || posDetails?.custom_enable_whatsapp === true) ? (
                   <button
-                    className="group relative p-2 text-ziditech-600 hover:bg-ziditech-100 dark:text-ziditech-400 dark:hover:bg-ziditech-900 rounded-lg transition-all duration-200"
+                    className="group relative p-2 text-gray-900 hover:bg-ziditech-100 dark:text-gray-500 dark:hover:bg-ziditech-900 rounded-lg transition-all duration-200"
                     onClick={() => {
                       setSharingMode('whatsapp')
                       setShowPaymentDialog(true)
@@ -355,7 +403,7 @@ export default function InvoiceViewPage() {
 
                 {(posDetails?.custom_enable_sms === 1 || posDetails?.custom_enable_sms === '1' || posDetails?.custom_enable_sms === true) ? (
                   <button
-                    className="group relative p-2 text-ziditech-600 hover:bg-blue-100 dark:text-blue-400 dark:hover:bg-blue-900 rounded-lg transition-all duration-200"
+                    className="group relative p-2 text-gray-900 hover:bg-blue-100 dark:text-blue-400 dark:hover:bg-blue-900 rounded-lg transition-all duration-200"
                     onClick={() => {
                       setSharingMode('sms')
                       setShowPaymentDialog(true)
@@ -370,7 +418,7 @@ export default function InvoiceViewPage() {
 
                 {/* Return Buttons */}
                            {/* @ts-expect-error just ignore */}
-                {["Paid", "Unpaid", "Overdue", "Partly Paid", "Credit Note Issued"].includes(invoice.status) && !invoice.is_return && hasReturnableItems() && (
+                {["Paid", "Unpaid", "Overdue", "Partly Paid", "Credit Note Issued", "Consolidated"].includes(invoice.status) && !invoice.is_return && hasReturnableItems() && (
                   <>
                     <div className="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
 
@@ -380,7 +428,7 @@ export default function InvoiceViewPage() {
                     >
                       <RotateCcw size={20} />
                       <span className="absolute top-full left-1/2 transform -translate-x-1/2 mt-0.5 px-2 py-1 text-xs text-gray-600 dark:text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-50">
-                        Return Items (Single Invoice)
+                        Return
                       </span>
                     </button>
 
@@ -511,7 +559,7 @@ export default function InvoiceViewPage() {
                   {invoice.taxes && invoice.taxes.length > 0 && (
                     <div className="px-6 py-4 bg-ziditech-50 dark:bg-ziditech-900/20 border-t border-gray-200 dark:border-gray-600">
                       <div className="flex items-center space-x-2 mb-3">
-                        <Percent className="w-5 h-5 text-ziditech-600 dark:text-ziditech-400" />
+                        <Percent className="w-5 h-5 text-gray-900 dark:text-gray-500" />
                         <h4 className="text-sm font-semibold text-ziditech-900 dark:text-ziditech-100">Tax Details</h4>
                       </div>
                       <div className="space-y-2">
@@ -520,10 +568,10 @@ export default function InvoiceViewPage() {
                             <div className="flex items-center space-x-2">
                                           {/* @ts-expect-error just ignore */}
 
-                              <span className="text-ziditech-700 dark:text-ziditech-300 font-medium">{tax.account_head}</span>
+                              <span className="text-gray-900 dark:text-gray-500 font-medium">{tax.account_head}</span>
                                          {/* @ts-expect-error just ignore */}
 
-                              <span className="text-ziditech-600 dark:text-ziditech-400">({tax.rate}%)</span>
+                              <span className="text-gray-900 dark:text-gray-500">({tax.rate}%)</span>
                                          {/* @ts-expect-error just ignore */}
 
                               {tax.included_in_print_rate === 1 && (
@@ -539,7 +587,7 @@ export default function InvoiceViewPage() {
                           </div>
                         ))}
                         <div className="flex justify-between items-center text-sm pt-2 border-t border-ziditech-200 dark:border-ziditech-700">
-                          <span className="text-ziditech-700 dark:text-ziditech-300 font-semibold">Total Tax:</span>
+                          <span className="text-gray-900 dark:text-gray-500 font-semibold">Total Tax:</span>
                           <span className="text-ziditech-900 dark:text-ziditech-100 font-bold">
                             {formatCurrency(invoice.total_taxes_and_charges, invoice.currency)}
                           </span>
@@ -574,7 +622,7 @@ export default function InvoiceViewPage() {
                         {invoice.giftCardDiscount > 0 && (
                           <div className="flex justify-between text-sm">
                             <span className="text-gray-600 dark:text-gray-400">Gift Card Discount:</span>
-                            <span className="text-ziditech-600 dark:text-ziditech-400">-{formatCurrency(invoice.giftCardDiscount, invoice.currency)}</span>
+                            <span className="text-gray-900 dark:text-gray-500">-{formatCurrency(invoice.giftCardDiscount, invoice.currency)}</span>
                           </div>
                         )}
 
@@ -588,7 +636,7 @@ export default function InvoiceViewPage() {
                         {invoice.paid_amount > 0 && (
                           <div className="flex justify-between text-sm">
                             <span className="text-gray-600 dark:text-gray-400">Paid Amount:</span>
-                            <span className="text-ziditech-600 dark:text-ziditech-400">{formatCurrency(invoice.paid_amount, invoice.currency)}</span>
+                            <span className="text-gray-900 dark:text-gray-500">{formatCurrency(invoice.paid_amount, invoice.currency)}</span>
                           </div>
                         )}
 
@@ -614,7 +662,7 @@ export default function InvoiceViewPage() {
                     <div className="px-6 py-4 bg-ziditech-50 dark:bg-ziditech-900/20 border-t border-gray-200 dark:border-gray-600">
                       <h4 className="text-sm font-medium text-ziditech-900 dark:text-ziditech-100 mb-2">Gift Card Applied:</h4>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-ziditech-700 dark:text-ziditech-300">Code: {invoice.giftCardCode}</span>
+                        <span className="text-sm text-gray-900 dark:text-gray-500">Code: {invoice.giftCardCode}</span>
                         <span className="text-sm font-semibold text-ziditech-900 dark:text-ziditech-100">-{formatCurrency(invoice.giftCardDiscount, invoice.currency)}</span>
                       </div>
                     </div>
@@ -713,7 +761,7 @@ export default function InvoiceViewPage() {
                     {/* Customer Statistics */}
                     <div className="space-y-4">
                       <div className="flex items-center space-x-2">
-                        <TrendingUp className="w-5 h-5 text-ziditech-600 dark:text-ziditech-400" />
+                        <TrendingUp className="w-5 h-5 text-gray-900 dark:text-gray-500" />
                         <h4 className="text-sm font-semibold text-gray-900 dark:text-white">Customer Statistics</h4>
                       </div>
 
@@ -731,7 +779,7 @@ export default function InvoiceViewPage() {
                                   <Package className="w-4 h-4 text-white" />
                                 </div>
                                 <div>
-                                  <p className="text-xs text-ziditech-700 dark:text-ziditech-300 font-medium">Total Orders</p>
+                                  <p className="text-xs text-gray-900 dark:text-gray-500 font-medium">Total Orders</p>
                                   <p className="text-xs font-bold text-ziditech-900 dark:text-ziditech-100">
                                     {customerStats.total_orders}
                                   </p>

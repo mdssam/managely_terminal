@@ -1,4 +1,5 @@
 import React, { useState } from "react"
+import { dbGet, dbSet, AUTH_STORE } from "../services/offlineDB"
 import { useAuth } from "../hooks/useAuth"
 import { useTheme } from "../hooks/useTheme"
 import { useI18n } from "../hooks/useI18n"
@@ -84,7 +85,7 @@ export default function SettingsPage() {
             <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center">
               <span className="text-2xl font-bold">{initials}</span>
             </div>
-            <button className="absolute bottom-0 right-0 bg-white text-ziditech-600 rounded-full p-2 shadow-lg hover:bg-gray-50 transition-colors">
+            <button className="absolute bottom-0 right-0 bg-white text-gray-900 rounded-full p-2 shadow-lg hover:bg-gray-50 transition-colors">
               <Camera size={16} />
             </button>
           </div>
@@ -218,10 +219,10 @@ export default function SettingsPage() {
   const renderAccountSection = () => {
     const userRole = user?.role || "Cashier"
     
-    const handleRoleChange = (newRole: string) => {
+    const handleRoleChange = async (newRole: string) => {
       if (user) {
         const updatedUser = { ...user, role: newRole }
-        localStorage.setItem("user_data", JSON.stringify(updatedUser))
+        await dbSet(AUTH_STORE, "user_data", updatedUser)
         window.location.reload() // Reload to apply role changes globally
       }
     }
@@ -241,7 +242,7 @@ export default function SettingsPage() {
                   onClick={() => handleRoleChange(role)}
                   className={`p-4 rounded-xl border-2 transition-all flex flex-col items-center gap-2 ${
                     userRole === role
-                      ? "border-ziditech-600 bg-ziditech-50 dark:bg-ziditech-900/30 text-ziditech-700 dark:text-ziditech-300"
+                      ? "border-ziditech-600 bg-ziditech-50 dark:bg-ziditech-900/30 text-gray-900 dark:text-gray-500"
                       : "border-gray-100 dark:border-gray-700 hover:border-gray-200 dark:hover:border-gray-600"
                   }`}
                 >
@@ -306,7 +307,7 @@ export default function SettingsPage() {
           <div className="flex items-center space-x-4 mb-4">
             <button
               onClick={() => navigate('/pos')}
-              className="flex items-center space-x-2 text-gray-600 hover:text-ziditech-600 dark:text-gray-300 dark:hover:text-ziditech-400 transition-colors group"
+              className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-500 transition-colors group"
               type="button"
             >
               <div className="p-2 rounded-lg bg-gray-100 group-hover:bg-ziditech-50 dark:bg-gray-800 dark:group-hover:bg-ziditech-900 transition-colors">
@@ -332,7 +333,7 @@ export default function SettingsPage() {
                       onClick={() => setActiveSection(section.id)}
                       className={`w-full flex items-center justify-between p-3 rounded-lg transition-colors ${
                         activeSection === section.id
-                          ? 'bg-ziditech-50 text-ziditech-700 border border-ziditech-200 dark:bg-ziditech-900 dark:text-ziditech-300 dark:border-ziditech-700'
+                          ? 'bg-ziditech-50 text-gray-900 border border-ziditech-200 dark:bg-ziditech-900 dark:text-gray-500 dark:border-ziditech-700'
                           : 'text-gray-700 hover:bg-gray-50 dark:text-gray-300 dark:hover:bg-gray-700'
                       }`}
                     >

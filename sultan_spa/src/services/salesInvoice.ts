@@ -2,20 +2,12 @@
 import { extractErrorMessage } from "../utils/errorExtraction";
 import { refreshCSRFToken } from "../utils/csrf";
 import { backgroundSyncService } from "./backgroundSyncService";
+import { dbGet, AUTH_STORE } from "./offlineDB";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function getOfflineCashier(data: any) {
-  const cachedUser = localStorage.getItem("user_data");
-  let currentUserName = "";
-
-  if (cachedUser) {
-    try {
-      const user = JSON.parse(cachedUser);
-      currentUserName = user.full_name || user.name || user.email || "";
-    } catch {
-      currentUserName = "";
-    }
-  }
+async function getOfflineCashier(data: any) {
+  const user = await dbGet<{ full_name?: string; name?: string; email?: string }>(AUTH_STORE, "user_data");
+  const currentUserName = user?.full_name || user?.name || user?.email || "";
 
   const cashierName =
     data.cashier_name ||
@@ -45,7 +37,7 @@ export async function createDraftSalesInvoice(data: any) {
   const result = await response.json();
 
   if (!response.ok || !result.message || result.message.success === false) {
-    const errorMessage = extractErrorMessage(result, 'Failed to create invoice');
+    const errorMessage = result.message?.message || result.message?.error || extractErrorMessage(result, 'Failed to create invoice');
     throw new Error(errorMessage);
   }
 
@@ -57,7 +49,7 @@ export async function createSalesInvoice(data: any) {
   if (!navigator.onLine) {
     console.log('[Offline Detection] Browser is offline. Saving invoice to offline sync queue...', data);
     const offlineInv = backgroundSyncService.saveOfflineInvoice(data);
-    const { cashierName, cashierId } = getOfflineCashier(data);
+    const { cashierName, cashierId } = await getOfflineCashier(data);
 
     // Return a mock success message structured identically to the real backend payload
     return {
@@ -85,6 +77,7 @@ export async function createSalesInvoice(data: any) {
         payment_methods: data.paymentMethods || [],
         remarks: 'Offline Transaction (Pending Sync)',
         status: 'Pending',
+        pos_profile: data.posProfile || '',
       }
     };
   }
@@ -115,7 +108,7 @@ export async function createSalesInvoice(data: any) {
     if (err instanceof TypeError && err.message.includes('fetch')) {
       console.log('[Offline Detection] Network unavailable. Saving invoice to offline sync queue...', data);
       const offlineInv = backgroundSyncService.saveOfflineInvoice(data);
-      const { cashierName, cashierId } = getOfflineCashier(data);
+      const { cashierName, cashierId } = await getOfflineCashier(data);
       return {
         success: true,
         message: 'Payment queued offline successfully!',
@@ -141,6 +134,7 @@ export async function createSalesInvoice(data: any) {
           payment_methods: data.paymentMethods || [],
           remarks: 'Offline Transaction (Pending Sync)',
           status: 'Pending',
+          pos_profile: data.posProfile || '',
         }
       };
     }
@@ -188,8 +182,9 @@ export async function getInvoiceDetails(invoiceName: string) {
     const data = await response.json();
     // console.log('Invoice details response:', data);
 
-    if (!response.ok) {
-      throw new Error(data.message || 'Failed to get invoice details');
+    if (!response.ok || !data.message || data.message.success === false) {
+      const errorMessage = data.message?.error || data.message?.message || 'Failed to get invoice details';
+      throw new Error(errorMessage);
     }
 
     return {
@@ -280,4 +275,21 @@ export async function submitDraftInvoice(invoiceId: string) {
   }
 
   return result.message;
+}
+
+export async function getMyUnpaidDrafts() {
+  const response = await fetch('/api/method/sultan.sultan.api.sales_invoice.get_my_unpaid_drafts', {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include'
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.message?.error || 'Failed to fetch my drafts');
+  }
+
+  return data.message?.data || [];
 }

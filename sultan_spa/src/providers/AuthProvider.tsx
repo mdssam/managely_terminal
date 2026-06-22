@@ -1,13 +1,14 @@
 // @ts-expect-error ignore
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
+import { dbGet, dbSet, dbRemove, AUTH_STORE } from '../services/offlineDB';
 
 interface AuthContextType {
   token: string | null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  login: (newToken: string, user: any) => void; // Include user info
+  login: (newToken: string, user: any) => void;
   logout: () => void;
   //eslint-disable-next-line @typescript-eslint/no-explicit-any
-  user: any; // Add user state
+  user: any;
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -18,27 +19,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    const storedToken = localStorage.getItem('erpnext_token');
-    const storedUser = localStorage.getItem('erpnext_user');
-    if (storedToken) {
-      setToken(storedToken);
-      setUser(storedUser ? JSON.parse(storedUser) : null);
-    }
+    const init = async () => {
+      const storedToken = await dbGet<string>(AUTH_STORE, 'erpnext_token');
+      const storedUser = await dbGet<any>(AUTH_STORE, 'erpnext_user');
+      if (storedToken) {
+        setToken(storedToken);
+        setUser(storedUser ?? null);
+      }
+    };
+    init();
   }, []);
 
   //eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const login = (newToken: string, userData: any) => {
+  const login = async (newToken: string, userData: any) => {
     setToken(newToken);
     setUser(userData);
-    localStorage.setItem('erpnext_token', newToken);
-    localStorage.setItem('erpnext_user', JSON.stringify(userData));
+    await dbSet(AUTH_STORE, 'erpnext_token', newToken);
+    await dbSet(AUTH_STORE, 'erpnext_user', userData);
   };
 
-  const logout = () => {
+  const logout = async () => {
     setToken(null);
     setUser(null);
-    localStorage.removeItem('erpnext_token');
-    localStorage.removeItem('erpnext_user');
+    await dbRemove(AUTH_STORE, 'erpnext_token');
+    await dbRemove(AUTH_STORE, 'erpnext_user');
   };
 
   return (

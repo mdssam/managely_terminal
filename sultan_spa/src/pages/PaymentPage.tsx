@@ -119,7 +119,7 @@ export default function PaymentPage() {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#eef1f8' }}>
         <div className="flex flex-col items-center gap-3 text-gray-400">
-          <Loader2 className="w-8 h-8 animate-spin" style={{ color: '#1e2d6b' }} />
+          <Loader2 className="w-8 h-8 animate-spin" style={{ color: '#111827' }} />
           <span className="text-sm font-semibold text-gray-500">Loading invoice…</span>
         </div>
       </div>
@@ -136,11 +136,11 @@ export default function PaymentPage() {
           <h2 className="text-lg font-bold text-gray-900 mb-1">Invoice Not Found</h2>
           <p className="text-sm text-gray-500 mb-6">{error}</p>
           <button
-            onClick={() => navigate("/cashier-station")}
+            onClick={() => navigate("/pos")}
             className="w-full py-3 rounded-xl font-semibold text-sm text-white transition-all active:scale-95"
             style={{ backgroundColor: '#1e2d6b' }}
           >
-            Back to Cashier Terminal
+            Back to POS Terminal
           </button>
         </div>
       </div>
@@ -152,11 +152,11 @@ export default function PaymentPage() {
       <div className="min-h-screen flex items-center justify-center p-6" style={{ backgroundColor: '#eef1f8' }}>
         <div className="bg-white rounded-2xl p-8 max-w-md w-full text-center shadow-sm border border-gray-200">
           <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: '#eef1f8' }}>
-            <CheckCircle2 className="w-8 h-8" style={{ color: '#1e2d6b' }} />
+            <CheckCircle2 className="w-8 h-8" style={{ color: '#111827' }} />
           </div>
           <h2 className="text-xl font-bold text-gray-900 mb-1">Payment Complete</h2>
           <p className="text-sm text-gray-500 mb-2">{invoice?.name}</p>
-          <p className="text-4xl font-black mb-8" style={{ color: '#1e2d6b' }}>
+          <p className="text-4xl font-black mb-8" style={{ color: '#111827' }}>
             {sym}{invoice?.grand_total.toFixed(2)}
           </p>
           <div className="space-y-3">
@@ -169,7 +169,7 @@ export default function PaymentPage() {
               View in ERPNext
             </a>
             <button
-              onClick={() => navigate("/cashier-station")}
+              onClick={() => navigate("/pos")}
               className="w-full py-3 rounded-xl font-semibold text-sm text-white transition-all active:scale-95"
               style={{ backgroundColor: '#1e2d6b' }}
             >
@@ -186,7 +186,7 @@ export default function PaymentPage() {
       {/* Header */}
       <header className="px-6 py-4 flex items-center gap-4 sticky top-0 z-30 bg-white border-b border-gray-200">
         <button
-          onClick={() => navigate("/cashier-station")}
+          onClick={() => navigate("/pos")}
           className="p-2 bg-gray-100 hover:bg-gray-200 rounded-xl transition-all active:scale-90"
         >
           <ArrowLeft className="w-5 h-5 text-gray-700" />
@@ -229,14 +229,14 @@ export default function PaymentPage() {
               </div>
               <div className="px-5 py-4 border-t border-gray-100 flex items-center justify-between" style={{ backgroundColor: '#eef1f8' }}>
                 <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Grand Total</span>
-                <span className="text-2xl font-black" style={{ color: '#1e2d6b' }}>
+                <span className="text-2xl font-black" style={{ color: '#111827' }}>
                   {sym}{invoice?.grand_total.toFixed(2)}
                 </span>
               </div>
             </div>
 
             <button
-              onClick={() => navigate("/cashier-station")}
+              onClick={() => navigate("/pos")}
               className="flex items-center justify-center gap-2 w-full py-3 rounded-xl font-medium text-sm text-gray-600 border border-gray-200 bg-white hover:bg-gray-50 transition-colors"
             >
               <ShoppingCart className="w-4 h-4" />

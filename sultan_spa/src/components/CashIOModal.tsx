@@ -2,13 +2,14 @@ import { useState, useEffect } from "react"
 import { X, ArrowDownCircle, ArrowUpCircle, Loader2 } from "lucide-react"
 import { createCashTransaction } from "../services/cashTransaction"
 import { toast } from "react-toastify"
+import { formatNumberWithCommas, parseNumberFromCommas } from "../utils/currency"
 
 interface Props {
   isOpen: boolean
   onClose: () => void
   onSuccess?: () => void
   currency?: string
-  allowedModes?: string[]
+  allowedModes?: Array<{ name: string; currency: string; symbol: string }>
   posSession?: string
 }
 
@@ -18,20 +19,20 @@ export default function CashIOModal({
   const [type, setType] = useState<"Cash In" | "Cash Out">("Cash In")
   const [amount, setAmount] = useState("")
   const [description, setDescription] = useState("")
-  const [modeOfPayment, setModeOfPayment] = useState(allowedModes[0] ?? "")
+  const [modeOfPayment, setModeOfPayment] = useState(allowedModes[0]?.name ?? "")
   const [loading, setLoading] = useState(false)
 
-  // allowedModes loads async — sync the selected mode whenever the list arrives
+  // allowedModes loads async — sync the selected mode whenever the list arrives or modal is opened
   useEffect(() => {
-    if (allowedModes.length > 0 && !modeOfPayment) {
-      setModeOfPayment(allowedModes[0])
+    if (isOpen && allowedModes.length > 0) {
+      setModeOfPayment(allowedModes[0].name)
     }
-  }, [allowedModes])
+  }, [isOpen, allowedModes])
 
   if (!isOpen) return null
 
   const handleSubmit = async () => {
-    const amt = parseFloat(amount)
+    const amt = parseFloat(parseNumberFromCommas(amount))
     if (!amt || amt <= 0) { toast.error("Please enter a valid amount greater than zero."); return }
     if (!description.trim()) { toast.error("Please enter a description / reason."); return }
     if (!modeOfPayment) { toast.error("Please select a payment method."); return }
@@ -96,7 +97,7 @@ export default function CashIOModal({
           </div>
 
           {/* Payment method */}
-          {allowedModes.length > 1 && (
+          {allowedModes.length > 0 && (
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Payment Method
@@ -107,7 +108,7 @@ export default function CashIOModal({
                 className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-ziditech-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               >
                 {allowedModes.map((m) => (
-                  <option key={m} value={m}>{m}</option>
+                  <option key={m.name} value={m.name}>{m.name}</option>
                 ))}
               </select>
             </div>
@@ -116,14 +117,16 @@ export default function CashIOModal({
           {/* Amount */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Amount ({currency})
+              Amount ({(() => {
+                const selected = allowedModes.find((m) => m.name === modeOfPayment);
+                return selected?.symbol || selected?.currency || currency;
+              })()})
             </label>
             <input
-              type="number"
-              min="0.01"
-              step="0.01"
+              type="text"
+              inputMode="decimal"
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              onChange={(e) => setAmount(formatNumberWithCommas(e.target.value))}
               placeholder="0.00"
               className="w-full px-4 py-3 border-2 border-gray-200 dark:border-gray-600 rounded-xl text-lg font-bold focus:outline-none focus:ring-2 focus:ring-ziditech-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             />

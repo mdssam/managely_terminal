@@ -85,7 +85,7 @@ export default function AddCustomerModal({
           toast.success("Customer created");
         }
         onSave({
-          id: created.name,
+          id: created.customer_name || created.name,
           name: created.customer_name || formData.name,
           phone: created.phone || formData.phone,
           email: created.email || formData.email,

@@ -36,10 +36,10 @@ def get_current_pos_opening_entry():
 			return opening_entries[0].name
 
 		# Menu User: auto-attach to the profile's active session
-		from sultan.sultan.utils import get_user_pos_profile_name, get_user_pos_role
+		from sultan.sultan.utils import get_user_pos_profile_name
 		pos_profile_name = get_user_pos_profile_name(user)
 		if pos_profile_name:
-			user_role = get_user_pos_role(user, pos_profile_name)
+			user_role = frappe.db.get_value("User", user, "role_profile_name") or "Cashier"
 			if user_role == "Menu User":
 				profile_entries = frappe.get_all(
 					"POS Opening Entry",
@@ -57,8 +57,28 @@ def get_current_pos_opening_entry():
 		return None
 
 
+@frappe.whitelist()
+def get_my_unpaid_drafts():
+	"""
+	Returns a list of unpaid draft POS Invoices created by the current user.
+	"""
+	user = frappe.session.user
+	if user == "Guest":
+		return {"success": False, "error": "Not logged in"}
+
+	drafts = frappe.get_all(
+		"POS Invoice",
+		filters={"docstatus": 0, "owner": user},
+		fields=["name", "creation", "customer", "customer_name", "grand_total"],
+		order_by="creation desc",
+		limit_page_length=50
+	)
+	
+	return {"success": True, "data": drafts}
+
+
 @frappe.whitelist(allow_guest=True)
-def get_sales_invoices(limit=100, start=0, search="", skip_opening_entry_filter=False, cashier_name=None, submitted_only=False):
+def get_sales_invoices(limit=100, start=0, search="", skip_opening_entry_filter=False, cashier_name=None, submitted_only=False, pos_profile=None, employee=None):
 	"""
 	Get sales invoices with proper filtering based on user role and POS opening entry.
 
@@ -66,6 +86,7 @@ def get_sales_invoices(limit=100, start=0, search="", skip_opening_entry_filter=
 		skip_opening_entry_filter: If True, skip filtering by opening entry (for Invoice History page)
 		cashier_name: Filter by cashier name (full name). If provided, only returns invoices for that cashier.
 		submitted_only: If True, only return submitted invoices (docstatus=1). Use for Sales Dashboard; excludes Draft and Cancelled.
+		pos_profile: Filter by POS Profile name. If provided, only returns invoices for that branch/profile.
 	"""
 	try:
 		# Convert string to boolean if needed (Frappe passes query params as strings)
@@ -89,25 +110,39 @@ def get_sales_invoices(limit=100, start=0, search="", skip_opening_entry_filter=
 			cashier_user_ids=cashier_user_ids,
 			cashier_opening_entries=cashier_opening_entries,
 			submitted_only=submitted_only,
+			pos_profile=pos_profile,
+			employee=employee,
 		)
 
 		# Build search filters
 		or_filters = _build_search_filters(search)
 
-		invoices = frappe.get_all(
-			"Sales Invoice",
-			filters=filters,
+		# Fetch from POS Invoice
+		pos_filters = filters.copy()
+		pos_fields = fields.copy()
+
+		pos_invoices = frappe.get_all(
+			"POS Invoice",
+			filters=pos_filters,
 			or_filters=or_filters,
-			fields=fields,
+			fields=pos_fields,
 			order_by="modified desc",
-			limit=limit,
-			start=start,
+			limit=int(start) + int(limit),
 		)
 
-		count_rows = frappe.get_all(
-			"Sales Invoice", filters=filters, or_filters=or_filters, fields=["count(name) as total"]
+		for pinv in pos_invoices:
+			pinv["doctype"] = "POS Invoice"
+
+		# Slice for pagination
+		invoices = pos_invoices[int(start):int(start)+int(limit)]
+
+		# Counts
+		pos_count_rows = frappe.get_all(
+			"POS Invoice", filters=pos_filters, or_filters=or_filters, fields=["count(name) as total"]
 		)
-		total_count = count_rows[0].total if count_rows else 0
+		pos_total = pos_count_rows[0].total if pos_count_rows else 0
+
+		total_count = pos_total
 
 		# Batch fetch related data
 		invoice_names = [inv.name for inv in invoices]
@@ -166,6 +201,8 @@ def _build_filters_and_fields(
 	cashier_user_ids=None,
 	cashier_opening_entries=None,
 	submitted_only=False,
+	pos_profile=None,
+	employee=None,
 ):
 	"""Build filters and fields list based on user role and metadata.
 
@@ -174,6 +211,7 @@ def _build_filters_and_fields(
 		cashier_user_ids: List of user IDs to filter by. If provided, only returns invoices for these users.
 		cashier_opening_entries: POS Opening Entry IDs to filter by employee cashier name.
 		submitted_only: If True, only return submitted invoices (docstatus=1); excludes Draft and Cancelled.
+		pos_profile: POS Profile name to filter by.
 	"""
 	current_opening_entry = get_current_pos_opening_entry()
 
@@ -187,6 +225,40 @@ def _build_filters_and_fields(
 	has_opening_entry = "custom_pos_opening_entry" in all_fieldnames
 	has_zatca_status = "custom_zatca_submit_status" in all_fieldnames
 
+	# Check if user is admin or auditor or branch manager
+	is_auditor = "Auditor" in user_roles
+	is_branch_manager = "Branch Manager" in user_roles
+	allowed_profiles = []
+
+	if employee:
+		emp_doc = frappe.db.get_value("Employee", {"name": employee, "status": "Active"}, ["name", "custom_pos_role"], as_dict=True)
+		if emp_doc:
+			emp_role = emp_doc.custom_pos_role or "Cashier"
+			if emp_role == "Branch Manager":
+				is_branch_manager = True
+				allowed_profiles = [d.pos_profile for d in frappe.get_all(
+					"Allowed POS Profile",
+					filters={"parent": emp_doc.name, "parenttype": "Employee"},
+					fields=["pos_profile"]
+				)]
+			elif emp_role == "Auditor":
+				is_auditor = True
+	else:
+		emp_name = frappe.db.get_value("Employee", {"user_id": frappe.session.user, "status": "Active"}, "name")
+		if emp_name:
+			emp_role = frappe.db.get_value("Employee", emp_name, "custom_pos_role")
+			if emp_role == "Branch Manager":
+				is_branch_manager = True
+			elif emp_role == "Auditor":
+				is_auditor = True
+			allowed_profiles = [d.pos_profile for d in frappe.get_all(
+				"Allowed POS Profile",
+				filters={"parent": emp_name, "parenttype": "Employee"},
+				fields=["pos_profile"]
+			)]
+
+	is_privileged_user = is_admin_user or is_auditor or is_branch_manager
+
 	# Base filters
 	filters = {}
 
@@ -196,11 +268,13 @@ def _build_filters_and_fields(
 			frappe.logger().info(
 				f"Skipping opening entry filter - showing all invoices for user {frappe.session.user}"
 			)
-		elif is_admin_user:
-			frappe.logger().info(
-				f"Admin user {frappe.session.user} with roles {user_roles} - showing all POS invoices"
-			)
-			filters["custom_pos_opening_entry"] = ["!=", ""]
+		elif is_privileged_user:
+			# For Sales Dashboard "Current Session": get all active POS sessions
+			open_sessions = [d.name for d in frappe.get_all("POS Opening Entry", filters={"status": "Open", "docstatus": 1}, fields=["name"])]
+			if open_sessions:
+				filters["custom_pos_opening_entry"] = ["in", open_sessions]
+			else:
+				filters["custom_pos_opening_entry"] = "___NONE___"
 		elif current_opening_entry:
 			filters["custom_pos_opening_entry"] = current_opening_entry
 		else:
@@ -226,6 +300,8 @@ def _build_filters_and_fields(
 		"total_taxes_and_charges",
 		"pos_profile",
 		"currency",
+		"custom_pos_customer",
+		"is_return",
 	]
 
 	# Inject dynamic custom fields only if present
@@ -249,6 +325,36 @@ def _build_filters_and_fields(
 		else:
 			filters["owner"] = ["in", cashier_user_ids]
 		frappe.logger().info(f"Filtering by cashier user IDs: {cashier_user_ids}")
+
+	# Filter by branch profiles (custom_is_branch = 1)
+	branch_profiles = [p.name for p in frappe.get_all("POS Profile", filters={"custom_is_branch": 1, "disabled": 0}, fields=["name"])]
+
+	if is_branch_manager and not is_admin_user:
+		allowed_branches = [p for p in allowed_profiles if p in branch_profiles]
+		if allowed_branches:
+			if pos_profile:
+				if pos_profile in allowed_branches:
+					filters["pos_profile"] = pos_profile
+				else:
+					filters["pos_profile"] = "___NONE___"
+			else:
+				if len(allowed_branches) == 1:
+					filters["pos_profile"] = allowed_branches[0]
+				else:
+					filters["pos_profile"] = ["in", allowed_branches]
+		else:
+			filters["pos_profile"] = "___NONE___"
+	else:
+		if pos_profile:
+			if pos_profile in branch_profiles:
+				filters["pos_profile"] = pos_profile
+			else:
+				filters["pos_profile"] = "___NONE___"
+		elif submitted_only:
+			if branch_profiles:
+				filters["pos_profile"] = ["in", branch_profiles]
+			else:
+				filters["pos_profile"] = "___NONE___"
 
 	return filters, fields
 
@@ -281,23 +387,32 @@ def _batch_fetch_cashier_names(user_ids):
 
 
 def _batch_fetch_opening_cashier_names(invoice_names):
-	"""Map Sales Invoice names to the employee cashier from their POS Opening Entry."""
+	"""Map Sales Invoice and POS Invoice names to the employee cashier from their POS Opening Entry."""
 	if not invoice_names:
 		return {}
 
 	try:
-		sales_invoice_meta = frappe.get_meta("Sales Invoice")
-		sales_invoice_fields = {df.fieldname for df in sales_invoice_meta.fields}
 		opening_entry_meta = frappe.get_meta("POS Opening Entry")
 		opening_entry_fields = {df.fieldname for df in opening_entry_meta.fields}
-		if (
-			"custom_pos_opening_entry" not in sales_invoice_fields
-			or "custom_employee_name" not in opening_entry_fields
-		):
+		if "custom_employee_name" not in opening_entry_fields:
 			return {}
 
 		placeholders = ", ".join(["%s"] * len(invoice_names))
-		rows = frappe.db.sql(
+		
+		# Fetch from POS Invoice
+		pos_rows = frappe.db.sql(
+			f"""
+			SELECT pi.name, poe.custom_employee_name
+			FROM `tabPOS Invoice` pi
+			LEFT JOIN `tabPOS Opening Entry` poe ON poe.name = pi.custom_pos_opening_entry
+			WHERE pi.name IN ({placeholders})
+			""",
+			tuple(invoice_names),
+			as_dict=True,
+		)
+
+		# Fetch from Sales Invoice
+		si_rows = frappe.db.sql(
 			f"""
 			SELECT si.name, poe.custom_employee_name
 			FROM `tabSales Invoice` si
@@ -307,11 +422,15 @@ def _batch_fetch_opening_cashier_names(invoice_names):
 			tuple(invoice_names),
 			as_dict=True,
 		)
-		return {
-			row.name: row.custom_employee_name
-			for row in rows
-			if row.get("custom_employee_name")
-		}
+
+		res = {}
+		for row in pos_rows:
+			if row.get("custom_employee_name"):
+				res[row.name] = row.custom_employee_name
+		for row in si_rows:
+			if row.get("custom_employee_name"):
+				res[row.name] = row.custom_employee_name
+		return res
 	except Exception as e:
 		frappe.logger().error(f"Error fetching POS Opening Entry cashier names: {e}")
 		return {}
@@ -346,21 +465,50 @@ def _batch_fetch_items(invoice_names):
 	if not invoice_names:
 		return {}
 
-	items_query = """
-		SELECT parent, item_code, qty, rate, amount
-		FROM `tabSales Invoice Item`
-		WHERE parent IN ({})
-	""".format(",".join([f"'{name}'" for name in invoice_names]))
-	items_results = frappe.db.sql(items_query, as_dict=True)
+	placeholders = ",".join([f"'{name}'" for name in invoice_names])
 
-	# Group by parent invoice
+	# Fetch from POS Invoice Item
+	pos_items_query = f"""
+		SELECT parent, item_code, item_name, qty, rate, amount
+		FROM `tabPOS Invoice Item`
+		WHERE parent IN ({placeholders})
+	"""
+	pos_items_results = frappe.db.sql(pos_items_query, as_dict=True)
+
+	# Fetch from Sales Invoice Item as fallback
+	si_items_query = f"""
+		SELECT parent, item_code, item_name, qty, rate, amount
+		FROM `tabSales Invoice Item`
+		WHERE parent IN ({placeholders})
+	"""
+	si_items_results = frappe.db.sql(si_items_query, as_dict=True)
+
+	# Merge: POS Invoice Item takes priority, fall back to Sales Invoice Item
 	items_map = {}
-	for item in items_results:
+	for item in si_items_results:
 		if item.parent not in items_map:
 			items_map[item.parent] = []
 		items_map[item.parent].append(
 			{
 				"item_code": item.item_code,
+				"item_name": item.item_name or item.item_code,
+				"qty": item.qty,
+				"rate": item.rate,
+				"amount": item.amount,
+				"quantity": item.qty,
+			}
+		)
+	pos_parents_seen = set()
+	for item in pos_items_results:
+		# POS Invoice Item overrides Sales Invoice Item for the same parent
+		if item.parent not in pos_parents_seen:
+			# First POS item for this parent: clear any SI items
+			items_map[item.parent] = []
+			pos_parents_seen.add(item.parent)
+		items_map[item.parent].append(
+			{
+				"item_code": item.item_code,
+				"item_name": item.item_name or item.item_code,
 				"qty": item.qty,
 				"rate": item.rate,
 				"amount": item.amount,
@@ -374,9 +522,14 @@ def _batch_fetch_items(invoice_names):
 def _process_invoices(invoices, cashier_names_map, opening_cashier_map, payment_methods_map, items_map):
 	"""Process and enrich invoices with related data."""
 	for inv in invoices:
-		# Set cashier name. Employee login is stored on POS Opening Entry; owner
-		# may be Administrator when the terminal is logged in through one ERPNext user.
 		inv["cashier_name"] = opening_cashier_map.get(inv.name) or cashier_names_map.get(inv.owner, inv.owner)
+
+		# Override display customer details if POS Customer is linked
+		if inv.get("custom_pos_customer"):
+			pos_cust_name = frappe.db.get_value("POS Customer", inv["custom_pos_customer"], "customer_name")
+			if pos_cust_name:
+				inv["customer"] = pos_cust_name
+				inv["customer_name"] = pos_cust_name
 
 		# Format posting_time
 		if inv.get("posting_time"):
@@ -404,8 +557,8 @@ def _process_invoices(invoices, cashier_names_map, opening_cashier_map, payment_
 		# Set items and calculate return data
 		items = items_map.get(inv.name, [])
 
-		# Only calculate return data for Credit Note Issued invoices
-		if inv.get("status") == "Credit Note Issued":
+		# Only calculate return data for Credit Note Issued and Consolidated invoices
+		if inv.get("status") in ("Credit Note Issued", "Consolidated"):
 			_calculate_return_quantities(inv, items)
 		else:
 			for item in items:
@@ -449,14 +602,22 @@ def get_invoice_details(invoice_id):
 	Main function to fetch complete invoice details.
 	"""
 	try:
-		invoice = frappe.get_doc("Sales Invoice", invoice_id)
+		doctype = "POS Invoice" if frappe.db.exists("POS Invoice", invoice_id) else "Sales Invoice"
+		invoice = frappe.get_doc(doctype, invoice_id)
 		invoice_data = invoice.as_dict()
 
 		# Get items with return data
-		items = _get_invoice_items_with_returns(invoice_id, invoice.customer)
+		items = _get_invoice_items_with_returns(invoice_id, invoice.customer, doctype)
 
 		# Get address and customer information
 		address_data = _get_address_and_customer_info(invoice)
+
+		# Override display customer details if POS Customer is linked
+		if getattr(invoice, "custom_pos_customer", None):
+			pos_cust_name = frappe.db.get_value("POS Customer", invoice.custom_pos_customer, "customer_name")
+			if pos_cust_name:
+				invoice_data["customer"] = pos_cust_name
+				invoice_data["customer_name"] = pos_cust_name
 
 		# Format posting time
 		if invoice_data.get("posting_time"):
@@ -508,14 +669,15 @@ def _get_invoice_cashier_name(invoice_data):
 	) or invoice_data.get("owner")
 
 
-def _get_invoice_items_with_returns(invoice_id, customer):
+def _get_invoice_items_with_returns(invoice_id, customer, doctype="Sales Invoice"):
 	"""
 	Fetch invoice items and calculate returned/available quantities.
 	"""
+	item_table = "POS Invoice Item" if doctype == "POS Invoice" else "Sales Invoice Item"
 	# Batch fetch all items for this invoice
-	items_query = """
+	items_query = f"""
 		SELECT item_code, item_name, qty, rate, amount, description
-		FROM `tabSales Invoice Item`
+		FROM `tab{item_table}`
 		WHERE parent = %s
 	"""
 	items_data = frappe.db.sql(items_query, (invoice_id,), as_dict=True)
@@ -525,7 +687,8 @@ def _get_invoice_items_with_returns(invoice_id, customer):
 	returned_qty_map = {}
 
 	if item_codes:
-		returns_query = """
+		# Check returns in Sales Invoice
+		si_returns_query = """
 			SELECT sii.item_code, COALESCE(SUM(ABS(sii.qty)), 0) as total_returned_qty
 			FROM `tabSales Invoice` si
 			JOIN `tabSales Invoice Item` sii ON si.name = sii.parent
@@ -533,12 +696,28 @@ def _get_invoice_items_with_returns(invoice_id, customer):
 			  AND si.return_against = %s
 			  AND sii.item_code IN ({})
 			  AND si.docstatus = 1
-			  AND si.customer = %s
 			GROUP BY sii.item_code
 		""".format(",".join([f"'{code}'" for code in item_codes]))
 
-		returns_data = frappe.db.sql(returns_query, (invoice_id, customer), as_dict=True)
-		returned_qty_map = {row.item_code: row.total_returned_qty for row in returns_data}
+		# Check returns in POS Invoice
+		pos_returns_query = """
+			SELECT pii.item_code, COALESCE(SUM(ABS(pii.qty)), 0) as total_returned_qty
+			FROM `tabPOS Invoice` pi
+			JOIN `tabPOS Invoice Item` pii ON pi.name = pii.parent
+			WHERE pi.is_return = 1
+			  AND pi.return_against = %s
+			  AND pii.item_code IN ({})
+			  AND pi.docstatus = 1
+			GROUP BY pii.item_code
+		""".format(",".join([f"'{code}'" for code in item_codes]))
+
+		si_returns_data = frappe.db.sql(si_returns_query, (invoice_id,), as_dict=True)
+		pos_returns_data = frappe.db.sql(pos_returns_query, (invoice_id,), as_dict=True)
+
+		for row in si_returns_data:
+			returned_qty_map[row.item_code] = returned_qty_map.get(row.item_code, 0) + row.total_returned_qty
+		for row in pos_returns_data:
+			returned_qty_map[row.item_code] = returned_qty_map.get(row.item_code, 0) + row.total_returned_qty
 
 	# Build items list with return data
 	items = []
@@ -597,7 +776,11 @@ def _get_address_and_customer_info(invoice):
 	customer_pincode = ""
 	customer_country = ""
 
-	if invoice.customer:
+	if getattr(invoice, "custom_pos_customer", None):
+		pos_customer = frappe.get_doc("POS Customer", invoice.custom_pos_customer)
+		customer_email = pos_customer.email_id or ""
+		customer_mobile_no = pos_customer.mobile_no or ""
+	elif invoice.customer:
 		customer_doc = frappe.get_doc("Customer", invoice.customer)
 		customer_email = customer_doc.email_id or ""
 		customer_mobile_no = customer_doc.mobile_no or ""
@@ -634,6 +817,11 @@ def create_and_submit_invoice(data):
 		if not data:
 			frappe.throw("No data provided for invoice creation")
 
+		if isinstance(data, str):
+			data = json.loads(data)
+
+		draft_id = data.get("draft_id")
+
 		(
 			customer,
 			items,
@@ -662,14 +850,45 @@ def create_and_submit_invoice(data):
 			roundoff_amount,
 			include_payments=True,
 			delivery_personnel=delivery_personnel,
+			draft_id=draft_id,
 		)
 
 		doc.base_paid_amount = amount_paid
 		doc.paid_amount = amount_paid
 		doc.outstanding_amount = 0
 
-		# Save then submit; if submit fails (e.g. negative stock), delete the draft and return error
-		# (do not re-raise: Frappe would rollback the transaction and undo the delete)
+		# When the POS Profile has "Consolidate Invoice on Close" enabled, save as a
+		# draft and return immediately.  GL entries and stock deductions are posted
+		# in batch when the cashier closes the session (_submit_draft_invoices_for_closing).
+		use_consolidation = False
+		if use_consolidation:
+			doc.save(ignore_permissions=True)
+			processing_time = time.time() - start_time
+			frappe.logger().info(
+				f"Draft invoice {doc.name} saved (consolidation mode) in {processing_time:.2f}s"
+			)
+			return {
+				"success": True,
+				"invoice_name": doc.name,
+				"invoice_id": doc.name,
+				"invoice": {
+					"name": doc.name,
+					"doctype": doc.doctype,
+					"customer": doc.customer,
+					"customer_name": doc.customer_name,
+					"posting_date": doc.posting_date,
+					"base_grand_total": doc.base_grand_total,
+					"currency": doc.currency,
+					"status": "Draft",
+					"is_pos": doc.is_pos,
+					"company": doc.company,
+				},
+				"payment_entry": None,
+				"processing_time": round(processing_time, 2),
+			}
+
+		# Standard path: save then submit; if submit fails (e.g. negative stock),
+		# rollback the save and return error.
 		doc.save(ignore_permissions=True)
 		try:
 			doc.submit()
@@ -732,6 +951,12 @@ def create_and_submit_invoice(data):
 @frappe.whitelist()
 def create_draft_invoice(data):
 	try:
+		if isinstance(data, str):
+			data = json.loads(data)
+			
+		draft_id = data.get("draft_id")
+		frappe.log_error(message=f"Received draft_id: {draft_id}. Exists: {frappe.db.exists('POS Invoice', draft_id) if draft_id else False}", title="create_draft_invoice debug")
+
 		(
 			customer,
 			items,
@@ -752,8 +977,33 @@ def create_draft_invoice(data):
 			roundoff_amount,
 			include_payments=True,
 			delivery_personnel=delivery_personnel,
+			draft_id=draft_id,
 		)
-		doc.insert(ignore_permissions=True)
+
+		if not doc.get("payments"):
+			pos_profile_doc = frappe.get_cached_doc("POS Profile", doc.pos_profile)
+			default_mode_of_payment = None
+			if pos_profile_doc.get("payments"):
+				for pm in pos_profile_doc.payments:
+					if pm.default:
+						default_mode_of_payment = pm.mode_of_payment
+						break
+				if not default_mode_of_payment:
+					default_mode_of_payment = pos_profile_doc.payments[0].mode_of_payment
+			
+			if default_mode_of_payment:
+				doc.append("payments", {
+					"mode_of_payment": default_mode_of_payment,
+					"amount": 0,
+					"default": 1
+				})
+
+		if doc.name:
+			frappe.log_error(message=f"Saving existing document. name: {doc.name}", title="create_draft_invoice debug doc.name")
+			doc.save(ignore_permissions=True)
+		else:
+			frappe.log_error(message=f"Inserting new document.", title="create_draft_invoice debug doc.name")
+			doc.insert(ignore_permissions=True)
 
 		return {"success": True, "invoice_name": doc.name, "invoice": doc}
 
@@ -873,9 +1123,30 @@ def build_sales_invoice_doc(
 	roundoff_amount=0.0,
 	include_payments=False,
 	delivery_personnel=None,
+	draft_id=None,
 ):
-	"""Main function to build a sales invoice document."""
-	doc = frappe.new_doc("Sales Invoice")
+	"""Main function to build a POS invoice document."""
+	if draft_id and frappe.db.exists("POS Invoice", draft_id):
+		doc = frappe.get_doc("POS Invoice", draft_id)
+		# Clear existing children to prevent duplicates
+		doc.set("items", [])
+		doc.set("taxes", [])
+		doc.set("payments", [])
+		doc.set("pricing_rules", [])
+	else:
+		doc = frappe.new_doc("POS Invoice")
+		
+	doc.is_pos = 1
+
+	# Resolve POS Customer (B2C/Cash consolidation)
+	pos_customer_record = frappe.db.get_value("POS Customer", {"customer_name": customer}, ["name", "unified_customer"], as_dict=True)
+	if not pos_customer_record:
+		pos_customer_record = frappe.db.get_value("POS Customer", {"name": customer}, ["name", "unified_customer"], as_dict=True)
+
+	if pos_customer_record:
+		doc.custom_pos_customer = pos_customer_record.name
+		customer = pos_customer_record.unified_customer
+
 	doc.customer = customer
 	doc.due_date = frappe.utils.nowdate()
 	doc.custom_delivery_date = frappe.utils.nowdate()
@@ -951,9 +1222,20 @@ def _set_pos_profile_fields(doc, pos_profile, customer, business_type):
 	doc.update_stock = 1
 	doc.warehouse = pos_profile.warehouse
 	doc.set_warehouse = pos_profile.warehouse
+	doc.cost_center = pos_profile.cost_center or frappe.get_cached_value("Company", pos_profile.company, "cost_center")
+
+	# Resolve debit_to (Receivable Account)
+	if not doc.get("debit_to"):
+		from erpnext.accounts.party import get_party_account
+		try:
+			doc.debit_to = get_party_account("Customer", customer, pos_profile.company)
+		except Exception:
+			doc.debit_to = frappe.db.get_value("Company", pos_profile.company, "default_receivable_account")
 
 	# Determine if this is a POS invoice
 	doc.is_pos = _determine_is_pos(customer, business_type)
+	if doc.doctype == "POS Invoice":
+		doc.is_pos = 1
 
 
 def _validate_and_autofetch_batch_and_serial(items, pos_profile):
@@ -1170,7 +1452,7 @@ def _batch_fetch_item_data(item_codes):
 		return {}
 
 	item_query = """
-		SELECT name, has_batch_no, has_serial_no
+		SELECT name, item_name, has_batch_no, has_serial_no
 		FROM `tabItem`
 		WHERE name IN ({})
 	""".format(",".join([f"'{code}'" for code in item_codes]))
@@ -1184,18 +1466,48 @@ def _precache_item_accounts(item_codes, company):
 	if not item_codes:
 		return
 
-	# Cache company data
+	# Query Item Default for the company for all these items in one query
+	try:
+		placeholders = ", ".join(["%s"] * len(item_codes))
+		item_defaults = frappe.db.sql(f"""
+			SELECT parent as item_code, income_account, expense_account
+			FROM `tabItem Default`
+			WHERE parent IN ({placeholders}) AND company = %s
+		""", (*item_codes, company), as_dict=True)
+		
+		defaults_map = {d["item_code"]: d for d in item_defaults}
+	except Exception:
+		defaults_map = {}
+
+	# Cache company defaults as fallback
 	if company not in _cached_company_data:
 		_cached_company_data[company] = frappe.get_doc("Company", company)
-
 	company_doc = _cached_company_data[company]
-	income_account = company_doc.default_income_account
-	expense_account = company_doc.default_expense_account
+	company_income = company_doc.default_income_account
+	company_expense = company_doc.default_expense_account
 
-	# Pre-populate account cache
 	for item_code in item_codes:
-		_cached_item_accounts[item_code] = income_account
-		_cached_item_accounts[f"{item_code}_expense"] = expense_account
+		item_def = defaults_map.get(item_code, {})
+		
+		# Income Account
+		income = item_def.get("income_account")
+		if not income:
+			item_group = frappe.db.get_value("Item", item_code, "item_group")
+			if item_group:
+				income = frappe.db.get_value("Item Default", {"parent": item_group, "parenttype": "Item Group", "company": company}, "income_account")
+		if not income:
+			income = company_income
+		_cached_item_accounts[item_code] = income
+
+		# Expense Account
+		expense = item_def.get("expense_account")
+		if not expense:
+			item_group = frappe.db.get_value("Item", item_code, "item_group")
+			if item_group:
+				expense = frappe.db.get_value("Item Default", {"parent": item_group, "parenttype": "Item Group", "company": company}, "expense_account")
+		if not expense:
+			expense = company_expense
+		_cached_item_accounts[f"{item_code}_expense"] = expense
 
 
 def _prepare_item_data(item, item_data_map, pos_profile):
@@ -1221,10 +1533,15 @@ def _prepare_item_data(item, item_data_map, pos_profile):
 		final_rate = flt(original_price)
 		ignore_pricing_rule = 0	
 
+	# Fetch item name
+	db_item = item_data_map.get(item_code, {}) or {}
+	item_name = item.get("item_name") or item.get("name") or db_item.get("item_name") or item_code
+
 	# Build base item data
 	item_data = {
 		"item_code": item_code,
-		"qty": item.get("quantity"),
+		"item_name": item_name,
+		"qty": item.get("quantity") or item.get("qty"),
 		"rate": final_rate,
         "price_list_rate": flt(original_price),   # keep original for reference
         "ignore_pricing_rule": ignore_pricing_rule,
@@ -1317,19 +1634,75 @@ def _populate_tax_details(doc):
 				"row_id": tax.row_id,
 				"tax_amount": tax.tax_amount,
 				"included_in_print_rate": tax.included_in_print_rate,
+				"custom_is_stamp": tax.get("custom_is_stamp") or 0,
+				"custom_stamp_amount_lbp": tax.get("custom_stamp_amount_lbp") or 0,
 			},
 		)
 
 
+def _upsert_currency_exchange(from_currency, to_currency, exchange_rate, date):
+	"""Create or update today's Currency Exchange record so ERPNext can resolve
+	the rate automatically for any transaction that happens after this payment."""
+	if not (from_currency and to_currency and exchange_rate > 0):
+		return
+	if from_currency == to_currency:
+		return
+	try:
+		existing = frappe.db.get_value(
+			"Currency Exchange",
+			{"from_currency": from_currency, "to_currency": to_currency, "date": date},
+			"name",
+		)
+		if existing:
+			frappe.db.set_value("Currency Exchange", existing, "exchange_rate", exchange_rate)
+		else:
+			ce = frappe.new_doc("Currency Exchange")
+			ce.from_currency = from_currency
+			ce.to_currency = to_currency
+			ce.exchange_rate = exchange_rate
+			ce.date = date
+			ce.insert(ignore_permissions=True)
+	except Exception:
+		pass  # Non-fatal — payment still proceeds even if exchange record fails
+
+
 def _add_payment_entries(doc, mode_of_payment):
-	"""Add payment entries to the invoice."""
+	"""Add payment entries to the invoice.
+
+	Each entry may optionally include currency/exchange_rate fields for
+	multi-currency transactions.  The amount stored on the invoice is always
+	in the invoice's base currency; conversion is performed here when the
+	payment currency differs from the invoice currency.
+	"""
 	if not isinstance(mode_of_payment, list):
 		return
 
+	from frappe.utils import flt, nowdate
+
 	for payment in mode_of_payment:
+		amount = flt(payment.get("amount", 0))
+		pay_currency = payment.get("currency")
+		exchange_rate = flt(payment.get("exchange_rate", 0))
+
+		# Convert secondary-currency amount → invoice base currency
+		# exchange_rate convention: base units per 1 secondary unit (e.g. 250 EGP per 1 USD)
+		# so: secondary_amount × exchange_rate = base_amount
+		original_amount = amount
+		original_currency = pay_currency or doc.currency
+		if pay_currency and pay_currency != doc.currency and exchange_rate > 0:
+			amount = amount * exchange_rate
+			# Auto-save today's rate so ERPNext resolves it for all subsequent transactions
+			_upsert_currency_exchange(pay_currency, doc.currency, exchange_rate, nowdate())
+
+		amount = round(amount, 6)
 		doc.append(
 			"payments",
-			{"mode_of_payment": payment["method"], "amount": payment["amount"]},
+			{
+				"mode_of_payment": payment["method"],
+				"amount": amount,
+				"custom_payment_currency": original_currency,
+				"custom_payment_original_amount": round(original_amount, 6),
+			},
 		)
 
 
@@ -1381,12 +1754,20 @@ def get_income_accounts(item_code):
 			pos_profile = get_current_pos_profile()
 			company = pos_profile.company
 
-			# Cache company data
-			if company not in _cached_company_data:
-				_cached_company_data[company] = frappe.get_doc("Company", company)
+			# Try Item Defaults
+			income = frappe.db.get_value("Item Default", {"parent": item_code, "company": company}, "income_account")
+			if not income:
+				item_group = frappe.db.get_value("Item", item_code, "item_group")
+				if item_group:
+					income = frappe.db.get_value("Item Default", {"parent": item_group, "parenttype": "Item Group", "company": company}, "income_account")
+			if not income:
+				# Cache company data
+				if company not in _cached_company_data:
+					_cached_company_data[company] = frappe.get_doc("Company", company)
+				company_doc = _cached_company_data[company]
+				income = company_doc.default_income_account
 
-			company_doc = _cached_company_data[company]
-			_cached_item_accounts[item_code] = company_doc.default_income_account
+			_cached_item_accounts[item_code] = income
 		except Exception as e:
 			frappe.log_error(
 				f"Error fetching income account for {item_code}: {e!s}",
@@ -1407,12 +1788,20 @@ def get_expense_accounts(item_code):
 			pos_profile = get_current_pos_profile()
 			company = pos_profile.company
 
-			# Cache company data
-			if company not in _cached_company_data:
-				_cached_company_data[company] = frappe.get_doc("Company", company)
+			# Try Item Defaults
+			expense = frappe.db.get_value("Item Default", {"parent": item_code, "company": company}, "expense_account")
+			if not expense:
+				item_group = frappe.db.get_value("Item", item_code, "item_group")
+				if item_group:
+					expense = frappe.db.get_value("Item Default", {"parent": item_group, "parenttype": "Item Group", "company": company}, "expense_account")
+			if not expense:
+				# Cache company data
+				if company not in _cached_company_data:
+					_cached_company_data[company] = frappe.get_doc("Company", company)
+				company_doc = _cached_company_data[company]
+				expense = company_doc.default_expense_account
 
-			company_doc = _cached_company_data[company]
-			_cached_item_accounts[cache_key] = company_doc.default_expense_account
+			_cached_item_accounts[cache_key] = expense
 		except Exception as e:
 			frappe.log_error(
 				f"Error fetching expense account for {item_code}: {e!s}",
@@ -1694,7 +2083,74 @@ def get_writeoff_account():
 		return pos_profile.write_off_account
 
 
+
+def _is_stamp_account(doc, account):
+	"""Return True when `account` is used as a stamp tax line on `doc`."""
+	return any(
+		t.account_head == account and t.get("custom_is_stamp")
+		for t in (doc.taxes or [])
+	)
+
+
+def _fix_stamp_gl_entries(doc, gl_entries):
+	"""Overwrite GL amounts for stamp tax accounts with the exact LBP value."""
+	if not doc.get("taxes"):
+		return
+
+	stamp_map = {
+		t.account_head: flt(t.custom_stamp_amount_lbp)
+		for t in doc.taxes
+		if t.get("custom_is_stamp") and flt(t.get("custom_stamp_amount_lbp")) and t.account_head
+	}
+	if not stamp_map:
+		return
+
+	company_currency = frappe.db.get_value("Company", doc.company, "default_currency") or "LBP"
+	exchange_rate = flt(getattr(doc, "custom_exchange_rate_override", None)) or 89500
+
+	for gle in gl_entries:
+		lbp_amount = stamp_map.get(gle.get("account"))
+		if not lbp_amount:
+			continue
+
+		if company_currency == "LBP":
+			# Debit and credit are already in LBP; just force the exact integer
+			if gle.get("credit") or gle.get("credit_in_account_currency"):
+				gle["credit"] = lbp_amount
+				gle["credit_in_account_currency"] = lbp_amount
+			else:
+				gle["debit"] = lbp_amount
+				gle["debit_in_account_currency"] = lbp_amount
+		else:
+			# Non-LBP company (e.g. EGP, USD).
+			# ERPNext already computed gle["credit"] correctly in company currency
+			# (it uses base_tax_amount which equals tax_amount * conversion_rate).
+			# We must NOT overwrite that — doing so caused "Debit and Credit not equal"
+			# because it substituted the USD amount (4.85) for the EGP amount (728.21).
+			# We only need to fix credit_in_account_currency (which ERPNext wrongly sets
+			# to the invoice-currency amount) and set the LBP exchange rate so Frappe's
+			# GL validator passes: credit_in_account_currency * exchange_rate == credit.
+			existing_credit = flt(gle.get("credit") or 0)
+			existing_debit  = flt(gle.get("debit") or 0)
+			base_amount = existing_credit or existing_debit  # already in company currency
+			gle_rate = flt(base_amount / lbp_amount) if lbp_amount else 0
+
+			if existing_credit or gle.get("credit_in_account_currency"):
+				gle["credit_in_account_currency"] = lbp_amount
+				gle["account_currency"] = "LBP"
+				gle["exchange_rate"] = gle_rate
+			else:
+				gle["debit_in_account_currency"] = lbp_amount
+				gle["account_currency"] = "LBP"
+				gle["exchange_rate"] = gle_rate
+
+
 class CustomSalesInvoice(SalesInvoice):
+	def validate_account_currency(self, account, account_currency=None):
+		if _is_stamp_account(self, account):
+			return
+		super().validate_account_currency(account, account_currency)
+
 	def get_gl_entries(self, warehouse_account=None):
 		from erpnext.accounts.general_ledger import merge_similar_entries
 
@@ -1722,6 +2178,7 @@ class CustomSalesInvoice(SalesInvoice):
 		self.make_write_off_gl_entry(gl_entries)
 		self.make_gle_for_rounding_adjustment(gl_entries)
 
+		_fix_stamp_gl_entries(self, gl_entries)
 		return gl_entries
 
 	def make_roundoff_gl_entry(self, gl_entries):
@@ -1895,7 +2352,7 @@ def returned_qty(customer, sales_invoice, item):
 	}
 
 	# Sum qty from Sales Invoice Items of return invoices that point to the original invoice
-	result = frappe.db.sql(
+	si_result = frappe.db.sql(
 		"""
 		SELECT COALESCE(SUM(sii.qty), 0) AS total_returned_qty
 		FROM `tabSales Invoice` si
@@ -1904,13 +2361,30 @@ def returned_qty(customer, sales_invoice, item):
 		  AND si.return_against = %(sales_invoice)s
 		  AND sii.item_code = %(item)s
 		  AND si.docstatus = 1
-		  AND si.customer = %(customer)s
 		""",
 		values=values,
 		as_dict=True,
 	)
 
-	total = abs(result[0]["total_returned_qty"]) if result else 0.0
+	# Sum qty from POS Invoice Items of return invoices that point to the original invoice
+	pos_result = frappe.db.sql(
+		"""
+		SELECT COALESCE(SUM(pii.qty), 0) AS total_returned_qty
+		FROM `tabPOS Invoice` pi
+		JOIN `tabPOS Invoice Item` pii ON pi.name = pii.parent
+		WHERE pi.is_return = 1
+		  AND pi.return_against = %(sales_invoice)s
+		  AND pii.item_code = %(item)s
+		  AND pi.docstatus = 1
+		""",
+		values=values,
+		as_dict=True,
+	)
+
+	total_si = abs(si_result[0]["total_returned_qty"]) if si_result else 0.0
+	total_pos = abs(pos_result[0]["total_returned_qty"]) if pos_result else 0.0
+	total = total_si + total_pos
+
 	return {
 		"total_returned_qty": round(float(total), 6)
 	}  # Round to 6 decimal places to avoid precision issues
@@ -1920,16 +2394,20 @@ def returned_qty(customer, sales_invoice, item):
 def get_valid_sales_invoices(doctype, txt, searchfield, start, page_len, filters=None):
 	"""Get valid sales invoices based on filters for multi-invoice returns"""
 	filters = filters or {}
-
 	customer = filters.get("customer")
 	shipping_address = filters.get("shipping_address")
-	item_code = filters.get("item_code")
+	item_code = filters.get("item") or filters.get("item_code")
 	start_date = filters.get("start_date")
 
-	if not customer or not item_code or not start_date:
-		return []
+	# Check if customer is a POS Customer
+	is_pos_cust = False
+	customer_display_name = customer
+	if customer:
+		is_pos_cust = frappe.db.exists("POS Customer", {"customer_name": customer}) or frappe.db.exists("POS Customer", customer)
+		if is_pos_cust:
+			customer_display_name = frappe.db.get_value("POS Customer", customer, "customer_name") or customer
 
-	# Build dynamic conditions
+	# Build dynamic conditions for Sales Invoice
 	conditions = [
 		"si.docstatus = 1",
 		"si.is_return = 0",
@@ -1937,13 +2415,22 @@ def get_valid_sales_invoices(doctype, txt, searchfield, start, page_len, filters
 	]
 	query_params = {
 		"txt": f"%{txt}%",
-		"start": start,
-		"page_len": page_len,
+		"start": int(start),
+		"page_len": int(page_len),
+		"customer": customer,
+		"customer_name": customer_display_name,
 	}
 
 	if customer:
-		conditions.append("si.customer = %(customer)s")
-		query_params["customer"] = customer
+		if is_pos_cust:
+			unified_customer = frappe.db.get_value("POS Customer", customer, "unified_customer") or frappe.db.get_value("POS Customer", {"customer_name": customer}, "unified_customer")
+			if unified_customer:
+				conditions.append("(si.customer = %(customer)s OR si.customer = %(unified_customer)s)")
+				query_params["unified_customer"] = unified_customer
+			else:
+				conditions.append("si.customer = %(customer)s")
+		else:
+			conditions.append("si.customer = %(customer)s")
 
 	if shipping_address:
 		conditions.append("si.shipping_address_name = %(shipping_address)s")
@@ -1969,16 +2456,61 @@ def get_valid_sales_invoices(doctype, txt, searchfield, start, page_len, filters
 			AND rsi.docstatus = 1
 			AND rsi.status != 'Cancelled'
 		), 0)) > 0
-	"""
+		"""
+	)
+
+	# Build dynamic conditions for POS Invoice
+	pos_conditions = [
+		"pi.docstatus = 1",
+		"pi.is_return = 0",
+		"pi.pos_opening_entry IS NOT NULL AND pi.pos_opening_entry != ''",
+	]
+
+	if customer:
+		if is_pos_cust:
+			pos_conditions.append("(pi.custom_pos_customer = %(customer)s OR pi.custom_pos_customer = %(customer_name)s)")
+		else:
+			pos_conditions.append("pi.customer = %(customer)s")
+
+	if shipping_address:
+		pos_conditions.append("pi.shipping_address_name = %(shipping_address)s")
+
+	if item_code:
+		pos_conditions.append("pii.item_code = %(item_code)s")
+
+	if start_date:
+		pos_conditions.append("pi.posting_date >= %(start_date)s")
+
+	pos_conditions.append(
+		"""
+		(pii.qty + COALESCE((
+			SELECT SUM(cd.qtr)
+			FROM `tabCredit Details` cd
+			JOIN `tabPOS Invoice` rsi ON cd.parent = rsi.name
+			WHERE cd.sales_invoice = pi.name
+			AND cd.item = pii.item_code
+			AND rsi.customer = pi.customer
+			AND rsi.docstatus = 1
+			AND rsi.status != 'Cancelled'
+		), 0)) > 0
+		"""
 	)
 
 	where_clause = " AND ".join(conditions)
+	pos_where_clause = " AND ".join(pos_conditions)
+
 	query = f"""
-		SELECT DISTINCT si.name,si.posting_date,sii.qty
+		SELECT DISTINCT si.name, si.posting_date, sii.qty
 		FROM `tabSales Invoice` si
 		JOIN `tabSales Invoice Item` sii ON si.name = sii.parent
 		WHERE {where_clause}
 		AND si.name LIKE %(txt)s
+		UNION
+		SELECT DISTINCT pi.name, pi.posting_date, pii.qty
+		FROM `tabPOS Invoice` pi
+		JOIN `tabPOS Invoice Item` pii ON pi.name = pii.parent
+		WHERE {pos_where_clause}
+		AND pi.name LIKE %(txt)s
 		LIMIT %(start)s, %(page_len)s
 	"""
 
@@ -1989,13 +2521,27 @@ def get_valid_sales_invoices(doctype, txt, searchfield, start, page_len, filters
 def get_customer_invoices_for_return(customer, start_date=None, end_date=None, shipping_address=None):
 	"""Get all invoices for a customer within date range that can be returned"""
 	try:
+		# Check if customer is a POS Customer
+		is_pos_cust = frappe.db.exists("POS Customer", {"customer_name": customer}) or frappe.db.exists("POS Customer", customer)
+		customer_display_name = customer
+		if is_pos_cust:
+			customer_display_name = frappe.db.get_value("POS Customer", customer, "customer_name") or customer
+
+		# Base filters for Sales Invoice
 		filters = {
-			"customer": customer,
 			"docstatus": 1,
 			"is_return": 0,
 			"status": ["!=", "Cancelled"],
 			"custom_pos_opening_entry": ["!=", ""],
 		}
+		if is_pos_cust:
+			unified_customer = frappe.db.get_value("POS Customer", customer, "unified_customer") or frappe.db.get_value("POS Customer", {"customer_name": customer}, "unified_customer")
+			if unified_customer:
+				filters["customer"] = ["in", [customer, customer_display_name, unified_customer]]
+			else:
+				filters["customer"] = ["in", [customer, customer_display_name]]
+		else:
+			filters["customer"] = customer
 
 		if start_date:
 			filters["posting_date"] = [">=", start_date]
@@ -2005,7 +2551,6 @@ def get_customer_invoices_for_return(customer, start_date=None, end_date=None, s
 			else:
 				filters["posting_date"] = ["<=", end_date]
 
-		# Add shipping address filter if provided
 		if shipping_address:
 			filters["customer_address"] = shipping_address
 
@@ -2023,17 +2568,79 @@ def get_customer_invoices_for_return(customer, start_date=None, end_date=None, s
 			],
 			order_by="posting_date desc",
 		)
+		for inv in invoices:
+			inv["doctype"] = "Sales Invoice"
 
-		# Batch fetch all items for all invoices
-		invoice_names = [inv.name for inv in invoices]
+		# Base filters for POS Invoice
+		pos_filters = {
+			"docstatus": 1,
+			"is_return": 0,
+			"status": ["!=", "Cancelled"],
+			"custom_pos_opening_entry": ["!=", ""],
+		}
+		if is_pos_cust:
+			pos_filters["custom_pos_customer"] = ["in", [customer, customer_display_name]]
+		else:
+			pos_filters["customer"] = customer
+
+		if start_date:
+			pos_filters["posting_date"] = [">=", start_date]
+		if end_date:
+			if "posting_date" in pos_filters:
+				pos_filters["posting_date"] = ["between", [start_date, end_date]]
+			else:
+				pos_filters["posting_date"] = ["<=", end_date]
+
+		if shipping_address:
+			pos_filters["customer_address"] = shipping_address
+
+		pos_invoices = frappe.get_all(
+			"POS Invoice",
+			filters=pos_filters,
+			fields=[
+				"name",
+				"posting_date",
+				"posting_time",
+				"customer",
+				"grand_total",
+				"paid_amount",
+				"status",
+				"custom_pos_customer",
+			],
+			order_by="posting_date desc",
+		)
+		for pinv in pos_invoices:
+			pinv["doctype"] = "POS Invoice"
+
+		# Merge and sort
+		all_invoices = invoices + pos_invoices
+		all_invoices.sort(key=lambda x: x.get("posting_date") or "", reverse=True)
+
+		# Override customer name for POS Customers
+		for inv in all_invoices:
+			if inv.get("custom_pos_customer"):
+				pos_cust_name = frappe.db.get_value("POS Customer", inv["custom_pos_customer"], "customer_name")
+				if pos_cust_name:
+					inv["customer"] = pos_cust_name
+
+		invoice_names = [inv.name for inv in all_invoices]
 		all_items = []
 		if invoice_names:
-			all_items = frappe.get_all(
+			# Fetch items from Sales Invoice Item
+			si_items = frappe.get_all(
 				"Sales Invoice Item",
 				filters={"parent": ["in", invoice_names]},
 				fields=["parent", "item_code", "item_name", "qty", "rate", "amount"],
 				order_by="parent, idx",
 			)
+			# Fetch items from POS Invoice Item
+			pos_items = frappe.get_all(
+				"POS Invoice Item",
+				filters={"parent": ["in", invoice_names]},
+				fields=["parent", "item_code", "item_name", "qty", "rate", "amount"],
+				order_by="parent, idx",
+			)
+			all_items = si_items + pos_items
 
 		# Batch fetch all returned quantities for all items at once
 		returned_qty_map = {}
@@ -2141,7 +2748,8 @@ def create_partial_return(
 		if isinstance(return_items, str):
 			return_items = json.loads(return_items)
 
-		original_invoice = frappe.get_doc("Sales Invoice", invoice_name)
+		doctype = "POS Invoice" if frappe.db.exists("POS Invoice", invoice_name) else "Sales Invoice"
+		original_invoice = frappe.get_doc(doctype, invoice_name)
 
 		if original_invoice.docstatus != 1:
 			frappe.throw("Only submitted invoices can be returned.")
@@ -2149,18 +2757,19 @@ def create_partial_return(
 		if original_invoice.is_return:
 			frappe.throw("This invoice is already a return.")
 
+		item_doctype = "POS Invoice Item" if doctype == "POS Invoice" else "Sales Invoice Item"
 		# Create return invoice using the same approach as return_sales_invoice
 		return_doc = get_mapped_doc(
-			"Sales Invoice",
+			doctype,
 			invoice_name,
 			{
-				"Sales Invoice": {
-					"doctype": "Sales Invoice",
+				doctype: {
+					"doctype": doctype,
 					"field_map": {"name": "return_against"},
 					"validation": {"docstatus": ["=", 1]},
 				},
-				"Sales Invoice Item": {
-					"doctype": "Sales Invoice Item",
+				item_doctype: {
+					"doctype": item_doctype,
 					"field_map": {"name": "prevdoc_detail_docname"},
 				},
 			},
@@ -2180,13 +2789,24 @@ def create_partial_return(
 		return_doc.custom_base_roundoff_amount = 0
 		return_doc.custom_roundoff_account = get_writeoff_account()
 
+		# Get available returnable quantities for validation
+		available_quantities = {item["item_code"]: item["available_qty"] for item in _get_invoice_items_with_returns(invoice_name, original_invoice.customer, doctype)}
+
 		# Filter items to only include selected ones with return quantities
 		filtered_items = []
 		for return_item in return_items:
-			if return_item.get("return_qty", 0) > 0:
+			item_code = return_item.get("item_code")
+			r_qty = flt(return_item.get("return_qty", 0))
+			if r_qty > 0:
+				available_qty = flt(available_quantities.get(item_code, 0))
+				if r_qty > available_qty + 0.0001:
+					frappe.throw(
+						f"Cannot return {r_qty} units of item {item_code}. "
+						f"Only {available_qty} units are available for return on this invoice."
+					)
 				for item in return_doc.items:
-					if item.item_code == return_item["item_code"]:
-						item.qty = -abs(return_item["return_qty"])
+					if item.item_code == item_code:
+						item.qty = -abs(r_qty)
 						filtered_items.append(item)
 						break
 
@@ -2213,7 +2833,7 @@ def create_partial_return(
 
 		# Optionally persist the auto-calculated expected refund if a custom field exists
 		try:
-			_si_meta = frappe.get_meta("Sales Invoice")
+			_si_meta = frappe.get_meta(doctype)
 			if any(df.fieldname == "custom_expected_refund_amount" for df in _si_meta.fields):
 				return_doc.custom_expected_refund_amount = flt(
 					total_returned_amount, return_doc.precision("grand_total") or 2
@@ -2267,6 +2887,13 @@ def create_partial_return(
 					"amount": -abs(final_return_amount),
 				},
 			)
+		
+		# Explicitly set payment and change fields to prevent validation errors in POS Invoice
+		return_doc.paid_amount = -abs(final_return_amount) if final_return_amount else 0.0
+		return_doc.base_paid_amount = (return_doc.paid_amount) * (return_doc.conversion_rate or 1)
+		return_doc.change_amount = 0.0
+		return_doc.base_change_amount = 0.0
+
 		print("Mko 3", -abs(final_return_amount))
 		# Recalculate totals (payment amount stays as user entered)
 		try:
@@ -2366,7 +2993,8 @@ def delete_draft_invoice(invoice_id):
 	"""
 	try:
 		# Get the invoice document
-		invoice_doc = frappe.get_doc("Sales Invoice", invoice_id)
+		doctype = "POS Invoice" if frappe.db.exists("POS Invoice", invoice_id) else "Sales Invoice"
+		invoice_doc = frappe.get_doc(doctype, invoice_id)
 
 		if invoice_doc.status != "Draft":
 			return {
@@ -2417,3 +3045,41 @@ def submit_draft_invoice(invoice_id):
 	except Exception as e:
 		frappe.log_error(frappe.get_traceback(), f"Error submitting draft invoice {invoice_id}")
 		return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
+def get_today_exchange_rates(currencies, base_currency):
+	"""Return today's exchange rates for the given secondary currencies.
+
+	Looks up the Currency Exchange table for records dated today.
+	Falls back to the most recent record for each currency if today
+	has no entry.  The frontend uses this to pre-fill the rate input
+	so the cashier does not have to re-enter it every transaction.
+	"""
+	if isinstance(currencies, str):
+		currencies = json.loads(currencies)
+
+	from frappe.utils import nowdate
+	today = nowdate()
+	result = {}
+
+	for currency in currencies:
+		if currency == base_currency:
+			continue
+		# Prefer today's record; fall back to most recent
+		rate = frappe.db.get_value(
+			"Currency Exchange",
+			{"from_currency": currency, "to_currency": base_currency, "date": today},
+			"exchange_rate",
+		)
+		if not rate:
+			rate = frappe.db.get_value(
+				"Currency Exchange",
+				{"from_currency": currency, "to_currency": base_currency},
+				"exchange_rate",
+				order_by="date desc",
+			)
+		if rate:
+			result[currency] = flt(rate)
+
+	return result

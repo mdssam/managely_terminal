@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { dbGet, dbSet, APP_CACHE_STORE } from "../services/offlineDB";
 
 interface UserInfo {
   user: string;
@@ -28,9 +29,9 @@ export function useUserInfo(): UseUserInfoReturn {
 
     const cacheKey = "cached_user_info";
     if (typeof window !== "undefined" && !navigator.onLine) {
-      const cached = localStorage.getItem(cacheKey);
+      const cached = await dbGet<UserInfo>(APP_CACHE_STORE, cacheKey);
       if (cached) {
-        setUserInfo(JSON.parse(cached));
+        setUserInfo(cached);
         setIsLoading(false);
         return;
       }
@@ -48,19 +49,29 @@ export function useUserInfo(): UseUserInfoReturn {
       const data = await response.json();
 
       if (response.ok && data.message?.success) {
+        // OVERRIDE with employee role if applicable
+        const { dbGet, AUTH_STORE } = await import("../services/offlineDB");
+        const userData = await dbGet<any>(AUTH_STORE, "user_data");
+        if (userData && userData.is_employee) {
+          if (userData.role) {
+            data.message.data.role = userData.role;
+          }
+          if (userData.full_name) {
+            data.message.data.full_name = userData.full_name;
+          }
+        }
+
         setUserInfo(data.message.data);
         setError(null);
-        if (typeof window !== "undefined") {
-          localStorage.setItem(cacheKey, JSON.stringify(data.message.data));
-        }
+        dbSet(APP_CACHE_STORE, cacheKey, data.message.data).catch(() => {});
       } else {
         throw new Error(data.message?.error || "Failed to fetch user info");
       }
     } catch (err: any) {
       console.error("Error loading user info:", err);
-      const cached = typeof window !== "undefined" ? localStorage.getItem(cacheKey) : null;
+      const cached = await dbGet<UserInfo>(APP_CACHE_STORE, cacheKey);
       if (cached) {
-        setUserInfo(JSON.parse(cached));
+        setUserInfo(cached);
         setError(null);
       } else {
         setError(err.message || "Unknown error");

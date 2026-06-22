@@ -1,23 +1,14 @@
 import { useState, useEffect } from "react";
 import type { SalesInvoice } from "../../types";
 import { backgroundSyncService } from "../services/backgroundSyncService";
+import { dbGet, AUTH_STORE, findInvoiceInCache } from "../services/offlineDB";
 
-function getOfflineCashier(data: any) {
-  const cachedUser = localStorage.getItem("user_data");
-  let currentUserName = "";
-
-  if (cachedUser) {
-    try {
-      const user = JSON.parse(cachedUser);
-      currentUserName = user.full_name || user.name || user.email || "";
-    } catch {
-      currentUserName = "";
-    }
-  }
-
+async function getOfflineCashier(data: any) {
+  const user = await dbGet<{ full_name?: string; name?: string; email?: string }>(AUTH_STORE, "user_data");
+  const currentUserName = user?.full_name || user?.name || user?.email || "";
   return {
     name: data.cashier_name || data.employee_name || data.customer?.owner || currentUserName || "Unknown",
-    id: data.cashier_id || data.employee || currentUserName || "Unknown",
+    id:   data.cashier_id  || data.employee     || currentUserName || "Unknown",
   };
 }
 
@@ -39,7 +30,7 @@ export function useInvoiceDetails(invoiceId: string | null) {
           const found = offlineList.find(inv => inv.id === invoiceId);
           if (found) {
             const data = found.data;
-            const offlineCashier = getOfflineCashier(data);
+            const offlineCashier = await getOfflineCashier(data);
             const transformed: SalesInvoice = {
               id: found.id,
               date: new Date(found.timestamp).toISOString().split("T")[0],
@@ -75,6 +66,14 @@ export function useInvoiceDetails(invoiceId: string | null) {
               canReturn: false,
             };
             setInvoice(transformed);
+            setIsLoading(false);
+            return;
+          }
+
+          // Fallback to searching the cached list of invoices
+          const cachedInvoice = await findInvoiceInCache(invoiceId);
+          if (cachedInvoice) {
+            setInvoice(cachedInvoice);
             setIsLoading(false);
             return;
           }

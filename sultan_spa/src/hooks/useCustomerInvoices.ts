@@ -1,19 +1,11 @@
 import { useEffect, useState, useCallback } from "react";
 import type { SalesInvoice, SalesInvoiceItem } from "../../types";
 import { backgroundSyncService } from "../services/backgroundSyncService";
+import { dbGet, AUTH_STORE } from "../services/offlineDB";
 
-function getOfflineCashier(data: any) {
-  const cachedUser = localStorage.getItem("user_data");
-  let currentUserName = "";
-
-  if (cachedUser) {
-    try {
-      const user = JSON.parse(cachedUser);
-      currentUserName = user.full_name || user.name || user.email || "";
-    } catch {
-      currentUserName = "";
-    }
-  }
+async function getOfflineCashier(data: any) {
+  const userData = await dbGet<{ full_name?: string; name?: string; email?: string }>(AUTH_STORE, "user_data");
+  const currentUserName = userData?.full_name || userData?.name || userData?.email || "";
 
   return {
     name: data.cashier_name || data.employee_name || data.customer?.owner || currentUserName || "Unknown",
@@ -48,9 +40,9 @@ export function useCustomerInvoices(customerName: string) {
 
     // Get unsynced offline invoices for this customer
     const offlineList = backgroundSyncService.getOfflineInvoices().filter(inv => !inv.synced && (inv.data.customer?.id === customerName || inv.data.customer?.name === customerName));
-    const transformedOffline: SalesInvoice[] = offlineList.map(inv => {
+    const transformedOffline: SalesInvoice[] = await Promise.all(offlineList.map(async inv => {
       const data = inv.data;
-      const offlineCashier = getOfflineCashier(data);
+      const offlineCashier = await getOfflineCashier(data);
       return {
         id: inv.id,
         date: new Date(inv.timestamp).toISOString().split("T")[0],
@@ -85,7 +77,7 @@ export function useCustomerInvoices(customerName: string) {
         custom_pos_opening_entry: "",
         canReturn: false,
       };
-    });
+    }));
 
     if (typeof window !== 'undefined' && !navigator.onLine) {
       if (append) {
@@ -196,6 +188,7 @@ export function useCustomerInvoices(customerName: string) {
           custom_pos_opening_entry: (invoice.custom_pos_opening_entry as string) || undefined,
           name: invoice.name as string,
           custom_zatca_submit_status: (invoice.custom_zatca_submit_status as string) || undefined,
+          is_return: !!invoice.is_return,
         } as SalesInvoice;
       });
 

@@ -1,11 +1,10 @@
-import { Receipt, Grid3X3, BarChart3, Users, MonitorX, Factory, Settings, WifiOff, Wifi, ArrowLeftRight } from "lucide-react"
+import { Receipt, Grid3X3, BarChart3, Users, MonitorX, Factory, Settings, WifiOff, Wifi, ArrowLeftRight, Store, ChefHat, Lock, FileText, ShieldAlert } from "lucide-react"
 import { useNavigate, useLocation } from "react-router-dom"
 import { useUserInfo } from "../hooks/useUserInfo"
+import { useAuth } from "../hooks/useAuth"
 import { useState, useEffect } from "react"
 import backgroundSyncService from "../services/backgroundSyncService"
-import CashIOModal from "./CashIOModal"
 import { usePOSDetails } from "../hooks/usePOSProfile"
-import { useCashIOFeature } from "../hooks/useCashIOFeature"
 
 // Inside your component
 export default function RetailSidebar() {
@@ -13,9 +12,7 @@ export default function RetailSidebar() {
   const location = useLocation()
   const { userInfo } = useUserInfo()
   const [syncStatus, setSyncStatus] = useState(backgroundSyncService.getStatus())
-  const [showCashIO, setShowCashIO] = useState(false)
   const { posDetails } = usePOSDetails()
-  const cashIO = useCashIOFeature(posDetails?.name as string | undefined)
 
   useEffect(() => {
     const handler = (status: typeof syncStatus) => setSyncStatus({ ...status })
@@ -23,20 +20,34 @@ export default function RetailSidebar() {
     return () => backgroundSyncService.off('status_change', handler)
   }, [])
 
-  const canAccessSalesDashboard = userInfo?.is_admin_user ?? false
+  const { user, lockEmployee } = useAuth()
+  const roleLower = user?.role?.toLowerCase() || userInfo?.role?.toLowerCase() || "";
+  const isAuditor = roleLower === "auditor";
+  const isBranchManager = roleLower === "branch manager";
+  const isAdmin = user?.is_employee
+    ? roleLower === "administrator"
+    : (roleLower === "administrator" || user?.name === "Administrator" || userInfo?.is_admin_user || user?.is_admin_user);
 
   const isMenuUser = (userInfo as any)?.role === "Menu User"
 
-  const menuItems = [
+  const menuItems = isMenuUser ? [
+    { icon: ChefHat, path: "/order-station", label: "Order" }
+  ] : [
     { icon: Grid3X3, path: "/pos", label: "POS" },
-    ...(!isMenuUser ? [
-      { icon: Receipt, path: "/invoice", label: "Invoices" },
-      { icon: Users, path: "/customers", label: "Customers" },
-      { icon: BarChart3, path: "/dashboard", label: "Dashboard", requiresSalesDashboard: true },
-      { icon: Factory, path: "/manufacturing", label: "Manufacturing" },
-      { icon: MonitorX, path: "/closing_shift", label: "Closing Shift" },
-    ] : [])
-  ]
+    { icon: Receipt, path: "/invoice", label: "Invoices" },
+    { icon: BarChart3, path: "/sales_dashboard", label: "Dashboard" },
+    { icon: ArrowLeftRight, path: "/cash_transactions_report", label: "IN/OUT" },
+    { icon: Store, path: "/branch-sessions", label: "Branch" },
+    { icon: MonitorX, path: "/closing_shift", label: "Closing Shift" },
+    ...(isAdmin ? [{ icon: ShieldAlert, path: "/security_audit", label: "Security" }] : []),
+  ].filter(item => {
+    if (isAdmin) return true;
+    if (isAuditor || isBranchManager) {
+      return ["/invoice", "/sales_dashboard", "/cash_transactions_report"].includes(item.path);
+    }
+    // Cashier
+    return ["/pos", "/invoice", "/cash_transactions_report"].includes(item.path);
+  })
 
   const isActive = (path: string) => {
     if (path === "/pos") {
@@ -46,7 +57,6 @@ export default function RetailSidebar() {
   }
 
   const handleNav = (item: (typeof menuItems)[0]) => {
-    if (item.requiresSalesDashboard && !canAccessSalesDashboard) return
     navigate(item.path)
   }
 
@@ -58,47 +68,36 @@ export default function RetailSidebar() {
         className="h-20 flex items-center justify-center cursor-pointer active:scale-90 transition-transform duration-150 border-b border-white/10"
         onClick={() => navigate("/")}
       >
-        <div className="w-11 h-11 rounded-xl bg-white/15 flex items-center justify-center border border-white/20">
-          <span className="text-white font-black text-lg tracking-tighter">S</span>
+        <div className="w-11 h-11 rounded-xl bg-white/15 flex items-center justify-center border border-white/20 overflow-hidden">
+          <img src="/assets/sultan/sultan_spa/managelyLogo.webp" alt="Managely" className="w-full h-full object-cover" />
         </div>
       </div>
 
       {/* Menu Items */}
       <div className="flex-1 flex flex-col items-center py-5 space-y-1">
         {menuItems.map((item, index) => {
-          const disabled = item.requiresSalesDashboard && !canAccessSalesDashboard
+          const disabled = false;
           const active = isActive(item.path)
+
           return (
-            <button
-              key={index}
-              onClick={() => handleNav(item)}
-              disabled={disabled}
-              title={disabled ? "Sales Dashboard Restricted" : item.label}
-              style={{ color: disabled ? 'rgba(255,255,255,0.3)' : 'white' }}
-              className={`w-13 h-13 px-2 py-2.5 rounded-xl flex flex-col items-center justify-center transition-all duration-150 ${disabled
-                  ? "opacity-25 cursor-not-allowed"
-                  : "cursor-pointer active:scale-90 " + (active ? "bg-white/25" : "hover:bg-white/10")
-                }`}
-            >
-              <item.icon size={20} strokeWidth={2.5} />
-              <span style={{ color: 'white' }} className="text-[10px] font-bold mt-1 uppercase tracking-wide">{item.label.substring(0, 5)}</span>
-            </button>
+            <div key={index} className="flex flex-col items-center space-y-1 w-full">
+              <button
+                onClick={() => handleNav(item)}
+                disabled={disabled}
+                title={item.label}
+                style={{ color: 'white' }}
+                className={`w-13 h-13 px-2 py-2.5 rounded-xl flex flex-col items-center justify-center transition-all duration-150 ${disabled
+                    ? "opacity-25 cursor-not-allowed"
+                    : "cursor-pointer active:scale-90 " + (active ? "bg-white/25" : "hover:bg-white/10")
+                  }`}
+              >
+                <item.icon size={20} strokeWidth={2.5} />
+                <span style={{ color: 'white' }} className="text-[10px] font-bold mt-1 uppercase tracking-wide whitespace-nowrap">{item.label}</span>
+              </button>
+            </div>
           )
         })}
       </div>
-
-      {/* Cash I/O button — only when pos_cash_in_out is installed & enabled for this profile */}
-      {!isMenuUser && cashIO.enabled && (
-        <button
-          onClick={() => setShowCashIO(true)}
-          title="Cash In / Cash Out"
-          style={{ color: 'white' }}
-          className="w-13 h-13 px-2 py-2.5 rounded-xl flex flex-col items-center justify-center transition-all duration-150 cursor-pointer active:scale-90 hover:bg-white/10"
-        >
-          <ArrowLeftRight size={20} strokeWidth={2.5} />
-          <span style={{ color: 'white' }} className="text-[10px] font-bold mt-1 uppercase tracking-wide">CASH</span>
-        </button>
-      )}
 
       {/* Connection status indicator */}
       <div className="px-3 py-2 border-t border-white/10 flex flex-col items-center">
@@ -124,7 +123,7 @@ export default function RetailSidebar() {
       </div>
 
       {/* Settings at bottom */}
-      <div className="p-4 pb-8 border-t border-white/10">
+      <div className="p-4 pb-8 border-t border-white/10 flex flex-col gap-2">
         <button
           onClick={() => navigate("/settings")}
           style={{ color: 'white' }}
@@ -134,16 +133,20 @@ export default function RetailSidebar() {
           <Settings size={20} strokeWidth={2} />
           <span style={{ color: 'white' }} className="text-[10px] font-bold mt-1 uppercase tracking-wide">SET</span>
         </button>
+
+        <button
+          onClick={async () => {
+            await lockEmployee();
+            navigate("/employee-login");
+          }}
+          style={{ color: 'white' }}
+          className="w-full px-2 py-2.5 rounded-xl flex flex-col items-center justify-center transition-all duration-150 hover:bg-white/10"
+        >
+          <Lock size={20} strokeWidth={2} />
+          <span style={{ color: 'white' }} className="text-[10px] font-bold mt-1 uppercase tracking-wide">LOCK</span>
+        </button>
       </div>
     </div>
-
-    <CashIOModal
-      isOpen={showCashIO}
-      onClose={() => setShowCashIO(false)}
-      currency={posDetails?.currency}
-      allowedModes={cashIO.allowed_modes}
-      posSession={(posDetails as any)?.current_opening_entry}
-    />
     </>
   )
 }

@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { dbGet, dbSet, APP_CACHE_STORE } from "../services/offlineDB";
+import { makeAPICall } from "../utils/apiUtils";
 
 interface PaymentMode {
   mode_of_payment: string;
@@ -26,16 +28,17 @@ export function usePaymentModes(posProfile: string) {
 
       const cacheKey = `cached_payment_modes_${posProfile}`;
       if (typeof window !== 'undefined' && !navigator.onLine) {
-        const cached = localStorage.getItem(cacheKey);
+        const cached = await dbGet<any>(APP_CACHE_STORE, cacheKey);
         if (cached) {
-          setModes(JSON.parse(cached));
+          const modesArray = Array.isArray(cached) ? cached : (cached.data || []);
+          setModes(modesArray);
           setIsLoading(false);
           return;
         }
       }
 
       try {
-        const res = await fetch(`/api/method/sultan.sultan.api.payment.get_payment_modes?pos_profile=${encodeURIComponent(posProfile)}`);
+        const res = await makeAPICall(`/api/method/sultan.sultan.api.payment.get_payment_modes?pos_profile=${encodeURIComponent(posProfile)}`, { timeout: 2000, retries: 0 });
         const data = await res.json();
 
         if (!data.message.success) {
@@ -45,15 +48,14 @@ export function usePaymentModes(posProfile: string) {
         const modesData = data.message.data || [];
         setModes(modesData);
         setError(null);
-        if (typeof window !== 'undefined') {
-          localStorage.setItem(cacheKey, JSON.stringify(modesData));
-        }
+        dbSet(APP_CACHE_STORE, cacheKey, modesData).catch(() => {});
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (err: any) {
         console.error("Error fetching payment modes:", err);
-        const cached = typeof window !== 'undefined' ? localStorage.getItem(cacheKey) : null;
+        const cached = await dbGet<any>(APP_CACHE_STORE, cacheKey);
         if (cached) {
-          setModes(JSON.parse(cached));
+          const modesArray = Array.isArray(cached) ? cached : (cached.data || []);
+          setModes(modesArray);
         } else {
           setModes([]);
         }
@@ -80,16 +82,16 @@ export function useAllPaymentModes() {
 
       const cacheKey = 'cached_opening_entry_payment_summary';
       if (typeof window !== 'undefined' && !navigator.onLine) {
-        const cached = localStorage.getItem(cacheKey);
+        const cached = await dbGet<PaymentMode[]>(APP_CACHE_STORE, cacheKey);
         if (cached) {
-          setModes(JSON.parse(cached));
+          setModes(cached);
           setIsLoading(false);
           return;
         }
       }
 
       try {
-        const res = await fetch(`/api/method/sultan.sultan.api.payment.get_opening_entry_payment_summary`);
+        const res = await makeAPICall(`/api/method/sultan.sultan.api.payment.get_opening_entry_payment_summary`, { timeout: 2000, retries: 0 });
         const data = await res.json();
 
         if (!data.message.data) {
@@ -99,15 +101,13 @@ export function useAllPaymentModes() {
         const modesData = data.message.data || [];
         setModes(modesData);
         setError(null);
-        if (typeof window !== 'undefined') {
-          localStorage.setItem(cacheKey, JSON.stringify(modesData));
-        }
+        dbSet(APP_CACHE_STORE, cacheKey, modesData).catch(() => {});
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (err: any) {
         console.error("Error fetching opening entry payment summary:", err);
-        const cached = typeof window !== 'undefined' ? localStorage.getItem(cacheKey) : null;
+        const cached = await dbGet<PaymentMode[]>(APP_CACHE_STORE, cacheKey);
         if (cached) {
-          setModes(JSON.parse(cached));
+          setModes(cached);
           setError(null);
         } else {
           setError(err.message);

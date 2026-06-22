@@ -477,8 +477,6 @@ export default function MultiInvoiceReturn({
         toast.success(result.message || 'Returns created successfully');
         onSuccess(result.createdReturns || []);
         onClose();
-        // Reload the page to refresh all data
-        window.location.reload();
       } else {
         toast.error(result.error || 'Failed to create returns');
       }
@@ -500,7 +498,7 @@ export default function MultiInvoiceReturn({
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2 sm:space-x-3">
               <div className="p-1.5 sm:p-2 bg-ziditech-100 dark:bg-ziditech-900/40 rounded-lg">
-                <RotateCcw className="w-5 h-5 sm:w-6 sm:h-6 text-ziditech-600 dark:text-ziditech-400" />
+                <RotateCcw className="w-5 h-5 sm:w-6 sm:h-6 text-gray-900 dark:text-gray-500" />
               </div>
               <div>
                 <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white">
@@ -524,7 +522,7 @@ export default function MultiInvoiceReturn({
             <div className="flex items-center space-x-2 sm:space-x-4">
               {!customer && (
                 <>
-                                <div className={`flex items-center space-x-1 sm:space-x-2 ${workflowStep === 'select-customer' ? 'text-ziditech-600 dark:text-ziditech-400' : 'text-gray-400'}`}>
+                                <div className={`flex items-center space-x-1 sm:space-x-2 ${workflowStep === 'select-customer' ? 'text-gray-900 dark:text-gray-500' : 'text-gray-400'}`}>
                 <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-medium ${
                   workflowStep === 'select-customer' ? 'bg-ziditech-600 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-500'
                 }`}>
@@ -536,7 +534,7 @@ export default function MultiInvoiceReturn({
                 </>
               )}
 
-              <div className={`flex items-center space-x-1 sm:space-x-2 ${workflowStep === 'select-items' ? 'text-ziditech-600 dark:text-ziditech-400' : 'text-gray-400'}`}>
+              <div className={`flex items-center space-x-1 sm:space-x-2 ${workflowStep === 'select-items' ? 'text-gray-900 dark:text-gray-500' : 'text-gray-400'}`}>
                 <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-medium ${
                   workflowStep === 'select-items' ? 'bg-ziditech-600 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-500'
                 }`}>
@@ -547,7 +545,7 @@ export default function MultiInvoiceReturn({
 
               <div className="w-4 sm:w-8 h-1 bg-gray-300 dark:bg-gray-600"></div>
 
-              <div className={`flex items-center space-x-1 sm:space-x-2 ${workflowStep === 'filter-invoices' ? 'text-ziditech-600 dark:text-ziditech-400' : 'text-gray-400'}`}>
+              <div className={`flex items-center space-x-1 sm:space-x-2 ${workflowStep === 'filter-invoices' ? 'text-gray-900 dark:text-gray-500' : 'text-gray-400'}`}>
                 <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-medium ${
                   workflowStep === 'filter-invoices' ? 'bg-ziditech-600 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-500'
                 }`}>
@@ -558,7 +556,7 @@ export default function MultiInvoiceReturn({
 
               <div className="w-4 sm:w-8 h-1 bg-gray-300 dark:bg-gray-600"></div>
 
-              <div className={`flex items-center space-x-1 sm:space-x-2 ${workflowStep === 'select-invoices' ? 'text-ziditech-600 dark:text-ziditech-400' : 'text-gray-400'}`}>
+              <div className={`flex items-center space-x-1 sm:space-x-2 ${workflowStep === 'select-invoices' ? 'text-gray-900 dark:text-gray-500' : 'text-gray-400'}`}>
                 <div className={`w-6 h-6 sm:w-8 sm:h-8 rounded-full flex items-center justify-center text-xs sm:text-sm font-medium ${
                   workflowStep === 'select-invoices' ? 'bg-ziditech-600 text-white' : 'bg-gray-200 dark:bg-gray-600 text-gray-500'
                 }`}>
@@ -847,7 +845,7 @@ export default function MultiInvoiceReturn({
                                   setSelectedItems([]);
                                 }
                               }}
-                              className="w-4 h-4 text-ziditech-600 border-gray-300 rounded focus:ring-ziditech-500"
+                              className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-ziditech-500"
                             />
                             <span className="text-xs text-gray-400">All</span>
                           </div>
@@ -871,7 +869,7 @@ export default function MultiInvoiceReturn({
                               type="checkbox"
                               checked={selectedItems.some(selected => selected.item_code === item.item_code)}
                               onChange={(e) => handleItemSelection(item.item_code, item.item_name, e.target.checked)}
-                              className="w-4 h-4 text-ziditech-600 border-gray-300 rounded focus:ring-ziditech-500"
+                              className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-ziditech-500"
                             />
                           </td>
                           <td className="px-3 py-2">
@@ -887,7 +885,7 @@ export default function MultiInvoiceReturn({
                           <td className="px-3 py-2 text-center">
                             <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                               selectedItems.some(selected => selected.item_code === item.item_code)
-                                ? 'bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900/20 dark:text-ziditech-400'
+                                ? 'bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900/20 dark:text-gray-500'
                                 : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
                             }`}>
                               {selectedItems.some(selected => selected.item_code === item.item_code) ? 'Selected' : 'Available'}
@@ -970,7 +968,7 @@ export default function MultiInvoiceReturn({
                 </button>
                 <div className="text-right">
                   <p className="text-sm text-gray-600 dark:text-gray-400">Total Return Amount</p>
-                  <p className="text-xl font-bold text-ziditech-600 dark:text-ziditech-400">
+                  <p className="text-xl font-bold text-gray-900 dark:text-gray-500">
                     {formatCurrency(totalReturnAmount, currency)}
                   </p>
                 </div>
@@ -1028,7 +1026,7 @@ export default function MultiInvoiceReturn({
                           type="checkbox"
                           checked={selectedInvoices.has(invoice.name)}
                           onChange={() => toggleInvoiceSelection(invoice.name)}
-                          className="w-4 h-4 text-ziditech-600 border-gray-300 rounded focus:ring-ziditech-500"
+                          className="w-4 h-4 text-gray-900 border-gray-300 rounded focus:ring-ziditech-500"
                         />
                         <div>
                           <h4 className="font-semibold text-gray-900 dark:text-white">
@@ -1043,7 +1041,7 @@ export default function MultiInvoiceReturn({
                       </div>
                       <button
                         onClick={() => handleReturnAllAvailable(invoice.name)}
-                        className="px-3 py-1 text-sm bg-ziditech-100 dark:bg-ziditech-900/20 text-ziditech-700 dark:text-ziditech-300 rounded hover:bg-ziditech-200 dark:hover:bg-ziditech-900/40 transition-colors"
+                        className="px-3 py-1 text-sm bg-ziditech-100 dark:bg-ziditech-900/20 text-gray-900 dark:text-gray-500 rounded hover:bg-ziditech-200 dark:hover:bg-ziditech-900/40 transition-colors"
                       >
                         Return All Available
                       </button>
@@ -1100,7 +1098,7 @@ export default function MultiInvoiceReturn({
                             <td className="px-4 py-3 text-center">
                               <span className={`text-sm font-medium ${
                                 item.available_qty > 0
-                                  ? 'text-ziditech-600 dark:text-ziditech-400'
+                                  ? 'text-gray-900 dark:text-gray-500'
                                   : 'text-gray-500 dark:text-gray-400'
                               }`}>
                                 {item.available_qty}

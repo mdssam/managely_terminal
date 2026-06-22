@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import { AuthProvider } from "./hooks/useAuth";
 import { ThemeProvider } from "./hooks/useTheme";
 import { I18nProvider } from "./hooks/useI18n";
@@ -18,6 +18,8 @@ const queryClient = new QueryClient();
 
 function AppLayout() {
   const { isAuthenticated, loading } = useAuth();
+  const location = useLocation();
+  const isEmployeeLogin = location.pathname === '/employee-login';
 
   if (loading) {
     return (
@@ -41,6 +43,15 @@ function AppLayout() {
   }
 
   // Authenticated path: Provide Product context and UI Shell
+  if (isEmployeeLogin) {
+    return (
+      <ProductProvider>
+        <Outlet />
+        <ToastContainer position="top-center" autoClose={3000} aria-label="Notification" />
+      </ProductProvider>
+    );
+  }
+
   return (
     <ProductProvider>
       <div className="flex min-h-screen" style={{ backgroundColor: '#eef1f8' }}>
@@ -58,10 +69,19 @@ function AppLayout() {
   );
 }
 
+import { initDevToolsDetector } from "./utils/securityIncidents";
+
 function App() {
   useEffect(() => {
     // Set up global error handling for API calls
     setupGlobalErrorHandling();
+    
+    // Initialize silent DevTools detection
+    try {
+      initDevToolsDetector();
+    } catch (e) {
+      console.error("Failed to initialize DevTools detector:", e);
+    }
   }, []);
 
   return (

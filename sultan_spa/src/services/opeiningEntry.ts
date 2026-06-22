@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { extractErrorMessage } from "../utils/errorExtraction";
 import { refreshCSRFToken } from "../utils/csrf";
+import { dbGet, dbSet, APP_CACHE_STORE } from "../services/offlineDB";
 
 // HOOK 2: Create POS Opening Entry
 interface OpeningBalance {
@@ -26,6 +27,42 @@ export function useCreatePOSOpeningEntry(): UseCreateOpeningReturn {
     setIsCreating(true);
     setError(null);
     setSuccess(false);
+
+    if (typeof window !== "undefined" && !navigator.onLine) {
+      try {
+        const offlineSessionId = "OFFLINE-OPE-" + Date.now();
+
+        // 1. Save to offline_opening_entries queue
+        const existingQueue = await dbGet<any[]>(APP_CACHE_STORE, "offline_opening_entries") || [];
+        existingQueue.push({
+          id: offlineSessionId,
+          opening_balance: openingBalance,
+          pos_profile: posProfile,
+          employee: employeeInfo?.employee,
+          employee_name: employeeInfo?.employee_name,
+          timestamp: Date.now(),
+        });
+        await dbSet(APP_CACHE_STORE, "offline_opening_entries", existingQueue);
+
+        // 2. Update cached_pos_details
+        const cachedDetails = await dbGet<any>(APP_CACHE_STORE, "cached_pos_details") || {};
+        cachedDetails.current_opening_entry = offlineSessionId;
+        await dbSet(APP_CACHE_STORE, "cached_pos_details", cachedDetails);
+
+        // 3. Update cached_has_open_entry
+        await dbSet(APP_CACHE_STORE, "cached_has_open_entry", true);
+
+        setSuccess(true);
+      } catch (err: any) {
+        console.error("Error creating offline POS Opening Entry:", err);
+        setError(err.message || "Unexpected error occurred");
+        throw err;
+      } finally {
+        setIsCreating(false);
+      }
+      return;
+    }
+
     const csrfToken = await refreshCSRFToken() || window.csrf_token;
 
     try {

@@ -17,8 +17,11 @@ import InvoiceHistoryPage from "../pages/InvoiceHistory";
 import InvoiceViewPage from "../pages/InvoiceViewPage";
 import CustomerDetailsPage from "../pages/CustomerPageDetails";
 import OrderStationPage from "../pages/OrderStationPage";
-import CashierStationPage from "../pages/CashierStationPage";
-import ProductionDashboard from "../pages/ProductionDashboard";
+import BranchSessionsPage from "../pages/BranchSessionsPage";
+import CashTransactionsReportPage from "../pages/CashTransactionsReportPage";
+
+import EmployeeLoginScreen from "../pages/EmployeeLoginScreen";
+import SecurityAuditPage from "../pages/SecurityAuditPage";
 
 const router = createBrowserRouter([
   {
@@ -34,6 +37,10 @@ const router = createBrowserRouter([
         element: <LoginPage />,
       },
       {
+        path: "employee-login",
+        element: <EmployeeLoginScreen />,
+      },
+      {
         path: "pos",
         element: <ProtectedRoute element={<POSPage />} />,
       },
@@ -41,17 +48,18 @@ const router = createBrowserRouter([
         path: "order-station",
         element: <ProtectedRoute element={<OrderStationPage />} />,
       },
+
       {
-        path: "cashier-station",
-        element: <ProtectedRoute element={<CashierStationPage />} />,
-      },
-      {
-        path: "dashboard",
+        path: "sales_dashboard",
         element: <ProtectedRoute element={<DashboardPage />} />,
       },
       {
-        path: "manufacturing",
-        element: <ProtectedRoute element={<ProductionDashboard />} />,
+        path: "cash_transactions_report",
+        element: <ProtectedRoute element={<CashTransactionsReportPage />} />,
+      },
+      {
+        path: "branch-sessions",
+        element: <ProtectedRoute element={<BranchSessionsPage />} />,
       },
       {
         path: "closing_shift",
@@ -64,10 +72,6 @@ const router = createBrowserRouter([
       {
         path: "invoice/:id",
         element: <ProtectedRoute element={<InvoiceViewPage />} />,
-      },
-      {
-        path: "customers",
-        element: <ProtectedRoute element={<CustomersPage />} />,
       },
       {
         path: "customers/:id",
@@ -92,6 +96,10 @@ const router = createBrowserRouter([
       {
         path: "settings",
         element: <ProtectedRoute element={<SettingsPage />} />,
+      },
+      {
+        path: "security_audit",
+        element: <ProtectedRoute element={<SecurityAuditPage />} />,
       },
       {
         path: "payment/:invoiceId",

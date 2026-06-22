@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useI18n } from "../hooks/useI18n"
+import { formatNumberWithCommas } from "../utils/currency"
 
 interface PaymentMethodCardProps {
   method: string
@@ -69,7 +70,7 @@ export default function PaymentMethodCard({ method, title, icon, selected, onSel
       }`}
     >
       <div className="text-center">
-        <div className={`mx-auto mb-3 ${selected ? "text-ziditech-600 dark:text-ziditech-400" : "text-muted-foreground"}`}>{renderIcon()}</div>
+        <div className={`mx-auto mb-3 ${selected ? "text-gray-900 dark:text-gray-500" : "text-muted-foreground"}`}>{renderIcon()}</div>
         <h3 className="font-semibold text-foreground">{title}</h3>
       </div>
 
@@ -80,8 +81,9 @@ export default function PaymentMethodCard({ method, title, icon, selected, onSel
               <div>
                 <label className="block text-sm font-medium text-foreground mb-1">{t("AMOUNT_RECEIVED")}</label>
                 <input
-                  type="number"
-                  defaultValue={total}
+                  type="text"
+                  inputMode="decimal"
+                  defaultValue={formatNumberWithCommas(total)}
                   className="w-full px-3 py-2 bg-background border border-input text-foreground rounded focus:outline-none focus:ring-2 focus:ring-ziditech-500"
                 />
               </div>

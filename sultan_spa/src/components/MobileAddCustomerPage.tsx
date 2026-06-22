@@ -32,7 +32,7 @@ export default function MobileAddCustomerPage() {
             >
               <ArrowLeft className="w-6 h-6 text-gray-600 dark:text-gray-400" />
             </button>
-            <img src="/assets/sultan/sultan_spa/bev_logo.jpeg" alt="Sultan POS" className="w-8 h-8 rounded-full object-cover" />
+            <img src="/assets/sultan/sultan_spa/managelyLogo.webp" alt="Managely" className="w-8 h-8 rounded-full object-cover" />
             <span className="font-bold text-xl text-gray-900 dark:text-white">Add Customer</span>
           </div>
         </div>

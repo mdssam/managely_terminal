@@ -95,7 +95,7 @@ export default function GiftCouponSelector({ onClose, onApplyCoupon, appliedCoup
               >
                 <div className="flex justify-between items-center">
                   <div className="flex items-center space-x-2">
-                    <Tag size={16} className={isApplied ? "text-ziditech-500" : "text-blue-500"} />
+                    <Tag size={16} className={isApplied ? "text-gray-900" : "text-blue-500"} />
                     <div>
                       <h5 className="font-semibold text-sm">{coupon.code}</h5>
                       <p className="text-xs text-gray-500">{coupon.description}</p>
@@ -103,7 +103,7 @@ export default function GiftCouponSelector({ onClose, onApplyCoupon, appliedCoup
                   </div>
                   <div className="flex items-center">
                     <span className="font-bold text-sm mr-2">${coupon.value.toFixed(2)}</span>
-                    {isApplied && <Check size={16} className="text-ziditech-500" />}
+                    {isApplied && <Check size={16} className="text-gray-900" />}
                   </div>
                 </div>
               </div>

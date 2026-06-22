@@ -14,8 +14,8 @@ app_license = "mit"
 add_to_apps_screen = [
 	{
 		"name": "sultan_spa",
-		"logo": "/assets/sultan/logo.png",
-		"title": "Sultan POS",
+		"logo": "/assets/sultan/sultan_spa/pos_desk_icon.jpg",
+		"title": "POS",
 		"route": "/sultan_spa",
 	}
 ]
@@ -26,6 +26,8 @@ add_to_apps_screen = [
 # include js, css files in header of desk.html
 # app_include_css = "/assets/sultan/css/sultan.css"
 app_include_js = "/assets/sultan/js/sultan_pos_modifier.js"
+
+page_js = {"point-of-sale": "public/js/pos_extension.js"}
 
 # include js, css files in header of web template
 # web_include_css = "/assets/sultan/css/sultan.css"
@@ -49,6 +51,7 @@ doctype_js = {
 	"Journal Entry": "public/js/doctype/accounting_addendum.js",
 	"Account": "public/js/doctype/account_autonumber.js",
 	"Employee": "public/js/doctype/employee_pos_login.js",
+	"POS Closing Entry": "public/js/pos_closing_entry_extension.js",
 }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 doctype_tree_js = {"Account": "public/js/doctype/account_autonumber.js"}
@@ -99,6 +102,7 @@ website_route_rules = [
 after_migrate = [
     "sultan.sultan.api.setup_custom_fields",
     "sultan.sultan.accounting.customizations.setup_custom_fields",
+    "sultan.sultan.setup_fields.run",
 ]
 
 # Uninstallation
@@ -155,6 +159,7 @@ after_migrate = [
 
 doc_events = {
 	"POS Invoice": {
+		"autoname": "sultan.sultan.api.pos_entry.autoname_pos_invoice",
 		"validate": "sultan.sultan.api.fix_invoice_items_valuation",
 		"before_submit": "sultan.sultan.api.generate_production_order",
 	},
@@ -189,13 +194,43 @@ doc_events = {
 		"before_insert": "sultan.sultan.accounting.customizations.autonumber_child_account",
 	},
 	"POS Opening Entry": {
+		"autoname": "sultan.sultan.api.pos_entry.autoname_pos_opening_entry",
 		"on_submit": "sultan.sultan.doctype.pos_suspended_transaction.pos_suspended_transaction.on_pos_opening_entry_submit",
 	},
 	"POS Closing Entry": {
+		"autoname": "sultan.sultan.api.pos_entry.autoname_pos_closing_entry",
 		"before_validate": "sultan.sultan.doctype.pos_suspended_transaction.pos_suspended_transaction.before_validate_pos_closing_entry",
 		"on_submit": "sultan.sultan.doctype.pos_suspended_transaction.pos_suspended_transaction.on_pos_closing_entry_submit",
 		"on_cancel": "sultan.sultan.doctype.pos_suspended_transaction.pos_suspended_transaction.on_pos_closing_entry_cancel",
 	},
+	"POS Profile": {
+		"before_insert": "sultan.sultan.api.pos_profile.set_pos_profile_defaults",
+		"before_save": [
+			"sultan.sultan.api.pos_profile.set_pos_profile_defaults",
+			"sultan.sultan.api.pos_profile.validate_pos_profile_change",
+		],
+		"before_rename": "sultan.sultan.api.pos_profile.validate_pos_profile_rename",
+	},
+	"POS Suspended Transaction": {
+		"autoname": "sultan.sultan.api.pos_entry.autoname_pos_suspended_transaction",
+	},
+	"Work Order": {
+		"autoname": "sultan.sultan.api.pos_entry.autoname_work_order",
+	},
+}
+
+# DocType Class Overrides
+# -----------------------
+override_doctype_class = {
+	"Sales Invoice": "sultan.sultan.api.sales_invoice.CustomSalesInvoice",
+	"Purchase Invoice": "sultan.sultan.api.purchase_invoice.CustomPurchaseInvoice",
+}
+
+# Dashboard Links
+# ---------------
+override_doctype_dashboards = {
+	"POS Opening Entry": "sultan.sultan.utils.get_pos_opening_entry_dashboard",
+	"POS Closing Entry": "sultan.sultan.utils.get_pos_closing_entry_dashboard",
 }
 
 # Scheduled Tasks
@@ -238,7 +273,7 @@ scheduler_events = {
 # Request Events
 # ----------------
 # before_request = ["sultan.utils.before_request"]
-# after_request = ["sultan.utils.after_request"]
+after_request = ["sultan.sultan.api.sw.add_sw_header"]
 
 # Job Events
 # ----------
@@ -291,5 +326,5 @@ scheduler_events = {
 fixtures = [
 	"Custom Field",
 	"Property Setter",
-	{"dt": "Workspace", "filters": [["name", "=", "Sultan POS"]]}
+	{"dt": "Workspace", "filters": [["name", "in", ["Sultan POS", "Accounting"]]]}
 ]

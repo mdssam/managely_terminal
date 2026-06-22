@@ -35,14 +35,16 @@ import { toast } from "react-toastify";
 import { usePaymentModes } from "../hooks/usePaymentModes";
 import { useSalesTaxCharges } from "../hooks/useSalesTaxCharges";
 import { usePOSDetails } from "../hooks/usePOSProfile";
+import { usePOSCurrencies } from "../hooks/usePOSCurrencies";
 import { createDraftSalesInvoice } from "../services/salesInvoice";
 import { createSalesInvoice } from "../services/salesInvoice";
 import { useNavigate } from "react-router-dom";
 import DisplayPrintPreview from "../utils/invoicePrint";
 import { handlePrintInvoice } from "../utils/printHandler";
 import { sendEmails, sendWhatsAppMessage, sendSMSMessage } from "../services/useSharing";
+import { formatNumberWithCommas, parseNumberFromCommas } from "../utils/currency";
 import { clearDraftInvoiceCache, getOriginalDraftInvoiceId } from "../utils/draftInvoiceCache";
-// import { deleteDraftInvoice } from "../services/salesInvoice";
+import { deleteDraftInvoice } from "../services/salesInvoice";
 import {
   fetchWhatsAppTemplates,
   getDefaultWhatsAppTemplate,
@@ -70,7 +72,7 @@ interface PaymentDialogProps {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onCompletePayment: (paymentData: any) => void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  onHoldOrder: (orderData: any) => void;
+  onHoldOrder: (orderData: any, alreadySaved?: boolean) => void;
   isMobile?: boolean;
   isFullPage?: boolean;
   initialSharingMode?: string | null;
@@ -140,6 +142,8 @@ export default function PaymentDialog({
 }: PaymentDialogProps) {
   const [selectedSalesTaxCharges, setSelectedSalesTaxCharges] = useState("");
   const [paymentAmounts, setPaymentAmounts] = useState<PaymentAmount>({});
+  const [paymentInputs, setPaymentInputs] = useState<Record<string, string>>({});
+  const [focusedMethodId, setFocusedMethodId] = useState<string | null>(null);
   const [activeMethodId, setActiveMethodId] = useState<string | null>(null);
   // Track which payment method was last modified for round-off targeting
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -187,8 +191,17 @@ export default function PaymentDialog({
   const [selectedDeliveryPersonnel, setSelectedDeliveryPersonnel] = useState<string | null>(null);
   const [receiptLanguage, setReceiptLanguage] = useState<"en" | "ar">("en");
 
+  // Multi-currency: tracks which currency each payment method is using
+  // key = methodId, value = currency code (base or secondary)
+  const [paymentCurrencies, setPaymentCurrencies] = useState<Record<string, string>>({});
+  // Per-session exchange rate overrides (cashier edits) — seeded from today's Currency Exchange records
+  const [sessionRates, setSessionRates] = useState<Record<string, number>>({});
+  // Raw string values for exchange rate inputs (allows clearing while typing)
+  const [sessionRateInputs, setSessionRateInputs] = useState<Record<string, string>>({});
+
   // Hooks
   const { posDetails, loading: posLoading } = usePOSDetails();
+  const currencies = usePOSCurrencies();
   const { modes, isLoading, error } = usePaymentModes(typeof posDetails?.name === 'string' ? posDetails.name : '');
   const { salesTaxCharges, defaultTax } = useSalesTaxCharges();
   const { personnel: deliveryPersonnelList } = useDeliveryPersonnel();
@@ -257,6 +270,35 @@ export default function PaymentDialog({
       console.log("POS Details - custom_delivery_required:", deliveryRequiredValue, "isDeliveryRequired:", isDeliveryRequired);
     }
   }, [posDetails, deliveryRequiredValue, isDeliveryRequired]);
+
+  // Seed session rates from today's Currency Exchange records so the cashier
+  // doesn't have to re-enter the rate on every transaction
+  useEffect(() => {
+    if (!currencies.enabled || currencies.secondaryCurrencies.length === 0) return;
+    const secondary = currencies.secondaryCurrencies.map(c => c.currency);
+    const params = new URLSearchParams({
+      currencies: JSON.stringify(secondary),
+      base_currency: currencies.baseCurrency,
+    });
+    fetch(`/api/method/sultan.sultan.api.sales_invoice.get_today_exchange_rates?${params}`, {
+      credentials: "include",
+    })
+      .then(res => res.json())
+      .then((data: { message?: Record<string, number> }) => {
+        const rates = data.message;
+        if (rates && Object.keys(rates).length > 0) {
+          setSessionRates(prev => ({ ...rates, ...prev }));
+          setSessionRateInputs(prev => {
+            const updates: Record<string, string> = {};
+            for (const [cur, rate] of Object.entries(rates)) {
+              if (!prev[cur]) updates[cur] = String(rate);
+            }
+            return { ...updates, ...prev };
+          });
+        }
+      })
+      .catch(() => { /* non-fatal — falls back to POS Profile rate */ });
+  }, [currencies.enabled, currencies.baseCurrency, currencies.secondaryCurrencies.length]);
 
   // Populate sharing data from external invoice data
   useEffect(() => {
@@ -415,7 +457,7 @@ export default function PaymentDialog({
       customer_name: sharingData.name || 'there',
       invoice_total: formatCurrency(calculations.grandTotal),
       invoice_number: invoiceData?.name || '',
-      company_name: 'Sultan POS',
+      company_name: 'Managely',
       date: new Date().toLocaleDateString(),
     };
 
@@ -441,7 +483,7 @@ export default function PaymentDialog({
       vehicle: 'Delivery Vehicle',
       invoice_total: formatCurrency(calculations.grandTotal),
       invoice_number: invoiceData?.name || '',
-      company_name: 'Sultan POS',
+      company_name: 'Managely',
       date: new Date().toLocaleDateString(),
     };
 
@@ -536,14 +578,19 @@ export default function PaymentDialog({
 
   useEffect(() => {
     if (isOpen && modes.length > 0) {
-      const defaultMode = modes.find((mode) => mode.default === 1);
-      if (defaultMode && Object.keys(paymentAmounts).length === 0) {
-        const defaultAmount = parseFloat(calculations.grandTotal.toFixed(2));
-        setLastModifiedMethodId(defaultMode.mode_of_payment); // Track the auto-filled method
-        setPaymentAmounts({ [defaultMode.mode_of_payment]: defaultAmount });
+      const activeEntries = Object.entries(paymentAmounts).filter(([, amt]) => (amt || 0) > 0);
+      if (activeEntries.length <= 1) {
+        const defaultMode = modes.find((mode) => mode.default === 1) || modes[0];
+        if (defaultMode) {
+          const defaultAmount = parseFloat(calculations.grandTotal.toFixed(2));
+          if (paymentAmounts[defaultMode.mode_of_payment] !== defaultAmount) {
+            setLastModifiedMethodId(defaultMode.mode_of_payment); // Track the auto-filled method
+            setPaymentAmounts({ [defaultMode.mode_of_payment]: defaultAmount });
+          }
+        }
       }
     }
-  }, [isOpen, modes, calculations.grandTotal, isB2B, isB2C]);
+  }, [isOpen, modes, calculations.grandTotal, paymentAmounts, isB2B, isB2C]);
 
   useEffect(() => {
 
@@ -586,6 +633,81 @@ export default function PaymentDialog({
       }, 500);
     }
   }, [invoiceSubmitted, invoiceData, print_receipt_on_order_complete]);
+
+  // --- Multi-currency helpers ---
+  const getMethodCurrency = (methodId: string) =>
+    paymentCurrencies[methodId] ?? currencies.baseCurrency;
+
+  const isSecondary = (methodId: string) =>
+    currencies.enabled && getMethodCurrency(methodId) !== currencies.baseCurrency;
+
+  // Effective exchange rate: session override → config entry → legacy rate
+  const getExchangeRate = (currency: string): number => {
+    if (currency === currencies.baseCurrency) return 1;
+    if (sessionRates[currency] && sessionRates[currency] > 0) return sessionRates[currency];
+    const entry = currencies.secondaryCurrencies.find(e => e.currency === currency);
+    return entry?.exchangeRate ?? currencies.exchangeRate ?? 1;
+  };
+
+  // Select a specific currency for a method
+  const selectMethodCurrency = (methodId: string, currency: string) => {
+    if (!currencies.enabled) return;
+    setPaymentCurrencies(prev => ({ ...prev, [methodId]: currency }));
+    // Reset the amount so user re-enters in the new currency
+    setPaymentAmounts(prev => ({ ...prev, [methodId]: 0 }));
+  };
+
+  // When user types an amount in secondary currency, store the base equivalent
+  // base = secondary × rate
+  const handleSecondaryAmountChange = (methodId: string, rawValue: string) => {
+    const secondary = parseFloat(rawValue) || 0;
+    const rate = getExchangeRate(getMethodCurrency(methodId));
+    const base = rate > 0
+      ? parseFloat((secondary * rate).toFixed(6))
+      : 0;
+    setLastModifiedMethodId(methodId);
+    setPaymentAmounts(prev => ({ ...prev, [methodId]: base }));
+  };
+
+  // Display value: if secondary, show base / rate; otherwise show base
+  const getDisplayAmount = (methodId: string): string => {
+    const base = paymentAmounts[methodId] ?? 0;
+    if (isSecondary(methodId)) {
+      const rate = getExchangeRate(getMethodCurrency(methodId));
+      if (rate <= 0) return "";
+      const sec = base / rate;
+      return sec === 0 ? "" : formatNumberWithCommas(sec.toFixed(2));
+    }
+    return base === 0 ? "" : formatNumberWithCommas(base.toFixed(2));
+  };
+
+  // Synchronize paymentInputs with paymentAmounts when paymentAmounts changes (e.g. from auto-fill, roundoff, initial load)
+  useEffect(() => {
+    setPaymentInputs((prev) => {
+      const newInputs = { ...prev };
+      let changed = false;
+      Object.entries(paymentAmounts).forEach(([methodId, amount]) => {
+        if (focusedMethodId !== methodId) {
+          const displayVal = getDisplayAmount(methodId);
+          if (newInputs[methodId] !== displayVal) {
+            newInputs[methodId] = displayVal;
+            changed = true;
+          }
+        }
+      });
+      return changed ? newInputs : prev;
+    });
+  }, [paymentAmounts, focusedMethodId]);
+
+  // Update session exchange rate for a currency
+  const updateSessionRate = (currency: string, value: string) => {
+    // Always update the display string so clearing/partial input works
+    setSessionRateInputs(prev => ({ ...prev, [currency]: value }));
+    const num = parseFloat(value);
+    if (!isNaN(num) && num > 0) {
+      setSessionRates(prev => ({ ...prev, [currency]: num }));
+    }
+  };
 
   // Determine if roundoff should be enabled
   const isRoundOffEnabled = () => {
@@ -898,6 +1020,57 @@ export default function PaymentDialog({
     }
   };
 
+
+
+  // Render the currency selector dropdown for a payment method card
+  const renderCurrencySelector = (methodId: string, sizeClass = "text-[10px]") => {
+    if (!currencies.enabled || currencies.secondaryCurrencies.length === 0) return null;
+    return (
+      <select
+        value={getMethodCurrency(methodId)}
+        onChange={(e) => selectMethodCurrency(methodId, e.target.value)}
+        disabled={invoiceSubmitted || isProcessingPayment}
+        className={`${sizeClass} px-1.5 py-0.5 rounded border border-ziditech-400 text-gray-900 bg-white dark:bg-gray-700 dark:text-gray-500 font-bold focus:outline-none cursor-pointer disabled:opacity-50`}
+        title="Select currency"
+      >
+        <option value={currencies.baseCurrency}>{currencies.baseCurrency}</option>
+        {currencies.secondaryCurrencies.map(c => (
+          <option key={c.currency} value={c.currency}>{c.currency}</option>
+        ))}
+      </select>
+    );
+  };
+
+  // Render exchange rate display/editor below the amount input
+  const renderExchangeRateRow = (methodId: string) => {
+    if (!isSecondary(methodId)) return null;
+    const currency = getMethodCurrency(methodId);
+    const rate = getExchangeRate(currency);
+    return (
+      <div className="flex items-center gap-1 mt-1">
+        <span className="text-xs text-gray-400">1 {currency} =</span>
+        <input
+          type="number"
+          min="0.0001"
+          step="any"
+          value={sessionRateInputs[currency] ?? (sessionRates[currency] ?? rate)}
+          onChange={(e) => updateSessionRate(currency, e.target.value)}
+          onBlur={(e) => {
+            const num = parseFloat(e.target.value);
+            if (isNaN(num) || num <= 0) {
+              // Reset display to last valid rate on blur
+              setSessionRateInputs(prev => ({ ...prev, [currency]: String(sessionRates[currency] ?? rate) }));
+            }
+          }}
+          disabled={invoiceSubmitted || isProcessingPayment}
+          className="w-24 px-1.5 py-0.5 text-xs border border-amber-300 rounded bg-amber-50 dark:bg-amber-900/20 dark:border-amber-600 text-gray-800 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-amber-400 disabled:opacity-50"
+          title="Edit exchange rate"
+        />
+        <span className="text-xs text-gray-400">{currencies.baseCurrency}</span>
+      </div>
+    );
+  };
+
   const processPayment = async (deliveryPersonnel: string | null = null) => {
     if (!selectedCustomer || !selectedCustomer.name) {
       toast.error("Kindly select a customer");
@@ -962,6 +1135,7 @@ export default function PaymentDialog({
         })();
 
     const paymentData = {
+      draft_id: useCartStore.getState().draftInvoiceId,
       // items: cartItems.map(item => ({
       //   ...item,
       //   //eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -985,8 +1159,26 @@ export default function PaymentDialog({
           discountPercentage: itemDiscounts[item.id]?.discountPercentage || 0,
           discountAmount: itemDiscounts[item.id]?.discountAmount || 0,
         })),
-      customer: selectedCustomer,
-      paymentMethods: (adjustedPaymentMethods ?? []).map(([method, amount]) => ({ method, amount: parseFloat((Number(amount) || 0).toFixed(2)) })),
+      customer: selectedCustomer || { 
+        id: posDetails?.name || "Walk-in Customer",
+        name: posDetails?.name || "Walk-in Customer"
+      },
+      paymentMethods: (adjustedPaymentMethods ?? []).map(([method, amount]) => {
+        const mCurrency = getMethodCurrency(method as string);
+        const baseAmount = Number(amount) || 0;
+        const rate = getExchangeRate(mCurrency);
+        const isSecondaryCurrency = currencies.enabled && mCurrency !== currencies.baseCurrency && rate > 0;
+        // Backend expects secondary-currency amount; it multiplies by exchange_rate to get base
+        const sendAmount = isSecondaryCurrency
+          ? parseFloat((baseAmount / rate).toFixed(6))
+          : parseFloat(baseAmount.toFixed(6));
+        return {
+          method,
+          amount: sendAmount,
+          currency: mCurrency,
+          exchange_rate: rate,
+        };
+      }),
       subtotal: calculations.subtotal,
       SalesTaxCharges: selectedSalesTaxCharges,
       taxAmount: calculations.taxAmount,
@@ -999,6 +1191,7 @@ export default function PaymentDialog({
       appliedCoupons,
       businessType: posDetails?.business_type,
       deliveryPersonnel: deliveryPersonnel || null,
+      posProfile: posDetails?.name || "",
     };
 
     try {
@@ -1028,20 +1221,16 @@ export default function PaymentDialog({
         }
       }
 
-      // Delete original draft invoice if it exists (from Edit → Go to Cart workflow)
-      const originalDraftInvoiceId = getOriginalDraftInvoiceId();
-      // console.log("Checking for original draft invoice to delete:", originalDraftInvoiceId);
-
-      if (originalDraftInvoiceId) {
+      // Delete original draft invoice if it exists and wasn't submitted directly
+      const originalDraftInvoiceId = (await getOriginalDraftInvoiceId()) || useCartStore.getState().draftInvoiceId;
+      if (originalDraftInvoiceId && !paymentData.draft_id) {
         try {
-          // const deleteResult = await deleteDraftInvoice(originalDraftInvoiceId);
+          await deleteDraftInvoice(originalDraftInvoiceId);
         } catch (deleteError) {
           console.error("Failed to delete original draft invoice:", deleteError);
-          // Don't show error to user as the main invoice was created successfully
         }
-      } else {
-        console.log();
       }
+      useCartStore.getState().setDraftInvoiceId(null);
 
       // Clear draft invoice cache since payment is completed
       clearDraftInvoiceCache();
@@ -1096,7 +1285,24 @@ export default function PaymentDialog({
     setIsHoldingOrder(true);
 
     const orderData = {
-      items: cartItems,
+      draft_id: useCartStore.getState().draftInvoiceId,
+      items: cartItems.map((item) => ({
+        ...item,
+        id: item.item_code || item.id,
+        item_code: item.item_code || item.id,
+        qty: item.quantity,
+        quantity: item.quantity,
+        rate: item.price || (item as any).discountedPrice,
+        price: item.price || (item as any).discountedPrice,
+        batchNumber: itemDiscounts?.[item.id]?.batchNumber || null,
+        serialNumber: itemDiscounts?.[item.id]?.serialNumber || null,
+        uom: item.uom || item.base_uom || "Nos",
+        conversion_factor: item.conversion_factor,
+        discountPercentage: itemDiscounts?.[item.id]?.discountPercentage || 0,
+        discountAmount: itemDiscounts?.[item.id]?.discountAmount || 0,
+        custom_ingredients: item.custom_ingredients || "",
+        custom_notes: item.custom_notes || "",
+      })),
       customer: selectedCustomer,
       subtotal: calculations.subtotal,
       SalesTaxCharges: selectedSalesTaxCharges,
@@ -1117,7 +1323,7 @@ export default function PaymentDialog({
       // Clear draft invoice cache since order is held
       clearDraftInvoiceCache();
 
-      onHoldOrder(orderData);
+      onHoldOrder(orderData, true);
       //eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       const errorMessage = extractErrorFromException(err, "Failed to hold order");
@@ -1197,7 +1403,7 @@ export default function PaymentDialog({
               <div className="space-y-4">
                 {/* Action Buttons for Mobile */}
                 <div className="flex items-center justify-center space-x-3 p-4 bg-ziditech-50 dark:bg-ziditech-900/20 rounded-lg border border-ziditech-200 dark:border-ziditech-800">
-                  <div className="text-ziditech-600 dark:text-ziditech-400 text-center">
+                  <div className="text-gray-900 dark:text-gray-500 text-center">
                     <p className="font-semibold">
                       {isB2B
                         ? "Invoice Submitted Successfully!"
@@ -1212,7 +1418,7 @@ export default function PaymentDialog({
                 {/* Action Buttons Row */}
                 <div className="flex flex-wrap gap-2 justify-center">
                   {isAutoPrinting && (
-                    <div className="flex items-center space-x-2 text-ziditech-600 dark:text-blue-300 px-3 py-2 bg-ziditech-50 dark:bg-blue-900/20 rounded-lg">
+                    <div className="flex items-center space-x-2 text-gray-900 dark:text-blue-300 px-3 py-2 bg-ziditech-50 dark:bg-blue-900/20 rounded-lg">
                       <Loader2 size={16} className="animate-spin" />
                       <span className="text-sm">Printing...</span>
                     </div>
@@ -1234,8 +1440,15 @@ export default function PaymentDialog({
                       className="flex items-center space-x-2 px-4 py-2 bg-green-100 dark:bg-green-900/20 text-green-700 dark:text-green-400 rounded-lg hover:bg-green-200 dark:hover:bg-green-900/30 transition-colors"
                       title="Print Thermal (EN)"
                       onClick={() => {
-                        const fmt = encodeURIComponent(posDetails.custom_pos_print_format_en as string);
-                        window.open(`/printview?doctype=Sales+Invoice&name=${invoiceData.name}&format=${fmt}&no_letterhead=1`, "_blank");
+                        if (!navigator.onLine) {
+                          setReceiptLanguage("en");
+                          setTimeout(() => {
+                            handlePrintInvoice(invoiceData);
+                          }, 150);
+                        } else {
+                          const fmt = encodeURIComponent(posDetails.custom_pos_print_format_en as string);
+                          window.open(`/printview?doctype=Sales+Invoice&name=${invoiceData.name}&format=${fmt}&no_letterhead=1`, "_blank");
+                        }
                       }}
                     >
                       <Printer size={18} />
@@ -1247,8 +1460,15 @@ export default function PaymentDialog({
                       className="flex items-center space-x-2 px-4 py-2 bg-amber-100 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 rounded-lg hover:bg-amber-200 dark:hover:bg-amber-900/30 transition-colors"
                       title="Print Thermal (AR)"
                       onClick={() => {
-                        const fmt = encodeURIComponent(posDetails.custom_pos_print_format_ar as string);
-                        window.open(`/printview?doctype=Sales+Invoice&name=${invoiceData.name}&format=${fmt}&no_letterhead=1`, "_blank");
+                        if (!navigator.onLine) {
+                          setReceiptLanguage("ar");
+                          setTimeout(() => {
+                            handlePrintInvoice(invoiceData);
+                          }, 150);
+                        } else {
+                          const fmt = encodeURIComponent(posDetails.custom_pos_print_format_ar as string);
+                          window.open(`/printview?doctype=Sales+Invoice&name=${invoiceData.name}&format=${fmt}&no_letterhead=1`, "_blank");
+                        }
                       }}
                     >
                       <Printer size={18} />
@@ -1257,7 +1477,7 @@ export default function PaymentDialog({
                   )}
 
                   <button
-                    className="flex items-center space-x-2 px-4 py-2 bg-blue-100 dark:bg-blue-900/20 text-ziditech-600 dark:text-blue-400 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/30 transition-colors"
+                    className="flex items-center space-x-2 px-4 py-2 bg-blue-100 dark:bg-blue-900/20 text-gray-900 dark:text-blue-400 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-900/30 transition-colors"
                     title="Email"
                     onClick={() => {
                       const subject = encodeURIComponent("Your Invoice");
@@ -1278,7 +1498,7 @@ export default function PaymentDialog({
                   </button>
 
                   <button
-                    className="flex items-center space-x-2 px-4 py-2 bg-ziditech-100 dark:bg-ziditech-900/20 text-ziditech-600 dark:text-ziditech-400 rounded-lg hover:bg-ziditech-200 dark:hover:bg-ziditech-900/30 transition-colors"
+                    className="flex items-center space-x-2 px-4 py-2 bg-ziditech-100 dark:bg-ziditech-900/20 text-gray-900 dark:text-gray-500 rounded-lg hover:bg-ziditech-200 dark:hover:bg-ziditech-900/30 transition-colors"
                     title="WhatsApp"
                     onClick={() => {
                       const msg = encodeURIComponent(
@@ -1308,7 +1528,7 @@ export default function PaymentDialog({
                   </button>
 
                   <button
-                    className="flex items-center space-x-2 px-4 py-2 bg-ziditech-100 dark:bg-ziditech-900/20 text-p-600 dark:text-ziditech-400 rounded-lg hover:bg-ziditech-200 dark:hover:bg-ziditech-900/30 transition-colors"
+                    className="flex items-center space-x-2 px-4 py-2 bg-ziditech-100 dark:bg-ziditech-900/20 text-p-600 dark:text-gray-500 rounded-lg hover:bg-ziditech-200 dark:hover:bg-ziditech-900/30 transition-colors"
                     title="View Full Invoice"
                     onClick={() => handleViewInvoice(invoiceData)}
                   >
@@ -1383,18 +1603,40 @@ export default function PaymentDialog({
                             </div>
                           </div>
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                              Amount
-                            </label>
+                            <div className="flex items-center justify-between mb-2">
+                              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                                Amount
+                              </label>
+                              {renderCurrencySelector(method.id, "text-sm")}
+                            </div>
                             <input
-                              type="number"
-                              value={method.amount.toFixed(2) || ""}
-                              onChange={(e) =>
-                                handlePaymentAmountChange(
-                                  method.id,
-                                  e.target.value
-                                )
-                              }
+                              type="text"
+                              inputMode="decimal"
+                              value={focusedMethodId === method.id ? (paymentInputs[method.id] ?? "") : getDisplayAmount(method.id)}
+                              onFocus={() => {
+                                setFocusedMethodId(method.id);
+                                const displayVal = getDisplayAmount(method.id).replaceAll(',', '');
+                                setPaymentInputs(prev => ({ ...prev, [method.id]: displayVal }));
+                              }}
+                              onBlur={() => {
+                                setFocusedMethodId(null);
+                                if (!isSecondary(method.id)) {
+                                  const numValue = parseFloat(parseNumberFromCommas(paymentInputs[method.id] || "0"));
+                                  if (!isNaN(numValue)) {
+                                    handlePaymentAmountChange(method.id, parseFloat(numValue.toFixed(2)).toString());
+                                  }
+                                }
+                              }}
+                              onChange={(e) => {
+                                const rawValue = e.target.value;
+                                setPaymentInputs(prev => ({ ...prev, [method.id]: rawValue }));
+                                const cleanVal = parseNumberFromCommas(rawValue);
+                                if (isSecondary(method.id)) {
+                                  handleSecondaryAmountChange(method.id, cleanVal);
+                                } else {
+                                  handlePaymentAmountChange(method.id, cleanVal);
+                                }
+                              }}
                               placeholder="0.00"
                               disabled={invoiceSubmitted || isProcessingPayment}
                               className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-ziditech-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
@@ -1403,6 +1645,12 @@ export default function PaymentDialog({
                                   : ""
                               }`}
                             />
+                            {renderExchangeRateRow(method.id)}
+                            {isSecondary(method.id) && (paymentAmounts[method.id] ?? 0) > 0 && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                ≈ {currencies.baseSymbol}{(paymentAmounts[method.id] ?? 0).toFixed(2)} {currencies.baseCurrency}
+                              </p>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -1421,9 +1669,10 @@ export default function PaymentDialog({
                       </label>
                       <div className="flex space-x-2">
                         <input
-                          type="number"
-                          value={roundOffInput}
-                          onChange={(e) => handleRoundOffChange(e.target.value)}
+                          type="text"
+                          inputMode="decimal"
+                          value={formatNumberWithCommas(roundOffInput)}
+                          onChange={(e) => handleRoundOffChange(parseNumberFromCommas(e.target.value))}
                           disabled={invoiceSubmitted || isProcessingPayment || !roundOffEnabled}
                           placeholder="-0.00"
                           className={`flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-ziditech-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
@@ -1460,7 +1709,7 @@ export default function PaymentDialog({
                     </span>
                   </div>
                   {calculations.couponDiscount > 0 && (
-                    <div className="flex justify-between text-ziditech-600 dark:text-ziditech-400">
+                    <div className="flex justify-between text-gray-900 dark:text-gray-500">
                       <span>Discount</span>
                       <span>
                         -{formatCurrency(calculations.couponDiscount)}
@@ -1475,7 +1724,7 @@ export default function PaymentDialog({
                     <span
                       className={`font-medium ${
                         calculations.isInclusive
-                          ? "text-ziditech-600 dark:text-ziditech-400"
+                          ? "text-gray-900 dark:text-gray-500"
                           : "text-gray-900 dark:text-white"
                       }`}
                     >
@@ -1511,7 +1760,7 @@ export default function PaymentDialog({
                         <span className="text-gray-600 dark:text-gray-400">
                           Total Paid
                         </span>
-                        <span className="font-medium text-ziditech-600 dark:text-blue-400">
+                        <span className="font-medium text-gray-900 dark:text-blue-400">
                           {formatCurrency(totalPaidAmount)}
                         </span>
                       </div>
@@ -1528,7 +1777,7 @@ export default function PaymentDialog({
                           <span className="text-gray-600 dark:text-gray-400">
                             Change
                           </span>
-                          <span className="font-medium text-ziditech-600 dark:text-ziditech-400">
+                          <span className="font-medium text-gray-900 dark:text-gray-500">
                             {formatCurrency(
                               subtractCurrency(totalPaidAmount, calculations.grandTotal)
                             )}
@@ -1618,7 +1867,7 @@ export default function PaymentDialog({
           {invoiceSubmitted ? (
             <div className="flex items-center space-x-3">
               {isAutoPrinting && (
-                <div className="flex items-center space-x-2 text-ziditech-600">
+                <div className="flex items-center space-x-2 text-gray-900">
                   <Loader2 size={16} className="animate-spin" />
                   <span className="text-sm">Printing...</span>
                 </div>
@@ -1637,8 +1886,8 @@ export default function PaymentDialog({
               <button
                 className={`p-2 rounded-lg ${
                   sharingMode === "email"
-                    ? "bg-blue-100 text-ziditech-700"
-                    : "text-ziditech-600 hover:bg-blue-100"
+                    ? "bg-blue-100 text-gray-900"
+                    : "text-gray-900 hover:bg-blue-100"
                 } dark:text-blue-400 dark:hover:bg-blue-900`}
                 title="Email"
                 onClick={() =>
@@ -1651,9 +1900,9 @@ export default function PaymentDialog({
               <button
                 className={`p-2 rounded-lg ${
                   sharingMode === "whatsapp"
-                    ? "bg-blue-100 text-ziditech-700"
-                    : "text-ziditech-600 hover:bg-ziditech-100"
-                } dark:text-ziditech-400 dark:hover:bg-ziditech-900`}
+                    ? "bg-blue-100 text-gray-900"
+                    : "text-gray-900 hover:bg-ziditech-100"
+                } dark:text-gray-500 dark:hover:bg-ziditech-900`}
                 title="WhatsApp"
                 onClick={() =>
                   setSharingMode(sharingMode === "whatsapp" ? null : "whatsapp")
@@ -1666,8 +1915,8 @@ export default function PaymentDialog({
               <button
                 className={`p-2 rounded-lg ${
                   sharingMode === "sms"
-                    ? "bg-blue-100 text-ziditech-700"
-                    : "text-ziditech-600 hover:bg-blue-100"
+                    ? "bg-blue-100 text-gray-900"
+                    : "text-gray-900 hover:bg-blue-100"
                 } dark:text-blue-400 dark:hover:bg-blue-900`}
                 title="SMS"
                 onClick={() =>
@@ -1679,7 +1928,7 @@ export default function PaymentDialog({
               </button>
 
               <button
-                className="p-2 text-ziditech-600 hover:bg-ziditech-100 dark:text-ziditech-400 dark:hover:bg-ziditech-900 rounded-lg"
+                className="p-2 text-gray-900 hover:bg-ziditech-100 dark:text-gray-500 dark:hover:bg-ziditech-900 rounded-lg"
                 title="View Full"
                 onClick={() => handleViewInvoice(invoiceData)}
               >
@@ -1762,7 +2011,7 @@ export default function PaymentDialog({
                         <button
                           type="button"
                           onClick={() => setIsEditingEmail(!isEditingEmail)}
-                          className="text-sm text-ziditech-600 hover:text-ziditech-700 dark:text-ziditech-400 dark:hover:text-ziditech-300 font-medium"
+                          className="text-sm text-gray-900 hover:text-gray-900 dark:text-gray-500 dark:hover:text-gray-500 font-medium"
                         >
                           {isEditingEmail ? (
       <Check className="w-4 h-4" />
@@ -1819,7 +2068,7 @@ export default function PaymentDialog({
 
                       <div className="bg-ziditech-50 dark:bg-blue-900/20 rounded-lg p-4 border border-ziditech-200 dark:border-blue-800">
                         <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
-                          Subject: Your Invoice from Sultan POS
+                          Subject: Your Invoice from Managely
                         </p>
                         <div className="text-sm text-gray-900 dark:text-white">
                           <div
@@ -1902,7 +2151,7 @@ export default function PaymentDialog({
                         <button
                           type="button"
                           onClick={() => setIsEditingWhatsapp(!isEditingWhatsapp)}
-                          className="text-sm text-ziditech-600 hover:text-ziditech-700 dark:text-ziditech-400 dark:hover:text-ziditech-300 font-medium"
+                          className="text-sm text-gray-900 hover:text-gray-900 dark:text-gray-500 dark:hover:text-gray-500 font-medium"
                         >
                           {isEditingWhatsapp ? (
       <Check className="w-4 h-4" />
@@ -2039,7 +2288,7 @@ export default function PaymentDialog({
                         <div className="text-sm text-gray-900 dark:text-white">
                           <p>Hi {sharingData.name || "Customer"}!</p>
                           <p className="mt-1">
-                            Thank you for your purchase at Sultan POS.
+                            Thank you for your purchase at Managely.
                           </p>
                           <p className="mt-1">
                             Invoice Total:{" "}
@@ -2055,7 +2304,7 @@ export default function PaymentDialog({
                           await sendSMSMessage({
                             mobile_no: sharingData.phone,
                             customer_name: sharingData.name,
-                            message: `Thank you for your purchase at Sultan POS.\nInvoice Total: ${formatCurrency(calculations.grandTotal)}\nThank you!`
+                            message: `Thank you for your purchase at Managely.\nInvoice Total: ${formatCurrency(calculations.grandTotal)}\nThank you!`
                           });
                           toast.success("SMS sent successfully!");
                           setSharingMode(null);
@@ -2117,44 +2366,54 @@ export default function PaymentDialog({
                             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300">
                               Amount
                             </label>
-                            <div className="flex space-x-1">
+                            <div className="flex items-center space-x-1">
+                              {renderCurrencySelector(method.id)}
                               <button
                                 onClick={() => handleAutoFillPayment(method.id)}
                                 disabled={invoiceSubmitted || isProcessingPayment}
                                 className={`p-1 rounded text-xs ${
                                   invoiceSubmitted || isProcessingPayment
                                     ? "cursor-not-allowed opacity-50"
-                                    : "hover:bg-ziditech-100 text-ziditech-600"
+                                    : "hover:bg-ziditech-100 text-gray-900"
                                 }`}
                                 title="Auto-fill with grand total"
                               >
                                 <CheckCircle size={16} />
                               </button>
-
                             </div>
                           </div>
                           <input
-                            type="number"
-                            step="0.01"
-                            value={method.amount || ""}
-                            onChange={(e) => {
-                              setActiveMethodId(method.id);
-                              const inputValue = e.target.value;
-                              const numValue =
-                                inputValue === "" ? 0 : parseFloat(inputValue);
-                              handleManualAmountChange(
-                                method.id,
-                                isNaN(numValue) ? "0" : numValue.toString()
-                              );
+                            type="text"
+                            inputMode="decimal"
+                            value={focusedMethodId === method.id ? (paymentInputs[method.id] ?? "") : getDisplayAmount(method.id)}
+                            onFocus={() => {
+                              setFocusedMethodId(method.id);
+                              const displayVal = getDisplayAmount(method.id).replaceAll(',', '');
+                              setPaymentInputs(prev => ({ ...prev, [method.id]: displayVal }));
                             }}
                             onBlur={(e) => {
+                              setFocusedMethodId(null);
                               setActiveMethodId(method.id);
-                              const numValue = parseFloat(e.target.value);
-                              if (!isNaN(numValue)) {
-                                const formatted = parseFloat(
-                                  numValue.toFixed(2)
+                              if (!isSecondary(method.id)) {
+                                const numValue = parseFloat(parseNumberFromCommas(e.target.value));
+                                if (!isNaN(numValue)) {
+                                  handleManualAmountChange(method.id, parseFloat(numValue.toFixed(2)).toString());
+                                }
+                              }
+                            }}
+                            onChange={(e) => {
+                              setActiveMethodId(method.id);
+                              const rawValue = e.target.value;
+                              setPaymentInputs(prev => ({ ...prev, [method.id]: rawValue }));
+                              const cleanVal = parseNumberFromCommas(rawValue);
+                              if (isSecondary(method.id)) {
+                                handleSecondaryAmountChange(method.id, cleanVal);
+                              } else {
+                                const numValue = cleanVal === "" ? 0 : parseFloat(cleanVal);
+                                handleManualAmountChange(
+                                  method.id,
+                                  isNaN(numValue) ? "0" : numValue.toString()
                                 );
-                                handleManualAmountChange(method.id, formatted.toString());
                               }
                             }}
                             placeholder="0.00"
@@ -2165,6 +2424,12 @@ export default function PaymentDialog({
                                 : ""
                             }`}
                           />
+                          {renderExchangeRateRow(method.id)}
+                          {isSecondary(method.id) && (paymentAmounts[method.id] ?? 0) > 0 && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              ≈ {currencies.baseSymbol}{(paymentAmounts[method.id] ?? 0).toFixed(2)} {currencies.baseCurrency}
+                            </p>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -2206,7 +2471,7 @@ export default function PaymentDialog({
                       <div
                         className={`px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg font-medium ${
                           calculations.isInclusive
-                            ? "text-ziditech-600 dark:text-blue-400"
+                            ? "text-gray-900 dark:text-blue-400"
                             : "text-gray-900 dark:text-white"
                         }`}
                       >
@@ -2231,10 +2496,11 @@ export default function PaymentDialog({
                         </label>
                         <div className="flex space-x-2">
                           <input
-                            type="number"
-                            value={roundOffInput}
+                            type="text"
+                            inputMode="decimal"
+                            value={formatNumberWithCommas(roundOffInput)}
                             onChange={(e) =>
-                              handleRoundOffChange(e.target.value)
+                              handleRoundOffChange(parseNumberFromCommas(e.target.value))
                             }
                             disabled={invoiceSubmitted || isProcessingPayment || !roundOffEnabled}
                             placeholder="-0.00"
@@ -2270,7 +2536,7 @@ export default function PaymentDialog({
                         </span>
                       </div>
                       {calculations.couponDiscount > 0 && (
-                        <div className="flex justify-between text-ziditech-600 dark:text-ziditech-400">
+                        <div className="flex justify-between text-gray-900 dark:text-gray-500">
                           <span>Coupon Discount</span>
                           <span>
                             -{formatCurrency(calculations.couponDiscount)}
@@ -2285,7 +2551,7 @@ export default function PaymentDialog({
                         <span
                           className={`font-medium ${
                             calculations.isInclusive
-                              ? "text-ziditech-600 dark:text-blue-400"
+                              ? "text-gray-900 dark:text-blue-400"
                               : "text-gray-900 dark:text-white"
                           }`}
                         >
@@ -2321,7 +2587,7 @@ export default function PaymentDialog({
                             <span className="text-gray-600 dark:text-gray-400">
                               Total Paid
                             </span>
-                            <span className="font-medium text-ziditech-600 dark:text-blue-400">
+                            <span className="font-medium text-gray-900 dark:text-blue-400">
                               {formatCurrency(totalPaidAmount)}
                             </span>
                           </div>
@@ -2333,7 +2599,7 @@ export default function PaymentDialog({
                               className={`font-bold ${
                                 outstandingAmount > 0
                                   ? "text-red-600 dark:text-red-400"
-                                  : "text-ziditech-600 dark:text-ziditech-400"
+                                  : "text-gray-900 dark:text-gray-500"
                               }`}
                             >
                               {formatCurrency(outstandingAmount)}
@@ -2344,7 +2610,7 @@ export default function PaymentDialog({
                               <span className="text-gray-600 dark:text-gray-400">
                                 Change
                               </span>
-                              <span className="font-bold text-ziditech-600 dark:text-ziditech-400">
+                              <span className="font-bold text-gray-900 dark:text-gray-500">
                                 {formatCurrency(
                                   subtractCurrency(totalPaidAmount, calculations.grandTotal)
                                 )}
@@ -2378,7 +2644,7 @@ export default function PaymentDialog({
               <>
                 <div className="text-center mb-4">
                   <h4 className="font-bold text-lg text-gray-900 dark:text-white">
-                    Sultan POS
+                    Managely
                   </h4>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
                     {isB2B ? "Sales Invoice" : "Sales Invoice"}
@@ -2491,7 +2757,7 @@ export default function PaymentDialog({
                     </span>
                   </div>
                   {calculations.couponDiscount > 0 && (
-                    <div className="flex justify-between text-ziditech-600 dark:text-ziditech-400">
+                    <div className="flex justify-between text-gray-900 dark:text-gray-500">
                       <span>Discount</span>
                       <span>
                         -{formatCurrency(calculations.couponDiscount)}
@@ -2506,7 +2772,7 @@ export default function PaymentDialog({
                     <span
                       className={`${
                         calculations.isInclusive
-                          ? "text-ziditech-600 dark:text-blue-400"
+                          ? "text-gray-900 dark:text-blue-400"
                           : "text-gray-900 dark:text-white"
                       }`}
                     >
@@ -2547,19 +2813,25 @@ export default function PaymentDialog({
                         </p>
                         {Object.entries(paymentAmounts)
                           .filter(([, amount]) => amount > 0)
-                          .map(([method, amount]) => (
-                            <div
-                              key={method}
-                              className="flex justify-between text-xs"
-                            >
-                              <span className="text-gray-600 dark:text-gray-400">
-                                {method}
-                              </span>
-                              <span className="text-gray-900 dark:text-white">
-                                {formatCurrency(amount)}
-                              </span>
-                            </div>
-                          ))}
+                          .map(([method, amount]) => {
+                            const mCurrency = getMethodCurrency(method);
+                            const isSecondary = currencies.enabled && mCurrency !== currencies.baseCurrency;
+                            const rate = getExchangeRate(mCurrency);
+                            const secAmount = isSecondary && rate > 0 ? amount / rate : null;
+                            return (
+                              <div key={method} className="flex justify-between text-xs">
+                                <span className="text-gray-600 dark:text-gray-400">
+                                  {method}
+                                </span>
+                                <span className="text-gray-900 dark:text-white text-right">
+                                  {secAmount !== null
+                                    ? <>{secAmount.toFixed(2)} {mCurrency}<br/><span className="text-gray-400">{formatCurrency(amount)}</span></>
+                                    : formatCurrency(amount)
+                                  }
+                                </span>
+                              </div>
+                            );
+                          })}
                       </div>
                     )}
 
@@ -2665,7 +2937,7 @@ export default function PaymentDialog({
                         href={`/app/work-order/${woName}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-ziditech-300 dark:border-ziditech-700 text-ziditech-700 dark:text-ziditech-400 bg-ziditech-50 dark:bg-ziditech-900/20 hover:bg-ziditech-100 dark:hover:bg-ziditech-900/40 transition-colors"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-ziditech-300 dark:border-ziditech-700 text-gray-900 dark:text-gray-500 bg-ziditech-50 dark:bg-ziditech-900/20 hover:bg-ziditech-100 dark:hover:bg-ziditech-900/40 transition-colors"
                       >
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -2679,7 +2951,7 @@ export default function PaymentDialog({
                         href={`/app/work-order/${wo.name}`}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-ziditech-300 dark:border-ziditech-700 text-ziditech-700 dark:text-ziditech-400 bg-ziditech-50 dark:bg-ziditech-900/20 hover:bg-ziditech-100 dark:hover:bg-ziditech-900/40 transition-colors"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-ziditech-300 dark:border-ziditech-700 text-gray-900 dark:text-gray-500 bg-ziditech-50 dark:bg-ziditech-900/20 hover:bg-ziditech-100 dark:hover:bg-ziditech-900/40 transition-colors"
                         title={`${wo.production_item} × ${wo.qty}`}
                       >
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">

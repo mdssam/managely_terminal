@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 
 async function createIcons() {
-	const inputFile = path.join(__dirname, "public", "bev_logo.jpeg");
+	const inputFile = path.join(__dirname, "public", "managelyLogo.webp");
 	const publicDir = path.join(__dirname, "public");
 
 	// Create different icon sizes

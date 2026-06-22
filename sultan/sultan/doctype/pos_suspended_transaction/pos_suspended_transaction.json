@@ -1,0 +1,258 @@
+{
+ "actions": [],
+ "autoname": "naming_series:",
+ "creation": "2026-05-30 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "sec_general",
+  "naming_series",
+  "pos_session",
+  "pos_profile",
+  "pos_closing_entry",
+  "company",
+  "employee",
+  "employee_name",
+  "col_break_1",
+  "posting_date_time",
+  "transaction_type",
+  "mode_of_payment",
+  "pos_cash_account",
+  "sec_amounts",
+  "debit",
+  "credit",
+  "col_break_2",
+  "total_amount",
+  "sec_description",
+  "description",
+  "sec_accounts",
+  "accounts"
+ ],
+ "fields": [
+  {
+   "fieldname": "sec_general",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Naming Series",
+   "options": "CSH-TXN-.YYYY.-",
+   "default": "CSH-TXN-.YYYY.-",
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "pos_session",
+   "fieldtype": "Link",
+   "label": "POS Session",
+   "options": "POS Opening Entry",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "pos_profile",
+   "fieldtype": "Link",
+   "label": "POS Profile",
+   "options": "POS Profile",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "pos_closing_entry",
+   "fieldtype": "Link",
+   "label": "POS Closing Entry",
+   "options": "POS Closing Entry",
+   "read_only": 1
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "label": "Company",
+   "options": "Company",
+   "in_standard_filter": 1,
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "label": "Employee",
+   "options": "Employee",
+   "read_only": 1
+  },
+  {
+   "fieldname": "employee_name",
+   "fieldtype": "Data",
+   "label": "Employee Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "posting_date_time",
+   "fieldtype": "Datetime",
+   "label": "Date",
+   "in_list_view": 1,
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "transaction_type",
+   "fieldtype": "Select",
+   "label": "Transaction Type",
+   "options": "Cash In\nCash Out\nOpening Difference\nClosing Difference",
+   "in_list_view": 1,
+   "read_only": 1,
+   "reqd": 1,
+   "default": "Cash In"
+  },
+  {
+   "fieldname": "mode_of_payment",
+   "fieldtype": "Link",
+   "label": "Method",
+   "options": "Mode of Payment",
+   "in_list_view": 1,
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "pos_cash_account",
+   "fieldtype": "Link",
+   "label": "POS Cash Account",
+   "options": "Account",
+   "read_only": 1
+  },
+  {
+   "fieldname": "sec_amounts",
+   "fieldtype": "Section Break",
+   "label": "Amounts"
+  },
+  {
+   "fieldname": "debit",
+   "fieldtype": "Currency",
+   "label": "Debit",
+   "options": "company:company_currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "credit",
+   "fieldtype": "Currency",
+   "label": "Credit",
+   "options": "company:company_currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "col_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "total_amount",
+   "fieldtype": "Currency",
+   "label": "Amount",
+   "options": "company:company_currency",
+   "in_list_view": 1,
+   "read_only": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "sec_description",
+   "fieldtype": "Section Break",
+   "label": "Description"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "label": "Remark",
+   "in_list_view": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "sec_accounts",
+   "fieldtype": "Section Break",
+   "label": "Transaction Details"
+  },
+  {
+   "fieldname": "accounts",
+   "fieldtype": "Table",
+   "label": "Accounts",
+   "options": "POS Cash Transaction Detail",
+   "reqd": 1
+  }
+ ],
+ "links": [],
+ "modified": "2026-06-17 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sultan",
+ "name": "POS Suspended Transaction",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales User",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Sales Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts User",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

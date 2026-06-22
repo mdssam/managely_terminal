@@ -6,28 +6,128 @@ import { usePOSDetails } from "../hooks/usePOSProfile"
 
 import MenuGrid from "./MenuGrid"
 import OrderSummary from "./OrderSummary"
-import MobilePOSLayout from "./MobilePOSLayout"
 import LoadingSpinner from "./LoadingSpinner"
 import BarcodeScannerModal from "./BarcodeScanner"
+import IngredientModifierModal from "./IngredientModifierModal"
 import { useBarcodeScanner } from "../hooks/useBarcodeScanner"
-import type { MenuItem, GiftCoupon } from "../../types"
-import { useMediaQuery } from "../hooks/useMediaQuery"
+import type { MenuItem, GiftCoupon, CartItem } from "../../types"
 import { useCartStore } from "../stores/cartStore"
 import { toast } from "react-toastify"
+import { useSearchParams, useNavigate } from "react-router-dom"
+import { getInvoiceDetails } from "../services/salesInvoice"
+import { useSalesTaxCharges } from "../hooks/useSalesTaxCharges"
+import { usePaymentModes } from "../hooks/usePaymentModes"
+import { useDeliveryPersonnel } from "../hooks/useDeliveryPersonnel"
+import { useCustomers } from "../hooks/useCustomers"
 
-export default function RetailPOSLayout() {
+interface RetailPOSLayoutProps {
+  isOrderStation?: boolean;
+}
+
+export default function RetailPOSLayout({ isOrderStation = false }: RetailPOSLayoutProps = {}) {
   const [selectedCategory, setSelectedCategory] = useState("all")
   const [localSearchQuery, setLocalSearchQuery] = useState("")
   const [appliedCoupons, setAppliedCoupons] = useState<GiftCoupon[]>([])
   const [showScanner, setShowScanner] = useState(false)
   const [pinnedItemId, setPinnedItemId] = useState<string | null>(null)
   const [identifierItemId, setIdentifierItemId] = useState<string | null>(null)
+  const [showOnlyAvailableAndCooking, setShowOnlyAvailableAndCooking] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('pos_show_only_available_and_cooking')
+      return cached ? cached === 'true' : true
+    }
+    return true
+  })
+
+  useEffect(() => {
+    localStorage.setItem('pos_show_only_available_and_cooking', String(showOnlyAvailableAndCooking))
+  }, [showOnlyAvailableAndCooking])
 
   // Debounce timer ref for search
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null)
 
   // Use cart store instead of local state
-  const { cartItems, addToCart, addToCartWithQuantity, updateQuantity, removeItem, clearCart } = useCartStore()
+  const { cartItems, addToCart, addToCartWithQuantity, updateQuantity, updateItemMods, removeItem, clearCart, setSelectedCustomer } = useCartStore()
+
+  const [selectedItemForMods, setSelectedItemForMods] = useState<CartItem | null>(null)
+  
+  const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    const draftId = searchParams.get('draft_id');
+    if (draftId) {
+      loadDraftInvoice(draftId);
+    }
+  }, [searchParams]);
+
+  const loadDraftInvoice = async (draftId: string) => {
+    try {
+      const toastId = toast.loading(`Loading Draft Invoice ${draftId}...`);
+      const response = await getInvoiceDetails(draftId);
+      
+      if (!response.success) {
+        throw new Error(response.error || "Failed to load draft");
+      }
+      
+      const invoiceData = response.data.data || response.data;
+
+      if (!invoiceData || !invoiceData.items || !Array.isArray(invoiceData.items)) {
+        throw new Error("No items found in draft invoice or invalid invoice format");
+      }
+      
+      // Clear current cart
+      clearCart();
+      
+      if (invoiceData.customer) {
+        setSelectedCustomer({
+          id: invoiceData.customer,
+          name: invoiceData.customer_name,
+          email: invoiceData.customer_email || '',
+          phone: invoiceData.mobile_no || '',
+          type: 'individual', // generic fallback
+          loyaltyPoints: 0,
+          totalSpent: 0,
+          totalOrders: 0,
+          preferredPaymentMethod: 'Cash',
+          status: 'active',
+          createdAt: '',
+          address: { street: '', city: '', state: '', zipCode: '', country: '' }
+        });
+      }
+
+      // Add items to cart
+      for (const item of invoiceData.items) {
+        await addToCartWithQuantity({
+          id: item.item_code,
+          item_code: item.item_code,
+          name: item.item_name,
+          category: item.item_group || 'All',
+          price: item.rate,
+          image: '',
+          uom: item.uom,
+          custom_ingredients: item.custom_ingredients || '',
+          custom_notes: item.custom_notes || ''
+        }, item.qty);
+      }
+      
+      toast.update(toastId, { render: `Loaded ${draftId}`, type: 'success', isLoading: false, autoClose: 3000 });
+      
+      // Store the draft ID so we can clean it up after checkout
+      useCartStore.getState().setDraftInvoiceId(draftId);
+      
+      // Remove draft_id from URL so it doesn't reload on refresh
+      searchParams.delete('draft_id');
+      setSearchParams(searchParams, { replace: true });
+
+    } catch (error: any) {
+      toast.dismiss();
+      toast.error(error.message || "Could not load draft invoice");
+      // Remove draft_id from URL so it doesn't keep failing
+      searchParams.delete('draft_id');
+      setSearchParams(searchParams, { replace: true });
+    }
+  };
 
   // Use professional data management with pagination
   const {
@@ -46,13 +146,57 @@ export default function RetailPOSLayout() {
 
   // Get POS details including scanner-only setting
   const { posDetails } = usePOSDetails()
+
+  // Pre-fetch critical database lookup resources for offline usage
+  useSalesTaxCharges()
+  useDeliveryPersonnel()
+  useCustomers("")
+  usePaymentModes(typeof posDetails?.name === 'string' ? posDetails.name : '')
+
+  // Set default customer based on POS Profile
+  useEffect(() => {
+    const { selectedCustomer, setSelectedCustomer } = useCartStore.getState();
+    if (posDetails?.name && !selectedCustomer) {
+      const defaultCust = posDetails.default_customer;
+      if (defaultCust) {
+        setSelectedCustomer({
+          id: defaultCust.id,
+          name: defaultCust.name,
+          email: defaultCust.email || '',
+          phone: defaultCust.phone || '',
+          type: 'individual',
+          loyaltyPoints: 0,
+          totalSpent: 0,
+          totalOrders: 0,
+          preferredPaymentMethod: 'Cash',
+          status: 'active',
+          createdAt: '',
+          address: { street: '', city: '', state: '', zipCode: '', country: '' }
+        });
+      } else {
+        setSelectedCustomer({
+          id: posDetails.name,
+          name: posDetails.name,
+          email: '',
+          phone: '',
+          type: 'individual',
+          loyaltyPoints: 0,
+          totalSpent: 0,
+          totalOrders: 0,
+          preferredPaymentMethod: 'Cash',
+          status: 'active',
+          createdAt: '',
+          address: { street: '', city: '', state: '', zipCode: '', country: '' }
+        });
+      }
+    }
+  }, [posDetails]);
+
   const useScannerOnly = posDetails?.custom_use_scanner_fully || false
   const hideUnavailableItems = posDetails?.hide_unavailable_items || false
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const scalePrefix = (posDetails as any)?.custom_scale_barcodes_start_with || ""
 
-  // Use media query to detect mobile/tablet screens
-  const isMobile = useMediaQuery("(max-width: 1024px)")
 
   const handleAddToCart = (item: MenuItem, quantity: number = 1) => {
     const isStockTracking = item.is_stock_item === 1 || item.is_stock_item === true
@@ -450,8 +594,13 @@ export default function RetailPOSLayout() {
   // When server-side search is active, use menuItems directly (already filtered by server)
   // Only apply local filtering for category and scale barcode typing
   const filteredItems = menuItems.filter((item) => {
-    // Availability filter - hide items with 0 quantity if hide_unavailable_items is enabled
-    if (hideUnavailableItems && item.available <= 0) {
+    // Availability filter - hide items with 0 quantity if hide_unavailable_items is enabled, unless they are fresh produce (cooking) items
+    if (hideUnavailableItems && item.available <= 0 && !item.is_fresh_produce) {
+      return false
+    }
+
+    // Toggle filter: Only show items with quantity OR items to cooking
+    if (showOnlyAvailableAndCooking && item.available <= 0 && !item.is_fresh_produce) {
       return false
     }
 
@@ -562,40 +711,13 @@ export default function RetailPOSLayout() {
     )
   }
 
-  // Render mobile layout for screens smaller than 1024px
-  if (isMobile) {
-    return (
-      <>
-        <MobilePOSLayout
-          items={filteredItems}
-          selectedCategory={selectedCategory}
-          onCategoryChange={setSelectedCategory}
-          searchQuery={localSearchQuery}
-          onSearchChange={handleSearchInput}
-          onScanBarcode={() => setShowScanner(true)}
-          scannerOnly={useScannerOnly}
-          hasMore={hasMore && !serverSearchQuery}
-          isLoadingMore={isLoadingMore}
-          onLoadMore={loadMoreProducts}
-          totalCount={totalCount}
-          isSearching={isSearching}
-        />
-        <BarcodeScannerModal
-          isOpen={showScanner}
-          onClose={() => setShowScanner(false)}
-          onBarcodeDetected={handleBarcodeDetected}
-        />
-      </>
-    )
-  }
-
-    // Desktop layout for larger screens
+  // POS always renders the full desktop layout with cart panel
   return (
     <>
       {scannerOnlyIndicator}
       <div className="flex h-screen bg-gray-50 dark:bg-gray-900 pb-8">
         {/* Menu Section - Takes remaining space minus cart width */}
-        <div className="flex-1 overflow-visible ml-20">
+        <div className="flex-1 overflow-visible min-w-0">
           <MenuGrid
             items={filteredItems}
             selectedCategory={selectedCategory}
@@ -611,28 +733,32 @@ export default function RetailPOSLayout() {
             onLoadMore={loadMoreProducts}
             totalCount={totalCount}
             isSearching={isSearching}
+            showOnlyAvailableAndCooking={showOnlyAvailableAndCooking}
+            onToggleAvailableAndCooking={setShowOnlyAvailableAndCooking}
           />
         </div>
 
         {/* Order Summary - 35% width on medium and large screens */}
         <div className="w-[35%] min-w-[420px] max-w-[600px] bg-white dark:bg-card shadow-lg border-l border-border overflow-y-auto">
           <OrderSummary
-  cartItems={cartItems}
-  onUpdateQuantity={handleUpdateQuantity}
-  onRemoveItem={handleRemoveItem}
-  onClearCart={handleClearCart}
-  appliedCoupons={appliedCoupons}
-  onApplyCoupon={handleApplyCoupon}
-  onRemoveCoupon={handleRemoveCoupon}
-  onDuplicateItem={(item) => {
-  addToCart({
-    ...item,
-    id: `${item.item_code || item.id}-${Date.now()}`,
-    item_code: item.item_code || item.id,  // preserve original item_code
-    quantity: 1,
-  })
-}}
-/>
+            cartItems={cartItems}
+            onUpdateQuantity={handleUpdateQuantity}
+            onRemoveItem={handleRemoveItem}
+            onClearCart={handleClearCart}
+            appliedCoupons={appliedCoupons}
+            onApplyCoupon={handleApplyCoupon}
+            onRemoveCoupon={handleRemoveCoupon}
+            isOrderStation={isOrderStation}
+            onEditItem={(item) => setSelectedItemForMods(item)}
+            onDuplicateItem={(item) => {
+              addToCart({
+                ...item,
+                id: `${item.item_code || item.id}-${Date.now()}`,
+                item_code: item.item_code || item.id,  // preserve original item_code
+                quantity: 1,
+              })
+            }}
+          />
         </div>
       </div>
 
@@ -642,6 +768,21 @@ export default function RetailPOSLayout() {
         onClose={() => setShowScanner(false)}
         onBarcodeDetected={handleBarcodeDetected}
       />
+
+      {/* Ingredient Modifier Modal */}
+      {selectedItemForMods && (
+        <IngredientModifierModal
+          isOpen={!!selectedItemForMods}
+          onClose={() => setSelectedItemForMods(null)}
+          itemCode={selectedItemForMods.item_code || selectedItemForMods.id}
+          itemName={selectedItemForMods.name}
+          initialNotes={selectedItemForMods.custom_notes || ''}
+          onConfirm={(mods, notes) => {
+            updateItemMods(selectedItemForMods.id, JSON.stringify(mods), notes)
+            toast.success("Customizations applied")
+          }}
+        />
+      )}
     </>
   )
 }

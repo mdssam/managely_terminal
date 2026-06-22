@@ -121,7 +121,7 @@ export default function CustomerDetailPage() {
       case 'vip':
         return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300'
       case 'active':
-        return 'bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900 dark:text-ziditech-300'
+        return 'bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900 dark:text-gray-500'
       case 'inactive':
         return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
       default:
@@ -141,7 +141,7 @@ export default function CustomerDetailPage() {
         return {
           icon: <Building size={16} />,
           label: 'Company',
-          color: 'bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900 dark:text-ziditech-300'
+          color: 'bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900 dark:text-gray-500'
         }
       case 'walk-in':
         return {
@@ -183,7 +183,7 @@ export default function CustomerDetailPage() {
           <div className="flex items-center space-x-4 mb-6">
             <button
               onClick={() => navigate('/customers')}
-              className="flex items-center space-x-2 text-gray-600 hover:text-ziditech-600 dark:text-gray-300 dark:hover:text-ziditech-400 transition-colors group"
+              className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-500 transition-colors group"
               type="button"
             >
               <div className="p-2 rounded-lg bg-gray-100 group-hover:bg-ziditech-50 dark:bg-gray-800 dark:group-hover:bg-ziditech-900 transition-colors">
@@ -342,11 +342,11 @@ export default function CustomerDetailPage() {
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 text-center">
-                  <p className="text-2xl font-bold text-ziditech-600 dark:text-ziditech-400">{customer.totalOrders}</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-500">{customer.totalOrders}</p>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Total Orders</p>
                 </div>
                 <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 text-center">
-                  <p className="text-2xl font-bold text-ziditech-600 dark:text-ziditech-400">{formatCurrency(customer.totalSpent)}</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-gray-500">{formatCurrency(customer.totalSpent)}</p>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Total Spent</p>
                 </div>
                 <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 text-center">
@@ -426,7 +426,7 @@ export default function CustomerDetailPage() {
                   {customer.tags.map((tag, index) => (
                     <span
                       key={index}
-                      className="px-3 py-1 bg-ziditech-100 text-ziditech-700 dark:bg-ziditech-900 dark:text-ziditech-300 rounded-full text-sm font-medium"
+                      className="px-3 py-1 bg-ziditech-100 text-gray-900 dark:bg-ziditech-900 dark:text-gray-500 rounded-full text-sm font-medium"
                     >
                       {tag}
                     </span>

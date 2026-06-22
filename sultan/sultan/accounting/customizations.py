@@ -34,6 +34,11 @@ def setup_custom_fields():
 		+ _dual_currency_child_fields("Purchase Invoice Item", "amount")
 		+ _dual_currency_child_fields("Payment Entry Reference", "allocated_amount")
 		+ _dual_currency_child_fields("Journal Entry Account", "credit_in_account_currency")
+		+ _dual_currency_parent_total_fields("Sales Invoice", "base_grand_total")
+		+ _dual_currency_parent_total_fields("Purchase Invoice", "base_grand_total")
+		+ _dual_currency_parent_total_fields("Payment Entry", "base_received_amount")
+		+ _dual_currency_parent_total_fields("Journal Entry", "total_credit")
+		+ _stamp_tax_fields()
 	)
 
 	count = 0
@@ -68,9 +73,59 @@ def setup_custom_fields():
 		_ensure_property_setter(dt, "set_warehouse", "reqd", "1", "Check")
 		_ensure_property_setter(dt, "set_warehouse", "bold", "1", "Check")
 
+	_upgrade_sultan_pos_cash_transaction_type()
+
 	frappe.db.commit()
 	frappe.clear_cache()
 	return f"Created/updated {count} accounting custom fields."
+
+
+_TXN_TYPE_OPTIONS = "Cash In\nCash Out\nOpening Difference\nClosing Difference"
+
+
+def _upgrade_sultan_pos_cash_transaction_type():
+	"""Ensure Sultan POS Cash Transaction has all 4 options and mode_of_payment field."""
+	row = frappe.db.get_value(
+		"DocField",
+		{"parent": "Sultan POS Cash Transaction", "fieldname": "transaction_type"},
+		["name", "options", "read_only", "default"],
+		as_dict=True,
+	)
+	if not row:
+		return
+	if row.options != _TXN_TYPE_OPTIONS or not row.read_only or row.default != "Cash In":
+		frappe.db.set_value("DocField", row.name, {
+			"options": _TXN_TYPE_OPTIONS,
+			"read_only": 1,
+			"default": "Cash In",
+		})
+
+	# Ensure mode_of_payment field exists (added after initial doctype creation)
+	if not frappe.db.get_value(
+		"DocField",
+		{"parent": "Sultan POS Cash Transaction", "fieldname": "mode_of_payment"},
+		"name",
+	):
+		pos_profile_idx = frappe.db.get_value(
+			"DocField",
+			{"parent": "Sultan POS Cash Transaction", "fieldname": "pos_profile"},
+			"idx",
+		) or 0
+		new_field = frappe.new_doc("DocField")
+		new_field.parent = "Sultan POS Cash Transaction"
+		new_field.parenttype = "DocType"
+		new_field.parentfield = "fields"
+		new_field.fieldname = "mode_of_payment"
+		new_field.label = "Mode of Payment"
+		new_field.fieldtype = "Link"
+		new_field.options = "Mode of Payment"
+		new_field.idx = pos_profile_idx + 1
+		new_field.insert(ignore_permissions=True)
+		if not frappe.db.has_column("Sultan POS Cash Transaction", "mode_of_payment"):
+			frappe.db.commit()
+			frappe.db.sql("ALTER TABLE `tabSultan POS Cash Transaction` ADD COLUMN mode_of_payment varchar(140)")
+			frappe.db.begin()
+		frappe.clear_cache(doctype="Sultan POS Cash Transaction")
 
 
 def _ensure_property_setter(dt, field, prop, value, prop_type="Data"):
@@ -91,6 +146,52 @@ def _ensure_property_setter(dt, field, prop, value, prop_type="Data"):
 		ps.property_type = prop_type
 		ps.flags.ignore_permissions = True
 		ps.insert(ignore_permissions=True)
+
+
+def _stamp_tax_fields():
+	"""Custom fields for Lebanese Stamp Tax on tax child tables."""
+	fields = []
+	for dt in ("Sales Taxes and Charges", "Purchase Taxes and Charges"):
+		fields += [
+			{
+				"dt": dt,
+				"fieldname": "custom_is_stamp",
+				"label": "Is Stamp",
+				"fieldtype": "Check",
+				"insert_after": "description",
+				"in_list_view": 1,
+			},
+			{
+				"dt": dt,
+				"fieldname": "custom_stamp_amount_lbp",
+				"label": "Stamp Amount LBP",
+				"fieldtype": "Currency",
+				"insert_after": "custom_is_stamp",
+				"depends_on": "eval:doc.custom_is_stamp",
+				"mandatory_depends_on": "eval:doc.custom_is_stamp",
+				"precision": "0",
+			},
+		]
+	return fields
+
+
+def _apply_stamp_taxes(doc):
+	"""Force stamp-marked tax rows to Actual type with the correct LBP-derived amount."""
+	if not doc.get("taxes"):
+		return
+	exchange_rate = flt(getattr(doc, "custom_exchange_rate_override", None)) or DEFAULT_LBP_PER_USD
+	currency = getattr(doc, "currency", None) or ""
+
+	for tax in doc.taxes:
+		if not (tax.get("custom_is_stamp") and flt(tax.get("custom_stamp_amount_lbp"))):
+			continue
+		lbp_amount = flt(tax.custom_stamp_amount_lbp)
+		tax.charge_type = "Actual"
+		tax.rate = 0
+		if currency == "LBP":
+			tax.tax_amount = lbp_amount
+		else:
+			tax.tax_amount = flt(lbp_amount / exchange_rate)
 
 
 def _transaction_parent_fields(dt, insert_after, exchange_insert_after="currency"):
@@ -138,11 +239,77 @@ def _dual_currency_child_fields(dt, insert_after):
 	]
 
 
+def _dual_currency_parent_total_fields(dt, insert_after):
+	return [
+		{
+			"dt": dt,
+			"fieldname": "custom_total_usd",
+			"label": "Total USD",
+			"fieldtype": "Currency",
+			"insert_after": insert_after,
+			"read_only": 1,
+		},
+		{
+			"dt": dt,
+			"fieldname": "custom_total_lbp",
+			"label": "Total LBP",
+			"fieldtype": "Currency",
+			"insert_after": "custom_total_usd",
+			"read_only": 1,
+			"precision": "0",
+		},
+	]
+
+
+def _auto_insert_stamp_taxes(doc):
+	"""Automatically append configured stamps to taxes for new Sales/Purchase Invoices."""
+	if doc.doctype not in ("Sales Invoice", "Purchase Invoice") or doc.docstatus != 0:
+		return
+
+	# Only auto-insert if it is a new document (never saved to database yet)
+	if not (doc.is_new() or not frappe.db.exists(doc.doctype, doc.name)):
+		return
+
+	if getattr(doc.flags, "sultan_stamps_applied", False):
+		return
+	doc.flags.sultan_stamps_applied = True
+
+	try:
+		settings = frappe.get_single("Sultan Settings")
+	except Exception:
+		return
+
+	if not settings.get("stamps"):
+		return
+
+	if not doc.get("taxes"):
+		doc.taxes = []
+
+	for setting in settings.stamps:
+		# Check if stamp is already in taxes to avoid duplicates
+		exists = any(
+			tax.account_head == setting.account and tax.get("custom_is_stamp")
+			for tax in doc.taxes
+		)
+		if not exists:
+			doc.append("taxes", {
+				"charge_type": "Actual",
+				"account_head": setting.account,
+				"description": setting.stamp_name,
+				"custom_is_stamp": 1,
+				"custom_stamp_amount_lbp": setting.amount_lbp,
+				"rate": 0,
+				"tax_amount": 0,
+			})
+
+
 def before_validate_transaction(doc, method=None):
 	if doc.doctype not in TRANSACTION_DOCTYPES:
 		return
 
 	ensure_exchange_rate(doc)
+	_auto_insert_stamp_taxes(doc)
+	_apply_stamp_taxes(doc)
 	set_dual_currency_amounts(doc)
 	copy_transaction_description_to_remarks(doc)
 
@@ -154,24 +321,97 @@ def before_save_purchase_invoice(doc, method=None):
 	validate_duplicate_supplier_invoice(doc)
 
 
+@frappe.whitelist()
+def get_lbp_usd_rate():
+	# 1. Try USD to LBP
+	rate = frappe.db.get_value(
+		"Currency Exchange",
+		{"from_currency": "USD", "to_currency": "LBP"},
+		"exchange_rate",
+		order_by="date desc",
+	)
+	if rate:
+		return flt(rate)
+
+	# 2. Try LBP to USD
+	rate = frappe.db.get_value(
+		"Currency Exchange",
+		{"from_currency": "LBP", "to_currency": "USD"},
+		"exchange_rate",
+		order_by="date desc",
+	)
+	if rate:
+		rate = flt(rate)
+		if rate > 0:
+			if rate < 1.0:
+				return 1.0 / rate
+			return rate
+
+	return float(DEFAULT_LBP_PER_USD)
+
+
 def ensure_exchange_rate(doc):
-	rate = flt(getattr(doc, "custom_exchange_rate_override", None)) or DEFAULT_LBP_PER_USD
+	rate = flt(getattr(doc, "custom_exchange_rate_override", None))
+	if not rate:
+		rate = get_lbp_usd_rate()
 	doc.custom_exchange_rate_override = rate
 
+	# Only override the accounting conversion_rate when the company books in LBP.
+	# For other company currencies (e.g. EGP, USD) the standard Frappe rate lookup
+	# must be left alone — overriding it with the LBP/USD rate causes wrong totals
+	# and makes the browser form perpetually "Not Saved" (ERPNext re-fetches the
+	# real rate client-side and detects a mismatch).
 	if doc.doctype in ("Sales Invoice", "Purchase Invoice"):
 		company_currency = frappe.get_cached_value("Company", doc.company, "default_currency") if doc.company else None
-		if doc.currency and company_currency and doc.currency != company_currency:
+		if company_currency == "LBP" and doc.currency and doc.currency != "LBP":
 			doc.conversion_rate = rate
 
 
 def set_dual_currency_amounts(doc):
 	rate = flt(getattr(doc, "custom_exchange_rate_override", None)) or DEFAULT_LBP_PER_USD
+	company_currency = frappe.get_cached_value("Company", doc.company, "default_currency") if doc.get("company") else None
+	total_usd = 0.0
+	total_lbp = 0.0
+	total_usd_debit = 0.0
+	total_lbp_debit = 0.0
+	total_usd_credit = 0.0
+	total_lbp_credit = 0.0
+	is_je = doc.doctype == "Journal Entry"
+
 	for row in _iter_line_rows(doc):
 		line_amount = _get_line_amount(row)
 		currency = getattr(row, "account_currency", None) or _get_transaction_currency(doc)
-		usd_amount, lbp_amount = _to_usd_lbp(line_amount, currency, rate)
+		row_exchange_rate = flt(getattr(row, "exchange_rate", 1.0)) or 1.0
+		usd_amount, lbp_amount = _to_usd_lbp(line_amount, currency, rate, company_currency, row_exchange_rate)
 		row.custom_usd_amount = usd_amount
 		row.custom_lbp_amount = lbp_amount
+		if is_je:
+			is_debit = flt(getattr(row, "debit", 0)) > 0 or flt(getattr(row, "debit_in_account_currency", 0)) > 0
+			if is_debit:
+				total_usd_debit += usd_amount
+				total_lbp_debit += lbp_amount
+			else:
+				total_usd_credit += usd_amount
+				total_lbp_credit += lbp_amount
+		else:
+			total_usd += usd_amount
+			total_lbp += lbp_amount
+
+	if is_je:
+		total_usd = total_usd_debit if total_usd_debit > 0 else total_usd_credit
+		total_lbp = total_lbp_debit if total_lbp_debit > 0 else total_lbp_credit
+	elif doc.doctype in ("Sales Invoice", "Purchase Invoice"):
+		final_amount = flt(getattr(doc, "rounded_total", 0)) or flt(getattr(doc, "grand_total", 0))
+		currency = doc.currency or company_currency or "USD"
+		total_usd, total_lbp = _to_usd_lbp(final_amount, currency, rate, company_currency)
+
+	# Update parent total fields if present on the doctype
+	if frappe.get_meta(doc.doctype).has_field("custom_total_usd"):
+		doc.custom_total_usd = total_usd
+	if frappe.get_meta(doc.doctype).has_field("custom_total_lbp"):
+		doc.custom_total_lbp = round(total_lbp)
+
+
 
 
 def copy_transaction_description_to_remarks(doc):
@@ -313,10 +553,24 @@ def _get_transaction_currency(doc):
 	return None
 
 
-def _to_usd_lbp(amount, currency, rate):
+def _to_usd_lbp(amount, currency, rate, company_currency=None, row_exchange_rate=1.0):
 	amount = flt(amount)
 	rate = flt(rate) or DEFAULT_LBP_PER_USD
 
 	if currency == "LBP":
 		return flt(amount / rate), flt(amount, 0)
-	return flt(amount), flt(amount * rate, 0)
+	if currency == "USD":
+		return flt(amount), flt(amount * rate, 0)
+
+	# Generic currency: convert via exchange_rate to company currency then express in USD/LBP
+	if not company_currency:
+		return flt(amount), flt(amount * rate, 0)
+
+	if company_currency == "USD":
+		usd_amount = amount * flt(row_exchange_rate)
+	else:
+		base_amount = amount * flt(row_exchange_rate)
+		usd_amount = base_amount / rate
+
+	return flt(usd_amount), flt(usd_amount * rate, 0)
+

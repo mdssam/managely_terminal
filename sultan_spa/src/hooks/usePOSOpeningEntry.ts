@@ -1,6 +1,7 @@
 
 
 import { useEffect, useState, useCallback } from "react";
+import { dbGet, dbSet, APP_CACHE_STORE } from "../services/offlineDB";
 
 // HOOK 1: Check if POS Opening Entry Exists
 export function usePOSOpeningStatus() {
@@ -10,11 +11,12 @@ export function usePOSOpeningStatus() {
 
   const fetchStatus = useCallback(async () => {
     setIsLoading(true);
+    const cacheKey = 'cached_has_open_entry';
     try {
       if (typeof window !== 'undefined' && !navigator.onLine) {
-        const cached = localStorage.getItem('cached_has_open_entry');
+        const cached = await dbGet<boolean>(APP_CACHE_STORE, cacheKey);
         if (cached !== null) {
-          setHasOpenEntry(JSON.parse(cached));
+          setHasOpenEntry(cached);
         } else {
           setHasOpenEntry(true); // Default to true offline to bypass block
         }
@@ -25,17 +27,15 @@ export function usePOSOpeningStatus() {
       const data = await res.json();
       if (typeof data.message === "boolean") {
         setHasOpenEntry(data.message);
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('cached_has_open_entry', JSON.stringify(data.message));
-        }
+        dbSet(APP_CACHE_STORE, cacheKey, data.message).catch(() => {});
       } else {
         throw new Error("Unexpected response");
       }
     } catch (err: any) {
       console.error("Error checking POS Opening Entry:", err);
-      const cached = typeof window !== 'undefined' ? localStorage.getItem('cached_has_open_entry') : null;
+      const cached = await dbGet<boolean>(APP_CACHE_STORE, cacheKey);
       if (cached !== null) {
-        setHasOpenEntry(JSON.parse(cached));
+        setHasOpenEntry(cached);
       } else {
         setHasOpenEntry(true); // Default to true offline to bypass block
       }

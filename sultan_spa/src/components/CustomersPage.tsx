@@ -10,7 +10,7 @@ import {
   Users,
   Eye,
   Edit,
-
+  ShoppingCart,
 } from "lucide-react"
 import { useCustomers } from "../hooks/useCustomers" // Import the hook
 import AddCustomerModal from "./AddCustomerModal"
@@ -216,7 +216,7 @@ export default function CustomersPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 mt-3">
               <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
                 <div className="flex items-center">
-                  <Users className="text-orange-500" size={24} />
+                  <Users className="text-gray-900" size={24} />
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Customers</p>
                     <p className="text-2xl font-semibold text-gray-900 dark:text-white">{customers.length} of {globalTotals?.total_customers ?? totalCount ?? customers.length}</p>
@@ -226,9 +226,7 @@ export default function CustomersPage() {
 
               <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
                 <div className="flex items-center">
-                  <div className="w-6 h-6 bg-orange-500 rounded flex items-center justify-center">
-                    <span className="text-white text-xs font-bold">📦</span>
-                  </div>
+                  <ShoppingCart className="text-gray-900" size={24} />
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Invoices</p>
                     <p className="text-2xl font-semibold text-gray-900 dark:text-white">{globalTotals?.total_invoices ?? stats.totalOrders}</p>
@@ -355,7 +353,7 @@ export default function CustomersPage() {
                                 e.stopPropagation()
                                 navigate(`/customers/${customer.id}`)
                               }}
-                              className="text-ziditech-600 hover:text-ziditech-700 dark:text-ziditech-400 dark:hover:text-ziditech-300"
+                              className="text-gray-900 hover:text-gray-900 dark:text-gray-500 dark:hover:text-gray-500"
                             >
                               <Eye size={16} />
                             </button>
@@ -450,15 +448,16 @@ export default function CustomersPage() {
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex pb-12">
       {/* Fixed Header */}
-      <div className="fixed top-0 left-20 right-0 z-50 bg-ziditech-50 dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+      <div className="fixed top-0 left-28 right-0 z-50 bg-ziditech-50 dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
         <div className="px-4 sm:px-6 py-4">
           <div className="flex items-center justify-between">
             <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">Customers</h1>
             <button
               onClick={() => setShowAddModal(true)}
-              className="bg-ziditech-600 text-white px-6 py-3 rounded-lg hover:bg-ziditech-700 transition-colors flex items-center space-x-2"
+              className="flex items-center justify-center space-x-2 px-5 py-2.5 text-white rounded-lg text-sm font-medium transition-all shadow-sm hover:opacity-90"
+              style={{ background: 'linear-gradient(135deg, #3a76fc 0%, #1a53d3 100%)' }}
             >
-              <Plus size={20} />
+              <Plus className="w-4 h-4" />
               <span>Add Customer</span>
             </button>
           </div>
@@ -473,7 +472,7 @@ export default function CustomersPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 mt-3">
               <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
                 <div className="flex items-center">
-                  <Users className="text-orange-500" size={24} />
+                  <Users className="text-gray-900" size={24} />
                   <div className="ml-4">
                     <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Customers</p>
                     <p className="text-2xl font-semibold text-gray-900 dark:text-white">{customers.length} of {totalCount || customers.length}</p>
@@ -483,9 +482,7 @@ export default function CustomersPage() {
 
             <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
               <div className="flex items-center">
-                <div className="w-6 h-6 bg-orange-500 rounded flex items-center justify-center">
-                  <span className="text-white text-xs font-bold">📦</span>
-                </div>
+                <ShoppingCart className="text-gray-900" size={24} />
                 <div className="ml-4">
                   <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Orders</p>
                   <p className="text-2xl font-semibold text-gray-900 dark:text-white">{stats.totalOrders}</p>
@@ -620,7 +617,7 @@ export default function CustomersPage() {
                               e.stopPropagation()
                               navigate(`/customers/${customer.id}`)
                             }}
-                            className="text-ziditech-600 hover:text-ziditech-700 dark:text-ziditech-400 dark:hover:text-ziditech-300"
+                            className="text-gray-900 hover:text-gray-900 dark:text-gray-500 dark:hover:text-gray-500"
                           >
                             <Eye size={16} />
                           </button>

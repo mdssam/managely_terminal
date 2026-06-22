@@ -31,7 +31,7 @@ export default function CategoryTabs({
     console.error("❌ Error fetching item groups:", error);
 
     return (
-      <div className="text-ziditech-600">
+      <div className="text-gray-900">
         <p>Error loading categories:</p>
         <pre className="text-xs bg-ziditech-50 p-2 rounded">{error}</pre>
       </div>
@@ -65,7 +65,7 @@ export default function CategoryTabs({
           onClick={() => onCategoryChange(category.id)}
           className={`flex items-center justify-center px-3 py-2 rounded-xl whitespace-nowrap transition-all duration-200 flex-shrink-0 min-w-fit ${
             selectedCategory === category.id
-              ? "bg-ziditech-50 text-ziditech-600 border border-ziditech-400 shadow-sm"
+              ? "bg-ziditech-50 text-gray-900 border border-ziditech-400 shadow-sm"
               : "bg-white text-gray-600 hover:bg-gray-50 border border-gray-200"
           }`}
         >

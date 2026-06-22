@@ -1,18 +1,21 @@
-import { Receipt, FileText, Grid3X3, Settings, BarChart3, Users } from "lucide-react"
+import { Receipt, FileText, Grid3X3, Settings, BarChart3, Users, Store } from "lucide-react"
 import { useNavigate, useLocation } from "react-router-dom"
 import { useUserInfo } from "../hooks/useUserInfo"
+import { usePOSDetails } from "../hooks/usePOSProfile"
 
 export default function RetailSidebar() {
   const navigate = useNavigate()
   const location = useLocation()
   const { userInfo } = useUserInfo()
+  const { posDetails } = usePOSDetails()
 
   const canAccessSalesDashboard = userInfo?.is_admin_user ?? false
+  const canAccessBranchSessions = posDetails?.custom_is_branch === 1 && (userInfo?.is_admin_user ?? false)
 
   const menuItems = [
     { icon: Grid3X3, path: "/pos", label: "POS" },
     { icon: BarChart3, path: "/dashboard", label: "Dashboard", requiresSalesDashboard: true },
-    { icon: Users, path: "/customers", label: "Customers" },
+    { icon: Store, path: "/branch-sessions", label: "Branch", requiresBranchAdmin: true },
     { icon: FileText, path: "/reports", label: "Reports" },
     { icon: Receipt, path: "/invoice", label: "InvoiceHistory" },
   ]
@@ -26,6 +29,7 @@ export default function RetailSidebar() {
 
   const handleNav = (item: (typeof menuItems)[0]) => {
     if (item.requiresSalesDashboard && !canAccessSalesDashboard) return
+    if (item.requiresBranchAdmin && !canAccessBranchSessions) return
     navigate(item.path)
   }
 
@@ -39,18 +43,18 @@ export default function RetailSidebar() {
       {/* Menu Items - Flexible space */}
       <div className="flex-1 flex flex-col items-center py-6 space-y-4">
         {menuItems.map((item, index) => {
-          const disabled = item.requiresSalesDashboard && !canAccessSalesDashboard
+          const disabled = (item.requiresSalesDashboard && !canAccessSalesDashboard) || (item.requiresBranchAdmin && !canAccessBranchSessions)
           return (
           <button
             key={index}
             onClick={() => handleNav(item)}
             disabled={disabled}
-            title={disabled ? "Sales Dashboard (Sales Manager, System Manager or Administrator only)" : item.label}
+            title={disabled ? "Restricted Access" : item.label}
             className={`w-12 h-12 rounded-xl flex items-center justify-center transition-colors ${
               disabled
                 ? "opacity-50 cursor-not-allowed text-gray-400 dark:text-gray-600"
                 : (isActive(item.path)
-                ? "bg-ziditech-100 dark:bg-ziditech-900/20 text-ziditech-600 dark:text-ziditech-400"
+                ? "bg-ziditech-100 dark:bg-ziditech-900/20 text-gray-900 dark:text-gray-500"
                 : "text-gray-400 dark:text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-700")
             }`}
           >

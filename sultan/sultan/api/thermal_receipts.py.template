@@ -1,0 +1,1115 @@
+"""
+Create three 80mm thermal receipt print formats and one A4 Sales Invoice print format for Sultan POS.
+Called from setup_fields.run() or directly via bench execute.
+"""
+
+import frappe
+
+# ── Client Vector Logos ───────────────────────────────────────────────────────
+LOGO_SQUARE = """##LOGO_SQUARE##"""
+
+LOGO_HORIZONTAL = """##LOGO_HORIZONTAL##"""
+
+# ── Shared style ─────────────────────────────────────────────────────────────
+_BASE_CSS = """<style>
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Tajawal:wght@300;400;500;700;900&display=swap');
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body, html { 
+    width: 72mm; 
+    font-size: 11px; 
+    color: #111; 
+    background: #fff; 
+    font-family: 'Outfit', 'Tajawal', sans-serif;
+    line-height: 1.5;
+    position: relative;
+}
+@page { size: 80mm auto; margin: 4mm 2mm; }
+
+.center { text-align: center; }
+.bold   { font-weight: 700; }
+.medium { font-weight: 500; }
+.small  { font-size: 9px; color: #666; }
+.lg     { font-size: 13px; }
+.xl     { font-size: 16px; }
+
+.divider { 
+    border-top: 1px dashed #aaa; 
+    margin: 8px 0; 
+}
+.solid  { 
+    border-top: 1px solid #111; 
+    margin: 8px 0; 
+}
+.double {
+    border-top: 3px double #111;
+    margin: 8px 0;
+}
+
+table   { width: 100%; border-collapse: collapse; }
+td, th  { padding: 4px 2px; vertical-align: top; }
+th      { font-weight: 700; border-bottom: 1.5px solid #111; font-size: 10px; color: #333; }
+.r { text-align: right; }
+.c { text-align: center; }
+
+.logo-container {
+    text-align: center;
+    margin-bottom: 12px;
+}
+
+.receipt-title {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    margin: 4px 0;
+    text-transform: uppercase;
+    color: #444;
+}
+
+.meta-info {
+    font-size: 10px;
+    line-height: 1.6;
+}
+.meta-info td {
+    padding: 2px 0;
+}
+.meta-label {
+    color: #666;
+}
+
+.item-table th {
+    padding-bottom: 6px;
+    text-transform: uppercase;
+}
+.item-table td {
+    font-size: 10.5px;
+    padding: 5px 2px;
+}
+.item-name {
+    font-weight: 500;
+    color: #111;
+}
+
+.totals-table td {
+    padding: 4px 2px;
+    font-size: 11px;
+}
+.grand td { 
+    font-size: 14px; 
+    font-weight: 700; 
+    padding-top: 6px;
+}
+
+.payment-table td {
+    font-size: 10px;
+    padding: 3px 2px;
+}
+
+.footer-msg {
+    font-size: 10px;
+    font-weight: 500;
+    margin-top: 10px;
+    color: #555;
+    line-height: 1.5;
+}
+.watermark {
+    position: absolute;
+    top: 40%;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 45px;
+    color: rgba(0, 0, 0, 0.06);
+    font-weight: 900;
+    transform: rotate(-25deg);
+    z-index: 1000;
+    pointer-events: none;
+    user-select: none;
+    white-space: nowrap;
+}
+</style>"""
+
+# ── Template 1: Sultan Thermal Standard ─────────────────────────────────────
+_STANDARD_HTML = """__CSS__
+
+<div class="logo-container">
+  {{ LOGO_SQUARE }}
+  <div class="small" style="margin-top:6px;">{% if doc.tax_id %}VAT No: {{ doc.tax_id }}{% endif %}</div>
+</div>
+
+{% if doc.docstatus == 0 %}
+<div class="watermark">DRAFT / مسودة</div>
+{% endif %}
+
+<div class="divider"></div>
+
+<div class="center">
+  <div class="bold lg" style="letter-spacing: 0.5px;">{{ doc.name }}</div>
+</div>
+
+<div class="divider"></div>
+
+<div class="meta-info">
+  <table>
+    <tr>
+      <td class="meta-label">Date / التاريخ:</td>
+      <td class="r bold">{{ doc.posting_date }} {{ (doc.posting_time | string).split(".")[0] }}</td>
+    </tr>
+    {% set cashier = frappe.db.get_value("POS Opening Entry", doc.custom_pos_opening_entry, "custom_employee_name") if doc.custom_pos_opening_entry else None %}
+    <tr>
+      <td class="meta-label">Cashier / الكاشير:</td>
+      <td class="r bold">{{ cashier or frappe.db.get_value("User", doc.owner, "full_name") or doc.owner }}</td>
+    </tr>
+    <tr>
+      <td class="meta-label">Customer / العميل:</td>
+      <td class="r bold">{{ doc.customer_name or doc.customer }}</td>
+    </tr>
+  </table>
+</div>
+
+<div class="divider"></div>
+
+<table class="item-table">
+  <thead><tr>
+    <th style="width:45%; text-align: left;">Item / الصنف</th>
+    <th class="c" style="width:15%">Qty</th>
+    <th class="r" style="width:20%">Price</th>
+    <th class="r" style="width:20%">Total</th>
+  </tr></thead>
+  <tbody>
+    {% for item in doc.items %}
+    <tr style="border-bottom: 1px solid #eee;">
+      <td>
+        <div class="item-name">{{ item.item_name or item.item_code }}</div>
+        {% if item.description and item.description != item.item_name %}
+        <div class="small">{{ item.description }}</div>
+        {% endif %}
+      </td>
+      <td class="c bold" style="vertical-align: middle;">{{ item.qty | int }}</td>
+      <td class="r bold" style="vertical-align: middle;">{{ "{:,.2f}".format(item.rate or 0) }}</td>
+      <td class="r bold" style="vertical-align: middle;">{{ "{:,.2f}".format(item.amount or 0) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<div class="solid"></div>
+
+<table class="totals-table">
+  <tr><td>Subtotal / المجموع</td><td class="r bold">{{ "{:,.2f}".format(doc.net_total or 0) }}</td></tr>
+  {% for tax in doc.taxes %}
+  <tr><td>{{ tax.description or tax.account_head }} ({{ tax.rate }}%)</td><td class="r bold">{{ "{:,.2f}".format(tax.tax_amount or 0) }}</td></tr>
+  {% endfor %}
+  {% if doc.discount_amount %}
+  <tr><td>Discount / خصم</td><td class="r bold" style="color: red;">-{{ "{:,.2f}".format(doc.discount_amount) }}</td></tr>
+  {% endif %}
+  <tr class="grand">
+    <td style="border-top: 1.5px solid #111; padding-top: 6px;">TOTAL / الإجمالي {{ doc.currency }}</td>
+    <td class="r bold" style="border-top: 1.5px solid #111; padding-top: 6px; font-size: 15px;">{{ "{:,.2f}".format(doc.grand_total or 0) }}</td>
+  </tr>
+</table>
+
+{% if doc.payments %}
+<div class="divider"></div>
+<table class="payment-table">
+  {% set total_paid = doc.payments | map(attribute='amount') | sum %}
+  {% for p in doc.payments %}
+  {% set show_payment = false %}
+  {% set print_amount = 0 %}
+  {% if p.amount and p.amount > 0 %}
+    {% set show_payment = true %}
+    {% set print_amount = p.amount %}
+  {% elif total_paid == 0 and (p.default or doc.payments|length == 1) %}
+    {% set show_payment = true %}
+    {% set print_amount = doc.grand_total %}
+  {% endif %}
+  {% if show_payment %}
+    {% set pm = p.mode_of_payment %}
+    {% if "cash" in pm|lower %}{% set pm = "Cash / كاش" %}{% elif "card" in pm|lower or "visa" in pm|lower %}{% set pm = "Visa / فيزا" %}{% endif %}
+    <tr><td>{{ pm }}</td><td class="r bold">{{ "{:,.2f}".format(print_amount or 0) }}</td></tr>
+  {% endif %}
+  {% endfor %}
+</table>
+{% endif %}
+
+<div class="divider"></div>
+
+<div class="center" style="margin: 12px 0;">
+  <img src="https://barcode.orcascan.com/?type=code128&data={{ doc.name }}" style="width: 50mm; height: 12mm; display: block; margin: 0 auto;" />
+  <div style="font-family: monospace; font-size: 10px; margin-top: 4px; letter-spacing: 1px;">{{ doc.name }}</div>
+</div>
+
+<div class="divider"></div>
+
+{% if doc.custom_qr_code %}
+<div class="center" style="margin:8px 0">
+  <img src="{{ doc.custom_qr_code }}" style="width:32mm;height:32mm" />
+</div>
+<div class="divider"></div>
+{% endif %}
+
+<div class="center footer-msg">
+  <div class="bold">Thank you for your visit!</div>
+  <div class="bold" style="margin-top:2px">شكراً لزيارتكم</div>
+</div>"""
+
+# ── Template 2: Sultan Thermal Standard EN ──────────────────────────────────
+_STANDARD_EN_HTML = """__CSS__
+
+<div class="logo-container">
+  {{ LOGO_SQUARE }}
+  <div class="small" style="margin-top:6px;">{% if doc.tax_id %}VAT No: {{ doc.tax_id }}{% endif %}</div>
+</div>
+
+{% if doc.docstatus == 0 %}
+<div class="watermark">DRAFT</div>
+{% endif %}
+
+<div class="divider"></div>
+<div class="center">
+  <div class="bold lg" style="letter-spacing: 0.5px;">{{ doc.name }}</div>
+</div>
+<div class="divider"></div>
+<div class="meta-info">
+  <table>
+    <tr><td class="meta-label">Date:</td><td class="r bold">{{ doc.posting_date }} {{ (doc.posting_time | string).split(".")[0] }}</td></tr>
+    {% set cashier = frappe.db.get_value("POS Opening Entry", doc.custom_pos_opening_entry, "custom_employee_name") if doc.custom_pos_opening_entry else None %}
+    <tr><td class="meta-label">Cashier:</td><td class="r bold">{{ cashier or frappe.db.get_value("User", doc.owner, "full_name") or doc.owner }}</td></tr>
+    <tr><td class="meta-label">Customer:</td><td class="r bold">{{ doc.customer_name or doc.customer }}</td></tr>
+  </table>
+</div>
+<div class="divider"></div>
+<table class="item-table">
+  <thead><tr><th style="width:50%; text-align: left;">Item</th><th class="c" style="width:15%">Qty</th><th class="r" style="width:17%">Price</th><th class="r" style="width:18%">Total</th></tr></thead>
+  <tbody>
+    {% for item in doc.items %}
+    <tr style="border-bottom: 1px solid #eee;">
+      <td>
+        <div class="item-name">{{ item.item_name or item.item_code }}</div>
+      </td>
+      <td class="c bold">{{ item.qty | int }}</td>
+      <td class="r bold">{{ "{:,.2f}".format(item.rate or 0) }}</td>
+      <td class="r bold">{{ "{:,.2f}".format(item.amount or 0) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+<div class="solid"></div>
+<table class="totals-table">
+  <tr><td>Subtotal</td><td class="r bold">{{ "{:,.2f}".format(doc.net_total or 0) }}</td></tr>
+  {% for tax in doc.taxes %}<tr><td>{{ tax.description or tax.account_head }} ({{ tax.rate }}%)</td><td class="r bold">{{ "{:,.2f}".format(tax.tax_amount or 0) }}</td></tr>{% endfor %}
+  {% if doc.discount_amount %}<tr><td>Discount</td><td class="r bold" style="color: red;">-{{ "{:,.2f}".format(doc.discount_amount) }}</td></tr>{% endif %}
+  <tr class="grand">
+    <td style="border-top: 1.5px solid #111; padding-top: 6px;">TOTAL {{ doc.currency }}</td>
+    <td class="r bold" style="border-top: 1.5px solid #111; padding-top: 6px; font-size: 15px;">{{ "{:,.2f}".format(doc.grand_total or 0) }}</td>
+  </tr>
+</table>
+{% if doc.payments %}
+<div class="divider"></div>
+<table class="payment-table">
+  {% set total_paid = doc.payments | map(attribute='amount') | sum %}
+  {% for p in doc.payments %}
+  {% set show_payment = false %}
+  {% set print_amount = 0 %}
+  {% if p.amount and p.amount > 0 %}
+    {% set show_payment = true %}
+    {% set print_amount = p.amount %}
+  {% elif total_paid == 0 and (p.default or doc.payments|length == 1) %}
+    {% set show_payment = true %}
+    {% set print_amount = doc.grand_total %}
+  {% endif %}
+  {% if show_payment %}
+    {% set pm = p.mode_of_payment %}
+    {% if "cash" in pm|lower %}{% set pm = "Cash" %}{% elif "card" in pm|lower or "visa" in pm|lower %}{% set pm = "Visa" %}{% endif %}
+    <tr><td>Payment Method: <span class="bold">{{ pm }}</span></td><td class="r bold">{{ "{:,.2f}".format(print_amount or 0) }}</td></tr>
+  {% endif %}
+  {% endfor %}
+</table>
+{% endif %}
+
+<div class="divider"></div>
+
+<div class="center" style="margin: 12px 0;">
+  <img src="https://barcode.orcascan.com/?type=code128&data={{ doc.name }}" style="width: 50mm; height: 12mm; display: block; margin: 0 auto;" />
+  <div style="font-family: monospace; font-size: 10px; margin-top: 4px; letter-spacing: 1px;">{{ doc.name }}</div>
+</div>
+
+<div class="divider"></div>
+
+{% if doc.custom_qr_code %}<div class="center" style="margin:6px 0"><img src="{{ doc.custom_qr_code }}" style="width:32mm;height:32mm" /></div><div class="divider"></div>{% endif %}
+<div class="center footer-msg"><div>Thank you for your visit!</div></div>"""
+
+# ── Template 3: Sultan Thermal Standard AR ──────────────────────────────────
+_STANDARD_AR_HTML = """__CSS__
+<style>body, html { direction: rtl; } .en { direction:ltr; unicode-bidi:embed; } td, th { text-align:right; } .r { text-align:left; } .c { text-align:center; }</style>
+
+<div class="logo-container">
+  {{ LOGO_SQUARE }}
+  {% if doc.tax_id %}<div class="small" style="margin-top: 6px;">الرقم الضريبي: <span class="en">{{ doc.tax_id }}</span></div>{% endif %}
+</div>
+
+{% if doc.docstatus == 0 %}
+<div class="watermark">مسودة</div>
+{% endif %}
+
+<div class="divider"></div>
+<div class="center">
+  <div class="bold lg en">{{ doc.name }}</div>
+</div>
+<div class="divider"></div>
+<div class="meta-info">
+  <table>
+    <tr><td>التاريخ:</td><td class="r en bold">{{ doc.posting_date }} {{ (doc.posting_time | string).split(".")[0] }}</td></tr>
+    {% set cashier = frappe.db.get_value("POS Opening Entry", doc.custom_pos_opening_entry, "custom_employee_name") if doc.custom_pos_opening_entry else None %}
+    <tr><td>الكاشير:</td><td class="r bold">{{ cashier or frappe.db.get_value("User", doc.owner, "full_name") or doc.owner }}</td></tr>
+    <tr><td>العميل:</td><td class="r bold">{{ doc.customer_name or doc.customer }}</td></tr>
+  </table>
+</div>
+<div class="divider"></div>
+<table class="item-table">
+  <thead><tr><th style="width:50%; text-align: right;">الصنف</th><th class="c" style="width:15%">الكمية</th><th class="r" style="width:17%">السعر</th><th class="r" style="width:18%">الإجمالي</th></tr></thead>
+  <tbody>
+    {% for item in doc.items %}
+    <tr style="border-bottom: 1px solid #eee;">
+      <td>
+        <div class="item-name">{{ item.item_name or item.item_code }}</div>
+      </td>
+      <td class="c en bold">{{ item.qty | int }}</td>
+      <td class="r en bold">{{ "{:,.2f}".format(item.rate or 0) }}</td>
+      <td class="r en bold">{{ "{:,.2f}".format(item.amount or 0) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+<div class="solid"></div>
+<table class="totals-table">
+  <tr><td>المجموع الفرعي</td><td class="r en bold">{{ "{:,.2f}".format(doc.net_total or 0) }}</td></tr>
+  {% for tax in doc.taxes %}<tr><td>{{ tax.description or "ضريبة" }} ({{ tax.rate }}%)</td><td class="r en bold">{{ "{:,.2f}".format(tax.tax_amount or 0) }}</td></tr>{% endfor %}
+  {% if doc.discount_amount %}<tr><td>خصم</td><td class="r en bold">-{{ "{:,.2f}".format(doc.discount_amount) }}</td></tr>{% endif %}
+  <tr class="grand">
+    <td style="border-top: 1.5px solid #111; padding-top: 6px;">الإجمالي {{ doc.currency }}</td>
+    <td class="r en bold" style="border-top: 1.5px solid #111; padding-top: 6px; font-size: 15px;">{{ "{:,.2f}".format(doc.grand_total or 0) }}</td>
+  </tr>
+</table>
+{% if doc.payments %}
+<div class="divider"></div>
+<table class="payment-table">
+  {% set total_paid = doc.payments | map(attribute='amount') | sum %}
+  {% for p in doc.payments %}
+  {% set show_payment = false %}
+  {% set print_amount = 0 %}
+  {% if p.amount and p.amount > 0 %}
+    {% set show_payment = true %}
+    {% set print_amount = p.amount %}
+  {% elif total_paid == 0 and (p.default or doc.payments|length == 1) %}
+    {% set show_payment = true %}
+    {% set print_amount = doc.grand_total %}
+  {% endif %}
+  {% if show_payment %}
+    {% set pm = p.mode_of_payment %}
+    {% if "cash" in pm|lower %}{% set pm = "كاش" %}{% elif "card" in pm|lower or "visa" in pm|lower %}{% set pm = "فيزا" %}{% endif %}
+    <tr><td>طريقة الدفع: <span class="bold">{{ pm }}</span></td><td class="r en bold">{{ "{:,.2f}".format(print_amount or 0) }}</td></tr>
+  {% endif %}
+  {% endfor %}
+</table>
+{% endif %}
+
+<div class="divider"></div>
+
+<div class="center" style="margin: 12px 0;">
+  <img src="https://barcode.orcascan.com/?type=code128&data={{ doc.name }}" style="width: 50mm; height: 12mm; display: block; margin: 0 auto;" />
+  <div style="font-family: monospace; font-size: 10px; margin-top: 4px; letter-spacing: 1px;" class="en">{{ doc.name }}</div>
+</div>
+
+<div class="divider"></div>
+
+{% if doc.custom_qr_code %}<div class="center" style="margin:6px 0"><img src="{{ doc.custom_qr_code }}" style="width:32mm;height:32mm" /></div><div class="divider"></div>{% endif %}
+<div class="center footer-msg"><div>شكراً لزيارتكم</div></div>"""
+
+# ── Template 4: Sultan Thermal Compact ──────────────────────────────────────
+_COMPACT_HTML = """__CSS__
+
+<div class="logo-container">
+  {{ LOGO_SQUARE }}
+  <div class="small" style="margin-top:4px">{{ doc.name }} | {{ doc.posting_date }}</div>
+  <div class="small">Customer: {{ doc.customer_name or doc.customer }}</div>
+</div>
+
+{% if doc.docstatus == 0 %}
+<div class="watermark" style="font-size: 35px; top: 35%;">DRAFT / مسودة</div>
+{% endif %}
+
+<div class="divider"></div>
+
+<table style="font-size:10px">
+  {% for item in doc.items %}
+  <tr>
+    <td><span class="bold">{{ item.item_name or item.item_code }}</span> x{{ item.qty | int }}</td>
+    <td class="r">{{ "{:,.2f}".format(item.amount or 0) }}</td>
+  </tr>
+  {% endfor %}
+</table>
+
+<div class="solid"></div>
+
+<table>
+  <tr><td>Net / صافي</td><td class="r">{{ "{:,.2f}".format(doc.net_total or 0) }}</td></tr>
+  {% for tax in doc.taxes %}
+  <tr><td>VAT {{ tax.rate }}%</td><td class="r">{{ "{:,.2f}".format(tax.tax_amount or 0) }}</td></tr>
+  {% endfor %}
+  <tr class="grand"><td>TOTAL {{ doc.currency }}</td><td class="r">{{ "{:,.2f}".format(doc.grand_total or 0) }}</td></tr>
+</table>
+
+{% if doc.payments %}
+<div class="small center" style="margin-top:3px">
+  {% for p in doc.payments %}{{ p.mode_of_payment }}: {{ "{:,.2f}".format(p.amount or 0) }}  {% endfor %}
+</div>
+{% endif %}
+
+<div class="divider"></div>
+
+<div class="center" style="margin: 8px 0;">
+  <img src="https://barcode.orcascan.com/?type=code128&data={{ doc.name }}" style="width: 45mm; height: 10mm; display: block; margin: 0 auto;" />
+</div>
+
+<div class="divider"></div>
+<div class="center small">Thank you / شكراً!</div>"""
+
+# ── Template 5: Sultan Thermal Bilingual (Arabic + English) ─────────────────
+_BILINGUAL_HTML = """__CSS__
+<style>.ar{direction:rtl;text-align:right}.split{display:flex;justify-content:space-between}</style>
+
+<div class="logo-container">
+  {{ LOGO_SQUARE }}
+  <div class="small" style="margin-top:6px;">{{ doc.name }} | {{ doc.posting_date }} {{ (doc.posting_time | string).split(".")[0] }}</div>
+</div>
+
+{% if doc.docstatus == 0 %}
+<div class="watermark">DRAFT / مسودة</div>
+{% endif %}
+
+<div class="divider"></div>
+
+<div class="split small">
+  <span>Customer: {{ doc.customer_name or doc.customer }}</span>
+  <span class="ar">العميل: {{ doc.customer_name or doc.customer }}</span>
+</div>
+
+<div class="divider"></div>
+
+<table class="item-table">
+  <thead><tr>
+    <th style="width:50%; text-align: left;">Item / الصنف</th>
+    <th class="c" style="width:20%">Qty / الكمية</th>
+    <th class="r" style="width:30%">Amount / القيمة</th>
+  </tr></thead>
+  <tbody>
+    {% for item in doc.items %}
+    <tr style="border-bottom: 1px solid #eee;">
+      <td>
+        <div class="item-name">{{ item.item_name or item.item_code }}</div>
+        {% if item.description and item.description != item.item_name %}
+        <div class="small">{{ item.description }}</div>
+        {% endif %}
+      </td>
+      <td class="c bold" style="vertical-align: middle;">{{ item.qty | int }}</td>
+      <td class="r bold" style="vertical-align: middle;">{{ "{:,.2f}".format(item.amount or 0) }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<div class="solid"></div>
+
+<table class="totals-table">
+  <tr><td>Subtotal / المجموع الجزئي</td><td class="r bold">{{ "{:,.2f}".format(doc.net_total or 0) }}</td></tr>
+  {% for tax in doc.taxes %}
+  <tr><td>{{ tax.description or "VAT" }} / ضريبة ({{ tax.rate }}%)</td><td class="r bold">{{ "{:,.2f}".format(tax.tax_amount or 0) }}</td></tr>
+  {% endfor %}
+  {% if doc.discount_amount %}
+  <tr><td>Discount / خصم</td><td class="r bold" style="color: red;">-{{ "{:,.2f}".format(doc.discount_amount) }}</td></tr>
+  {% endif %}
+  <tr class="grand">
+    <td style="border-top: 1.5px solid #111; padding-top: 6px;">TOTAL / الإجمالي {{ doc.currency }}</td>
+    <td class="r bold" style="border-top: 1.5px solid #111; padding-top: 6px; font-size: 15px;">{{ "{:,.2f}".format(doc.grand_total or 0) }}</td>
+  </tr>
+</table>
+
+{% if doc.payments %}
+<div class="divider"></div>
+<table class="payment-table">
+  {% set total_paid = doc.payments | map(attribute='amount') | sum %}
+  {% for p in doc.payments %}
+  {% set show_payment = false %}
+  {% set print_amount = 0 %}
+  {% if p.amount and p.amount > 0 %}
+    {% set show_payment = true %}
+    {% set print_amount = p.amount %}
+  {% elif total_paid == 0 and (p.default or doc.payments|length == 1) %}
+    {% set show_payment = true %}
+    {% set print_amount = doc.grand_total %}
+  {% endif %}
+  {% if show_payment %}
+    {% set pm = p.mode_of_payment %}
+    {% if "cash" in pm|lower %}{% set pm = "Cash / كاش" %}{% elif "card" in pm|lower or "visa" in pm|lower %}{% set pm = "Visa / فيزا" %}{% endif %}
+    <tr><td>{{ pm }}</td><td class="r bold">{{ "{:,.2f}".format(print_amount or 0) }}</td></tr>
+  {% endif %}
+  {% endfor %}
+</table>
+{% endif %}
+
+<div class="divider"></div>
+
+<div class="center" style="margin: 12px 0;">
+  <img src="https://barcode.orcascan.com/?type=code128&data={{ doc.name }}" style="width: 50mm; height: 12mm; display: block; margin: 0 auto;" />
+  <div style="font-family: monospace; font-size: 10px; margin-top: 4px; letter-spacing: 1px;">{{ doc.name }}</div>
+</div>
+
+<div class="divider"></div>
+
+{% if doc.custom_qr_code %}
+<div class="center" style="margin:8px 0">
+  <img src="{{ doc.custom_qr_code }}" style="width:32mm;height:32mm" />
+</div>
+<div class="divider"></div>
+{% endif %}
+
+<div class="center footer-msg">
+  <div class="bold">Thank you for shopping with us</div>
+  <div class="ar bold" style="margin-top:2px">شكراً لتسوقكم معنا</div>
+</div>"""
+
+# ── Template 6: Sales Invoice EN Print (A4 Premium English Layout) ────────────
+_SALES_INVOICE_EN_HTML = """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap');
+
+.invoice-body {
+    font-family: 'Outfit', sans-serif;
+    color: #222;
+    padding: 15mm 10mm;
+    background: #fff;
+    max-width: 210mm;
+    margin: 0 auto;
+    position: relative;
+}
+
+.invoice-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 35px;
+}
+
+.company-logo-section {
+    width: 50%;
+}
+
+.invoice-details-section {
+    text-align: right;
+    width: 45%;
+}
+
+.invoice-title {
+    font-size: 24px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    color: #111;
+    text-transform: uppercase;
+}
+
+.items-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 30px;
+    margin-bottom: 20px;
+}
+
+.items-table th {
+    border-top: 1px solid #111;
+    border-bottom: 1px solid #111;
+    font-weight: 700;
+    font-size: 12px;
+    color: #111;
+    text-transform: uppercase;
+}
+
+.items-table td {
+    border-bottom: 1px solid #eee;
+    font-size: 11.5px;
+    color: #333;
+}
+
+.totals-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.totals-table td {
+    font-size: 12px;
+}
+
+.watermark {
+    position: absolute;
+    top: 45%;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 90px;
+    color: rgba(0, 0, 0, 0.04);
+    font-weight: 900;
+    transform: rotate(-25deg);
+    z-index: 1000;
+    pointer-events: none;
+    user-select: none;
+    white-space: nowrap;
+}
+</style>
+
+<div class="invoice-body">
+    {% if doc.docstatus == 0 %}
+    <div class="watermark">DRAFT</div>
+    {% endif %}
+
+    <!-- Header -->
+    <div class="invoice-header">
+        <div class="company-logo-section">
+            <div style="width: 180px; margin-bottom: 15px;">
+                {{ LOGO_SQUARE }}
+            </div>
+            <div style="font-size: 11px; line-height: 1.6; color: #555;">
+                <div class="bold" style="color: #111; font-size: 13px;">{{ doc.company }}</div>
+                <div>zouk branch</div>
+                <div>Lebanon</div>
+                {% if doc.tax_id %}<div>VAT No: <span class="bold">{{ doc.tax_id }}</span></div>{% endif %}
+            </div>
+        </div>
+        <div class="invoice-details-section">
+            <div class="invoice-title">INVOICE</div>
+            <div style="font-size: 12px; color: #555; margin-top: 8px; line-height: 1.6;">
+                <div>Invoice N°: <span class="bold" style="color: #111; font-size: 13px;">{{ doc.name }}</span></div>
+                <div style="margin-top: 3px;">Date: <span class="bold" style="color: #111;">{{ doc.posting_date }}</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Parties -->
+    <div style="margin-bottom: 35px; margin-top: 15px;">
+        <div class="bold" style="font-size: 12px; text-transform: uppercase; color: #111; margin-bottom: 8px; border-bottom: 1px solid #111; padding-bottom: 4px; width: 180px;">Customer Details</div>
+        <div style="font-size: 11px; line-height: 1.6; color: #555;">
+            <div class="bold" style="color: #111; font-size: 13px;">{{ doc.customer_name or doc.customer }}</div>
+            {% if doc.customer_tax_id %}<div>VAT No: <span class="bold">{{ doc.customer_tax_id }}</span></div>{% endif %}
+            {% if doc.billing_address_display %}
+            <div style="margin-top: 4px;">{{ doc.billing_address_display.replace("<br>", ", ") }}</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Items Table -->
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th style="width: 45%; text-align: left; padding: 12px 10px;">Description / Product</th>
+                <th style="width: 10%; text-align: center; padding: 12px 10px;">Qty</th>
+                <th style="width: 15%; text-align: right; padding: 12px 10px;">TAX Base</th>
+                <th style="width: 15%; text-align: right; padding: 12px 10px;">TAX</th>
+                <th style="width: 15%; text-align: right; padding: 12px 10px;">Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in doc.items %}
+            {% set tax_rate = 0 %}
+            {% if item.item_tax_rate and item.item_tax_rate != '{}' %}
+              {% set tax_rate_dict = json.loads(item.item_tax_rate) %}
+              {% for k, v in tax_rate_dict.items() %}
+                {% set tax_rate = v %}
+              {% endfor %}
+            {% endif %}
+            {% if tax_rate == 0 and doc.taxes %}
+              {% set tax_rate = doc.taxes[0].rate %}
+            {% endif %}
+            {% set tax_amount = (item.net_amount or item.amount) * (tax_rate / 100.0) %}
+            {% set total_amount = (item.net_amount or item.amount) + tax_amount %}
+            <tr>
+                <td style="padding: 12px 10px;">
+                    <div class="bold" style="font-size: 12px; color: #111;">{{ item.item_name or item.item_code }}</div>
+                    {% if item.description and item.description != item.item_name %}
+                    <div style="font-size: 10px; color: #666; margin-top: 3px;">{{ item.description }}</div>
+                    {% endif %}
+                </td>
+                <td style="text-align: center; padding: 12px 10px;" class="en">{{ item.qty | int }}</td>
+                <td style="text-align: right; padding: 12px 10px;" class="en">{{ "{:,.2f}".format(item.net_amount or item.amount or 0) }} {{ doc.currency }}</td>
+                <td style="text-align: right; padding: 12px 10px;" class="en">{{ "{:,.2f}".format(tax_amount) }} {{ doc.currency }}</td>
+                <td style="text-align: right; padding: 12px 10px; font-weight: bold;" class="en">{{ "{:,.2f}".format(total_amount) }} {{ doc.currency }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Summary & Totals -->
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 30px;">
+        <div style="width: 50%; font-size: 11px; color: #666; line-height: 1.6;">
+            {{ doc.terms or "Payment will be made within three months from the issuance of this invoice, it will be made by bank transfer." }}
+            
+            {% if doc.custom_qr_code %}
+            <div style="margin-top: 25px;">
+                <img src="{{ doc.custom_qr_code }}" style="width: 30mm; height: 30mm; border: 1px solid #eee;" />
+            </div>
+            {% endif %}
+        </div>
+        <div style="width: 45%;">
+            <table class="totals-table">
+                <tr>
+                    <td style="color:#555; padding: 8px 10px; border-bottom: 1px solid #eaeaea;">TAX Base</td>
+                    <td style="text-align: right; padding: 8px 10px; border-bottom: 1px solid #eaeaea;" class="en">{{ "{:,.2f}".format(doc.net_total or 0) }} {{ doc.currency }}</td>
+                </tr>
+                {% for tax in doc.taxes %}
+                {% if tax.tax_amount %}
+                  {% set ns = namespace(tax_rate=tax.rate or 0) %}
+                  {% if ns.tax_rate == 0 and tax.item_wise_tax_detail %}
+                    {% set item_tax_dict = json.loads(tax.item_wise_tax_detail) %}
+                    {% for k, v in item_tax_dict.items() %}
+                      {% if v is sequence %}
+                        {% set ns.tax_rate = v[0] %}
+                      {% else %}
+                        {% set ns.tax_rate = v %}
+                      {% endif %}
+                    {% endfor %}
+                  {% endif %}
+                <tr>
+                    <td style="color:#555; padding: 8px 10px; border-bottom: 1px solid #eaeaea;">
+                        {{ tax.description }}
+                        {% if ns.tax_rate > 0 %}({{ ns.tax_rate }}%){% endif %}
+                    </td>
+                    <td style="text-align: right; padding: 8px 10px; border-bottom: 1px solid #eaeaea;" class="en">{{ "{:,.2f}".format(tax.tax_amount or 0) }} {{ doc.currency }}</td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+                {% if doc.discount_amount %}
+                <tr>
+                    <td style="color:#555; padding: 8px 10px; border-bottom: 1px solid #eaeaea;">Discount</td>
+                    <td style="text-align: right; padding: 8px 10px; border-bottom: 1px solid #eaeaea; color: red;" class="en">-{{ "{:,.2f}".format(doc.discount_amount) }} {{ doc.currency }}</td>
+                </tr>
+                {% endif %}
+                <tr class="grand-total">
+                    <td style="padding: 12px 10px; font-weight: bold; border-top: 2px solid #111; border-bottom: 2px solid #111; font-size: 14px;">Total</td>
+                    <td style="text-align: right; padding: 12px 10px; font-weight: bold; border-top: 2px solid #111; border-bottom: 2px solid #111; font-size: 14px;" class="en">{{ "{:,.2f}".format(doc.grand_total or 0) }} {{ doc.currency }}</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <!-- Stamp Section -->
+    <div style="display: flex; justify-content: flex-end; margin-top: 40px; margin-right: 20px;">
+        <div style="text-align: center; position: relative; width: 220px;">
+            <div style="font-size: 11px; font-weight: bold; color: #333; border-top: 1px solid #ddd; padding-top: 8px; margin-top: 80px;">Authorized Signature</div>
+        </div>
+    </div>
+</div>
+"""
+
+# ── Template 7: Sales Invoice AR Print (A4 Premium Arabic Layout) ────────────
+_SALES_INVOICE_AR_HTML = """
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;700;900&display=swap');
+
+.invoice-body {
+    font-family: 'Tajawal', sans-serif;
+    color: #222;
+    padding: 15mm 10mm;
+    background: #fff;
+    max-width: 210mm;
+    margin: 0 auto;
+    position: relative;
+    direction: rtl;
+    text-align: right;
+}
+
+.invoice-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 35px;
+}
+
+.company-logo-section {
+    width: 50%;
+}
+
+.invoice-details-section {
+    text-align: left;
+    width: 45%;
+}
+
+.invoice-title {
+    font-size: 24px;
+    font-weight: 900;
+    letter-spacing: 0.5px;
+    color: #111;
+}
+
+.items-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 30px;
+    margin-bottom: 20px;
+}
+
+.items-table th {
+    border-top: 1px solid #111;
+    border-bottom: 1px solid #111;
+    font-weight: 700;
+    font-size: 12px;
+    color: #111;
+}
+
+.items-table td {
+    border-bottom: 1px solid #eee;
+    font-size: 11.5px;
+    color: #333;
+}
+
+.totals-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.totals-table td {
+    font-size: 12px;
+}
+
+.watermark {
+    position: absolute;
+    top: 45%;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 90px;
+    color: rgba(0, 0, 0, 0.04);
+    font-weight: 900;
+    transform: rotate(-25deg);
+    z-index: 1000;
+    pointer-events: none;
+    user-select: none;
+    white-space: nowrap;
+}
+</style>
+
+<div class="invoice-body">
+    {% if doc.docstatus == 0 %}
+    <div class="watermark">مسودة</div>
+    {% endif %}
+
+    <!-- Header -->
+    <div class="invoice-header">
+        <div class="company-logo-section">
+            <div style="width: 180px; margin-bottom: 15px; margin-right: 0; margin-left: auto;">
+                {{ LOGO_SQUARE }}
+            </div>
+            <div style="font-size: 11px; line-height: 1.6; color: #555;">
+                <div class="bold" style="color: #111; font-size: 13px;">سلطان جلوبال</div>
+                <div>فرع ذوق مصبح</div>
+                <div>لبنان</div>
+                {% if doc.tax_id %}<div>الرقم الضريبي: <span class="bold">{{ doc.tax_id }}</span></div>{% endif %}
+            </div>
+        </div>
+        <div class="invoice-details-section">
+            <div class="invoice-title">فاتورة مبيعات</div>
+            <div style="font-size: 12px; color: #555; margin-top: 8px; line-height: 1.6; text-align: left;">
+                <div>رقم الفاتورة: <span class="bold" style="color: #111; font-size: 13px;">{{ doc.name }}</span></div>
+                <div style="margin-top: 3px;">التاريخ: <span class="bold" style="color: #111;">{{ doc.posting_date }}</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Parties -->
+    <div style="margin-bottom: 35px; margin-top: 15px;">
+        <div class="bold" style="font-size: 12px; color: #111; margin-bottom: 8px; border-bottom: 1px solid #111; padding-bottom: 4px; width: 120px;">بيانات العميل</div>
+        <div style="font-size: 11px; line-height: 1.6; color: #555;">
+            <div class="bold" style="color: #111; font-size: 13px;">{{ doc.customer_name or doc.customer }}</div>
+            {% if doc.customer_tax_id %}<div>الرقم الضريبي للعميل: <span class="bold">{{ doc.customer_tax_id }}</span></div>{% endif %}
+            {% if doc.billing_address_display %}
+            <div style="margin-top: 4px;">{{ doc.billing_address_display.replace("<br>", ", ") }}</div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Items Table -->
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th style="width: 45%; text-align: right; padding: 12px 10px;">الوصف / المنتج</th>
+                <th style="width: 10%; text-align: center; padding: 12px 10px;">الكمية</th>
+                <th style="width: 15%; text-align: left; padding: 12px 10px;">الخاضع للضريبة</th>
+                <th style="width: 15%; text-align: left; padding: 12px 10px;">الضريبة</th>
+                <th style="width: 15%; text-align: left; padding: 12px 10px;">الإجمالي</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in doc.items %}
+            {% set tax_rate = 0 %}
+            {% if item.item_tax_rate and item.item_tax_rate != '{}' %}
+              {% set tax_rate_dict = json.loads(item.item_tax_rate) %}
+              {% for k, v in tax_rate_dict.items() %}
+                {% set tax_rate = v %}
+              {% endfor %}
+            {% endif %}
+            {% if tax_rate == 0 and doc.taxes %}
+              {% set tax_rate = doc.taxes[0].rate %}
+            {% endif %}
+            {% set tax_amount = (item.net_amount or item.amount) * (tax_rate / 100.0) %}
+            {% set total_amount = (item.net_amount or item.amount) + tax_amount %}
+            <tr>
+                <td style="padding: 12px 10px;">
+                    <div class="bold" style="font-size: 12px; color: #111;">{{ item.item_name or item.item_code }}</div>
+                    {% if item.description and item.description != item.item_name %}
+                    <div style="font-size: 10px; color: #666; margin-top: 3px;">{{ item.description }}</div>
+                    {% endif %}
+                </td>
+                <td style="text-align: center; padding: 12px 10px;" class="en">{{ item.qty | int }}</td>
+                <td style="text-align: left; padding: 12px 10px;" class="en">{{ "{:,.2f}".format(item.net_amount or item.amount or 0) }} {{ doc.currency }}</td>
+                <td style="text-align: left; padding: 12px 10px;" class="en">{{ "{:,.2f}".format(tax_amount) }} {{ doc.currency }}</td>
+                <td style="text-align: left; padding: 12px 10px; font-weight: bold;" class="en">{{ "{:,.2f}".format(total_amount) }} {{ doc.currency }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Summary & Totals -->
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 30px;">
+        <div style="width: 50%; font-size: 11px; color: #666; line-height: 1.6;">
+            {{ doc.terms or "يتم دفع مستحقات هذه الفاتورة خلال فترة ثلاثة أشهر من تاريخ إصدارها، ويتم السداد عن طريق تحويل بنكي." }}
+            
+            {% if doc.custom_qr_code %}
+            <div style="margin-top: 25px; text-align: right;">
+                <img src="{{ doc.custom_qr_code }}" style="width: 30mm; height: 30mm; border: 1px solid #eee;" />
+            </div>
+            {% endif %}
+        </div>
+        <div style="width: 45%;">
+            <table class="totals-table">
+                <tr>
+                    <td style="color:#555; padding: 8px 10px; border-bottom: 1px solid #eaeaea;">الخاضع للضريبة</td>
+                    <td style="text-align: left; padding: 8px 10px; border-bottom: 1px solid #eaeaea;" class="en">{{ "{:,.2f}".format(doc.net_total or 0) }} {{ doc.currency }}</td>
+                </tr>
+                {% for tax in doc.taxes %}
+                {% if tax.tax_amount %}
+                  {% set ns = namespace(tax_rate=tax.rate or 0) %}
+                  {% if ns.tax_rate == 0 and tax.item_wise_tax_detail %}
+                    {% set item_tax_dict = json.loads(tax.item_wise_tax_detail) %}
+                    {% for k, v in item_tax_dict.items() %}
+                      {% if v is sequence %}
+                        {% set ns.tax_rate = v[0] %}
+                      {% else %}
+                        {% set ns.tax_rate = v %}
+                      {% endif %}
+                    {% endfor %}
+                  {% endif %}
+                <tr>
+                    <td style="color:#555; padding: 8px 10px; border-bottom: 1px solid #eaeaea;">
+                        {% if "Vat" in tax.description or "Value Added Tax" in tax.description or "ضريبة" in tax.description %}
+                          ضريبة القيمة المضافة
+                        {% else %}
+                          {{ tax.description }}
+                        {% endif %}
+                        {% if ns.tax_rate > 0 %}({{ ns.tax_rate }}%){% endif %}
+                    </td>
+                    <td style="text-align: left; padding: 8px 10px; border-bottom: 1px solid #eaeaea;" class="en">{{ "{:,.2f}".format(tax.tax_amount or 0) }} {{ doc.currency }}</td>
+                </tr>
+                {% endif %}
+                {% endfor %}
+                {% if doc.discount_amount %}
+                <tr>
+                    <td style="color:#555; padding: 8px 10px; border-bottom: 1px solid #eaeaea;">الخصم</td>
+                    <td style="text-align: left; padding: 8px 10px; border-bottom: 1px solid #eaeaea; color: red;" class="en">-{{ "{:,.2f}".format(doc.discount_amount) }} {{ doc.currency }}</td>
+                </tr>
+                {% endif %}
+                <tr class="grand-total">
+                    <td style="padding: 12px 10px; font-weight: bold; border-top: 2px solid #111; border-bottom: 2px solid #111; font-size: 14px;">المجموع الكلي</td>
+                    <td style="text-align: left; padding: 12px 10px; font-weight: bold; border-top: 2px solid #111; border-bottom: 2px solid #111; font-size: 14px;" class="en">{{ "{:,.2f}".format(doc.grand_total or 0) }} {{ doc.currency }}</td>
+                </tr>
+            </table>
+        </div>
+    </div>
+
+    <!-- Stamp Section -->
+    <div style="display: flex; justify-content: flex-end; margin-top: 40px; margin-left: 20px;">
+        <div style="text-align: center; position: relative; width: 220px;">
+            <div style="font-size: 11px; font-weight: bold; color: #333; border-top: 1px solid #ddd; padding-top: 8px; margin-top: 80px;">التوقيع المعتمد</div>
+        </div>
+    </div>
+</div>
+"""
+
+
+FORMATS = [
+    {
+        "name": "Sultan Thermal Standard",
+        "html": _STANDARD_HTML.replace("__CSS__", _BASE_CSS),
+        "description": "80mm standard receipt with header, item table, VAT breakdown, and QR code",
+    },
+    {
+        "name": "Sultan Thermal Standard EN",
+        "html": _STANDARD_EN_HTML.replace("__CSS__", _BASE_CSS),
+        "description": "80mm standard English receipt for Sultan POS",
+    },
+    {
+        "name": "Sultan Thermal Standard AR",
+        "html": _STANDARD_AR_HTML.replace("__CSS__", _BASE_CSS),
+        "description": "80mm standard Arabic receipt for Sultan POS",
+    },
+    {
+        "name": "Sultan Thermal Compact",
+        "html": _COMPACT_HTML.replace("__CSS__", _BASE_CSS),
+        "description": "80mm compact receipt — minimal header, items and total only",
+    },
+    {
+        "name": "Sultan Thermal Bilingual",
+        "html": _BILINGUAL_HTML.replace("__CSS__", _BASE_CSS),
+        "description": "80mm bilingual (Arabic/English) receipt with QR code",
+    },
+    {
+        "name": "Sultan Sales Invoice EN",
+        "html": _SALES_INVOICE_EN_HTML,
+        "description": "Premium fully English A4 print format with company logos",
+    },
+    {
+        "name": "Sultan Sales Invoice AR",
+        "html": _SALES_INVOICE_AR_HTML,
+        "description": "Premium fully Arabic A4 print format with company logos",
+    },
+]
+
+
+def create_thermal_print_formats():
+    """Create or update the thermal print formats and Sales Invoice print formats."""
+    for fmt in FORMATS:
+        existing = frappe.db.exists("Print Format", fmt["name"])
+        html_content = fmt["html"].replace("{{ LOGO_SQUARE }}", LOGO_SQUARE).replace("{{ LOGO_HORIZONTAL }}", LOGO_HORIZONTAL)
+        if not existing:
+            doc = frappe.new_doc("Print Format")
+            doc.name = fmt["name"]
+            doc.doc_type = "Sales Invoice"
+            doc.custom_format = 1
+            doc.standard = "No"
+            doc.print_format_type = "Jinja"
+            doc.html = html_content
+            doc.description = fmt.get("description", "")
+            doc.insert(ignore_permissions=True)
+            print(f"Created print format: {fmt['name']}")
+        else:
+            frappe.db.set_value("Print Format", fmt["name"], {
+                "html": html_content,
+                "custom_format": 1,
+                "standard": "No",
+                "print_format_type": "Jinja"
+            })
+            print(f"Updated print format: {fmt['name']}")
+
+    # Enforce correct monolingual templates on all existing POS Profiles
+    frappe.db.sql("UPDATE `tabPOS Profile` SET custom_pos_print_format_en='Sultan Thermal Standard EN', custom_pos_print_format_ar='Sultan Thermal Standard AR', print_format='Sultan Thermal Standard EN'")
+    
+    # Set default print format for Sales Invoice DocType
+    frappe.db.set_value("DocType", "Sales Invoice", "default_print_format", "Sultan Sales Invoice EN")
+    
+    frappe.db.commit()

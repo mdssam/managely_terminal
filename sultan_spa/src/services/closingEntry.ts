@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { extractErrorMessage } from "../utils/errorExtraction";
 import { refreshCSRFToken } from "../utils/csrf";
+import { dbGet, dbSet, APP_CACHE_STORE } from "../services/offlineDB";
 
 // HOOK: Create POS Closing Entry
 interface ClosingBalance {
@@ -24,6 +25,36 @@ export function useCreatePOSClosingEntry(): UseCreateClosingReturn {
     setIsCreating(true);
     setError(null);
     setSuccess(false);
+
+    if (typeof window !== "undefined" && !navigator.onLine) {
+      try {
+        // 1. Save to offline_closing_entries queue
+        const existingQueue = await dbGet<any[]>(APP_CACHE_STORE, "offline_closing_entries") || [];
+        existingQueue.push({
+          closing_balance: closingBalance,
+          timestamp: Date.now(),
+        });
+        await dbSet(APP_CACHE_STORE, "offline_closing_entries", existingQueue);
+
+        // 2. Clear current_opening_entry from cached_pos_details
+        const cachedDetails = await dbGet<any>(APP_CACHE_STORE, "cached_pos_details") || {};
+        cachedDetails.current_opening_entry = null;
+        await dbSet(APP_CACHE_STORE, "cached_pos_details", cachedDetails);
+
+        // 3. Update cached_has_open_entry
+        await dbSet(APP_CACHE_STORE, "cached_has_open_entry", false);
+
+        setSuccess(true);
+      } catch (err: any) {
+        console.error("Error creating offline POS Closing Entry:", err);
+        setError(err.message || "Unexpected error occurred");
+        throw err;
+      } finally {
+        setIsCreating(false);
+      }
+      return;
+    }
+
     const csrfToken = await refreshCSRFToken() || window.csrf_token;
 
     try {

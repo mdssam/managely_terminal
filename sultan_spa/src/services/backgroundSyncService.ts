@@ -1,4 +1,4 @@
-import { dbGetAll, dbPut, dbDelete, dbPutBatch, INVOICES_STORE, CUSTOMERS_STORE } from './offlineDB';
+import { dbGetAll, dbPut, dbDelete, dbPutBatch, dbGet, dbSet, INVOICES_STORE, CUSTOMERS_STORE, APP_CACHE_STORE, openDB } from './offlineDB';
 
 interface SyncStatus {
   isOnline: boolean;
@@ -52,49 +52,116 @@ class BackgroundSyncService {
     // Load from IndexedDB (migrating localStorage if needed), then trigger initial sync
     this.initFromDB().then(() => {
       this.updatePendingCount();
-      if (this.isOnline) this.syncOfflineInvoices();
+      if (this.isOnline) {
+        this.syncOfflineInvoices();
+        this.syncOfflineCashTransactions();
+      }
     });
   }
 
   private async initFromDB(): Promise<void> {
     try {
-      // --- Invoices ---
-      let invoices = await dbGetAll<OfflineInvoice>(INVOICES_STORE);
-      if (invoices.length === 0) {
-        try {
-          const raw = localStorage.getItem('sultan_offline_invoices');
-          if (raw) {
-            invoices = JSON.parse(raw);
-            if (invoices.length > 0) {
-              await dbPutBatch(INVOICES_STORE, invoices);
-              localStorage.removeItem('sultan_offline_invoices');
-              console.log(`[OfflineDB] Migrated ${invoices.length} invoices from localStorage → IndexedDB`);
-            }
-          }
-        } catch { /* ignore migration errors */ }
-      }
-      this.invoiceCache = invoices;
-
-      // --- Customers ---
-      let customers = await dbGetAll<OfflineCustomer>(CUSTOMERS_STORE);
-      if (customers.length === 0) {
-        try {
-          const raw = localStorage.getItem('sultan_offline_customers');
-          if (raw) {
-            customers = JSON.parse(raw);
-            if (customers.length > 0) {
-              await dbPutBatch(CUSTOMERS_STORE, customers);
-              localStorage.removeItem('sultan_offline_customers');
-              console.log(`[OfflineDB] Migrated ${customers.length} customers from localStorage → IndexedDB`);
-            }
-          }
-        } catch { /* ignore migration errors */ }
-      }
-      this.customerCache = customers;
+      this.invoiceCache  = await dbGetAll<OfflineInvoice>(INVOICES_STORE);
+      this.customerCache = await dbGetAll<OfflineCustomer>(CUSTOMERS_STORE);
+      await this.cleanupOldOfflineData();
     } catch (e) {
-      console.error('[OfflineDB] IndexedDB init failed, falling back to localStorage:', e);
-      try { this.invoiceCache = JSON.parse(localStorage.getItem('sultan_offline_invoices') || '[]'); } catch { this.invoiceCache = []; }
-      try { this.customerCache = JSON.parse(localStorage.getItem('sultan_offline_customers') || '[]'); } catch { this.customerCache = []; }
+      console.error('[OfflineDB] IndexedDB init failed:', e);
+      this.invoiceCache  = [];
+      this.customerCache = [];
+    }
+  }
+
+  private async cleanupOldOfflineData(): Promise<void> {
+    const fourteenDaysMs = 14 * 24 * 60 * 60 * 1000;
+    const cutoff = Date.now() - fourteenDaysMs;
+
+    // 1. Cleanup old offline invoices
+    const toKeepInvoices: OfflineInvoice[] = [];
+    for (const inv of this.invoiceCache) {
+      if (inv.timestamp < cutoff) {
+        console.log(`[Offline Cleanup] Deleting offline invoice ${inv.id} older than 2 weeks.`);
+        dbDelete(INVOICES_STORE, inv.id).catch(e => console.error(e));
+      } else {
+        toKeepInvoices.push(inv);
+      }
+    }
+    this.invoiceCache = toKeepInvoices;
+
+    // 2. Cleanup old offline cash transactions
+    try {
+      const cashList = await dbGet<any[]>(APP_CACHE_STORE, "offline_cash_transactions") || [];
+      const toKeepCash = cashList.filter(t => {
+        let ts = t.timestamp;
+        if (!ts && t.name && typeof t.name === 'string' && t.name.startsWith('OFFLINE-CASH-')) {
+          const parts = t.name.split('-');
+          const lastPart = parts[parts.length - 1];
+          ts = parseInt(lastPart, 10);
+        }
+        if (!ts && t.posting_date && t.posting_time) {
+          ts = new Date(`${t.posting_date}T${t.posting_time}`).getTime();
+        }
+        return (ts || Date.now()) >= cutoff;
+      });
+
+      if (toKeepCash.length !== cashList.length) {
+        console.log(`[Offline Cleanup] Cleaned up ${cashList.length - toKeepCash.length} cash transactions older than 2 weeks.`);
+        await dbSet(APP_CACHE_STORE, "offline_cash_transactions", toKeepCash);
+      }
+    } catch (e) {
+      console.error('[Offline Cleanup] Failed to cleanup cash transactions:', e);
+    }
+
+    // 3. Cleanup old cached online invoices in APP_CACHE_STORE
+    try {
+      const db = await openDB();
+      const transaction = db.transaction(APP_CACHE_STORE, 'readwrite');
+      const store = transaction.objectStore(APP_CACHE_STORE);
+      const request = store.openCursor();
+      request.onsuccess = (event: any) => {
+        const cursor = event.target.result;
+        if (cursor) {
+          const key = cursor.key as string;
+          if (key.startsWith("zustand:sultan_invoices_cache_") || key.startsWith("sultan_invoices_cache_")) {
+            const val = cursor.value;
+            let parsed: any = val;
+            let isZustand = false;
+            if (typeof val === "string") {
+              try { 
+                parsed = JSON.parse(val); 
+                if (parsed && typeof parsed === 'object' && 'state' in parsed) {
+                  isZustand = true;
+                }
+              } catch {}
+            }
+            
+            const invoices = isZustand ? parsed?.state?.invoices : parsed?.invoices;
+            if (Array.isArray(invoices)) {
+              const filtered = invoices.filter((inv: any) => {
+                const dateStr = inv.posting_date || inv.date;
+                const timeStr = inv.posting_time || inv.time || "00:00:00";
+                if (dateStr) {
+                  const ts = new Date(`${dateStr}T${timeStr}`).getTime();
+                  return ts >= cutoff;
+                }
+                return true;
+              });
+
+              if (filtered.length !== invoices.length) {
+                if (isZustand) {
+                  parsed.state.invoices = filtered;
+                  cursor.update(JSON.stringify(parsed));
+                } else {
+                  parsed.invoices = filtered;
+                  cursor.update(parsed);
+                }
+              }
+            }
+          }
+          cursor.continue();
+        }
+      };
+    } catch (e) {
+      console.error('[Offline Cleanup] Failed to cleanup cached invoices:', e);
     }
   }
 
@@ -192,20 +259,21 @@ class BackgroundSyncService {
   public async syncOfflineInvoices(): Promise<void> {
     if (this.isSyncingInvoices || !this.isOnline) return;
 
-    const unsynced = this.invoiceCache.filter(inv => !inv.synced);
-    if (unsynced.length === 0 && this.getUnsyncedCustomerCount() === 0) return;
-
     this.isSyncingInvoices = true;
     this.lastSyncError = null;
     this.notifyListeners();
 
-    const customerIdMap = await this.syncOfflineCustomers();
+    // First, sync any opening entries to get the real session IDs and relink local orders
+    await this.syncOfflineSessions();
 
-    if (unsynced.length === 0) {
+    const unsynced = this.invoiceCache.filter(inv => !inv.synced);
+    if (unsynced.length === 0 && this.getUnsyncedCustomerCount() === 0) {
       this.isSyncingInvoices = false;
       this.updatePendingCount();
       return;
     }
+
+    const customerIdMap = await this.syncOfflineCustomers();
 
     console.log(`[Offline Sync] Found ${unsynced.length} unsynced invoices. Starting sync...`);
 
@@ -258,13 +326,10 @@ class BackgroundSyncService {
             // Last resort: fall back to POS default customer
             if (!resolved) {
               try {
-                const cachedDetails = localStorage.getItem('cached_pos_details');
-                if (cachedDetails) {
-                  const posDetails = JSON.parse(cachedDetails);
-                  if (posDetails?.default_customer?.id) {
-                    console.warn(`[Offline Sync] Falling back to POS default customer for invoice ${inv.id}`);
-                    invoiceData = { ...invoiceData, customer: posDetails.default_customer };
-                  }
+                const posDetails = await dbGet<any>(APP_CACHE_STORE, 'cached_pos_details');
+                if (posDetails?.default_customer?.id) {
+                  console.warn(`[Offline Sync] Falling back to POS default customer for invoice ${inv.id}`);
+                  invoiceData = { ...invoiceData, customer: posDetails.default_customer };
                 }
               } catch { /* keep original — backend will substitute */ }
             }
@@ -289,7 +354,10 @@ class BackgroundSyncService {
           this.lastSyncError = errMsg;
         }
       }
-      if (!anyFailed) this.lastSync = new Date();
+      if (!anyFailed) {
+        this.lastSync = new Date();
+        await this.syncOfflineClosingEntries();
+      }
     } catch (e: any) {
       console.error('[Offline Sync] Error during import/sync:', e);
       this.lastSyncError = e?.message || 'Sync failed';
@@ -299,12 +367,127 @@ class BackgroundSyncService {
     }
   }
 
+  private async syncOfflineSessions(): Promise<void> {
+    if (!this.isOnline) return;
+
+    // Process Offline POS Opening Entries
+    try {
+      const openingQueue = await dbGet<any[]>(APP_CACHE_STORE, "offline_opening_entries") || [];
+      if (openingQueue.length > 0) {
+        console.log(`[Offline Sync] Found ${openingQueue.length} offline POS Opening Entries. Syncing...`);
+        const csrfToken = (window as any).csrf_token || '';
+        const toKeepOpenings = [];
+
+        for (const entry of openingQueue) {
+          try {
+            const response = await fetch('/api/method/sultan.sultan.api.pos_entry.create_opening_entry', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-Frappe-CSRF-Token': csrfToken },
+              body: JSON.stringify({
+                opening_balance: entry.opening_balance,
+                pos_profile: entry.pos_profile,
+                employee: entry.employee,
+                employee_name: entry.employee_name
+              }),
+              credentials: 'include',
+            });
+
+            const result = await response.json();
+            if (response.ok && result.message) {
+              const realSessionId = typeof result.message === 'string'
+                ? result.message
+                : (result.message.name || result.message.name);
+
+              console.log(`[Offline Sync] POS Opening Entry synced successfully as ${realSessionId}. Relinking offline orders...`);
+
+              // Relink Invoices in memory and IndexedDB
+              this.invoiceCache = this.invoiceCache.map(inv => {
+                if (inv.data?.custom_pos_opening_entry === entry.id) {
+                  const updatedData = { ...inv.data, custom_pos_opening_entry: realSessionId };
+                  const updatedInv = { ...inv, data: updatedData };
+                  dbPut(INVOICES_STORE, updatedInv).catch(e => console.error(e));
+                  return updatedInv;
+                }
+                return inv;
+              });
+
+              // Relink Cash Transactions
+              const cashList = await dbGet<any[]>(APP_CACHE_STORE, "offline_cash_transactions") || [];
+              const updatedCashList = cashList.map(tx => {
+                if (tx.pos_session === entry.id) {
+                  return { ...tx, pos_session: realSessionId };
+                }
+                return tx;
+              });
+              await dbSet(APP_CACHE_STORE, "offline_cash_transactions", updatedCashList);
+
+            } else {
+              console.error('[Offline Sync] Failed to sync POS Opening Entry:', result);
+              toKeepOpenings.push(entry);
+            }
+          } catch (err) {
+            console.error('[Offline Sync] Network error syncing POS Opening Entry:', err);
+            toKeepOpenings.push(entry);
+          }
+        }
+
+        await dbSet(APP_CACHE_STORE, "offline_opening_entries", toKeepOpenings);
+      }
+    } catch (e) {
+      console.error('[Offline Sync] Error processing offline opening entries:', e);
+    }
+  }
+
+  private async syncOfflineClosingEntries(): Promise<void> {
+    if (!this.isOnline) return;
+
+    // Process Offline POS Closing Entries
+    try {
+      const closingQueue = await dbGet<any[]>(APP_CACHE_STORE, "offline_closing_entries") || [];
+      if (closingQueue.length > 0) {
+        console.log(`[Offline Sync] Found ${closingQueue.length} offline POS Closing Entries. Syncing...`);
+        const csrfToken = (window as any).csrf_token || '';
+        const toKeepClosings = [];
+
+        for (const entry of closingQueue) {
+          try {
+            const response = await fetch('/api/method/sultan.sultan.api.pos_entry.create_closing_entry', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'X-Frappe-CSRF-Token': csrfToken },
+              body: JSON.stringify({
+                closing_balance: entry.closing_balance
+              }),
+              credentials: 'include',
+            });
+
+            const result = await response.json();
+            if (response.ok && result.message) {
+              console.log(`[Offline Sync] POS Closing Entry synced successfully.`);
+            } else {
+              console.error('[Offline Sync] Failed to sync POS Closing Entry:', result);
+              toKeepClosings.push(entry);
+            }
+          } catch (err) {
+            console.error('[Offline Sync] Network error syncing POS Closing Entry:', err);
+            toKeepClosings.push(entry);
+          }
+        }
+
+        await dbSet(APP_CACHE_STORE, "offline_closing_entries", toKeepClosings);
+      }
+    } catch (e) {
+      console.error('[Offline Sync] Error processing offline closing entries:', e);
+    }
+  }
+
   private setupEventListeners(): void {
     window.addEventListener('online', () => {
       this.isOnline = true;
       this.notifyListeners();
       this.processQueuedUpdates();
       this.syncOfflineInvoices();
+      this.syncSecurityIncidents();
+      this.syncOfflineCashTransactions();
     });
 
     window.addEventListener('offline', () => {
@@ -316,6 +499,8 @@ class BackgroundSyncService {
       if (!document.hidden && this.isOnline) {
         this.syncStockUpdates();
         this.syncOfflineInvoices();
+        this.syncSecurityIncidents();
+        this.syncOfflineCashTransactions();
       }
     });
 
@@ -323,6 +508,8 @@ class BackgroundSyncService {
       if (this.isOnline) {
         this.syncStockUpdates();
         this.syncOfflineInvoices();
+        this.syncSecurityIncidents();
+        this.syncOfflineCashTransactions();
       }
     });
   }
@@ -332,8 +519,103 @@ class BackgroundSyncService {
       if (this.isOnline && !this.isSyncing) {
         this.syncStockUpdates();
         this.syncOfflineInvoices();
+        this.syncSecurityIncidents();
+        this.syncOfflineCashTransactions();
       }
     }, 30000);
+  }
+
+  public async syncSecurityIncidents(): Promise<void> {
+    if (!this.isOnline) return;
+
+    try {
+      const incidents = await dbGet<any[]>(APP_CACHE_STORE, "security_incidents_log") || [];
+      if (incidents.length === 0) return;
+
+      const unsynced = incidents.filter(inc => !inc.synced);
+      if (unsynced.length === 0) return;
+
+      console.log(`[Security Sync] Found ${unsynced.length} unsynced incidents. Syncing to server...`);
+      const csrfToken = (window as any).csrf_token || '';
+
+      const response = await fetch('/api/method/sultan.sultan.api.security.log_security_incidents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Frappe-CSRF-Token': csrfToken },
+        body: JSON.stringify({ incidents: unsynced }),
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      if (result.message?.success) {
+        const loggedIds = new Set(result.message.logged || []);
+        // Mark synced incidents in local IndexedDB
+        const updatedIncidents = incidents.map(inc => {
+          if (loggedIds.has(inc.id) || result.message.logged.includes(inc.id)) {
+            return { ...inc, synced: true };
+          }
+          return inc;
+        });
+        await dbSet(APP_CACHE_STORE, "security_incidents_log", updatedIncidents);
+        console.log(`[Security Sync] Successfully synced ${loggedIds.size} incidents to server.`);
+      }
+    } catch (err) {
+      console.error('[Security Sync] Failed to sync security incidents:', err);
+    }
+  }
+
+  public async syncOfflineCashTransactions(): Promise<void> {
+    if (!this.isOnline) return;
+
+    try {
+      const offlineList = await dbGet<any[]>(APP_CACHE_STORE, "offline_cash_transactions") || [];
+      const unsynced = offlineList.filter(t => !t.synced);
+      if (unsynced.length === 0) return;
+
+      console.log(`[Offline Sync] Found ${unsynced.length} unsynced cash transactions. Syncing...`);
+      const csrfToken = (window as any).csrf_token || '';
+
+      const updatedList = [...offlineList];
+      let hasChanges = false;
+
+      for (const tx of unsynced) {
+        try {
+          const response = await fetch('/api/method/sultan.sultan.api.cash_transaction.create_cash_transaction', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Frappe-CSRF-Token': csrfToken },
+            body: JSON.stringify({
+              transaction_type: tx.transaction_type,
+              amount: tx.amount,
+              description: tx.description,
+              mode_of_payment: tx.mode_of_payment,
+              pos_session: tx.pos_session
+            }),
+            credentials: 'include',
+          });
+          const result = await response.json();
+          const msg = result.message ?? result;
+          if (msg.success) {
+            console.log(`[Offline Sync] Cash transaction ${tx.name} synced successfully as ${msg.name}`);
+            const idx = updatedList.findIndex(item => item.name === tx.name);
+            if (idx > -1) {
+              updatedList.splice(idx, 1);
+              hasChanges = true;
+            }
+          }
+        } catch (err) {
+          console.error(`[Offline Sync] Failed to sync cash transaction ${tx.name}:`, err);
+        }
+      }
+
+      if (hasChanges) {
+        await dbSet(APP_CACHE_STORE, "offline_cash_transactions", updatedList);
+      }
+    } catch (e) {
+      console.error('[Offline Sync] Error syncing cash transactions:', e);
+    }
   }
 
   private async syncStockUpdates(): Promise<void> {

@@ -41,19 +41,15 @@ class POSSuspendedTransaction(Document):
         if not pos_profile_name:
             frappe.throw(_("Could not find POS Profile for session {0}.").format(self.pos_session))
 
-        allowed = frappe.db.get_value(
+        # Check if the payment method is configured in the POS Profile
+        exists = frappe.db.exists(
             "POS Payment Method",
-            {"parent": pos_profile_name, "mode_of_payment": self.mode_of_payment},
-            "allowed_for_cash_in_out",
+            {"parent": pos_profile_name, "mode_of_payment": self.mode_of_payment}
         )
-        if allowed is None:
+        if not exists:
             frappe.throw(_("Mode of Payment {0} is not configured in POS Profile {1}.").format(
                 self.mode_of_payment, pos_profile_name
             ))
-        if not flt(allowed):
-            frappe.throw(_(
-                "Mode of Payment {0} is not allowed for Cash In/Out in POS Profile {1}."
-            ).format(self.mode_of_payment, pos_profile_name))
 
         pos_cash_account = frappe.db.get_value(
             "Mode of Payment Account",
@@ -126,10 +122,17 @@ class POSSuspendedTransaction(Document):
         company_currency = frappe.get_cached_value("Company", self.company, "default_currency")
         is_cash_in = flt(self.total_amount) >= 0.0 or flt(self.debit) > 0.0
 
+        cash_currency = frappe.db.get_value("Account", self.pos_cash_account, "account_currency") or company_currency
+        from sultan.sultan.api.cash_transaction import get_exchange_rate_for_cash_io
+        rate_cash = get_exchange_rate_for_cash_io(pos_profile, cash_currency, company_currency)
+
         gl_entries = []
         for row in self.accounts:
             if flt(row.amount) == 0.0:
                 continue
+            
+            cash_amount_in_ac = flt(row.amount) / rate_cash if rate_cash else flt(row.amount)
+
             gl_entries.append(frappe._dict({
                 "doctype": "GL Entry",
                 "company": self.company,
@@ -142,10 +145,10 @@ class POSSuspendedTransaction(Document):
                 "remarks": self.description or _("POS Cash Transaction"),
                 "debit": abs(flt(row.amount)) if is_cash_in else 0.0,
                 "credit": 0.0 if is_cash_in else abs(flt(row.amount)),
-                "debit_in_account_currency": abs(flt(row.amount)) if is_cash_in else 0.0,
-                "credit_in_account_currency": 0.0 if is_cash_in else abs(flt(row.amount)),
-                "account_currency": company_currency,
-                "exchange_rate": 1.0,
+                "debit_in_account_currency": abs(flt(cash_amount_in_ac)) if is_cash_in else 0.0,
+                "credit_in_account_currency": 0.0 if is_cash_in else abs(flt(cash_amount_in_ac)),
+                "account_currency": cash_currency,
+                "exchange_rate": rate_cash,
                 "cost_center": cost_center,
                 "is_opening": "No",
             }))
@@ -190,9 +193,21 @@ def create_cash_transaction_from_pos(pos_session, amount, mode_of_payment,
 
     company = frappe.db.get_value("POS Opening Entry", pos_session, "company")
     pos_profile = frappe.db.get_value("POS Opening Entry", pos_session, "pos_profile")
+    company_currency = frappe.get_cached_value("Company", company, "default_currency")
 
-    amount_val = flt(amount) if transaction_type in ("Cash In", "Opening Difference") else -flt(amount)
+    # Cash account — from the mode of payment
+    cash_account = frappe.db.get_value(
+        "Mode of Payment Account",
+        {"parent": mode_of_payment, "company": company},
+        "default_account",
+    )
+    if not cash_account:
+        frappe.throw(_("No default Account for Mode of Payment {0} in Company {1}.").format(
+            mode_of_payment, company
+        ))
+    cash_currency = frappe.db.get_value("Account", cash_account, "account_currency") or company_currency
 
+    # Offset account
     account = frappe.db.get_value("POS Profile", pos_profile, "write_off_account")
     if not account:
         account = frappe.get_cached_value("Company", company, "write_off_account")
@@ -200,10 +215,28 @@ def create_cash_transaction_from_pos(pos_session, amount, mode_of_payment,
         frappe.throw(_(
             "Please configure 'Write Off Account' in POS Profile {0} or Company {1}."
         ).format(pos_profile, company))
+    offset_currency = frappe.db.get_value("Account", account, "account_currency") or company_currency
+
+    from sultan.sultan.api.cash_transaction import get_exchange_rate_for_cash_io
+    rate_cash = get_exchange_rate_for_cash_io(pos_profile, cash_currency, company_currency)
+    rate_offset = get_exchange_rate_for_cash_io(pos_profile, offset_currency, company_currency)
+
+    base_amount = flt(amount) * rate_cash
+    offset_amount_in_ac = base_amount / rate_offset if rate_offset else base_amount
+
+    amount_val = base_amount if transaction_type in ("Cash In", "Opening Difference") else -base_amount
+
+    if not employee and pos_session:
+        employee = frappe.db.get_value("POS Opening Entry", pos_session, "custom_employee")
 
     doc = frappe.new_doc("POS Suspended Transaction")
     doc.pos_session = pos_session
     doc.company = company
+    if employee:
+        doc.employee = employee
+        doc.employee_name = frappe.db.get_value("Employee", employee, "employee_name")
+    else:
+        doc.employee_name = frappe.db.get_value("User", frappe.session.user, "full_name") or frappe.session.user
     doc.mode_of_payment = mode_of_payment
     doc.posting_date_time = frappe.utils.now_datetime()
     doc.total_amount = amount_val
@@ -211,8 +244,9 @@ def create_cash_transaction_from_pos(pos_session, amount, mode_of_payment,
     doc.transaction_type = transaction_type
     doc.append("accounts", {
         "account": account,
-        "amount_in_account_currency": abs(flt(amount_val)),
-        "exchange_rate": 1.0,
+        "account_currency": offset_currency,
+        "amount_in_account_currency": offset_amount_in_ac,
+        "exchange_rate": rate_offset,
     })
     doc.flags.from_pos_api = True
     doc.flags.ignore_permissions = True
@@ -266,6 +300,7 @@ def on_pos_opening_entry_submit(doc, method=None):
             mode_of_payment=row.mode_of_payment,
             description=desc,
             transaction_type="Opening Difference",
+            employee=doc.get("custom_employee"),
         )
 
 
@@ -328,16 +363,22 @@ def before_validate_pos_closing_entry(doc, method=None):
 
 def on_pos_closing_entry_submit(doc, method=None):
     """Create a Closing Difference transaction for any payment reconciliation differences."""
+    # Invalidate query value cache for this document, as a negative existence check
+    # might have been cached earlier in the transaction, which would cause
+    # LinkValidationError on the new POS Suspended Transaction linking to this doc.
+    if hasattr(frappe.db, "value_cache"):
+        keys_to_del = [
+            k for k in frappe.db.value_cache.keys()
+            if isinstance(k, tuple) and len(k) >= 2 and k[0] == doc.doctype and k[1] == doc.name
+        ]
+        for k in keys_to_del:
+            del frappe.db.value_cache[k]
+    frappe.clear_document_cache(doc.doctype, doc.name)
+
     for row in doc.payment_reconciliation:
         if flt(row.difference) == 0.0:
             continue
-        track = frappe.db.get_value(
-            "POS Payment Method",
-            {"parent": doc.pos_profile, "mode_of_payment": row.mode_of_payment},
-            "track_opening",
-        )
-        if not track:
-            continue
+        # Always track closing differences regardless of track_opening setting
 
         write_off_account = frappe.db.get_value("POS Profile", doc.pos_profile, "write_off_account")
         if not write_off_account:
@@ -346,11 +387,19 @@ def on_pos_closing_entry_submit(doc, method=None):
             frappe.throw(_(
                 "Please configure 'Write Off Account' in POS Profile {0} or Company {1}."
             ).format(doc.pos_profile, doc.company))
+        employee = None
+        if doc.pos_opening_entry:
+            employee = frappe.db.get_value("POS Opening Entry", doc.pos_opening_entry, "custom_employee")
 
         txn = frappe.new_doc("POS Suspended Transaction")
         txn.pos_session = doc.pos_opening_entry
         txn.pos_closing_entry = doc.name
         txn.company = doc.company
+        txn.employee = employee
+        if employee:
+            txn.employee_name = frappe.db.get_value("Employee", employee, "employee_name")
+        else:
+            txn.employee_name = frappe.db.get_value("User", doc.owner, "full_name") or doc.owner
         txn.mode_of_payment = row.mode_of_payment
         txn.posting_date_time = frappe.utils.now_datetime()
         txn.total_amount = flt(row.difference)
@@ -375,6 +424,317 @@ def on_pos_closing_entry_submit(doc, method=None):
         "pos_closing_entry",
         doc.name,
     )
+
+
+@frappe.whitelist()
+def get_session_reconciliation_data(pos_session):
+    opening_doc = frappe.get_doc("POS Opening Entry", pos_session)
+
+    opening_amounts = {
+        row.mode_of_payment: flt(row.opening_amount)
+        for row in opening_doc.balance_details
+    }
+
+    pos_invoice_meta = frappe.get_meta("POS Invoice")
+    if pos_invoice_meta.has_field("posa_pos_opening_shift"):
+        invoices = frappe.get_all(
+            "POS Invoice",
+            filters={"posa_pos_opening_shift": pos_session, "docstatus": 1},
+            pluck="name",
+        )
+    elif pos_invoice_meta.has_field("pos_opening_entry"):
+        invoices = frappe.get_all(
+            "POS Invoice",
+            filters={"pos_opening_entry": pos_session, "docstatus": 1},
+            pluck="name",
+        )
+    else:
+        invoices = frappe.get_all(
+            "POS Invoice",
+            filters={
+                "posting_date": ["between", [
+                    opening_doc.period_start_date or frappe.utils.nowdate(),
+                    opening_doc.period_end_date or frappe.utils.nowdate(),
+                ]],
+                "pos_profile": opening_doc.pos_profile,
+                "owner": opening_doc.user,
+                "docstatus": 1,
+            },
+            pluck="name",
+        )
+
+    invoice_sums = {}
+    change_sums = {}
+    if invoices:
+        payments = frappe.db.sql(
+            "SELECT mode_of_payment, SUM(amount) as total "
+            "FROM `tabSales Invoice Payment` WHERE parent IN %(invoices)s "
+            "GROUP BY mode_of_payment",
+            {"invoices": invoices},
+            as_dict=True,
+        )
+        for p in payments:
+            invoice_sums[p.mode_of_payment] = flt(p.total)
+
+        cash_mops = frappe.get_all("Mode of Payment", filters={"type": "Cash"}, pluck="name")
+        for mop in cash_mops:
+            change_total = frappe.db.sql(
+                "SELECT SUM(pi.change_amount) FROM `tabPOS Invoice` pi "
+                "WHERE pi.name IN %(invoices)s AND pi.change_amount > 0",
+                {"invoices": invoices},
+            )[0][0] or 0.0
+            if change_total:
+                change_sums[mop] = flt(change_total)
+
+    txns = frappe.get_all(
+        "POS Suspended Transaction",
+        filters={"pos_session": pos_session},
+        fields=["name", "mode_of_payment", "total_amount", "description", "transaction_type"],
+    )
+
+    suspended_sums = {}
+    txn_list = []
+    for t in txns:
+        mop = t.mode_of_payment
+        if t.transaction_type in ("Cash In", "Cash Out"):
+            suspended_sums[mop] = suspended_sums.get(mop, 0.0) + flt(t.total_amount)
+        if t.transaction_type != "Closing Difference":
+            txn_list.append({
+                "mode_of_payment": mop,
+                "description": t.description,
+                "total_amount": flt(t.total_amount),
+                "transaction_type": t.transaction_type,
+            })
+
+    all_mops = set(
+        list(opening_amounts.keys())
+        + list(invoice_sums.keys())
+        + list(suspended_sums.keys())
+    )
+    expected = {
+        mop: (
+            opening_amounts.get(mop, 0.0)
+            + invoice_sums.get(mop, 0.0) - change_sums.get(mop, 0.0)
+            + suspended_sums.get(mop, 0.0)
+        )
+        for mop in all_mops
+    }
+
+    return {"expected": expected, "txns": txn_list}
+
+
+@frappe.whitelist()
+def close_pos_session(pos_opening_entry, closing_amounts, employee=None):
+    import json
+    if isinstance(closing_amounts, str):
+        closing_amounts = json.loads(closing_amounts)
+
+    opening_doc = frappe.get_doc("POS Opening Entry", pos_opening_entry)
+    if opening_doc.status != "Open":
+        frappe.throw(_("POS Session is already closed or not Open."))
+
+    from erpnext.accounts.doctype.pos_closing_entry.pos_closing_entry import (
+        make_closing_entry_from_opening,
+    )
+    closing_doc = make_closing_entry_from_opening(opening_doc)
+
+    pos_profile_doc = frappe.get_doc("POS Profile", opening_doc.pos_profile)
+    existing_mops = [p.mode_of_payment for p in closing_doc.payment_reconciliation]
+    for pm in pos_profile_doc.payments:
+        if pm.mode_of_payment not in existing_mops:
+            closing_doc.append("payment_reconciliation", {
+                "mode_of_payment": pm.mode_of_payment,
+                "opening_amount": 0.0,
+                "expected_amount": 0.0,
+                "closing_amount": 0.0,
+            })
+            existing_mops.append(pm.mode_of_payment)
+
+    for row in closing_doc.payment_reconciliation:
+        row.closing_amount = flt(closing_amounts.get(row.mode_of_payment, 0.0))
+
+    closing_doc.insert(ignore_permissions=True)
+    closing_doc.submit()
+    frappe.db.commit()
+
+    return closing_doc.name
+
+
+@frappe.whitelist()
+def download_closing_pdf(closing_name, as_html=0):
+    from frappe.utils.pdf import get_pdf
+
+    doc = frappe.get_doc("POS Closing Entry", closing_name)
+    opening = frappe.get_doc("POS Opening Entry", doc.pos_opening_entry)
+
+    suspended_txns = frappe.get_all(
+        "POS Suspended Transaction",
+        filters={"pos_session": doc.pos_opening_entry},
+        fields=["transaction_type", "total_amount"],
+    )
+    other_cash_in = sum(flt(t.total_amount) for t in suspended_txns if t.transaction_type == "Cash In")
+    other_cash_out = sum(flt(t.total_amount) for t in suspended_txns if t.transaction_type == "Cash Out")
+
+    pos_invoice_meta = frappe.get_meta("POS Invoice")
+    pos_session = doc.pos_opening_entry
+    if pos_invoice_meta.has_field("posa_pos_opening_shift"):
+        invoices = frappe.get_all(
+            "POS Invoice",
+            filters={"posa_pos_opening_shift": pos_session, "docstatus": 1},
+            fields=["name", "is_return", "grand_total"],
+        )
+    elif pos_invoice_meta.has_field("pos_opening_entry"):
+        invoices = frappe.get_all(
+            "POS Invoice",
+            filters={"pos_opening_entry": pos_session, "docstatus": 1},
+            fields=["name", "is_return", "grand_total"],
+        )
+    else:
+        invoices = frappe.get_all(
+            "POS Invoice",
+            filters={
+                "posting_date": ["between", [
+                    opening.period_start_date or frappe.utils.nowdate(),
+                    opening.period_end_date or frappe.utils.nowdate(),
+                ]],
+                "pos_profile": opening.pos_profile,
+                "owner": opening.user,
+                "docstatus": 1,
+            },
+            fields=["name", "is_return", "grand_total"],
+        )
+
+    cash_sales = bank_sales = on_account_sales = cash_refund = bank_refund = 0.0
+    if invoices:
+        inv_names = [inv.name for inv in invoices]
+        payments = frappe.get_all(
+            "Sales Invoice Payment",
+            filters={"parent": ["in", inv_names]},
+            fields=["parent", "mode_of_payment", "amount"],
+        )
+        inv_lookup = {inv.name: inv for inv in invoices}
+        for p in payments:
+            inv = inv_lookup.get(p.parent)
+            if not inv:
+                continue
+            mop_lower = p.mode_of_payment.lower()
+            if "cash" in mop_lower:
+                if inv.is_return:
+                    cash_refund += abs(flt(p.amount))
+                else:
+                    cash_sales += flt(p.amount)
+            else:
+                if inv.is_return:
+                    bank_refund += abs(flt(p.amount))
+                else:
+                    bank_sales += flt(p.amount)
+        for inv in invoices:
+            inv_payments = [p for p in payments if p.parent == inv.name]
+            paid_amount = sum(flt(p.amount) for p in inv_payments)
+            if paid_amount < flt(inv.grand_total) and not inv.is_return:
+                on_account_sales += flt(inv.grand_total) - paid_amount
+
+    opening_cash = sum(
+        flt(row.opening_amount)
+        for row in doc.payment_reconciliation
+        if "cash" in row.mode_of_payment.lower()
+    )
+    total_expected = sum(flt(row.expected_amount) for row in doc.payment_reconciliation)
+
+    def fmt_num(val):
+        return f"{flt(val):,.2f}"
+
+    def format_dt(dt):
+        return frappe.utils.format_datetime(dt, "dd/MM/yyyy HH:mm:ss") if dt else ""
+
+    breakdown_rows = ""
+    total_expected_bd = total_actual_bd = total_diff_bd = 0.0
+    for row in doc.payment_reconciliation:
+        exp = flt(row.expected_amount)
+        act = flt(row.closing_amount)
+        diff = flt(row.difference)
+        total_expected_bd += exp
+        total_actual_bd += act
+        total_diff_bd += diff
+        breakdown_rows += (
+            f"<tr><td>{row.mode_of_payment}</td>"
+            f"<td class='right'>{fmt_num(exp)}</td>"
+            f"<td class='right'>{fmt_num(act)}</td>"
+            f"<td class='right'>{fmt_num(diff)}</td></tr>"
+        )
+
+    html = f"""<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>
+@page {{size:80mm auto;margin:0}}
+body{{font-family:'Courier New',monospace;font-size:11px;color:#000;line-height:1.3;
+width:70mm;margin:0 auto;padding:4mm 3mm;box-sizing:border-box}}
+.header{{text-align:center;margin-bottom:4mm}}
+.header h2{{font-size:14px;margin:0 0 1mm 0;font-weight:bold}}
+.info-grid{{width:100%;border-collapse:collapse;margin-bottom:2mm}}
+.info-grid td{{padding:1px 0;vertical-align:top;font-size:10px}}
+.info-grid td.label{{font-weight:bold;width:50%}}
+.info-grid td.value{{text-align:right;width:50%}}
+.divider{{border-top:1px dashed #000;margin:2mm 0}}
+.section-title{{font-size:11px;font-weight:bold;margin:2mm 0 1mm 0;text-transform:uppercase;text-decoration:underline}}
+.data-table{{width:100%;border-collapse:collapse;margin-bottom:2mm}}
+.data-table th{{border-bottom:1px solid #000;padding:2px 0;font-weight:bold;font-size:10px;text-align:left}}
+.data-table th.right,.data-table td.right{{text-align:right}}
+.data-table td{{padding:2px 0;font-size:10px}}
+.data-table tr.total-row td{{border-top:1px dashed #000;border-bottom:1px solid #000;font-weight:bold}}
+.footer{{text-align:center;margin-top:4mm;font-size:11px;font-weight:bold}}
+</style></head><body>
+<div class="header"><h2>{doc.pos_profile}</h2><div class="divider"></div></div>
+<table class="info-grid">
+<tr><td class="label">Date:</td><td class="value">{frappe.utils.formatdate(doc.posting_date,'dd/MM/yyyy')}</td></tr>
+<tr><td class="label">Opening:</td><td class="value">{format_dt(opening.creation)}</td></tr>
+<tr><td class="label">Closing:</td><td class="value">{format_dt(doc.creation)}</td></tr>
+</table>
+<div class="divider"></div>
+<div class="section-title">Transactions</div>
+<table class="data-table">
+<thead><tr><th>Type</th><th class="right">Amount</th></tr></thead>
+<tbody>
+<tr><td>Opening cash</td><td class="right">{fmt_num(opening_cash)}</td></tr>
+<tr><td>Cash sales</td><td class="right">{fmt_num(cash_sales)}</td></tr>
+<tr><td>Bank sales</td><td class="right">{fmt_num(bank_sales)}</td></tr>
+<tr><td>On account</td><td class="right">{fmt_num(on_account_sales)}</td></tr>
+<tr><td>Cash refund</td><td class="right">({fmt_num(cash_refund)})</td></tr>
+<tr><td>Bank refund</td><td class="right">({fmt_num(bank_refund)})</td></tr>
+<tr><td>Other cash in</td><td class="right">{fmt_num(other_cash_in)}</td></tr>
+<tr><td>Other cash out</td><td class="right">({fmt_num(other_cash_out)})</td></tr>
+<tr class="total-row"><td>Total expected</td><td class="right">{fmt_num(total_expected)}</td></tr>
+</tbody></table>
+<div class="divider"></div>
+<div class="section-title">Breakdown</div>
+<table class="data-table">
+<thead><tr><th>Account</th><th class="right">Expected</th><th class="right">Actual</th><th class="right">Diff</th></tr></thead>
+<tbody>{breakdown_rows}
+<tr class="total-row"><td>Total</td><td class="right">{fmt_num(total_expected_bd)}</td>
+<td class="right">{fmt_num(total_actual_bd)}</td><td class="right">{fmt_num(total_diff_bd)}</td></tr>
+</tbody></table>
+<div class="footer">Closure#{doc.name}</div>
+</body></html>"""
+
+    if frappe.utils.cint(as_html) == 1:
+        frappe.response.type = "download"
+        frappe.response.display_content_as = "inline"
+        frappe.response.content_type = "text/html"
+        frappe.response.filename = "preview.html"
+        frappe.response.filecontent = html
+        return
+
+    options = {
+        "page-width": "80mm",
+        "page-height": "160mm",
+        "margin-top": "2mm",
+        "margin-bottom": "2mm",
+        "margin-left": "2mm",
+        "margin-right": "2mm",
+    }
+    pdf_content = get_pdf(html, options=options)
+    frappe.local.response.filename = f"POS-Closing-{closing_name}.pdf"
+    frappe.local.response.filecontent = pdf_content
+    frappe.local.response.type = "download"
 
 
 def on_pos_closing_entry_cancel(doc, method=None):

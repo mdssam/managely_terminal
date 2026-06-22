@@ -62,7 +62,7 @@ export default function EmployeeLoginModal({
         {/* Header */}
         <div className="px-6 pt-6 pb-2 text-center">
           <div className="w-14 h-14 rounded-full bg-ziditech-100 dark:bg-ziditech-900/30 flex items-center justify-center mx-auto mb-3">
-            <UserCircle2 className="w-8 h-8 text-ziditech-600" />
+            <UserCircle2 className="w-8 h-8 text-gray-900" />
           </div>
           <h2 className="text-xl font-bold text-gray-900 dark:text-white">{title}</h2>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">

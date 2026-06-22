@@ -123,7 +123,8 @@ export const formatCurrency = (amount: number, currency?: string): string => {
   if (!amount && amount !== 0) return '0.00';
 
   const symbol = getCurrencySymbol(currency || 'USD');
-  return `${symbol} ${amount.toFixed(2)}`;
+  const formattedAmount = Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `${symbol} ${formattedAmount}`;
 };
 
 /**
@@ -136,5 +137,38 @@ export const formatCurrencyCompact = (amount: number, currency?: string): string
   if (!amount && amount !== 0) return '0.00';
 
   const symbol = getCurrencySymbol(currency || 'USD');
-  return `${symbol}${amount.toFixed(2)}`;
+  const formattedAmount = Number(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return `${symbol}${formattedAmount}`;
+};
+
+/**
+ * Formats a string or number into a comma-separated format while typing.
+ * E.g., "12345.67" -> "12,345.67"
+ */
+export const formatNumberWithCommas = (value: string | number): string => {
+  if (value === undefined || value === null) return "";
+  let str = typeof value === "number" ? value.toString() : value;
+  
+  const isNegative = str.startsWith("-");
+  // Remove non-numeric characters except first dot
+  str = str.replace(/[^0-9.]/g, "");
+  const parts = str.split(".");
+  
+  // Add commas to integer part
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  
+  if (parts.length > 2) {
+    // Keep only the first dot
+    return (isNegative ? "-" : "") + parts[0] + "." + parts.slice(1).join("").replace(/\./g, "");
+  }
+  
+  return (isNegative ? "-" : "") + parts.join(".");
+};
+
+/**
+ * Strips commas from a formatted number string to make it parsed by parseFloat
+ * E.g., "12,345.67" -> "12345.67"
+ */
+export const parseNumberFromCommas = (value: string): string => {
+  return value.replace(/,/g, "");
 };

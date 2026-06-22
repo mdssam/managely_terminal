@@ -58,7 +58,7 @@ export default function FilterPanel({ filterOptions, onFilterChange, onClose }: 
           <button
             onClick={() => setDiscount(!discount)}
             className={`px-3 py-2 rounded-lg border flex items-center ${
-              discount ? "bg-ziditech-50 border-ziditech-300 text-ziditech-600" : "border-gray-300 text-gray-700"
+              discount ? "bg-ziditech-50 border-ziditech-300 text-gray-900" : "border-gray-300 text-gray-700"
             }`}
           >
             <div
@@ -88,7 +88,7 @@ export default function FilterPanel({ filterOptions, onFilterChange, onClose }: 
                 }}
                 className={`px-2 py-1 rounded-lg border text-sm ${
                   selectedCategories.includes(category.id)
-                    ? "bg-ziditech-50 border-ziditech-300 text-ziditech-600"
+                    ? "bg-ziditech-50 border-ziditech-300 text-gray-900"
                     : "border-gray-300 text-gray-700"
                 }`}
               >

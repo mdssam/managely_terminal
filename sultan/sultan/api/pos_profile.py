@@ -1,9 +1,6 @@
 import frappe
 from frappe import _
 
-from sultan.sultan.api.sales_invoice import get_current_pos_opening_entry
-from sultan.sultan.utils import get_current_pos_profile
-
 
 @frappe.whitelist()
 def get_pos_profiles_for_user():
@@ -127,6 +124,8 @@ def _get_profile_default_status(profile_name, user):
 @frappe.whitelist()
 def get_pos_details():
 	# Determine active POS Profile: prefer the one from the current open entry if any
+	from sultan.sultan.api.sales_invoice import get_current_pos_opening_entry
+	from sultan.sultan.utils import get_current_pos_profile
 	current_opening_entry = get_current_pos_opening_entry()
 	if current_opening_entry:
 		opening_doc = frappe.get_doc("POS Opening Entry", current_opening_entry)
@@ -180,16 +179,7 @@ def get_pos_details():
 			"default_currency": customer_doc.default_currency,
 		}
 
-	# Resolve profile-specific role with safe fallback
-	active_role = None
-	if pos and pos.name != "System Default":
-		active_role = frappe.db.get_value(
-			"POS Profile User",
-			{"parent": pos.name, "user": frappe.session.user},
-			"custom_role"
-		)
-	if not active_role:
-		active_role = frappe.db.get_value("User", frappe.session.user, "role_profile_name") or "Cashier"
+	active_role = frappe.db.get_value("User", frappe.session.user, "role_profile_name") or "Cashier"
 
 	details = {
 		"name": pos.name,
@@ -219,12 +209,22 @@ def get_pos_details():
 		"custom_ignore_write_off_on_partial_returns": getattr(pos, "custom_ignore_write_off_on_partial_returns", 1.0),
 		"custom_delivery_required": int(getattr(pos, "custom_delivery_required", 0) or 0),
 		"allow_discount_change": getattr(pos, "allow_discount_change", 0),
-		"role": active_role
+		"role": active_role,
+		"custom_is_branch": int(getattr(pos, "custom_is_branch", 0) or 0),
+		# Multi-currency
+		"custom_enable_multi_currency": int(getattr(pos, "custom_enable_multi_currency", 0) or 0),
+		"custom_secondary_currency": getattr(pos, "custom_secondary_currency", None) or None,
+		"custom_secondary_currency_symbol": (
+			frappe.db.get_value("Currency", getattr(pos, "custom_secondary_currency", None), "symbol")
+			if getattr(pos, "custom_secondary_currency", None) else None
+		),
+		"custom_exchange_rate": float(getattr(pos, "custom_exchange_rate", 0) or 0),
 	}
 	return details
 
 
 def is_zatca_enabled():
+	from sultan.sultan.utils import get_current_pos_profile
 	try:
 		pos_profile = get_current_pos_profile()
 	except Exception:
@@ -235,3 +235,79 @@ def is_zatca_enabled():
 	if frappe.db.has_column("Company", "custom_enable_zatca_e_invoicing"):
 		return frappe.db.get_value("Company", company, "custom_enable_zatca_e_invoicing") == 1
 	return False
+
+
+def set_pos_profile_defaults(doc, method=None):
+	"""Always enforce Sultan Thermal Standard EN/AR templates on all POS Profiles."""
+	doc.custom_pos_print_format_en = "Sultan Thermal Standard EN"
+	doc.custom_pos_print_format_ar = "Sultan Thermal Standard AR"
+	doc.print_format = "Sultan Thermal Standard EN"
+
+
+def validate_pos_profile_rename(doc, method, old, new, merge=False, *args, **kwargs):
+	"""Prevent renaming POS Profile if there is an active POS opening entry session."""
+	if frappe.db.exists("POS Opening Entry", {"pos_profile": old, "status": "Open", "docstatus": 1}):
+		frappe.throw(
+			_("Cannot rename POS Profile '{0}' because there is an active POS session open. Please close all active POS sessions first.")
+			.format(old)
+		)
+
+
+def validate_pos_profile_change(doc, method=None):
+	"""Prevent saving any modifications to POS Profile if there is an active POS opening entry session."""
+	# Only run this check if the document is not new (we are updating an existing one)
+	if not doc.is_new():
+		if frappe.db.exists("POS Opening Entry", {"pos_profile": doc.name, "status": "Open", "docstatus": 1}):
+			frappe.throw(
+				_("Cannot modify POS Profile '{0}' because there is an active POS session open. Please close all active POS sessions first.")
+				.format(doc.name)
+			)
+
+
+@frappe.whitelist()
+def get_dashboard_branches(employee=None):
+	"""
+	Return list of POS Profiles that are branches (custom_is_branch = 1).
+	Branch Manager: restrict to their Allowed POS Profile child table.
+	"""
+	user = frappe.session.user
+	user_roles = frappe.get_roles()
+	is_admin_user = "Administrator" in user_roles or "System Manager" in user_roles
+	is_branch_manager = "Branch Manager" in user_roles
+	allowed_profiles = []
+
+	if employee:
+		emp_doc = frappe.db.get_value("Employee", {"name": employee, "status": "Active"}, ["name", "custom_pos_role"], as_dict=True)
+		if emp_doc:
+			emp_role = emp_doc.custom_pos_role or "Cashier"
+			if emp_role == "Branch Manager":
+				is_branch_manager = True
+				allowed_profiles = [d.pos_profile for d in frappe.get_all(
+					"Allowed POS Profile",
+					filters={"parent": emp_doc.name, "parenttype": "Employee"},
+					fields=["pos_profile"]
+				)]
+	else:
+		emp_name = frappe.db.get_value("Employee", {"user_id": user, "status": "Active"}, "name")
+		if emp_name:
+			emp_role = frappe.db.get_value("Employee", emp_name, "custom_pos_role")
+			if emp_role == "Branch Manager":
+				is_branch_manager = True
+			allowed_profiles = [d.pos_profile for d in frappe.get_all(
+				"Allowed POS Profile",
+				filters={"parent": emp_name, "parenttype": "Employee"},
+				fields=["pos_profile"]
+			)]
+
+	filters = {"disabled": 0, "custom_is_branch": 1}
+
+	if is_branch_manager and not is_admin_user:
+		if allowed_profiles:
+			filters["name"] = ["in", allowed_profiles]
+		else:
+			return []
+
+	profiles = frappe.get_all("POS Profile", filters=filters, fields=["name"])
+	return [p.name for p in profiles]
+
+

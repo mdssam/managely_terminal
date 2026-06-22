@@ -71,18 +71,7 @@ def get_current_user_info():
 			pos_profile = None
 
 		# Resolve profile-specific role with safe fallback
-		active_role = None
-		if pos_profile:
-			active_role = frappe.db.get_value(
-				"POS Profile User",
-				{"parent": pos_profile.name, "user": user},
-				"custom_role"
-			)
-
-		if not active_role:
-			# Check POS Profile User directly as fallback (pos_profile may have been None)
-			direct_role = frappe.db.get_value("POS Profile User", {"user": user}, "custom_role")
-			active_role = direct_role or "Cashier"
+		active_role = frappe.db.get_value("User", user, "role_profile_name") or "Cashier"
 
 		# If their profile-specific active role is Administrator, grant admin privileges
 		is_admin_user = is_admin_user or (active_role == "Administrator")

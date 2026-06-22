@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { dbGet, dbSet, APP_CACHE_STORE } from '../services/offlineDB';
 
 interface CustomerStatistics {
   total_orders: number;
@@ -29,12 +30,8 @@ export function useCustomerStatistics(customerId: string | null): UseCustomerSta
 
     const cacheKey = `cached_customer_stats_${customerId}`;
     if (typeof window !== "undefined" && !navigator.onLine) {
-      const cached = localStorage.getItem(cacheKey);
-      if (cached) {
-        setStatistics(JSON.parse(cached));
-      } else {
-        setStatistics({ total_orders: 0, total_spent: 0, last_visit: null });
-      }
+      const cached = await dbGet<CustomerStatistics>(APP_CACHE_STORE, cacheKey);
+      setStatistics(cached ?? { total_orders: 0, total_spent: 0, last_visit: null });
       setIsLoading(false);
       return;
     }
@@ -50,18 +47,16 @@ export function useCustomerStatistics(customerId: string | null): UseCustomerSta
 
       if (result?.message?.success) {
         setStatistics(result.message.data);
-        if (typeof window !== "undefined") {
-          localStorage.setItem(cacheKey, JSON.stringify(result.message.data));
-        }
+        await dbSet(APP_CACHE_STORE, cacheKey, result.message.data);
       } else {
         throw new Error(result?.message?.error || 'Failed to fetch customer statistics');
       }
       //eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       console.error('Error fetching customer statistics:', err);
-      const cached = typeof window !== "undefined" ? localStorage.getItem(cacheKey) : null;
+      const cached = await dbGet<CustomerStatistics>(APP_CACHE_STORE, cacheKey);
       if (cached) {
-        setStatistics(JSON.parse(cached));
+        setStatistics(cached);
         setError(null);
       } else {
         setError(err.message || 'Failed to fetch customer statistics');

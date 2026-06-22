@@ -1,6 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { dbGet, dbSet, APP_CACHE_STORE } from "../services/offlineDB"
 
 interface I18nContextType {
   language: string
@@ -119,19 +120,19 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!mounted) return
 
-    const savedLang = localStorage.getItem("language") || "en"
-    setLanguage(savedLang)
-
-    // Set document direction
-    document.documentElement.dir = savedLang === "ar" ? "rtl" : "ltr"
-    document.documentElement.lang = savedLang
+    dbGet<string>(APP_CACHE_STORE, "language").then(savedLang => {
+      const lang = savedLang || "en"
+      setLanguage(lang)
+      document.documentElement.dir = lang === "ar" ? "rtl" : "ltr"
+      document.documentElement.lang = lang
+    }).catch(() => {})
   }, [mounted])
 
   const handleSetLanguage = (lang: string) => {
     if (!mounted) return
 
     setLanguage(lang)
-    localStorage.setItem("language", lang)
+    dbSet(APP_CACHE_STORE, "language", lang).catch(() => {})
     document.documentElement.dir = lang === "ar" ? "rtl" : "ltr"
     document.documentElement.lang = lang
   }

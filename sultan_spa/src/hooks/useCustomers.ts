@@ -2,6 +2,8 @@
 import { useEffect, useState } from "react";
 import type { Customer } from "../types/customer";
 import { getOfflineCustomers } from "../services/customerService";
+import { dbGet, dbSet, APP_CACHE_STORE } from "../services/offlineDB";
+import { makeAPICall } from "../utils/apiUtils";
 
 interface ERPCustomer {
   name: string;
@@ -59,6 +61,8 @@ function offlineCustomersToCustomers(search?: string): Customer[] {
   );
 }
 
+const CUSTOMERS_CACHE_KEY = 'sultan_customers_cache';
+
 export function useCustomers(searchQuery?: string) {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -72,20 +76,15 @@ export function useCustomers(searchQuery?: string) {
 
     if (!navigator.onLine) {
       const offlineOnly = offlineCustomersToCustomers(search);
-      const cached = localStorage.getItem('sultan_customers_cache');
+      const cached = await dbGet<{ data: Customer[]; totalCount: number }>(APP_CACHE_STORE, CUSTOMERS_CACHE_KEY);
       if (cached) {
-        try {
-          const parsed = JSON.parse(cached);
-          const merged = [...offlineOnly, ...parsed.data];
-          console.log(`[Offline POS] Loading ${merged.length} customers from cache (${offlineOnly.length} offline)...`);
-          setCustomers(merged);
-          setTotalCount(merged.length);
-          setHasMore(false);
-          setIsLoading(false);
-          return;
-        } catch (e) {
-          console.error('[Offline POS] Failed to parse cached customers:', e);
-        }
+        const merged = [...offlineOnly, ...cached.data];
+        console.log(`[Offline POS] Loading ${merged.length} customers from cache (${offlineOnly.length} offline)...`);
+        setCustomers(merged);
+        setTotalCount(merged.length);
+        setHasMore(false);
+        setIsLoading(false);
+        return;
       }
       if (offlineOnly.length > 0) {
         setCustomers(offlineOnly);
@@ -99,12 +98,14 @@ export function useCustomers(searchQuery?: string) {
     try {
       const params = new URLSearchParams();
       if (search) params.set('search', search);
-      // Default page size 100
       params.set('limit', '100');
       params.set('start', String(append ? start : 0));
       const searchParam = `?${params.toString()}`;
 
-      const response = await fetch(`/api/method/sultan.sultan.api.customer.get_customers${searchParam}`);
+      const response = await makeAPICall(`/api/method/sultan.sultan.api.customer.get_customers${searchParam}`, {
+        timeout: 2000,
+        retries: 0
+      });
       const resData = await response.json();
 
       if (!resData.message.success) {
@@ -154,30 +155,25 @@ export function useCustomers(searchQuery?: string) {
 
       // Cache main list on success
       if (!search) {
-        localStorage.setItem('sultan_customers_cache', JSON.stringify({
+        dbSet(APP_CACHE_STORE, CUSTOMERS_CACHE_KEY, {
           data: enhanced,
           totalCount: total
-        }));
+        }).catch(() => {});
       }
 
     } catch (err) {
       console.error("Error fetching customers:", err);
 
       const offlineOnly = offlineCustomersToCustomers(search);
-      const cached = localStorage.getItem('sultan_customers_cache');
+      const cached = await dbGet<{ data: Customer[]; totalCount: number }>(APP_CACHE_STORE, CUSTOMERS_CACHE_KEY);
       if (cached) {
-        try {
-          const parsed = JSON.parse(cached);
-          const merged = [...offlineOnly, ...parsed.data];
-          console.log(`[Offline POS Fallback] Loading ${merged.length} customers from cache (${offlineOnly.length} offline)...`);
-          setCustomers(merged);
-          setTotalCount(merged.length);
-          setHasMore(false);
-          setError(null);
-          return;
-        } catch (e) {
-          console.error('[Offline POS Fallback] Failed to parse cached customers:', e);
-        }
+        const merged = [...offlineOnly, ...cached.data];
+        console.log(`[Offline POS Fallback] Loading ${merged.length} customers from cache (${offlineOnly.length} offline)...`);
+        setCustomers(merged);
+        setTotalCount(merged.length);
+        setHasMore(false);
+        setError(null);
+        return;
       }
       if (offlineOnly.length > 0) {
         setCustomers(offlineOnly);
@@ -194,7 +190,6 @@ export function useCustomers(searchQuery?: string) {
   };
 
   useEffect(() => {
-    // Reset paging on new search
     setStart(0);
     setHasMore(false);
     setTotalCount(0);
@@ -240,23 +235,21 @@ export function useCustomerDetails(customerId: string | null) {
         console.log('Fetching customer details for ID:', customerId);
 
         if (typeof window !== 'undefined' && !navigator.onLine) {
-          const cached = localStorage.getItem('sultan_customers_cache');
+          const cached = await dbGet<{ data: Customer[] }>(APP_CACHE_STORE, CUSTOMERS_CACHE_KEY);
           if (cached) {
-            try {
-              const parsed = JSON.parse(cached);
-              const found = parsed.data.find((c: any) => c.id === customerId);
-              if (found) {
-                setCustomer(found);
-                setIsLoading(false);
-                return;
-              }
-            } catch (e) {
-              console.error('Failed to parse cached customers:', e);
+            const found = cached.data.find((c: any) => c.id === customerId);
+            if (found) {
+              setCustomer(found);
+              setIsLoading(false);
+              return;
             }
           }
         }
 
-        const response = await fetch(`/api/method/sultan.sultan.api.customer.get_customer_info?customer_name=${encodeURIComponent(customerId)}`);
+        const response = await makeAPICall(`/api/method/sultan.sultan.api.customer.get_customer_info?customer_name=${encodeURIComponent(customerId)}`, {
+          timeout: 2000,
+          retries: 0
+        });
         const resData = await response.json();
 
         console.log('Customer API response:', resData);
@@ -265,7 +258,6 @@ export function useCustomerDetails(customerId: string | null) {
           throw new Error(resData.message?.error || "Failed to fetch customer");
         }
 
-        // Transform the API response to match the Customer interface
         const apiCustomer = resData.message;
         const transformedCustomer: Customer = {
           id: apiCustomer.name,
@@ -298,7 +290,6 @@ export function useCustomerDetails(customerId: string | null) {
           companyCurrency: undefined,
           customer_group: apiCustomer.customer_group || "All Customer Groups",
           territory: apiCustomer.territory || "All Territories",
-          // Add missing fields that AddCustomerModal expects
           contactPerson: apiCustomer.contact_data ?
             `${apiCustomer.contact_data.first_name || ''} ${apiCustomer.contact_data.last_name || ''}`.trim() || apiCustomer.customer_name :
             apiCustomer.customer_name || "",
@@ -313,18 +304,13 @@ export function useCustomerDetails(customerId: string | null) {
         setCustomer(transformedCustomer);
       } catch (err: unknown) {
         console.error('Error in useCustomerDetails:', err);
-        const cached = typeof window !== 'undefined' ? localStorage.getItem('sultan_customers_cache') : null;
+        const cached = await dbGet<{ data: Customer[] }>(APP_CACHE_STORE, CUSTOMERS_CACHE_KEY);
         if (cached) {
-          try {
-            const parsed = JSON.parse(cached);
-            const found = parsed.data.find((c: any) => c.id === customerId);
-            if (found) {
-              setCustomer(found);
-              setError(null);
-              return;
-            }
-          } catch (e) {
-            console.error('Fallback parse failed:', e);
+          const found = cached.data.find((c: any) => c.id === customerId);
+          if (found) {
+            setCustomer(found);
+            setError(null);
+            return;
           }
         }
         if (err instanceof Error) {

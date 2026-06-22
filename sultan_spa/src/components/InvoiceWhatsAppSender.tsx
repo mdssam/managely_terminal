@@ -137,7 +137,7 @@ export const InvoiceWhatsAppSender: React.FC<InvoiceWhatsAppSenderProps> = ({
         )}
 
         {result && (
-          <div className="p-3 bg-ziditech-100 border border-ziditech-400 text-ziditech-700 rounded-md">
+          <div className="p-3 bg-ziditech-100 border border-ziditech-400 text-gray-900 rounded-md">
             <h4 className="font-semibold">Success!</h4>
             <p><strong>Recipient:</strong> {result.recipient}</p>
             <p><strong>Invoice:</strong> {result.invoice}</p>

@@ -609,6 +609,7 @@ def _fetch_batch_prices(item_codes: list, price_list: str | None, uom_map: dict)
 
 		results = frappe.db.sql(sql, params, as_dict=True)
 
+		currency_symbols = {}
 		# Build price map - prefer prices matching the item's UOM
 		for row in results:
 			item_code = row["item_code"]
@@ -621,10 +622,14 @@ def _fetch_batch_prices(item_codes: list, price_list: str | None, uom_map: dict)
 				if not new_uom_match or existing_uom_match:
 					continue
 
-			symbol = frappe.db.get_value("Currency", row["currency"], "symbol") or row["currency"]
+			currency_code = row["currency"]
+			if currency_code not in currency_symbols:
+				currency_symbols[currency_code] = frappe.db.get_value("Currency", currency_code, "symbol") or currency_code
+			symbol = currency_symbols[currency_code]
+			
 			price_map[item_code] = {
 				"price": row["price_list_rate"] or 0,
-				"currency": row["currency"] or default_currency,
+				"currency": currency_code or default_currency,
 				"currency_symbol": symbol or default_symbol,
 				"uom": row.get("uom"),
 			}
@@ -969,28 +974,14 @@ def get_stock_updates():
 			items = frappe.get_all("Item", filters=filters, fields=["name"], order_by="modified desc")
 			item_codes = [item["name"] for item in items]
 
-		# Optimized: Use batch processing with smaller chunks
-		stock_updates = {}
-
-		chunk_size = 100
-		for i in range(0, len(item_codes), chunk_size):
-			chunk = item_codes[i : i + chunk_size]
-			for item_code in chunk:
-				try:
-					balance = get_stock_balance(item_code, warehouse) or 0
-					if not hide_unavailable or balance > 0:
-						stock_updates[item_code] = balance
-				except Exception:
-					if not hide_unavailable:
-						stock_updates[item_code] = 0
-
+		stock_updates = _fetch_batch_stock(item_codes, warehouse)
+		if hide_unavailable:
+			stock_updates = {k: v for k, v in stock_updates.items() if v > 0}
 		return stock_updates
 
 	except Exception:
 		frappe.log_error(frappe.get_traceback(), "Get Stock Updates Error")
 		return {}
-
-
 @frappe.whitelist(allow_guest=True)
 def get_item_stock(item_code: str):
 	"""Get stock for a specific item - for individual updates."""

@@ -1,6 +1,57 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/assets/sultan/sultan_spa/fonts/inter-latin.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/assets/sultan/sultan_spa/fonts/inter-latin.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/assets/sultan/sultan_spa/fonts/inter-latin.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/assets/sultan/sultan_spa/fonts/inter-latin.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Tajawal';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/assets/sultan/sultan_spa/fonts/tajawal-400-arabic.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Tajawal';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/assets/sultan/sultan_spa/fonts/tajawal-500-arabic.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Tajawal';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/assets/sultan/sultan_spa/fonts/tajawal-700-arabic.woff2') format('woff2');
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -151,7 +202,6 @@ label,
 li,
 a {
   color: #000000 !important;
-  opacity: 1 !important;
 }
 
 /* ============================================================
@@ -231,21 +281,24 @@ a {
 .text-gray-400,
 .text-slate-600,
 .text-slate-500 {
-  color: #1e59db !important;
+  color: #475569 !important;
   opacity: 1 !important;
 }
 
 .text-ziditech-900,
 .text-ziditech-800,
 .text-ziditech-700 {
-  color: #000000 !important;
+  color: #0f172a !important;
   opacity: 1 !important;
 }
 
 .text-ziditech-600,
 .text-ziditech-500,
-.text-ziditech-400 {
-  color: #1d4ed8 !important;
+.text-ziditech-400,
+.text-blue-600,
+.text-blue-500,
+.text-blue-400 {
+  color: #1e293b !important;
   opacity: 1 !important;
 }
 
@@ -256,6 +309,13 @@ a {
 .text-gray-400,
 .text-gray-500,
 .text-slate-400 {
+  opacity: 1 !important;
+}
+
+.opacity-0 {
+  opacity: 0 !important;
+}
+.group:hover .group-hover\:opacity-100 {
   opacity: 1 !important;
 }
 

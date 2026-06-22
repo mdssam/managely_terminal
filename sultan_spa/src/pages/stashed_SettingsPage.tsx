@@ -59,7 +59,7 @@ export default function SettingsPage() {
 
   const SectionHeader = ({ title, icon: Icon }: { title: string, icon: any }) => (
     <div className="flex items-center gap-4 mb-10">
-       <div className="p-3 bg-ziditech-600/10 rounded-2xl border border-ziditech-500/20 text-ziditech-400">
+       <div className="p-3 bg-ziditech-600/10 rounded-2xl border border-ziditech-500/20 text-gray-500">
          <Icon size={24} />
        </div>
        <div>
@@ -111,7 +111,7 @@ export default function SettingsPage() {
             <p className="text-ziditech-100 text-[10px] font-black uppercase tracking-[0.4em] mt-4 opacity-70">Terminal Architect • Authority Level 4</p>
             <div className="flex flex-wrap justify-center md:justify-start gap-3 mt-6">
                <span className="px-4 py-1.5 bg-white/10 rounded-full text-[8px] font-black uppercase tracking-widest border border-white/10">ID: SZ-892-SYS</span>
-               <span className="px-4 py-1.5 bg-ziditech-400/20 text-ziditech-300 rounded-full text-[8px] font-black uppercase tracking-widest border border-ziditech-400/20">Node_Active</span>
+               <span className="px-4 py-1.5 bg-ziditech-400/20 text-gray-500 rounded-full text-[8px] font-black uppercase tracking-widest border border-ziditech-400/20">Node_Active</span>
             </div>
           </div>
         </div>
@@ -158,7 +158,7 @@ export default function SettingsPage() {
               {theme === t.id && (
                  <div className="absolute top-4 right-4 w-2 h-2 bg-ziditech-500 rounded-full animate-ping"></div>
               )}
-              <t.icon className={`w-10 h-10 mx-auto mb-4 transition-all duration-500 ${theme === t.id ? 'text-ziditech-400 scale-125' : 'text-muted-foreground group-hover:scale-110'}`} />
+              <t.icon className={`w-10 h-10 mx-auto mb-4 transition-all duration-500 ${theme === t.id ? 'text-gray-500 scale-125' : 'text-muted-foreground group-hover:scale-110'}`} />
               <div className="text-[10px] font-black text-foreground uppercase tracking-widest">{t.name}</div>
               <div className="text-[8px] font-bold text-muted-foreground uppercase mt-1 tracking-tighter opacity-50">{t.desc}</div>
             </button>
@@ -213,7 +213,7 @@ export default function SettingsPage() {
               className="flex items-center justify-between p-6 bg-muted/20 border border-border rounded-2xl group hover:border-ziditech-500/30 transition-all"
             >
               <div className="flex items-center gap-4">
-                 <div className="p-2 bg-ziditech-600/10 rounded-lg text-ziditech-400 group-hover:scale-110 transition-transform">
+                 <div className="p-2 bg-ziditech-600/10 rounded-lg text-gray-500 group-hover:scale-110 transition-transform">
                    <Zap size={14} />
                  </div>
                  <span className="text-[10px] font-black text-foreground uppercase tracking-widest">{method}</span>
@@ -230,12 +230,12 @@ export default function SettingsPage() {
     <div className="space-y-10 animate-in fade-in slide-in-from-right-4 duration-500">
       <div className="bg-muted/30 border border-border rounded-[3rem] p-12 text-center relative overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-ziditech-600 to-transparent"></div>
-        <img src="/assets/sultan/sultan_spa/bev_logo.jpeg" alt="Sultan POS" className="w-24 h-24 mx-auto mb-8 rounded-[2rem] object-cover shadow-2xl border-2 border-border" />
-        <h3 className="text-4xl font-black text-foreground uppercase tracking-tighter">Sultan POS_X</h3>
-        <p className="text-ziditech-400 text-[10px] font-black uppercase tracking-[0.5em] mt-4">Kernel Version 2.4.0-Stable</p>
+        <img src="/assets/sultan/sultan_spa/managelyLogo.webp" alt="Managely" className="w-24 h-24 mx-auto mb-8 rounded-[2rem] object-cover shadow-2xl border-2 border-border" />
+        <h3 className="text-4xl font-black text-foreground uppercase tracking-tighter">Managely_X</h3>
+        <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.5em] mt-4">Kernel Version 2.4.0-Stable</p>
         <div className="flex justify-center gap-4 mt-8">
            <div className="px-4 py-2 bg-muted/50 rounded-xl border border-border text-[8px] font-black uppercase tracking-widest">Build_Hash: 8f2a1c</div>
-           <div className="px-4 py-2 bg-muted/50 rounded-xl border border-border text-[8px] font-black uppercase tracking-widest text-ziditech-400">Node_Synced</div>
+           <div className="px-4 py-2 bg-muted/50 rounded-xl border border-border text-[8px] font-black uppercase tracking-widest text-gray-500">Node_Synced</div>
         </div>
       </div>
 
@@ -247,7 +247,7 @@ export default function SettingsPage() {
           { label: "Encryption Grade", value: "AES-512_Quantum", icon: Shield },
         ].map((stat, idx) => (
           <div key={idx} className="p-6 bg-muted/20 border border-border rounded-2xl flex items-center gap-5">
-            <div className="p-3 bg-muted rounded-xl text-ziditech-400 border border-border"><stat.icon size={18} /></div>
+            <div className="p-3 bg-muted rounded-xl text-gray-500 border border-border"><stat.icon size={18} /></div>
             <div>
                <p className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">{stat.label}</p>
                <p className="text-[10px] font-black text-foreground uppercase tracking-tight mt-1">{stat.value}</p>
@@ -317,7 +317,7 @@ export default function SettingsPage() {
           <div className="lg:col-span-1">
             <div className="bg-[#111115]/50 backdrop-blur-2xl rounded-[3rem] shadow-2xl border border-white/5 p-8 sticky top-40">
               <div className="mb-10 px-4">
-                 <p className="text-[10px] font-black text-ziditech-400 uppercase tracking-[0.3em]">Master Nodes</p>
+                 <p className="text-[10px] font-black text-gray-500 uppercase tracking-[0.3em]">Master Nodes</p>
               </div>
               <nav className="space-y-4">
                 {settingsSections.map((section) => (
@@ -344,7 +344,7 @@ export default function SettingsPage() {
 
               <div className="mt-12 pt-10 border-t border-white/5 px-4">
                  <div className="flex items-center gap-3">
-                    <Fingerprint size={16} className="text-ziditech-500" />
+                    <Fingerprint size={16} className="text-gray-900" />
                     <span className="text-[8px] font-black text-muted-foreground uppercase tracking-widest">Biometric_Lock: ACTIVE</span>
                  </div>
               </div>

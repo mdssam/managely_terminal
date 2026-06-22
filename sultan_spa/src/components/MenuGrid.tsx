@@ -4,12 +4,14 @@ import { useNavigate } from "react-router-dom"
 import { useAuth } from "../hooks/useAuth"
 import { useTheme } from "../hooks/useTheme"
 import { usePOSDetails } from "../hooks/usePOSProfile"
-import { Settings, LogOut, Moon, Sun, Grid3X3, List, Store, RefreshCw, LayoutGrid, MonitorX } from "lucide-react"
+import { Settings, LogOut, Moon, Sun, Grid3X3, List, Store, RefreshCw, LayoutGrid, MonitorX, ChefHat } from "lucide-react"
 import { clearCacheAndReload } from "../utils/clearCache"
+import { useI18n } from "../hooks/useI18n"
 import CategoryTabs from "./CategoryTabs"
 import ProductGrid from "./ProductGrid"
 import SearchBar from "./SearchBar"
 import type { MenuItem } from "../../types"
+import CloseShiftModal from "./CloseShiftModal"
 
 interface MenuGridProps {
   items: MenuItem[]
@@ -28,6 +30,8 @@ interface MenuGridProps {
   totalCount?: number
   isSearching?: boolean
   hideHeader?: boolean
+  showOnlyAvailableAndCooking?: boolean
+  onToggleAvailableAndCooking?: (val: boolean) => void
 }
 
 export default function MenuGrid({
@@ -46,12 +50,16 @@ export default function MenuGrid({
   totalCount = 0,
   isSearching = false,
   hideHeader = false,
+  showOnlyAvailableAndCooking = true,
+  onToggleAvailableAndCooking,
 }: MenuGridProps) {
-  const { user, logout } = useAuth()
+  const { user, logout, lockEmployee } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const { posDetails, loading: posLoading } = usePOSDetails()
+  const { isRTL } = useI18n()
   const navigate = useNavigate()
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const [showCloseShiftModal, setShowCloseShiftModal] = useState(false)
   const buttonRef = useRef<HTMLButtonElement>(null)
 
   // Initialize viewMode based on POS profile
@@ -95,6 +103,15 @@ export default function MenuGrid({
     }
   }
 
+  const handleLock = async () => {
+    try {
+      await lockEmployee();
+      navigate("/employee-login");
+    } catch (e) {
+      console.error("Lock error:", e);
+    }
+  }
+
   // Generate initials from user's full name
   const getInitials = (name: string) => {
     return name
@@ -120,7 +137,7 @@ export default function MenuGrid({
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                   <div className="p-2 rounded-lg" style={{ backgroundColor: '#eef1f8' }}>
-                    <LayoutGrid className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: '#1e2d6b' }} />
+                    <LayoutGrid className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: '#111827' }} />
                   </div>
                   <div>
                     <h2 className="text-base sm:text-lg font-bold text-gray-900">
@@ -232,7 +249,16 @@ export default function MenuGrid({
                             onClick={(e) => {
                               e.stopPropagation();
                               setShowUserMenu(false);
-                              navigate('/closing_shift?open=true');
+                              const roleLower = user?.role?.toLowerCase() || "";
+                              const isAuditor = roleLower === "auditor";
+                              const isAdmin = user?.is_employee
+                                ? roleLower === "administrator"
+                                : (roleLower === "administrator" || user?.name === "Administrator");
+                              if (!isAdmin && !isAuditor) {
+                                setShowCloseShiftModal(true);
+                              } else {
+                                navigate('/closing_shift?open=true');
+                              }
                             }}
                             className="flex items-center w-full px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                             type="button"
@@ -273,6 +299,27 @@ export default function MenuGrid({
                     onScanBarcode={onScanBarcode}
                   />
                 </div>
+                {onToggleAvailableAndCooking && (
+                  <button
+                    onClick={() => onToggleAvailableAndCooking(!showOnlyAvailableAndCooking)}
+                    className={`flex items-center space-x-1.5 px-3 py-2 rounded-lg border text-xs font-semibold shadow-sm transition-all active:scale-95 cursor-pointer ${
+                      showOnlyAvailableAndCooking
+                        ? 'bg-[#1e2d6b] border-[#1e2d6b] text-white'
+                        : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                    }`}
+                    title={
+                      isRTL
+                        ? "إظهار المتوفر والطهي فقط"
+                        : "Only Show Available & Cooking Items"
+                    }
+                    type="button"
+                  >
+                    <ChefHat className="w-4 h-4" />
+                    <span className="hidden sm:inline">
+                      {isRTL ? "المتوفر والطهي فقط" : "Available & Cooking Only"}
+                    </span>
+                  </button>
+                )}
                 <div className="flex items-center bg-gray-100 rounded-lg p-1">
                   <button
                     onClick={() => setViewMode('grid')}
@@ -382,6 +429,13 @@ export default function MenuGrid({
           </div>
         </div>,
         document.body
+      )}
+      {showCloseShiftModal && (
+        <CloseShiftModal
+          isOpen={showCloseShiftModal}
+          onClose={() => setShowCloseShiftModal(false)}
+          onSuccess={handleLock}
+        />
       )}
     </div>
   )

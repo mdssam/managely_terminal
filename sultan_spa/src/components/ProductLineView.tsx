@@ -1,6 +1,7 @@
 "use client"
 
 import type { MenuItem } from "../../types"
+import { Search } from "lucide-react"
 
 interface ProductLineViewProps {
   items: MenuItem[]
@@ -14,7 +15,9 @@ export default function ProductLineView({ items, onAddToCart, isMobile = false, 
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
-          <div className="text-6xl mb-4">🔍</div>
+          <div className="flex justify-center mb-4">
+            <Search size={64} className="text-gray-500" strokeWidth={1.5} />
+          </div>
           <h3 className="text-lg font-semibold text-gray-900 mb-2">No items found</h3>
           <p className="text-gray-500">Try adjusting your search or filters</p>
         </div>
@@ -81,7 +84,7 @@ export default function ProductLineView({ items, onAddToCart, isMobile = false, 
 
                 {/* Rate */}
                 <div className={`${isMobile ? "col-span-2" : "col-span-2"} flex items-center justify-center`}>
-                  <span className={`font-semibold ${isMobile ? "text-xs" : "text-sm"}`} style={{ color: '#1e2d6b' }}>
+                  <span className={`font-semibold ${isMobile ? "text-xs" : "text-sm"}`} style={{ color: '#111827' }}>
                     {formattedPrice}
                   </span>
                 </div>

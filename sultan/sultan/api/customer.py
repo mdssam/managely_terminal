@@ -228,10 +228,53 @@ def get_customers(limit: int = 100, start: int = 0, search: str = ""):
 				}
 			)
 
+		# Fetch and append POS Customer records
+		pos_cust_filters = {}
+		if search:
+			pos_cust_filters["customer_name"] = ["like", f"%{search}%"]
+
+		pos_customers = frappe.get_all(
+			"POS Customer",
+			filters=pos_cust_filters,
+			fields=["name", "customer_name", "mobile_no", "email_id"],
+			limit=limit,
+		)
+
+		for pc in pos_customers:
+			result.append({
+				"name": pc.name,
+				"customer_name": pc.customer_name,
+				"customer_type": "Individual",
+				"customer_group": "All Customer Groups",
+				"territory": "All Territories",
+				"contact": {
+					"email_id": pc.email_id,
+					"phone": pc.mobile_no,
+					"mobile_no": pc.mobile_no,
+				},
+				"address": None,
+				"default_currency": company_currency,
+				"company_currency": company_currency,
+				"custom_total_orders": 0,
+				"custom_total_spent": 0,
+				"custom_last_visit": None,
+				"is_pos_customer": True,
+			})
+
+		# Deduplicate the merged list by customer_name
+		seen_names = set()
+		deduped_result = []
+		for r in result:
+			name_key = r.get("customer_name")
+			if name_key not in seen_names:
+				seen_names.add(name_key)
+				deduped_result.append(r)
+		result = deduped_result
+
 		return {
 			"success": True,
 			"data": result,
-			"total_count": total_count,
+			"total_count": len(result),
 			"start": start,
 			"limit": limit,
 		}
@@ -324,6 +367,32 @@ def get_customer_info(customer_name: str):
 
 		customer_name = urllib.parse.unquote(customer_name)
 		print("CUSTOMER WETU", customer_name)
+
+		# Try POS Customer first
+		pos_cust = frappe.db.get_value("POS Customer", {"customer_name": customer_name}, ["name", "customer_name", "mobile_no", "email_id", "unified_customer"], as_dict=True)
+		if not pos_cust:
+			pos_cust = frappe.db.get_value("POS Customer", {"name": customer_name}, ["name", "customer_name", "mobile_no", "email_id", "unified_customer"], as_dict=True)
+
+		if pos_cust:
+			return {
+				"name": pos_cust.name,
+				"customer_name": pos_cust.customer_name,
+				"customer_group": "All Customer Groups",
+				"territory": "All Territories",
+				"customer_type": "Individual",
+				"email_id": pos_cust.email_id,
+				"mobile_no": pos_cust.mobile_no,
+				"is_pos_customer": True,
+				"contact_data": {
+					"first_name": pos_cust.customer_name,
+					"last_name": "",
+					"email_id": pos_cust.email_id,
+					"mobile_no": pos_cust.mobile_no,
+					"phone": pos_cust.mobile_no,
+				},
+				"address_data": None,
+			}
+
 		# First try to find by customer_name
 		customers = frappe.get_all("Customer", filters={"customer_name": customer_name}, fields=["name"])
 
@@ -422,31 +491,42 @@ def create_or_update_customer(customer_data):
 		if not customer_name:
 			frappe.throw("Customer must have at least a name, phone, or email")
 
-		# Create or update Customer
-		customer_doc = get_or_create_customer(
-			customer_name, email, phone, country, name_arabic, customer_data
-		)
-
 		contact_doc = None
 		addr_doc = None
-		# For Individuals → create contact if phone exists, and address if provided
+		# For Individuals → create a POS Customer linked to the default POS Profile customer
 		if cust_type == "individual":
-			if phone:
-				contact_doc = create_or_update_contact(customer_doc.name, customer_name, email, phone)
+			pos_profile = get_current_pos_profile()
+			unified_customer = getattr(pos_profile, "customer", None) or "Walk-in Customer"
 
-			# Create address for individual customers if address data is provided
-			if address and any(address.get(field) for field in ["street", "city", "state", "zipCode"]):
-				addr_doc = create_or_update_address(customer_doc.name, customer_name, address, country)
-				if addr_doc:
-					frappe.db.set_value(
-						"Customer",
-						customer_doc.name,
-						"customer_primary_address",
-						addr_doc.name,
-					)
+			existing_pos_cust = frappe.db.get_value("POS Customer", {"customer_name": customer_name})
+			if existing_pos_cust:
+				frappe.throw(_("A customer with the name '{0}' already exists.").format(customer_name))
+			else:
+				pos_cust_doc = frappe.get_doc({
+					"doctype": "POS Customer",
+					"customer_name": customer_name,
+					"mobile_no": phone,
+					"email_id": email,
+					"unified_customer": unified_customer,
+					"company": pos_profile.company
+				})
+				pos_cust_doc.insert(ignore_permissions=True)
+
+			return {
+				"success": True,
+				"customer_name": pos_cust_doc.name,
+				"contact_name": None,
+				"address_name": None,
+			}
 
 		# For Companies → create both Contact and Address
 		if cust_type == "company":
+			if frappe.db.exists("Customer", {"customer_name": customer_name}):
+				frappe.throw(_("A company customer with the name '{0}' already exists.").format(customer_name))
+			# Create or update Customer
+			customer_doc = get_or_create_customer(
+				customer_name, email, phone, country, name_arabic, customer_data
+			)
 			contact_name = customer_data.get("contactName", customer_name)
 			contact_doc = create_or_update_contact(customer_doc.name, contact_name, email, phone)
 			addr_doc = create_or_update_address(customer_doc.name, customer_name, address, country)
@@ -459,12 +539,12 @@ def create_or_update_customer(customer_data):
 					addr_doc.name,
 				)
 
-		return {
-			"success": True,
-			"customer_name": customer_doc.name,
-			"contact_name": contact_doc.name if contact_doc else None,
-			"address_name": addr_doc.name if addr_doc else None,
-		}
+			return {
+				"success": True,
+				"customer_name": customer_doc.name,
+				"contact_name": contact_doc.name if contact_doc else None,
+				"address_name": addr_doc.name if addr_doc else None,
+			}
 
 	except Exception as e:
 		frappe.log_error(frappe.get_traceback(), "Customer Creation/Update Error")

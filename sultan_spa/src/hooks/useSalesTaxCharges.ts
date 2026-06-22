@@ -1,5 +1,7 @@
 // hooks/useTaxCategories.ts
 import { useEffect, useState } from "react"
+import { secureDbGet, secureDbSet, APP_CACHE_STORE } from "../services/offlineDB"
+import { makeAPICall } from "../utils/apiUtils"
 
 export interface TaxCategory {
   id: string
@@ -21,18 +23,21 @@ export function useSalesTaxCharges() {
 
       const cacheKey = "cached_sales_tax_charges";
       if (typeof window !== "undefined" && !navigator.onLine) {
-        const cached = localStorage.getItem(cacheKey);
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          setTaxCategories(parsed.data || []);
-          setDefaultTax(parsed.default || null);
-          setIsLoading(false);
-          return;
+        try {
+          const cached = await secureDbGet<{ data: TaxCategory[]; default: string | null }>(APP_CACHE_STORE, cacheKey);
+          if (cached) {
+            setTaxCategories(cached.data || []);
+            setDefaultTax(cached.default || null);
+            setIsLoading(false);
+            return;
+          }
+        } catch (secErr) {
+          console.error("Security check failed for cached taxes:", secErr);
         }
       }
 
       try {
-        const res = await fetch("/api/method/sultan.sultan.api.tax.get_sales_tax_categories")
+        const res = await makeAPICall("/api/method/sultan.sultan.api.tax.get_sales_tax_categories", { timeout: 2000, retries: 0 })
         const data = await res.json()
 
         if (!data.message?.success) {
@@ -43,23 +48,21 @@ export function useSalesTaxCharges() {
         const defaultTx = data.message.default || null;
         setTaxCategories(categories)
         setDefaultTax(defaultTx)
-        if (typeof window !== "undefined") {
-          localStorage.setItem(cacheKey, JSON.stringify({
-            data: categories,
-            default: defaultTx
-          }));
-        }
+        secureDbSet(APP_CACHE_STORE, cacheKey, { data: categories, default: defaultTx }).catch(() => {});
         //eslint-disable-next-line @typescript-eslint/no-explicit-any
       } catch (err: any) {
         console.error("Error loading tax categories:", err);
-        const cached = typeof window !== "undefined" ? localStorage.getItem(cacheKey) : null;
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          setTaxCategories(parsed.data || []);
-          setDefaultTax(parsed.default || null);
-          setError(null);
-        } else {
-          setError(err.message)
+        try {
+          const cached = await secureDbGet<{ data: TaxCategory[]; default: string | null }>(APP_CACHE_STORE, cacheKey);
+          if (cached) {
+            setTaxCategories(cached.data || []);
+            setDefaultTax(cached.default || null);
+            setError(null);
+          } else {
+            setError(err.message)
+          }
+        } catch (secErr) {
+          setError("Tamper verification failed or connection error");
         }
       } finally {
         setIsLoading(false)
@@ -68,6 +71,7 @@ export function useSalesTaxCharges() {
 
     fetchTaxes()
   }, [])
+
 
   return { salesTaxCharges, defaultTax, isLoading, error }
 }

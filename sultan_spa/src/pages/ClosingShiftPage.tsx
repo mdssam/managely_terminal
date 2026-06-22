@@ -1,13 +1,16 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   CreditCard,
+  Banknote,
   Search,
   Eye,
   MonitorX,
   X,
   RotateCcw,
-  AlertCircle
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 
 import InvoiceViewModal from "../components/InvoiceViewModal";
@@ -24,7 +27,7 @@ import BottomNavigation from "../components/BottomNavigation";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { deleteDraftInvoice } from "../services/salesInvoice";
 import { ConfirmDialog } from "../components/ui/ConfirmDialog";
-import { formatCurrency } from "../utils/currency";
+import { formatCurrency, formatNumberWithCommas, parseNumberFromCommas } from "../utils/currency";
 import { isToday, isThisWeek, isThisMonth, isThisYear } from "../utils/time";
 import { clearAllCache } from "../utils/clearCache";
 import { getCashTransactions } from "../services/cashTransaction";
@@ -45,6 +48,7 @@ export default function ClosingShiftPage() {
   }, [location.search]);
 
   const isMobile = useMediaQuery("(max-width: 1024px)");
+  const isOffline = typeof window !== 'undefined' && !navigator.onLine;
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
@@ -53,6 +57,7 @@ export default function ClosingShiftPage() {
   const [showInvoiceModal, setShowInvoiceModal] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [closingAmounts, setClosingAmounts] = useState({});
+  const [closingInputs, setClosingInputs] = useState<Record<string, string>>({});
 
   // Draft Invoice Edit states
   // const [showEditOptions, setShowEditOptions] = useState(false);
@@ -71,7 +76,7 @@ export default function ClosingShiftPage() {
   const [cashTransactions, setCashTransactions] = useState<CashTransaction[]>([]);
   const [cashSummary, setCashSummary] = useState<CashTransactionSummary>({ cash_in: 0, cash_out: 0, net: 0 });
 
-  const { invoices, isLoading,  error,  } = useSalesInvoices();
+  const { invoices, isLoading, isLoadingMore, error, hasMore, loadMore } = useSalesInvoices();
   const { modes, isLoading: modesLoading, error: modesError } = useAllPaymentModes()
   const { posDetails } = usePOSDetails();
   const { userInfo } = useUserInfo();
@@ -131,17 +136,17 @@ export default function ClosingShiftPage() {
     switch (normalized) {
       // Payment statuses
       case "paid":
-        return `${baseClasses} bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900/20 dark:text-ziditech-400`;
+        return `${baseClasses} bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900/20 dark:text-gray-500`;
       case "unpaid":
         return `${baseClasses} bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400`;
       case "partly paid":
-        return `${baseClasses} bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400`;
+        return `${baseClasses} bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900/20 dark:text-gray-500`;
       case "overdue":
         return `${baseClasses} bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400`;
       case "draft":
         return `${baseClasses} bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400`;
       case "return":
-        return `${baseClasses} bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900/20 dark:text-ziditech-400`;
+        return `${baseClasses} bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900/20 dark:text-gray-500`;
       case "cancelled":
         return `${baseClasses} bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400`;
 
@@ -153,7 +158,7 @@ export default function ClosingShiftPage() {
       case "not reported":
         return `${baseClasses} bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400`;
       case "cleared":
-        return `${baseClasses} bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900/20 dark:text-ziditech-400`;
+        return `${baseClasses} bg-ziditech-100 text-ziditech-800 dark:bg-ziditech-900/20 dark:text-gray-500`;
       case "not cleared":
         return `${baseClasses} bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400`;
 
@@ -188,6 +193,28 @@ export default function ClosingShiftPage() {
 
   }, [invoices, searchQuery, statusFilter, dateFilter, paymentFilter, isLoading, error, posDetails]);
 
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 20;
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter, dateFilter, paymentFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredInvoices.length / itemsPerPage));
+  const paginatedInvoices = useMemo(() => {
+    return filteredInvoices.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+  }, [filteredInvoices, currentPage]);
+
+  // Automatically advance to the next page when more invoices are finished loading
+  const prevTotalPages = useRef(totalPages);
+  useEffect(() => {
+    if (totalPages > prevTotalPages.current && currentPage === prevTotalPages.current) {
+      setCurrentPage(prevTotalPages.current + 1);
+    }
+    prevTotalPages.current = totalPages;
+  }, [totalPages, currentPage]);
 
   // Payment Stats Calculation - Calculate from filtered invoices
   const paymentStats = useMemo(() => {
@@ -375,15 +402,24 @@ export default function ClosingShiftPage() {
     setShowInvoiceModal(false);
   };
 
-        // @ts-expect-error just ignore for now
+  // @ts-expect-error just ignore for now
   const handleClosingAmountChange = (modeName, value) => {
+    const formatted = formatNumberWithCommas(value);
+    setClosingInputs(prev => ({
+      ...prev,
+      [modeName]: formatted
+    }));
     setClosingAmounts(prev => ({
       ...prev,
-      [modeName]: parseFloat(value) || 0
+      [modeName]: parseFloat(parseNumberFromCommas(value)) || 0
     }));
   };
 
   const handleFinalClose = async () => {
+    if (typeof window !== 'undefined' && !navigator.onLine) {
+      toast.error("لا يمكن إغلاق الوردية أثناء انقطاع الإنترنت. يرجى الاتصال بالإنترنت أولاً. / Cannot close shift while offline.");
+      return;
+    }
 
     try {
       // Validate that all payment methods have a closing amount entered
@@ -508,9 +544,9 @@ export default function ClosingShiftPage() {
                     <h3 className="font-semibold text-gray-900 dark:text-white">{stat.name}</h3>
                                           {/* @ts-expect-error just ignore */}
                     {stat.name.toLowerCase().includes('cash') ? (
-                      <div className="text-2xl">💵</div>
+                      <Banknote className="w-8 h-8 text-gray-900 dark:text-gray-500" />
                     ) : (
-                      <CreditCard className="w-8 h-8 text-ziditech-600 dark:text-ziditech-400" />
+                      <CreditCard className="w-8 h-8 text-gray-900 dark:text-gray-500" />
                     )}
                   </div>
                   <div className="space-y-2">
@@ -623,7 +659,7 @@ export default function ClosingShiftPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
-                  {filteredInvoices.map((invoice) => (
+                  {paginatedInvoices.map((invoice) => (
                     <tr key={invoice.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                       <td className="px-4 py-4 whitespace-nowrap">
                         <div>
@@ -636,7 +672,7 @@ export default function ClosingShiftPage() {
                       <td className="px-4 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900 dark:text-white">{invoice.customer}</div>
                         {invoice.giftCardCode && (
-                          <div className="text-xs text-ziditech-600 dark:text-ziditech-400">Gift: {invoice.giftCardCode}</div>
+                          <div className="text-xs text-gray-900 dark:text-gray-500">Gift: {invoice.giftCardCode}</div>
                         )}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
@@ -644,7 +680,7 @@ export default function ClosingShiftPage() {
                           {formatCurrency(invoice.totalAmount, invoice.currency)}
                         </div>
                         {invoice.giftCardDiscount > 0 && (
-                          <div className="text-xs text-ziditech-600 dark:text-ziditech-400">
+                          <div className="text-xs text-gray-900 dark:text-gray-500">
                             -{formatCurrency(invoice.giftCardDiscount, invoice.currency)} gift
                           </div>
                         )}
@@ -660,7 +696,7 @@ export default function ClosingShiftPage() {
                         <div className="flex space-x-2">
                           <button
                             onClick={() => handleViewInvoice(invoice)}
-                            className="text-ziditech-600 dark:text-ziditech-300 hover:text-ziditech-900 dark:hover:text-white flex items-center space-x-1"
+                            className="text-gray-900 dark:text-gray-500 hover:text-ziditech-900 dark:hover:text-white flex items-center space-x-1"
                           >
                             <Eye className="w-4 h-4" />
                             <span>View</span>
@@ -668,7 +704,7 @@ export default function ClosingShiftPage() {
                           {/* {invoice.status === "Draft" && (
                             <button
                               onClick={() => handleEditInvoice(invoice)}
-                              className="text-ziditech-600 dark:text-ziditech-300 hover:text-blue-900 dark:hover:text-white flex items-center space-x-1"
+                              className="text-gray-900 dark:text-gray-500 hover:text-blue-900 dark:hover:text-white flex items-center space-x-1"
                             >
                               <Edit className="w-4 h-4" />
                               <span>Edit</span>
@@ -684,10 +720,10 @@ export default function ClosingShiftPage() {
                             </button>
                           )}
                                                 {/* @ts-expect-error just ignore */}
-                          {["Paid", "Unpaid", "Overdue", "Partly Paid", "Credit Note Issued"].includes(invoice.status) && !invoice.is_return && hasReturnableItems(invoice) && (
+                          {["Paid", "Unpaid", "Overdue", "Partly Paid", "Credit Note Issued", "Consolidated"].includes(invoice.status) && !invoice.is_return && hasReturnableItems(invoice) && (
                             <button
                               onClick={() => handleSingleReturnClick(invoice)}
-                              className="text-orange-600 hover:text-orange-900 flex items-center space-x-1"
+                              className="text-gray-900 hover:text-ziditech-900 flex items-center space-x-1"
                             >
                               <RotateCcw className="w-4 h-4" />
                               <span>Return</span>
@@ -699,6 +735,41 @@ export default function ClosingShiftPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+            {/* Pagination Controls */}
+            <div className="p-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between bg-gray-50 dark:bg-gray-800/50 mt-auto">
+              <span className="text-sm text-gray-600 dark:text-gray-400">
+                Showing <span className="font-medium">{filteredInvoices.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</span> to <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredInvoices.length)}</span> of <span className="font-medium">{filteredInvoices.length}</span> results
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="p-1 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronLeft size={20} />
+                </button>
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300 px-2">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  onClick={() => {
+                    if (currentPage === totalPages && hasMore) {
+                      loadMore();
+                    } else {
+                      setCurrentPage((prev) => Math.min(prev + 1, totalPages));
+                    }
+                  }}
+                  disabled={currentPage === totalPages && !hasMore}
+                  className="p-1 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {isLoadingMore ? (
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-t-transparent border-gray-600 dark:border-gray-400"></div>
+                  ) : (
+                    <ChevronRight size={20} />
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -717,6 +788,17 @@ export default function ClosingShiftPage() {
                 </button>
               </div>
 
+              {/* Offline Banner */}
+              {isOffline && (
+                <div className="mb-4 p-4 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 rounded-xl flex items-center space-x-3 text-red-800 dark:text-red-200">
+                  <span className="text-sm font-semibold">
+                    لا يمكن إغلاق الوردية أثناء انقطاع الإنترنت. يرجى الاتصال بالشبكة أولاً.
+                    <br />
+                    Cannot close shift while offline. Please connect to the internet.
+                  </span>
+                </div>
+              )}
+
               <div className="space-y-4">
                 {Object.values(paymentStats).map((stat) => (
                         // @ts-expect-error just ignore for now
@@ -724,9 +806,9 @@ export default function ClosingShiftPage() {
                     <div className="flex items-center space-x-3 flex-shrink-0">
                       {/* @ts-expect-error just ignore */}
                       {stat.name.toLowerCase().includes('cash') ? (
-                        <div className="text-xl">💵</div>
+                        <Banknote className="w-5 h-5 text-gray-900 dark:text-gray-500" />
                       ) : (
-                        <CreditCard className="w-5 h-5 text-ziditech-600 dark:text-ziditech-400" />
+                        <CreditCard className="w-5 h-5 text-gray-900 dark:text-gray-500" />
                       )}
                       {/* @ts-expect-error just ignore */}
                       <span className="font-medium text-gray-900 dark:text-white">{stat.name}</span>
@@ -734,12 +816,12 @@ export default function ClosingShiftPage() {
 
                     <div className="flex flex-col space-y-2 flex-1 max-w-[200px]">
                       <input
-                        type="number"
-                        step="0.01"
+                        type="text"
+                        inputMode="decimal"
                         placeholder="Enter actual amount"
                         required
                         // @ts-expect-error just ignore for now
-                        value={closingAmounts[stat.name] === undefined ? '' : closingAmounts[stat.name]}
+                        value={closingInputs[stat.name] || ""}
                         // @ts-expect-error just ignore for now
                         onChange={(e) => handleClosingAmountChange(stat.name, e.target.value)}
                         className="w-full px-3 py-2 border-2 border-ziditech-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-ziditech-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm font-bold"
@@ -758,10 +840,10 @@ export default function ClosingShiftPage() {
                 </button>
                 <button
                   onClick={handleFinalClose}
-                  disabled={isCreating}
+                  disabled={isCreating || isOffline}
                   className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-                    isCreating
-                      ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                    isCreating || isOffline
+                      ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 cursor-not-allowed'
                       : 'bg-ziditech-600 text-white hover:bg-ziditech-700'
                   }`}
                 >
@@ -800,9 +882,9 @@ export default function ClosingShiftPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex pb-12">
-      <div className="flex-1 flex flex-col overflow-hidden ml-20">
+      <div className="flex-1 flex flex-col overflow-hidden ml-28">
         {/* Header */}
-        <div className="fixed top-0 left-20 right-0 z-50 bg-ziditech-50 dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+        <div className="fixed top-0 left-28 right-0 z-50 bg-ziditech-50 dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
           <div className="px-4 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
@@ -810,7 +892,8 @@ export default function ClosingShiftPage() {
               </div>
               <button
                 onClick={() => setShowCloseModal(true)}
-                className="flex items-center space-x-2 px-4 py-2 bg-ziditech-600 text-white rounded-lg hover:bg-ziditech-700 transition-colors"
+                className="flex items-center justify-center space-x-2 px-5 py-2.5 text-white rounded-lg text-sm font-medium transition-all shadow-sm hover:opacity-90"
+                style={{ background: 'linear-gradient(135deg, #3a76fc 0%, #1a53d3 100%)' }}
               >
                 <MonitorX className="w-4 h-4" />
                 <span>Close</span>
@@ -852,9 +935,9 @@ export default function ClosingShiftPage() {
                       <h3 className="font-semibold text-gray-900 dark:text-white">{stat.name}</h3>
                                             {/* @ts-expect-error just ignore */}
                       {stat.name.toLowerCase().includes('cash') ? (
-                        <div className="text-2xl">💵</div>
+                        <Banknote className="w-8 h-8 text-gray-900 dark:text-gray-500" />
                       ) : (
-                        <CreditCard className="w-8 h-8 text-orange-600" />
+                        <CreditCard className="w-8 h-8 text-gray-900" />
                       )}
                     </div>
                     <div className="space-y-2">
@@ -881,7 +964,7 @@ export default function ClosingShiftPage() {
                 <div className="flex gap-4 text-sm font-medium">
                   <span className="text-green-600">In: {formatCurrency(cashSummary.cash_in, posDetails?.currency || 'SAR')}</span>
                   <span className="text-red-600">Out: {formatCurrency(cashSummary.cash_out, posDetails?.currency || 'SAR')}</span>
-                  <span className={cashSummary.net >= 0 ? 'text-ziditech-600' : 'text-red-600'}>
+                  <span className={cashSummary.net >= 0 ? 'text-gray-900' : 'text-red-600'}>
                     Net: {formatCurrency(cashSummary.net, posDetails?.currency || 'SAR')}
                   </span>
                 </div>
@@ -1020,7 +1103,7 @@ export default function ClosingShiftPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-gray-600">
-                  {filteredInvoices.map((invoice) => (
+                  {paginatedInvoices.map((invoice) => (
                     <tr key={invoice.id} className="hover:bg-gray-50 dark:hover:bg-gray-700">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
@@ -1045,7 +1128,7 @@ export default function ClosingShiftPage() {
                           {formatCurrency(invoice.totalAmount, invoice.currency)}
                         </div>
                         {invoice.giftCardDiscount > 0 && (
-                          <div className="text-xs text-ziditech-600 dark:text-ziditech-400">
+                          <div className="text-xs text-gray-900 dark:text-gray-500">
                             -{formatCurrency(invoice.giftCardDiscount, invoice.currency)} gift card
                           </div>
                         )}
@@ -1063,7 +1146,7 @@ export default function ClosingShiftPage() {
                         <div className="flex space-x-2">
                           <button
                             onClick={() => handleViewInvoice(invoice)}
-                            className="text-ziditech-600 dark:text-ziditech-300 hover:text-ziditech-900 dark:hover:text-white flex items-center space-x-1"
+                            className="text-gray-900 dark:text-gray-500 hover:text-ziditech-900 dark:hover:text-white flex items-center space-x-1"
                           >
                             <Eye className="w-4 h-4" />
                             <span>View</span>
@@ -1079,10 +1162,10 @@ export default function ClosingShiftPage() {
                             </button>
                           )}
                                                 {/* @ts-expect-error just ignore */}
-                          {["Paid", "Unpaid", "Overdue", "Partly Paid", "Credit Note Issued"].includes(invoice.status) && !invoice.is_return && hasReturnableItems(invoice) && (
+                          {["Paid", "Unpaid", "Overdue", "Partly Paid", "Credit Note Issued", "Consolidated"].includes(invoice.status) && !invoice.is_return && hasReturnableItems(invoice) && (
                             <button
                               onClick={() => handleSingleReturnClick(invoice)}
-                              className="text-orange-600 hover:text-orange-900 flex items-center space-x-1"
+                              className="text-gray-900 hover:text-ziditech-900 flex items-center space-x-1"
                             >
                               <RotateCcw className="w-4 h-4" />
                               <span>Return</span>
@@ -1094,6 +1177,41 @@ export default function ClosingShiftPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+            {/* Pagination Controls */}
+            <div className="p-4 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between bg-gray-50 dark:bg-gray-800/50 mt-auto">
+              <span className="text-sm text-gray-600 dark:text-gray-400">
+                Showing <span className="font-medium">{filteredInvoices.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0}</span> to <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredInvoices.length)}</span> of <span className="font-medium">{filteredInvoices.length}</span> results
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                  disabled={currentPage === 1}
+                  className="p-1 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <ChevronLeft size={20} />
+                </button>
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300 px-2">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <button
+                  onClick={() => {
+                    if (currentPage === totalPages && hasMore) {
+                      loadMore();
+                    } else {
+                      setCurrentPage((prev) => Math.min(prev + 1, totalPages));
+                    }
+                  }}
+                  disabled={currentPage === totalPages && !hasMore}
+                  className="p-1 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {isLoadingMore ? (
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-t-transparent border-gray-600 dark:border-gray-400"></div>
+                  ) : (
+                    <ChevronRight size={20} />
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1112,6 +1230,17 @@ export default function ClosingShiftPage() {
                 </button>
               </div>
 
+              {/* Offline Banner */}
+              {isOffline && (
+                <div className="mb-4 p-4 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900 rounded-xl flex items-center space-x-3 text-red-800 dark:text-red-200">
+                  <span className="text-sm font-semibold">
+                    لا يمكن إغلاق الوردية أثناء انقطاع الإنترنت. يرجى الاتصال بالشبكة أولاً.
+                    <br />
+                    Cannot close shift while offline. Please connect to the internet.
+                  </span>
+                </div>
+              )}
+
               <div className="space-y-4">
                 {Object.values(paymentStats).map((stat) => (
                   // @ts-expect-error just ignore for now
@@ -1119,9 +1248,9 @@ export default function ClosingShiftPage() {
                     <div className="flex items-center space-x-3 flex-shrink-0">
                       {/* @ts-expect-error just ignore */}
                       {stat.name.toLowerCase().includes('cash') ? (
-                        <div className="text-xl">💵</div>
+                        <Banknote className="w-5 h-5 text-gray-900 dark:text-gray-500" />
                       ) : (
-                        <CreditCard className="w-5 h-5 text-ziditech-600 dark:text-ziditech-400" />
+                        <CreditCard className="w-5 h-5 text-gray-900 dark:text-gray-500" />
                       )}
                       {/* @ts-expect-error just ignore */}
                       <span className="font-medium text-gray-900 dark:text-white">{stat.name}</span>
@@ -1130,12 +1259,12 @@ export default function ClosingShiftPage() {
                     <div className="flex items-center space-x-4">
                       <div className="flex-shrink-0">
                         <input
-                          type="number"
-                          step="0.01"
+                          type="text"
+                          inputMode="decimal"
                           placeholder="Enter actual amount"
                           required
                           // @ts-expect-error just ignore for now
-                          value={closingAmounts[stat.name] === undefined ? '' : closingAmounts[stat.name]}
+                          value={closingInputs[stat.name] || ""}
                           // @ts-expect-error just ignore for now
                           onChange={(e) => handleClosingAmountChange(stat.name, e.target.value)}
                           className="w-40 px-3 py-2 border-2 border-ziditech-200 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-ziditech-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm font-bold"
@@ -1155,10 +1284,10 @@ export default function ClosingShiftPage() {
                 </button>
                 <button
                   onClick={handleFinalClose}
-                  disabled={isCreating}
+                  disabled={isCreating || isOffline}
                   className={`px-6 py-2 rounded-lg font-medium transition-colors ${
-                    isCreating
-                      ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                    isCreating || isOffline
+                      ? 'bg-gray-300 dark:bg-gray-600 text-gray-500 cursor-not-allowed'
                       : 'bg-ziditech-600 text-white hover:bg-ziditech-700'
                   }`}
                 >

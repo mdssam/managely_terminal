@@ -76,11 +76,34 @@ def get_user_pos_profile_name(user: str):
 	return profile
 
 
-def get_user_pos_role(user: str, pos_profile_name: str) -> str:
-	"""Return the custom POS role for a user within a profile, defaulting to 'Cashier'."""
-	role = frappe.db.get_value(
-		"POS Profile User",
-		{"parent": pos_profile_name, "user": user},
-		"custom_role",
-	)
-	return role or "Cashier"
+
+
+
+def get_pos_opening_entry_dashboard(data=None):
+	if not data:
+		data = {}
+	data.setdefault("non_standard_fieldnames", {})
+	data["non_standard_fieldnames"]["POS Suspended Transaction"] = "pos_session"
+	transactions = data.setdefault("transactions", [])
+	for group in transactions:
+		if group.get("label") == "Transactions":
+			if "POS Suspended Transaction" not in group["items"]:
+				group["items"].append("POS Suspended Transaction")
+			return data
+	transactions.append({"label": "Transactions", "items": ["POS Suspended Transaction"]})
+	return data
+
+
+def get_pos_closing_entry_dashboard(data=None):
+	if not data:
+		data = {}
+	data.setdefault("non_standard_fieldnames", {})
+	data["non_standard_fieldnames"]["POS Suspended Transaction"] = "pos_closing_entry"
+	transactions = data.setdefault("transactions", [])
+	for group in transactions:
+		if group.get("label") == "Transactions":
+			if "POS Suspended Transaction" not in group["items"]:
+				group["items"].append("POS Suspended Transaction")
+			return data
+	transactions.append({"label": "Transactions", "items": ["POS Suspended Transaction"]})
+	return data

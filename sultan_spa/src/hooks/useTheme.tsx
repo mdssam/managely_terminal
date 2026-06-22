@@ -1,6 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { dbGet, dbSet, APP_CACHE_STORE } from "../services/offlineDB"
 
 interface ThemeContextType {
   theme: "light" | "dark"
@@ -24,7 +25,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     // Enforce light mode at all times
     setTheme("light")
     document.documentElement.classList.remove("dark")
-    localStorage.setItem("theme", "light")
+    dbSet(APP_CACHE_STORE, "theme", "light").catch(() => {})
   }, [mounted])
 
   useEffect(() => {
@@ -32,7 +33,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
     // Keep it light
     document.documentElement.classList.remove("dark")
-    localStorage.setItem("theme", "light")
+    dbSet(APP_CACHE_STORE, "theme", "light").catch(() => {})
   }, [theme, mounted])
 
   const toggleTheme = () => {

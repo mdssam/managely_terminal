@@ -21,7 +21,8 @@ interface IngredientModifierModalProps {
   onClose: () => void;
   itemCode: string;
   itemName: string;
-  onConfirm: (modifications: Modification[]) => void;
+  onConfirm: (modifications: Modification[], notes: string) => void;
+  initialNotes?: string;
 }
 
 export default function IngredientModifierModal({
@@ -29,11 +30,13 @@ export default function IngredientModifierModal({
   onClose,
   itemCode,
   itemName,
-  onConfirm
+  onConfirm,
+  initialNotes = ''
 }: IngredientModifierModalProps) {
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
   const [loading, setLoading] = useState(false);
   const [modifiedQty, setModifiedQty] = useState<Record<string, number>>({});
+  const [notes, setNotes] = useState(initialNotes);
 
   useEffect(() => {
     if (isOpen && itemCode) {
@@ -88,7 +91,7 @@ export default function IngredientModifierModal({
       }
     });
 
-    onConfirm(finalModifications);
+    onConfirm(finalModifications, notes);
     onClose();
   };
 
@@ -152,6 +155,20 @@ export default function IngredientModifierModal({
               })}
             </div>
           )}
+
+          {/* Custom Notes Section */}
+          <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-6">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Kitchen Notes / Remarks
+            </label>
+            <textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="E.g., No onions, extra spicy, well done..."
+              className="w-full px-4 py-3 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 focus:ring-2 focus:ring-ziditech-500 focus:border-transparent resize-none"
+              rows={3}
+            />
+          </div>
         </div>
 
         <div className="p-6 border-t border-border bg-gray-50 dark:bg-muted/20 flex justify-end gap-3">

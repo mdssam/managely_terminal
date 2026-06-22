@@ -1,5 +1,7 @@
-import { useFrappeGetDoc } from "frappe-react-sdk";
 import { useEffect, useState } from "react"
+import { useFrappeGetDoc } from "frappe-react-sdk";
+import { dbGet, dbSet, APP_CACHE_STORE } from "../services/offlineDB"
+import { makeAPICall } from "../utils/apiUtils"
 
 interface PaymentMode {
   mode_of_payment: string;
@@ -24,7 +26,6 @@ interface POSProfile {
     customer_group: string;
     default_currency?: string;
   };
-  // Add other POS Profile fields as needed
 }
 
 interface UsePOSProfileReturn {
@@ -37,23 +38,68 @@ interface UsePOSProfileReturn {
 }
 
 export function usePOSProfile(profileName: string): UsePOSProfileReturn {
-  const {
-    data,
-    error,
-    isLoading,
-    mutate
-  } = useFrappeGetDoc<POSProfile>("POS Profile", profileName);
+  const [profile, setProfile] = useState<POSProfile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
-  const paymentModes = data?.payment_methods || [];
+  const fetchProfile = async () => {
+    if (!profileName) return;
+    setIsLoading(true);
+    const cacheKey = `cached_pos_profile_${profileName}`;
+
+    // Read cache first if offline
+    if (typeof window !== 'undefined' && !navigator.onLine) {
+      const cached = await dbGet<POSProfile>(APP_CACHE_STORE, cacheKey);
+      if (cached) {
+        setProfile(cached);
+        setIsLoading(false);
+        return;
+      }
+    }
+
+    try {
+      const response = await makeAPICall(`/api/resource/POS Profile/${encodeURIComponent(profileName)}`, {
+        timeout: 2000,
+        retries: 0
+      });
+      const resData = await response.json();
+      const profileData = resData.data;
+
+      if (profileData) {
+        setProfile(profileData);
+        setError(null);
+        await dbSet(APP_CACHE_STORE, cacheKey, profileData);
+      } else {
+        throw new Error("Invalid POS Profile data");
+      }
+    } catch (err: any) {
+      console.error("Error loading POS Profile:", err);
+      const cached = await dbGet<POSProfile>(APP_CACHE_STORE, cacheKey);
+      if (cached) {
+        setProfile(cached);
+        setError(null);
+      } else {
+        setError(err instanceof Error ? err : new Error(err?.message || "Unknown error"));
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProfile();
+  }, [profileName]);
+
+  const paymentModes = profile?.payment_methods || [];
   const defaultPaymentMode = paymentModes.find(mode => mode.default === 1)?.mode_of_payment;
 
   return {
-    profile: data || null,
+    profile,
     paymentModes,
     defaultPaymentMode,
     isLoading,
-    error: error ? new Error(error.message) : null,
-    refetch: mutate,
+    error,
+    refetch: fetchProfile
   };
 }
 
@@ -72,9 +118,9 @@ export function usePOSProfiles() {
     const fetchPOSProfiles = async () => {
       const cacheKey = "cached_pos_profiles";
       if (typeof window !== "undefined" && !navigator.onLine) {
-        const cached = localStorage.getItem(cacheKey);
+        const cached = await dbGet<POSProfileOption[]>(APP_CACHE_STORE, cacheKey);
         if (cached) {
-          setProfiles(JSON.parse(cached));
+          setProfiles(cached);
           setLoading(false);
           return;
         }
@@ -83,28 +129,28 @@ export function usePOSProfiles() {
       try {
         setLoading(true)
 
-        const response = await fetch("/api/method/sultan.sultan.api.pos_profile.get_pos_profiles_for_user", {
+        const response = await makeAPICall("/api/method/sultan.sultan.api.pos_profile.get_pos_profiles_for_user", {
           method: "GET",
           headers: {
             "Accept": "application/json",
           },
           credentials: "include",
+          timeout: 2000,
+          retries: 0
         })
 
         const data = await response.json()
         if (response.ok && data.message) {
           setProfiles(data.message)
-          if (typeof window !== "undefined") {
-            localStorage.setItem(cacheKey, JSON.stringify(data.message));
-          }
+          dbSet(APP_CACHE_STORE, cacheKey, data.message).catch(() => {});
         } else {
           throw new Error(data._server_messages || "Failed to fetch POS Profiles")
         }
       } catch (err: unknown) {
         console.error("Error loading POS Profiles:", err)
-        const cached = typeof window !== "undefined" ? localStorage.getItem(cacheKey) : null;
+        const cached = await dbGet<POSProfileOption[]>(APP_CACHE_STORE, cacheKey);
         if (cached) {
-          setProfiles(JSON.parse(cached));
+          setProfiles(cached);
           setError(null);
         } else {
           setError(err instanceof Error ? err.message : "Unknown error")
@@ -138,7 +184,6 @@ export type POSDetails = {
   allow_discount_change?: boolean;
   custom_pos_print_format_en?: string;
   custom_pos_print_format_ar?: string;
-  // extend with any other server-provided fields as needed
   [key: string]: unknown;
 }
 
@@ -149,43 +194,44 @@ export function usePOSDetails() {
 
   useEffect(() => {
     const fetchPOSDetails = async () => {
+      const cacheKey = 'cached_pos_details';
       try {
         setLoading(true)
 
         if (typeof window !== 'undefined' && !navigator.onLine) {
-          const cached = localStorage.getItem('cached_pos_details');
+          const cached = await dbGet<POSDetails>(APP_CACHE_STORE, cacheKey);
           if (cached) {
-            setPOSDetails(JSON.parse(cached));
+            setPOSDetails(cached);
             setLoading(false);
             return;
           }
         }
 
-        const response = await fetch("/api/method/sultan.sultan.api.pos_profile.get_pos_details", {
+        const response = await makeAPICall("/api/method/sultan.sultan.api.pos_profile.get_pos_details", {
           method: "GET",
           headers: {
             "Accept": "application/json",
           },
           credentials: "include",
+          timeout: 2000,
+          retries: 0
         })
 
         const data = await response.json()
         if (response.ok && data.message) {
           setPOSDetails(data.message as POSDetails)
-          if (typeof window !== 'undefined') {
-            // Don't cache the synthetic System Default placeholder — it lacks a real profile
-            if (data.message?.name && data.message.name !== 'System Default') {
-              localStorage.setItem('cached_pos_details', JSON.stringify(data.message));
-            }
+          // Don't cache the synthetic System Default placeholder — it lacks a real profile
+          if (data.message?.name && data.message.name !== 'System Default') {
+            dbSet(APP_CACHE_STORE, cacheKey, data.message).catch(() => {});
           }
         } else {
           throw new Error(data._server_messages || "Failed to fetch POS details")
         }
       } catch (err: unknown) {
         console.error("Error loading POS details:", err)
-        const cached = typeof window !== 'undefined' ? localStorage.getItem('cached_pos_details') : null;
+        const cached = await dbGet<POSDetails>(APP_CACHE_STORE, 'cached_pos_details');
         if (cached) {
-          setPOSDetails(JSON.parse(cached));
+          setPOSDetails(cached);
           setError(null);
         } else {
           setError(err instanceof Error ? err.message : "Unknown error")

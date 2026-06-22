@@ -8,6 +8,8 @@ import frappe
 def get_delivery_personnel_list():
 	"""Get list of all delivery personnel."""
 	try:
+		if not frappe.db.exists("DocType", "Delivery Personnel"):
+			return {"success": True, "data": []}
 		personnel = frappe.get_all(
 			"Delivery Personnel",
 			fields=["name", "delivery_personnel"],

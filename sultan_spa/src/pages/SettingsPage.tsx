@@ -28,7 +28,7 @@ export default function SettingsPage() {
   ]
 
   return (
-    <div className={`min-h-screen ${isRTL ? "rtl" : "ltr"} pb-24 lg:pb-0 lg:pl-20`} style={{ backgroundColor: '#eef1f8' }}>
+    <div className={`min-h-screen ${isRTL ? "rtl" : "ltr"} pb-24 lg:pb-0 lg:pl-28`} style={{ backgroundColor: '#eef1f8' }}>
       {/* Header */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
@@ -38,10 +38,9 @@ export default function SettingsPage() {
             </button>
             <div>
               <h1 className="text-lg font-bold text-gray-900">Settings</h1>
-              <p className="text-xs text-gray-500">Sultan POS Management</p>
             </div>
           </div>
-          <button onClick={handleLogout} className="flex items-center space-x-2 px-4 py-2 text-red-600 bg-red-50 hover:bg-red-100 rounded-xl font-semibold text-sm border border-red-100 transition-all active:scale-95">
+          <button onClick={handleLogout} className="flex items-center justify-center space-x-2 px-5 py-2.5 text-red-600 bg-red-50 hover:bg-red-100 rounded-lg font-medium text-sm transition-colors shadow-sm">
             <LogOut className="w-4 h-4" />
             <span>Sign Out</span>
           </button>
@@ -63,7 +62,7 @@ export default function SettingsPage() {
                         ? "text-white shadow-sm"
                         : "text-gray-600 hover:bg-gray-50"
                     }`}
-                    style={activeSection === s.id ? { backgroundColor: '#1e2d6b' } : {}}
+                    style={activeSection === s.id ? { background: 'linear-gradient(135deg, #3a76fc 0%, #1a53d3 100%)' } : {}}
                   >
                     <s.icon className={`w-4 h-4 ${activeSection === s.id ? "text-white" : "text-gray-400"}`} />
                     <span className="font-semibold text-sm">{s.name}</span>
@@ -80,14 +79,14 @@ export default function SettingsPage() {
                 <h2 className="text-xl font-bold text-gray-900">
                   {sections.find(s => s.id === activeSection)?.name}
                 </h2>
-                <div className="h-1 w-10 rounded-full mt-2" style={{ backgroundColor: '#1e2d6b' }} />
+                <div className="h-1 w-10 rounded-full mt-2" style={{ background: 'linear-gradient(135deg, #3a76fc 0%, #1a53d3 100%)' }} />
               </div>
 
               {/* Profile Section */}
               {activeSection === "profile" && (
                 <div className="space-y-6 animate-in fade-in duration-300">
                   <div className="flex items-center space-x-4">
-                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center shrink-0" style={{ backgroundColor: '#1e2d6b' }}>
+                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center shrink-0" style={{ background: 'linear-gradient(135deg, #3a76fc 0%, #1a53d3 100%)' }}>
                       <span className="text-white font-bold text-xl">{authUser?.full_name?.charAt(0) || "U"}</span>
                     </div>
                     <div>
