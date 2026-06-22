@@ -472,6 +472,7 @@ export default function ClosingShiftPage() {
       const receipt: ShiftReceiptData = {
         companyName: posDetails?.company || posDetails?.name,
         posProfile: posDetails?.name || "",
+        sessionNumber: posDetails?.current_opening_entry || "",
         cashierName: userInfo?.full_name || userInfo?.user || "",
         openingDate: posDetails?.current_opening_entry ? new Date().toLocaleString("en-US", { hour12: false }) : "",
         closingDate: new Date().toLocaleString("en-US", { hour12: false }),

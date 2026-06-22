@@ -6,6 +6,7 @@ import type { CashTransaction, CashTransactionSummary } from "../services/cashTr
 export interface ShiftReceiptData {
   companyName?: string
   posProfile: string
+  sessionNumber?: string      // POS Opening Entry name e.g. OP-BRANCH-00001
   cashierName: string
   openingDate: string
   closingDate: string
@@ -64,6 +65,9 @@ function ReceiptContent({ data }: { data: ShiftReceiptData }) {
       <div style={{ textAlign: "center", marginBottom: "8px" }}>
         <div style={{ fontSize: "16px", fontWeight: "bold" }}>{data.companyName || data.posProfile}</div>
         <div style={{ fontSize: "11px" }}>{data.posProfile}</div>
+        {data.sessionNumber && (
+          <div style={{ fontSize: "10px", color: "#555" }}>Session: {data.sessionNumber}</div>
+        )}
         <div style={{ borderTop: "1px dashed #000", margin: "4px 0" }} />
         <div>Shift Closure Report</div>
         <div style={{ fontSize: "10px" }}>Cashier: {data.cashierName}</div>

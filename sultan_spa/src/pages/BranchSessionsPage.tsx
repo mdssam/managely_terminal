@@ -86,6 +86,7 @@ export default function BranchSessionsPage() {
     e.stopPropagation(); // prevent row toggle
     const receiptData: ShiftReceiptData = {
       posProfile: session.pos_profile,
+      sessionNumber: session.name || "",
       cashierName: session.custom_employee_name || session.user || session.owner || "Unknown User",
       openingDate: new Date(session.period_start_date).toLocaleString(),
       closingDate: session.period_end_date ? new Date(session.period_end_date).toLocaleString() : "-",
