@@ -38,10 +38,11 @@ function formatAmt(amount: number, currency: string, numberFormat?: string): str
     precision = match ? match[1].length : 0;
   }
 
-  if (precision === 0) {
-    return Math.round(amount).toLocaleString("en-US");
-  }
-  return amount.toFixed(precision);
+  // Always add thousands separator
+  return amount.toLocaleString("en-US", {
+    minimumFractionDigits: precision,
+    maximumFractionDigits: precision,
+  });
 }
 
 function ReceiptContent({ data }: { data: ShiftReceiptData }) {
@@ -131,7 +132,7 @@ function ReceiptContent({ data }: { data: ShiftReceiptData }) {
                     <td style={{ color: txn.transaction_type === "Cash In" ? "#006600" : "#cc0000" }}>
                       {txn.transaction_type === "Cash In" ? "IN" : "OUT"}
                     </td>
-                    <td style={{ textAlign: "right" }}>{txn.amount.toFixed(2)}</td>
+                    <td style={{ textAlign: "right" }}>{formatAmt(txn.amount, data.currency)}</td>
                     <td style={{ paddingLeft: "4px", maxWidth: "30mm", overflow: "hidden" }}>
                       {txn.description?.slice(0, 18)}
                     </td>
@@ -140,11 +141,11 @@ function ReceiptContent({ data }: { data: ShiftReceiptData }) {
               </tbody>
             </table>
             <div style={{ fontSize: "11px", marginTop: "3px" }}>
-              <span>Cash In: {data.cashSummary.cash_in.toFixed(2)}</span>
+              <span>Cash In: {formatAmt(data.cashSummary.cash_in, data.currency)}</span>
               {"  "}
-              <span>Cash Out: {data.cashSummary.cash_out.toFixed(2)}</span>
+              <span>Cash Out: {formatAmt(data.cashSummary.cash_out, data.currency)}</span>
               {"  "}
-              <span>Net: {data.cashSummary.net.toFixed(2)}</span>
+              <span>Net: {formatAmt(data.cashSummary.net, data.currency)}</span>
             </div>
           </div>
           <div style={{ borderTop: "1px dashed #000", margin: "4px 0" }} />
