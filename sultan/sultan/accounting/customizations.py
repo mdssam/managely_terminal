@@ -27,6 +27,22 @@ def setup_custom_fields():
 				"fieldtype": "Data",
 				"insert_after": "bill_no",
 			},
+			{
+				"dt": "Sales Invoice",
+				"fieldname": "custom_stamps_auto_inserted",
+				"label": "Stamps Auto Inserted",
+				"fieldtype": "Check",
+				"insert_after": "taxes_and_charges",
+				"hidden": 1,
+			},
+			{
+				"dt": "Purchase Invoice",
+				"fieldname": "custom_stamps_auto_inserted",
+				"label": "Stamps Auto Inserted",
+				"fieldtype": "Check",
+				"insert_after": "taxes_and_charges",
+				"hidden": 1,
+			},
 		]
 		+ pe_parent
 		+ je_parent
@@ -269,6 +285,10 @@ def _auto_insert_stamp_taxes(doc):
 	if getattr(doc, "is_return", False):
 		return
 
+	# If stamps were already handled (either loaded on UI or auto-inserted on first validation), do not re-add them.
+	if doc.get("custom_stamps_auto_inserted"):
+		return
+
 	# Only auto-insert if it is a new document (never saved to database yet)
 	if not (doc.is_new() or not frappe.db.exists(doc.doctype, doc.name)):
 		return
@@ -288,6 +308,7 @@ def _auto_insert_stamp_taxes(doc):
 	if not doc.get("taxes"):
 		doc.taxes = []
 
+	inserted = False
 	for setting in settings.stamps:
 		# Check if stamp is already in taxes to avoid duplicates
 		exists = any(
@@ -295,7 +316,7 @@ def _auto_insert_stamp_taxes(doc):
 			for tax in doc.taxes
 		)
 		if not exists:
-			doc.append("taxes", {
+			tax_row = {
 				"charge_type": "Actual",
 				"account_head": setting.account,
 				"description": setting.stamp_name,
@@ -303,7 +324,15 @@ def _auto_insert_stamp_taxes(doc):
 				"custom_stamp_amount_lbp": setting.amount_lbp,
 				"rate": 0,
 				"tax_amount": 0,
-			})
+				"category": "Total",
+			}
+			if doc.doctype == "Purchase Invoice":
+				tax_row["add_deduct_tax"] = "Add"
+			doc.append("taxes", tax_row)
+			inserted = True
+
+	if inserted:
+		doc.custom_stamps_auto_inserted = 1
 
 
 def before_validate_transaction(doc, method=None):

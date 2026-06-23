@@ -129,6 +129,28 @@
 		if (isJe) {
 			totalUsd = totalUsdDebit > 0 ? totalUsdDebit : totalUsdCredit;
 			totalLbp = totalLbpDebit > 0 ? totalLbpDebit : totalLbpCredit;
+		} else if (frm.doctype === "Sales Invoice" || frm.doctype === "Purchase Invoice") {
+			const finalAmount = flt(frm.doc.rounded_total) || flt(frm.doc.grand_total);
+			const currency = getCurrency(frm);
+			const rate = getRate(frm);
+			const companyCurrency = frm.doc.company_currency || (frappe.boot && frappe.boot.sysdefaults && frappe.boot.sysdefaults.currency) || "USD";
+			
+			if (currency === "LBP") {
+				totalUsd = finalAmount / rate;
+				totalLbp = finalAmount;
+			} else if (currency === "USD") {
+				totalUsd = finalAmount;
+				totalLbp = finalAmount * rate;
+			} else {
+				const rowExchangeRate = flt(frm.doc.conversion_rate) || 1.0;
+				if (companyCurrency === "USD") {
+					totalUsd = finalAmount * rowExchangeRate;
+				} else {
+					const baseAmount = finalAmount * rowExchangeRate;
+					totalUsd = baseAmount / rate;
+				}
+				totalLbp = totalUsd * rate;
+			}
 		}
 
 		const roundedLbp = Math.round(totalLbp);
@@ -171,9 +193,13 @@
 			});
 		});
 	}
-
 	function setupTransactionForm(doctype) {
 		frappe.ui.form.on(doctype, {
+			onload(frm) {
+				if ((frm.doctype === "Sales Invoice" || frm.doctype === "Purchase Invoice") && frm.is_new()) {
+					frm.set_value("custom_stamps_auto_inserted", 1);
+				}
+			},
 			refresh(frm) {
 				// Only set the default on new unsaved documents — the server hook sets it on save,
 				// and calling frm.set_value on an already-saved doc marks it dirty immediately.
@@ -191,12 +217,47 @@
 				}
 				attachEnterToAddRows(frm);
 				refreshDualCurrency(frm);
-				// Do NOT call recalculateStampTaxes here. ERPNext rounds tax_amount to 2dp on
-				// save (e.g. 200 LBP / 89500 = 0.0022 → stored as 0.00). On reload the JS
-				// recomputes 0.0022 which differs from the stored 0.00 by > 0.001, so calling
-				// set_value marks the form dirty on every page load. The server-side
-				// _apply_stamp_taxes hook sets the correct value before each save; JS only
-				// recalculates when the user actually changes a stamp-related field.
+
+				// Add custom "Add Stamp" button to taxes grid
+				if (frm.doctype === "Sales Invoice" || frm.doctype === "Purchase Invoice") {
+					frm.fields_dict.taxes.grid.add_custom_button(__('Add Stamp'), function() {
+						frappe.call({
+							method: "frappe.client.get",
+							args: { doctype: "Sultan Settings" },
+							callback: function(r) {
+								if (r.message && r.message.stamps) {
+									let child_doctype = frm.doctype === "Sales Invoice" ? "Sales Taxes and Charges" : "Purchase Taxes and Charges";
+									let added = false;
+									r.message.stamps.forEach(setting => {
+										const exists = (frm.doc.taxes || []).some(t => t.account_head === setting.account && t.custom_is_stamp);
+										if (!exists) {
+											let row = frappe.model.add_child(frm.doc, child_doctype, "taxes");
+											row.charge_type = "Actual";
+											row.account_head = setting.account;
+											row.description = setting.stamp_name;
+											row.custom_is_stamp = 1;
+											row.custom_stamp_amount_lbp = setting.amount_lbp;
+											row.rate = 0;
+											row.tax_amount = 0;
+											row.category = "Total";
+											if (frm.doctype === "Purchase Invoice") {
+												row.add_deduct_tax = "Add";
+											}
+											added = true;
+										}
+									});
+									if (added) {
+										frm.refresh_field("taxes");
+										recalculateStampTaxes(frm);
+										frappe.show_alert({message: __("Stamps added successfully"), indicator: "green"});
+									} else {
+										frappe.show_alert({message: __("Stamps are already in the table"), indicator: "orange"});
+									}
+								}
+							}
+						});
+					});
+				}
 			},
 			custom_exchange_rate_override(frm) {
 				refreshDualCurrency(frm);
