@@ -80,7 +80,11 @@ class POSSuspendedTransaction(Document):
                 )
             if not row.exchange_rate or row.exchange_rate <= 0:
                 row.exchange_rate = 1.0 if row.account_currency == company_currency else 0.0
-            row.amount = flt(row.amount_in_account_currency) * flt(row.exchange_rate)
+            
+            if row.exchange_rate > 1.0:
+                row.amount = flt(row.amount_in_account_currency) / flt(row.exchange_rate)
+            else:
+                row.amount = flt(row.amount_in_account_currency) * flt(row.exchange_rate)
             total_sum += row.amount
 
         self.total_amount = total_sum if is_cash_in else -total_sum
@@ -128,12 +132,15 @@ class POSSuspendedTransaction(Document):
             from sultan.sultan.api.cash_transaction import get_exchange_rate_for_cash_io
             rate_cash = get_exchange_rate_for_cash_io(pos_profile, cash_currency, company_currency)
 
+        gl_rate_cash = 1.0 / rate_cash if rate_cash > 1.0 else (rate_cash or 1.0)
+
         gl_entries = []
         for row in self.accounts:
             if flt(row.amount) == 0.0:
                 continue
             
-            cash_amount_in_ac = flt(row.amount) / rate_cash if rate_cash else flt(row.amount)
+            cash_amount_in_ac = flt(row.amount) / gl_rate_cash if gl_rate_cash else flt(row.amount)
+            gl_row_rate = 1.0 / row.exchange_rate if row.exchange_rate > 1.0 else (row.exchange_rate or 1.0)
 
             gl_entries.append(frappe._dict({
                 "doctype": "GL Entry",
@@ -150,7 +157,7 @@ class POSSuspendedTransaction(Document):
                 "debit_in_account_currency": abs(flt(cash_amount_in_ac)) if is_cash_in else 0.0,
                 "credit_in_account_currency": 0.0 if is_cash_in else abs(flt(cash_amount_in_ac)),
                 "account_currency": cash_currency,
-                "exchange_rate": rate_cash,
+                "exchange_rate": gl_rate_cash,
                 "cost_center": cost_center,
                 "is_opening": "No",
             }))
@@ -169,7 +176,7 @@ class POSSuspendedTransaction(Document):
                 "debit_in_account_currency": abs(flt(row.amount_in_account_currency)) if not is_cash_in else 0.0,
                 "credit_in_account_currency": 0.0 if not is_cash_in else abs(flt(row.amount_in_account_currency)),
                 "account_currency": row.account_currency,
-                "exchange_rate": row.exchange_rate,
+                "exchange_rate": gl_row_rate,
                 "party_type": row.party_type,
                 "party": row.party,
                 "cost_center": cost_center,
@@ -241,7 +248,7 @@ def create_cash_transaction_from_pos(pos_session, amount, mode_of_payment,
         doc.employee_name = frappe.db.get_value("User", frappe.session.user, "full_name") or frappe.session.user
     doc.mode_of_payment = mode_of_payment
     doc.currency = cash_currency
-    doc.exchange_rate = rate_cash or 1.0
+    doc.exchange_rate = (1.0 / rate_cash) if rate_cash and rate_cash < 1.0 else (rate_cash or 1.0)
     doc.posting_date_time = frappe.utils.now_datetime()
     doc.total_amount = amount_val
     doc.description = description
@@ -250,7 +257,7 @@ def create_cash_transaction_from_pos(pos_session, amount, mode_of_payment,
         "account": account,
         "account_currency": offset_currency,
         "amount_in_account_currency": offset_amount_in_ac,
-        "exchange_rate": rate_offset,
+        "exchange_rate": (1.0 / rate_offset) if rate_offset and rate_offset < 1.0 else (rate_offset or 1.0),
     })
     doc.flags.from_pos_api = True
     doc.flags.ignore_permissions = True
@@ -348,7 +355,7 @@ def before_validate_pos_closing_entry(doc, method=None):
             payment_sum = frappe.db.sql("""
                 SELECT SUM(
                     CASE 
-                        WHEN custom_payment_original_amount IS NOT NULL AND custom_payment_original_amount > 0 
+                        WHEN custom_payment_original_amount IS NOT NULL AND custom_payment_original_amount != 0 
                         THEN custom_payment_original_amount 
                         ELSE amount 
                     END
@@ -443,7 +450,7 @@ def on_pos_closing_entry_submit(doc, method=None):
             txn.employee_name = frappe.db.get_value("User", doc.owner, "full_name") or doc.owner
         txn.mode_of_payment = row.mode_of_payment
         txn.currency = cash_currency
-        txn.exchange_rate = rate_cash or 1.0
+        txn.exchange_rate = (1.0 / rate_cash) if rate_cash and rate_cash < 1.0 else (rate_cash or 1.0)
         txn.posting_date_time = frappe.utils.now_datetime()
         txn.total_amount = base_difference
         txn.description = (
@@ -455,7 +462,7 @@ def on_pos_closing_entry_submit(doc, method=None):
             "account": write_off_account,
             "account_currency": write_off_currency,
             "amount_in_account_currency": write_off_amount_in_ac,
-            "exchange_rate": rate_write_off,
+            "exchange_rate": (1.0 / rate_write_off) if rate_write_off and rate_write_off < 1.0 else (rate_write_off or 1.0),
         })
         txn.flags.from_pos_api = True
         txn.flags.ignore_permissions = True

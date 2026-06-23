@@ -83,7 +83,7 @@ export default function CloseShiftModal({ isOpen, onClose, onSuccess }: CloseShi
       if (invoice.payment_methods && Array.isArray(invoice.payment_methods)) {
         invoice.payment_methods.forEach((payment: any) => {
           if (stats[payment.mode_of_payment]) {
-            const isReturn = invoice.status === "Return";
+            const isReturn = invoice.is_return === 1 || invoice.is_return === true || invoice.status === "Return";
             const useOriginal = payment.custom_payment_original_amount &&
                                 payment.custom_payment_currency &&
                                 payment.custom_payment_currency !== (posDetails?.currency || "");
@@ -98,7 +98,7 @@ export default function CloseShiftModal({ isOpen, onClose, onSuccess }: CloseShi
         });
       } else {
         if (invoice.paymentMethod && stats[invoice.paymentMethod]) {
-          const isReturn = invoice.status === "Return";
+          const isReturn = invoice.is_return === 1 || invoice.is_return === true || invoice.status === "Return";
           const amount = isReturn ? -Math.abs(invoice.totalAmount || 0) : (invoice.totalAmount || 0);
           stats[invoice.paymentMethod].amount += amount;
           stats[invoice.paymentMethod].transactions += 1;

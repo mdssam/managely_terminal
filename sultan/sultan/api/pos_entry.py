@@ -513,7 +513,7 @@ def _calculate_payment_reconciliation(opening_entry, data):
 		       SUM(
 		           CASE
 		               WHEN sip.custom_payment_original_amount IS NOT NULL
-		                    AND sip.custom_payment_original_amount > 0
+		                    AND sip.custom_payment_original_amount != 0
 		               THEN sip.custom_payment_original_amount
 		               ELSE sip.amount
 		           END
@@ -1127,3 +1127,19 @@ def branch_login(email, password):
 			"success": False,
 			"error": str(e)
 		}
+
+
+@frappe.whitelist()
+def get_mode_of_payment_currency(mode_of_payment, company):
+	system_default = frappe.db.get_default("currency") or frappe.db.get_single_value("System Settings", "default_currency") or frappe.db.get_value("Company", {}, "default_currency")
+	if not company or not mode_of_payment:
+		return system_default
+	account = frappe.db.get_value(
+		"Mode of Payment Account",
+		{"parent": mode_of_payment, "company": company},
+		"default_account",
+	)
+	if not account:
+		return frappe.get_cached_value("Company", company, "default_currency") or system_default
+	return frappe.get_cached_value("Account", account, "account_currency") or frappe.get_cached_value("Company", company, "default_currency") or system_default
+

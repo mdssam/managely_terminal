@@ -231,19 +231,7 @@ def get_pos_details():
 
 	from sultan.sultan.doctype.multi_currency_payment.multi_currency_payment import get_exchange_rate
 	from sultan.sultan.accounting.customizations import get_lbp_usd_rate
-
-	def get_mode_of_payment_currency(mode_of_payment, company):
-		system_default = frappe.db.get_default("currency") or frappe.db.get_single_value("System Settings", "default_currency") or frappe.db.get_value("Company", {}, "default_currency")
-		if not company or not mode_of_payment:
-			return system_default
-		account = frappe.db.get_value(
-			"Mode of Payment Account",
-			{"parent": mode_of_payment, "company": company},
-			"default_account",
-		)
-		if not account:
-			return frappe.get_cached_value("Company", company, "default_currency") or system_default
-		return frappe.get_cached_value("Account", account, "account_currency") or frappe.get_cached_value("Company", company, "default_currency") or system_default
+	from sultan.sultan.api.pos_entry import get_mode_of_payment_currency
 
 	for m in payment_methods:
 		cur = m.custom_currency

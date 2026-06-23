@@ -243,7 +243,7 @@ export default function ClosingShiftPage() {
         invoice.payment_methods.forEach((payment: any) => {
                 // @ts-expect-error just ignore for now
           if (stats[payment.mode_of_payment]) {
-            const isReturn = invoice.status === "Return";
+            const isReturn = invoice.is_return === 1 || invoice.is_return === true || invoice.status === "Return";
             const useOriginal = payment.custom_payment_original_amount &&
                                 payment.custom_payment_currency &&
                                 payment.custom_payment_currency !== (posDetails?.currency || "");
@@ -263,7 +263,7 @@ export default function ClosingShiftPage() {
       // @ts-expect-error just ignore for now
         if (invoice.paymentMethod && stats[invoice.paymentMethod]) {
           // For return invoices, ensure the amount is subtracted (negative)
-          const isReturn = invoice.status === "Return";
+          const isReturn = invoice.is_return === 1 || invoice.is_return === true || invoice.status === "Return";
           const amount = isReturn ? -Math.abs(invoice.totalAmount || 0) : (invoice.totalAmount || 0);
       // @ts-expect-error just ignore for now
           stats[invoice.paymentMethod].amount += amount;

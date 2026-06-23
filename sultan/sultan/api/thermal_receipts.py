@@ -364,21 +364,22 @@ _STANDARD_HTML = """__CSS__
 {% if doc.payments %}
 <div class="divider"></div>
 <table class="payment-table">
-  {% set total_paid = doc.payments | map(attribute='amount') | sum %}
+  {% set total_paid = doc.payments | map(attribute='amount') | map('abs') | sum %}
   {% for p in doc.payments %}
   {% set show_payment = false %}
   {% set print_amount = 0 %}
-  {% if p.amount and p.amount > 0 %}
+  {% if p.amount and p.amount != 0 %}
     {% set show_payment = true %}
-    {% set print_amount = p.amount %}
+    {% set print_amount = p.amount | abs %}
   {% elif total_paid == 0 and (p.default or doc.payments|length == 1) %}
     {% set show_payment = true %}
-    {% set print_amount = doc.grand_total %}
+    {% set print_amount = doc.grand_total | abs %}
   {% endif %}
   {% if show_payment %}
+    {% set pm = p.mode_of_payment %}
     {% if "cash" in pm|lower %}{% set pm = "Cash / كاش" %}{% elif "card" in pm|lower or "visa" in pm|lower or "bank" in pm|lower %}{% set pm = "Bank / البنك" %}{% endif %}
     {% if p.custom_payment_original_amount and p.custom_payment_currency %}
-      <tr><td>{{ pm }}</td><td class="r bold">{{ "{:,.2f}".format(p.custom_payment_original_amount) }} {{ p.custom_payment_currency }}</td></tr>
+      <tr><td>{{ pm }}</td><td class="r bold">{{ "{:,.2f}".format(p.custom_payment_original_amount | abs) }} {{ p.custom_payment_currency }}</td></tr>
     {% else %}
       <tr><td>{{ pm }}</td><td class="r bold">{{ "{:,.2f}".format(print_amount or 0) }} {{ doc.currency }}</td></tr>
     {% endif %}
@@ -462,22 +463,22 @@ _STANDARD_EN_HTML = """__CSS__
 {% if doc.payments %}
 <div class="divider"></div>
 <table class="payment-table">
-  {% set total_paid = doc.payments | map(attribute='amount') | sum %}
+  {% set total_paid = doc.payments | map(attribute='amount') | map('abs') | sum %}
   {% for p in doc.payments %}
   {% set show_payment = false %}
   {% set print_amount = 0 %}
-  {% if p.amount and p.amount > 0 %}
+  {% if p.amount and p.amount != 0 %}
     {% set show_payment = true %}
-    {% set print_amount = p.amount %}
+    {% set print_amount = p.amount | abs %}
   {% elif total_paid == 0 and (p.default or doc.payments|length == 1) %}
     {% set show_payment = true %}
-    {% set print_amount = doc.grand_total %}
+    {% set print_amount = doc.grand_total | abs %}
   {% endif %}
   {% if show_payment %}
     {% set pm = p.mode_of_payment %}
     {% if "cash" in pm|lower %}{% set pm = "Cash" %}{% elif "card" in pm|lower or "visa" in pm|lower or "bank" in pm|lower %}{% set pm = "Bank" %}{% endif %}
     {% if p.custom_payment_original_amount and p.custom_payment_currency %}
-      <tr><td>Payment Method: <span class="bold">{{ pm }}</span></td><td class="r bold">{{ "{:,.2f}".format(p.custom_payment_original_amount) }} {{ p.custom_payment_currency }}</td></tr>
+      <tr><td>Payment Method: <span class="bold">{{ pm }}</span></td><td class="r bold">{{ "{:,.2f}".format(p.custom_payment_original_amount | abs) }} {{ p.custom_payment_currency }}</td></tr>
     {% else %}
       <tr><td>Payment Method: <span class="bold">{{ pm }}</span></td><td class="r bold">{{ "{:,.2f}".format(print_amount or 0) }} {{ doc.currency }}</td></tr>
     {% endif %}
@@ -553,22 +554,22 @@ _STANDARD_AR_HTML = """__CSS__
 {% if doc.payments %}
 <div class="divider"></div>
 <table class="payment-table">
-  {% set total_paid = doc.payments | map(attribute='amount') | sum %}
+  {% set total_paid = doc.payments | map(attribute='amount') | map('abs') | sum %}
   {% for p in doc.payments %}
   {% set show_payment = false %}
   {% set print_amount = 0 %}
-  {% if p.amount and p.amount > 0 %}
+  {% if p.amount and p.amount != 0 %}
     {% set show_payment = true %}
-    {% set print_amount = p.amount %}
+    {% set print_amount = p.amount | abs %}
   {% elif total_paid == 0 and (p.default or doc.payments|length == 1) %}
     {% set show_payment = true %}
-    {% set print_amount = doc.grand_total %}
+    {% set print_amount = doc.grand_total | abs %}
   {% endif %}
   {% if show_payment %}
     {% set pm = p.mode_of_payment %}
     {% if "cash" in pm|lower %}{% set pm = "كاش" %}{% elif "card" in pm|lower or "visa" in pm|lower or "bank" in pm|lower %}{% set pm = "البنك" %}{% endif %}
     {% if p.custom_payment_original_amount and p.custom_payment_currency %}
-      <tr><td>طريقة الدفع: <span class="bold">{{ pm }}</span></td><td class="r en bold">{{ "{:,.2f}".format(p.custom_payment_original_amount) }} {{ p.custom_payment_currency }}</td></tr>
+      <tr><td>طريقة الدفع: <span class="bold">{{ pm }}</span></td><td class="r en bold">{{ "{:,.2f}".format(p.custom_payment_original_amount | abs) }} {{ p.custom_payment_currency }}</td></tr>
     {% else %}
       <tr><td>طريقة الدفع: <span class="bold">{{ pm }}</span></td><td class="r en bold">{{ "{:,.2f}".format(print_amount or 0) }} {{ doc.currency }}</td></tr>
     {% endif %}
@@ -625,7 +626,7 @@ _COMPACT_HTML = """__CSS__
 
 {% if doc.payments %}
 <div class="small center" style="margin-top:3px">
-  {% for p in doc.payments %}{{ p.mode_of_payment }}: {{ "{:,.2f}".format(p.amount or 0) }}  {% endfor %}
+  {% for p in doc.payments %}{{ p.mode_of_payment }}: {{ "{:,.2f}".format(p.amount | abs) }}  {% endfor %}
 </div>
 {% endif %}
 
@@ -701,21 +702,22 @@ _BILINGUAL_HTML = """__CSS__
 {% if doc.payments %}
 <div class="divider"></div>
 <table class="payment-table">
-  {% set total_paid = doc.payments | map(attribute='amount') | sum %}
+  {% set total_paid = doc.payments | map(attribute='amount') | map('abs') | sum %}
   {% for p in doc.payments %}
   {% set show_payment = false %}
   {% set print_amount = 0 %}
-  {% if p.amount and p.amount > 0 %}
+  {% if p.amount and p.amount != 0 %}
     {% set show_payment = true %}
-    {% set print_amount = p.amount %}
+    {% set print_amount = p.amount | abs %}
   {% elif total_paid == 0 and (p.default or doc.payments|length == 1) %}
     {% set show_payment = true %}
-    {% set print_amount = doc.grand_total %}
+    {% set print_amount = doc.grand_total | abs %}
   {% endif %}
   {% if show_payment %}
+    {% set pm = p.mode_of_payment %}
     {% if "cash" in pm|lower %}{% set pm = "Cash / كاش" %}{% elif "card" in pm|lower or "visa" in pm|lower or "bank" in pm|lower %}{% set pm = "Bank / البنك" %}{% endif %}
     {% if p.custom_payment_original_amount and p.custom_payment_currency %}
-      <tr><td>{{ pm }}</td><td class="r bold">{{ "{:,.2f}".format(p.custom_payment_original_amount) }} {{ p.custom_payment_currency }}</td></tr>
+      <tr><td>{{ pm }}</td><td class="r bold">{{ "{:,.2f}".format(p.custom_payment_original_amount | abs) }} {{ p.custom_payment_currency }}</td></tr>
     {% else %}
       <tr><td>{{ pm }}</td><td class="r bold">{{ "{:,.2f}".format(print_amount or 0) }} {{ doc.currency }}</td></tr>
     {% endif %}

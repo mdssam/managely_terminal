@@ -50,20 +50,205 @@ export default function SingleInvoiceReturn({
   const { modes: paymentModes, isLoading: paymentModesLoading } = usePaymentModes(typeof posDetails?.name === 'string' ? posDetails.name : '');
 
   // Payment method states
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("");
   const [returnAmount, setReturnAmount] = useState<number>(0);
-
-  const selectedModeObj = paymentModes.find(
-    (mode) => mode.mode_of_payment === selectedPaymentMethod
-  );
-  const modeCurrency = selectedModeObj?.custom_currency || currencies.baseCurrency;
-  const modeCurrencySymbol = getCurrencySymbol(modeCurrency);
+  const [cashAmount, setCashAmount] = useState<string>("0.00");
+  const [cashCurrency, setCashCurrency] = useState<string>("USD");
+  const [cashRate, setCashRate] = useState<number>(1);
+  const [bankAmount, setBankAmount] = useState<string>("0.00");
+  const [bankCurrency, setBankCurrency] = useState<string>("USD");
+  const [bankRate, setBankRate] = useState<number>(1);
+  const [userHasSplit, setUserHasSplit] = useState<boolean>(false);
 
   const getExchangeRate = (curr: string): number => {
     if (!curr || curr === currencies.baseCurrency) return 1;
     const entry = currencies.secondaryCurrencies.find(e => e.currency === curr);
     return entry?.exchangeRate ?? currencies.exchangeRate ?? 1;
   };
+
+  const toUSD = (amount: number, curr: string, rate: number): number => {
+    if (!amount) return 0;
+    if (curr === currencies.baseCurrency) return amount;
+    return rate > 0 ? (rate > 1.0 ? amount / rate : amount * rate) : amount;
+  };
+
+  const fromUSD = (amountUSD: number, curr: string, rate: number): number => {
+    if (!amountUSD) return 0;
+    if (curr === currencies.baseCurrency) return amountUSD;
+    return rate > 0 ? (rate > 1.0 ? amountUSD * rate : amountUSD / rate) : amountUSD;
+  };
+
+  const getSelectedCashMode = () => {
+    const cashMethods = paymentModes.filter(m => m.type === "Cash");
+    const match = cashMethods.find(m => (m.custom_currency || currencies.baseCurrency) === cashCurrency);
+    return match?.mode_of_payment || cashMethods[0]?.mode_of_payment || "";
+  };
+
+  const getSelectedBankMode = () => {
+    const bankMethods = paymentModes.filter(m => m.type === "Bank");
+    const match = bankMethods.find(m => (m.custom_currency || currencies.baseCurrency) === bankCurrency);
+    return match?.mode_of_payment || bankMethods[0]?.mode_of_payment || "";
+  };
+
+  const getCashUSD = () => {
+    const amt = parseFloat(cashAmount) || 0;
+    return toUSD(amt, cashCurrency, cashRate);
+  };
+
+  const getBankUSD = () => {
+    const amt = parseFloat(bankAmount) || 0;
+    return toUSD(amt, bankCurrency, bankRate);
+  };
+
+  const enteredUSDTotal = Math.round((getCashUSD() + getBankUSD()) * 100) / 100;
+
+  const handleCashAmountChange = (valStr: string) => {
+    setUserHasSplit(true);
+    setCashAmount(valStr);
+    const val = parseFloat(valStr) || 0;
+    const usdVal = toUSD(val, cashCurrency, cashRate);
+    const returnAmountUSD = toUSD(returnAmount, currency, getExchangeRate(currency));
+    const remainingUSD = Math.max(0, returnAmountUSD - usdVal);
+    const remainingBank = fromUSD(remainingUSD, bankCurrency, bankRate);
+    setBankAmount(remainingBank > 0 ? (Math.round(remainingBank * 100) / 100).toString() : "0.00");
+  };
+
+  const handleBankAmountChange = (valStr: string) => {
+    setUserHasSplit(true);
+    setBankAmount(valStr);
+    const val = parseFloat(valStr) || 0;
+    const usdVal = toUSD(val, bankCurrency, bankRate);
+    const returnAmountUSD = toUSD(returnAmount, currency, getExchangeRate(currency));
+    const remainingUSD = Math.max(0, returnAmountUSD - usdVal);
+    const remainingCash = fromUSD(remainingUSD, cashCurrency, cashRate);
+    setCashAmount(remainingCash > 0 ? (Math.round(remainingCash * 100) / 100).toString() : "0.00");
+  };
+
+  const handleCashCurrencyChange = (newCurr: string) => {
+    const prevRate = cashRate;
+    const prevAmt = parseFloat(cashAmount) || 0;
+    const usdVal = toUSD(prevAmt, cashCurrency, prevRate);
+    
+    const newRate = getExchangeRate(newCurr);
+    
+    setCashCurrency(newCurr);
+    setCashRate(newRate);
+    
+    if (!userHasSplit) {
+      const returnAmountUSD = toUSD(returnAmount, currency, getExchangeRate(currency));
+      const newAmt = fromUSD(returnAmountUSD, newCurr, newRate);
+      setCashAmount(newAmt > 0 ? (Math.round(newAmt * 100) / 100).toString() : "0.00");
+    } else {
+      const newAmt = fromUSD(usdVal, newCurr, newRate);
+      setCashAmount(newAmt > 0 ? (Math.round(newAmt * 100) / 100).toString() : "0.00");
+    }
+  };
+
+  const handleBankCurrencyChange = (newCurr: string) => {
+    const prevRate = bankRate;
+    const prevAmt = parseFloat(bankAmount) || 0;
+    const usdVal = toUSD(prevAmt, bankCurrency, prevRate);
+    
+    const newRate = getExchangeRate(newCurr);
+    
+    setBankCurrency(newCurr);
+    setBankRate(newRate);
+    
+    if (!userHasSplit) {
+      const returnAmountUSD = toUSD(returnAmount, currency, getExchangeRate(currency));
+      const newAmt = fromUSD(returnAmountUSD, newCurr, newRate);
+      setBankAmount(newAmt > 0 ? (Math.round(newAmt * 100) / 100).toString() : "0.00");
+    } else {
+      const newAmt = fromUSD(usdVal, newCurr, newRate);
+      setBankAmount(newAmt > 0 ? (Math.round(newAmt * 100) / 100).toString() : "0.00");
+    }
+  };
+
+  const handleCashRateChange = (newRate: number) => {
+    setCashRate(newRate);
+    if (userHasSplit) {
+      const val = parseFloat(cashAmount) || 0;
+      const usdVal = toUSD(val, cashCurrency, newRate);
+      const returnAmountUSD = toUSD(returnAmount, currency, getExchangeRate(currency));
+      const remainingUSD = Math.max(0, returnAmountUSD - usdVal);
+      const remainingBank = fromUSD(remainingUSD, bankCurrency, bankRate);
+      setBankAmount(remainingBank > 0 ? (Math.round(remainingBank * 100) / 100).toString() : "0.00");
+    }
+  };
+
+  const handleBankRateChange = (newRate: number) => {
+    setBankRate(newRate);
+    if (userHasSplit) {
+      const val = parseFloat(bankAmount) || 0;
+      const usdVal = toUSD(val, bankCurrency, newRate);
+      const returnAmountUSD = toUSD(returnAmount, currency, getExchangeRate(currency));
+      const remainingUSD = Math.max(0, returnAmountUSD - usdVal);
+      const remainingCash = fromUSD(remainingUSD, cashCurrency, cashRate);
+      setCashAmount(remainingCash > 0 ? (Math.round(remainingCash * 100) / 100).toString() : "0.00");
+    }
+  };
+
+  // Reset split state when popup opens
+  useEffect(() => {
+    if (isOpen) {
+      setUserHasSplit(false);
+    }
+  }, [isOpen]);
+
+  // Initialize cash/bank currencies when payment modes are loaded
+  useEffect(() => {
+    if (paymentModes.length > 0) {
+      const cashMethods = paymentModes.filter(m => m.type === "Cash");
+      const bankMethods = paymentModes.filter(m => m.type === "Bank");
+
+      const defaultCash = cashMethods.find(m => m.default === 1) || cashMethods[0];
+      const defaultBank = bankMethods.find(m => m.default === 1) || bankMethods[0];
+
+      if (defaultCash) {
+        const curr = defaultCash.custom_currency || currencies.baseCurrency;
+        setCashCurrency(curr);
+        setCashRate(getExchangeRate(curr));
+      }
+      if (defaultBank) {
+        const curr = defaultBank.custom_currency || currencies.baseCurrency;
+        setBankCurrency(curr);
+        setBankRate(getExchangeRate(curr));
+      }
+    }
+  }, [paymentModes, currencies]);
+
+  // Distribute returnAmount to Cash or Bank based on original payment details
+  useEffect(() => {
+    if (returnAmount > 0 && !userHasSplit) {
+      const cashOriginal = originalPayments.filter(p => {
+        const mode = paymentModes.find(m => m.mode_of_payment === p.mode_of_payment);
+        return mode?.type === "Cash";
+      });
+      const bankOriginal = originalPayments.filter(p => {
+        const mode = paymentModes.find(m => m.mode_of_payment === p.mode_of_payment);
+        return mode?.type === "Bank";
+      });
+
+      const totalCashPaid = cashOriginal.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+      const totalBankPaid = bankOriginal.reduce((sum, p) => sum + parseFloat(p.amount || 0), 0);
+
+      const returnAmountUSD = toUSD(returnAmount, currency, getExchangeRate(currency));
+
+      if (totalCashPaid >= totalBankPaid) {
+        const rate = getExchangeRate(cashCurrency);
+        const displayAmt = fromUSD(returnAmountUSD, cashCurrency, rate);
+        setCashAmount((Math.round(displayAmt * 100) / 100).toString());
+        setBankAmount("0.00");
+      } else {
+        const rate = getExchangeRate(bankCurrency);
+        const displayAmt = fromUSD(returnAmountUSD, bankCurrency, rate);
+        setBankAmount((Math.round(displayAmt * 100) / 100).toString());
+        setCashAmount("0.00");
+      }
+    } else if (returnAmount === 0) {
+      setCashAmount("0.00");
+      setBankAmount("0.00");
+    }
+  }, [returnAmount, originalPayments, paymentModes, userHasSplit, cashCurrency, bankCurrency, currency, cashRate, bankRate]);
 
   useEffect(() => {
     if (isOpen && invoice) {
@@ -118,18 +303,7 @@ export default function SingleInvoiceReturn({
     }
   }, [returnItems, originalInvoicePaidAmount, originalInvoiceNetTotal, originalInvoiceTotalTaxes, originalInvoiceGrandTotal, posDetails?.custom_ignore_write_off_on_partial_returns]);
 
-  // Set default payment method when payment modes are loaded
 
-  // Set default payment method when payment modes are loaded
-  useEffect(() => {
-    if (paymentModes.length > 0 && !selectedPaymentMethod) {
-      // Find default payment method or use first one
-      const defaultMode = paymentModes.find(mode => mode.default === 1);
-      const firstMode = paymentModes[0];
-      const resolved = defaultMode?.mode_of_payment || firstMode?.mode_of_payment || "";
-      setSelectedPaymentMethod(resolved);
-    }
-  }, [paymentModes, selectedPaymentMethod]);
 
   const initializeReturnItems = async () => {
     setLoadingReturnData(true);
@@ -237,26 +411,51 @@ export default function SingleInvoiceReturn({
       return;
     }
 
-    setIsLoading(true);
-    const invoiceName = invoice.id || invoice.name
-    try {
-      const rate = getExchangeRate(modeCurrency);
-      const originalAmountInMode = rate > 0
-        ? (rate > 1.0 ? returnAmount * rate : returnAmount / rate)
-        : returnAmount;
-      const roundedOriginalAmount = Math.round(originalAmountInMode * 100) / 100;
+    const cashVal = parseFloat(cashAmount) || 0;
+    const bankVal = parseFloat(bankAmount) || 0;
 
+    if (cashVal === 0 && bankVal === 0) {
+      toast.error('Please enter a return amount for Cash or Bank');
+      return;
+    }
+
+    const paymentsToSend = [];
+    if (cashVal > 0) {
+      const mode = getSelectedCashMode();
+      const amountUSD = cashRate > 0 ? (cashRate > 1.0 ? cashVal / cashRate : cashVal * cashRate) : cashVal;
+      paymentsToSend.push({
+        mode_of_payment: mode,
+        amount: Math.round(amountUSD * 100) / 100,
+        currency: cashCurrency,
+        original_amount: cashVal
+      });
+    }
+    if (bankVal > 0) {
+      const mode = getSelectedBankMode();
+      const amountUSD = bankRate > 0 ? (bankRate > 1.0 ? bankVal / bankRate : bankVal * bankRate) : bankVal;
+      paymentsToSend.push({
+        mode_of_payment: mode,
+        amount: Math.round(amountUSD * 100) / 100,
+        currency: bankCurrency,
+        original_amount: bankVal
+      });
+    }
+
+    setIsLoading(true);
+    const invoiceName = invoice.id || invoice.name;
+    try {
       const result = await createPartialReturn(
         invoiceName,
         itemsToReturn,
-        selectedPaymentMethod,
-        returnAmount,           // USD amount
-        modeCurrency,           // Selected currency (e.g. LBP)
-        roundedOriginalAmount   // LBP amount
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        paymentsToSend
       );
 
       if (result.success) {
-        toast.success(`Return created successfully (${selectedPaymentMethod})`);
+        toast.success(`Return created successfully`);
         onSuccess(result.returnInvoice!);
         onClose();
       } else {
@@ -282,6 +481,10 @@ export default function SingleInvoiceReturn({
        : 1);
 
   const totalReturnAmount = Math.round(totalReturnAmountNet * taxFactor * 100) / 100;
+
+  const enteredRefundInvoiceCurrency = fromUSD(enteredUSDTotal, currency, getExchangeRate(currency));
+  const totalReturnAmountUSD = toUSD(totalReturnAmount, currency, getExchangeRate(currency));
+  const hasWriteOff = originalInvoicePaidAmount > 0 && Math.abs(totalReturnAmountUSD - enteredUSDTotal) > 0.01;
 
   const hasItemsToReturn = returnItems.some(item => (item.return_qty || 0) > 0);
 
@@ -343,20 +546,20 @@ export default function SingleInvoiceReturn({
                   </button>
                 </div>
                 <div className="text-right">
-                  {originalInvoicePaidAmount > 0 && totalReturnAmount !== returnAmount ? (
+                  {hasWriteOff ? (
                     <div className="text-xs font-medium text-gray-700 dark:text-gray-300">
                       <div className="flex justify-between items-center">
-                        <span>Total Return Amount:</span>
-                        <span>{formatCurrency(totalReturnAmount, currency)}</span>
+                        <span>Expected Refund:</span>
+                        <span className="font-semibold">{formatCurrency(totalReturnAmount, currency)}</span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span>Paid Amount:</span>
-                        <span>{formatCurrency(returnAmount, currency)}</span>
+                        <span>Entered Refund:</span>
+                        <span className="font-semibold">{formatCurrency(enteredRefundInvoiceCurrency, currency)}</span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-orange-600 dark:text-red-400 font-semibold">Write-off:</span>
                         <span className="text-orange-600 dark:text-red-400 font-semibold">
-                          {formatCurrency(totalReturnAmount - returnAmount, currency)}
+                          {formatCurrency(totalReturnAmount - enteredRefundInvoiceCurrency, currency)}
                         </span>
                       </div>
                     </div>
@@ -365,7 +568,7 @@ export default function SingleInvoiceReturn({
                       {formatCurrency(totalReturnAmount, currency)}
                     </div>
                   )}
-                  {originalInvoicePaidAmount > 0 && totalReturnAmount === returnAmount && (
+                  {originalInvoicePaidAmount > 0 && !hasWriteOff && (
                     <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                       Customer Paid: {formatCurrency(originalInvoicePaidAmount, currency)}
                     </div>
@@ -535,67 +738,110 @@ export default function SingleInvoiceReturn({
               </div>
             )}
 
-            {/* Payment Method Selection */}
-            <div className="mb-4">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
-                Payment Method for Return
+            {/* Refund Payment Split UI */}
+            <div className="mb-4 space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+                Refund Method
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Payment Method Selection */}
-                <div>
+              
+              {/* Cash Row */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center p-3 bg-gray-50 dark:bg-gray-800/40 rounded-lg border border-gray-100 dark:border-gray-700">
+                <div className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  Cash Refund
+                </div>
+                
+                {/* Currency toggle */}
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs text-gray-500">Currency:</span>
                   <select
-                    value={selectedPaymentMethod}
-                    onChange={(e) => setSelectedPaymentMethod(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-ziditech-500 focus:border-ziditech-500 transition-colors"
-                    disabled={paymentModesLoading}
+                    value={cashCurrency}
+                    onChange={(e) => handleCashCurrencyChange(e.target.value)}
+                    className="px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-bold"
                   >
-                    {paymentModesLoading ? (
-                      <option>Loading payment methods...</option>
-                    ) : (
-                      <>
-                        <option value="">{""}</option>
-                        {paymentModes.map((mode) => {
-                          const val = mode.mode_of_payment;
-                          return (
-                            <option key={val} value={val}>
-                              {val}
-                            </option>
-                          );
-                        })}
-                      </>
-                    )}
+                    {Array.from(new Set(paymentModes.filter(m => m.type === "Cash").map(m => m.custom_currency || currencies.baseCurrency))).map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
                   </select>
+
+                  {/* Exchange rate input if different */}
+                  {cashCurrency !== currencies.baseCurrency && (
+                    <div className="flex items-center space-x-1">
+                      <span className="text-xs text-gray-500">Rate:</span>
+                      <input
+                        type="number"
+                        value={cashRate}
+                        onChange={(e) => handleCashRateChange(parseFloat(e.target.value) || 1)}
+                        className="w-20 px-1 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-right"
+                      />
+                    </div>
+                  )}
                 </div>
 
-                {/* Return Amount Input with currency symbol */}
-                <div>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500 dark:text-gray-400 text-sm font-semibold">
-                      {modeCurrencySymbol}
-                    </span>
-                    <input
-                      type="number"
-                      value={(() => {
-                        const rate = getExchangeRate(modeCurrency);
-                        const displayAmt = rate > 0
-                          ? (rate > 1.0 ? returnAmount * rate : returnAmount / rate)
-                          : returnAmount;
-                        return Math.round(displayAmt * 100) / 100;
-                      })()}
-                      onChange={(e) => {
-                        const valueInMode = parseFloat(e.target.value) || 0;
-                        const rate = getExchangeRate(modeCurrency);
-                        const valueInUSD = rate > 0
-                          ? (rate > 1.0 ? valueInMode / rate : valueInMode * rate)
-                          : valueInMode;
-                        setReturnAmount(Math.round(valueInUSD * 100) / 100);
-                      }}
-                      step="0.01"
-                      min="0"
-                      className="w-full pl-12 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-ziditech-500 focus:border-ziditech-500 transition-colors text-right text-lg font-semibold"
-                      placeholder="0.00"
-                    />
-                  </div>
+                {/* Amount input */}
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500 text-sm font-semibold">
+                    {getCurrencySymbol(cashCurrency)}
+                  </span>
+                  <input
+                    type="number"
+                    value={cashAmount}
+                    onChange={(e) => handleCashAmountChange(e.target.value)}
+                    step="0.01"
+                    min="0"
+                    className="w-full pl-10 pr-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-right font-semibold"
+                  />
+                </div>
+              </div>
+
+              <hr className="border-gray-200 dark:border-gray-700 my-2" />
+
+              {/* Bank Row */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center p-3 bg-gray-50 dark:bg-gray-800/40 rounded-lg border border-gray-100 dark:border-gray-700">
+                <div className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  Bank Refund
+                </div>
+                
+                {/* Currency toggle */}
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs text-gray-500">Currency:</span>
+                  <select
+                    value={bankCurrency}
+                    onChange={(e) => handleBankCurrencyChange(e.target.value)}
+                    className="px-2 py-1 text-xs rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-bold"
+                  >
+                    {Array.from(new Set(paymentModes.filter(m => m.type === "Bank").map(m => m.custom_currency || currencies.baseCurrency))).map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+
+                  {/* Exchange rate input if different */}
+                  {bankCurrency !== currencies.baseCurrency && (
+                    <div className="flex items-center space-x-1">
+                      <span className="text-xs text-gray-500">Rate:</span>
+                      <input
+                        type="number"
+                        value={bankRate}
+                        onChange={(e) => handleBankRateChange(parseFloat(e.target.value) || 1)}
+                        className="w-20 px-1 py-0.5 text-xs rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-right"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Amount input */}
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500 text-sm font-semibold">
+                    {getCurrencySymbol(bankCurrency)}
+                  </span>
+                  <input
+                    type="number"
+                    value={bankAmount}
+                    onChange={(e) => handleBankAmountChange(e.target.value)}
+                    step="0.01"
+                    min="0"
+                    className="w-full pl-10 pr-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-right font-semibold"
+                    placeholder="0.00"
+                  />
                 </div>
               </div>
             </div>

@@ -2189,6 +2189,30 @@ def _fix_stamp_gl_entries(doc, gl_entries):
 				gle["exchange_rate"] = gle_rate
 
 
+def _fix_multi_currency_payment_gl_entries(doc, gl_entries):
+	if not doc.get("payments"):
+		return
+
+	# Group payments by mode of payment account
+	payment_map = {}
+	for p in doc.payments:
+		if p.account and (flt(p.custom_payment_original_amount) or p.custom_payment_currency):
+			payment_map[p.account] = p
+
+	for gle in gl_entries:
+		account = gle.get("account")
+		if account in payment_map:
+			p = payment_map[account]
+			orig_amount = flt(p.custom_payment_original_amount)
+			orig_currency = p.custom_payment_currency
+			if orig_amount and orig_currency:
+				gle["account_currency"] = orig_currency
+				if flt(gle.get("debit")) != 0:
+					gle["debit_in_account_currency"] = orig_amount
+				elif flt(gle.get("credit")) != 0:
+					gle["credit_in_account_currency"] = orig_amount
+
+
 class CustomSalesInvoice(SalesInvoice):
 	def validate_account_currency(self, account, account_currency=None):
 		# Skip stamp tax accounts - they use LBP regardless of invoice currency
@@ -2232,6 +2256,7 @@ class CustomSalesInvoice(SalesInvoice):
 		self.make_gle_for_rounding_adjustment(gl_entries)
 
 		_fix_stamp_gl_entries(self, gl_entries)
+		_fix_multi_currency_payment_gl_entries(self, gl_entries)
 		return gl_entries
 
 	def make_roundoff_gl_entry(self, gl_entries):
@@ -2794,7 +2819,7 @@ def get_customer_invoices_for_return(customer, start_date=None, end_date=None, s
 @frappe.whitelist()
 def create_partial_return(
 	invoice_name, return_items, payment_method=None, return_amount=None, expected_return_amount=None,
-	return_currency=None, return_original_amount=None
+	return_currency=None, return_original_amount=None, payments=None
 ):
 	"""Create a partial return for selected items from an invoice with custom payment method"""
 
@@ -2892,7 +2917,13 @@ def create_partial_return(
 		else:
 			total_returned_amount = abs(return_doc.grand_total)
 
-		final_return_amount = return_amount if return_amount is not None else total_returned_amount
+		# If payments are provided, final_return_amount is the sum of payments
+		if payments:
+			if isinstance(payments, str):
+				payments = json.loads(payments)
+			final_return_amount = sum(abs(flt(p.get("amount", 0))) for p in payments)
+		else:
+			final_return_amount = return_amount if return_amount is not None else total_returned_amount
 
 		final_payment_method = payment_method if payment_method else "Cash"
 
@@ -2944,7 +2975,19 @@ def create_partial_return(
 			original_paid_amount = original_invoice.paid_amount or original_invoice.grand_total
 			final_return_amount = abs(original_paid_amount)
 
-		if final_return_amount > 0:
+		# Append payments to return_doc
+		if payments:
+			for p in payments:
+				pay_row = {
+					"mode_of_payment": p.get("mode_of_payment"),
+					"amount": -abs(flt(p.get("amount", 0))),
+				}
+				if p.get("currency"):
+					pay_row["custom_payment_currency"] = p.get("currency")
+				if p.get("original_amount"):
+					pay_row["custom_payment_original_amount"] = -abs(flt(p.get("original_amount", 0)))
+				return_doc.append("payments", pay_row)
+		elif final_return_amount > 0:
 			payment_row = {
 				"mode_of_payment": final_payment_method,
 				"amount": -abs(final_return_amount),
@@ -2967,12 +3010,15 @@ def create_partial_return(
 			return_doc.paid_amount = final_invoice_total
 			return_doc.base_paid_amount = final_invoice_total * (return_doc.conversion_rate or 1)
 			if return_doc.payments:
-				return_doc.payments[0].amount = final_invoice_total
-				if hasattr(return_doc.payments[0], "base_amount"):
-					return_doc.payments[0].base_amount = final_invoice_total * (return_doc.conversion_rate or 1)
-				if return_currency and return_original_amount and final_return_amount:
-					rate = flt(return_original_amount) / flt(final_return_amount)
-					return_doc.payments[0].custom_payment_original_amount = -abs(flt(final_invoice_total * rate))
+				total_pay_entered = sum(flt(p.amount) for p in return_doc.payments)
+				if total_pay_entered:
+					factor = flt(final_invoice_total) / flt(total_pay_entered)
+					for p in return_doc.payments:
+						p.amount = flt(p.amount * factor, return_doc.precision("grand_total") or 2)
+						if hasattr(p, "base_amount"):
+							p.base_amount = flt(p.amount * (return_doc.conversion_rate or 1), return_doc.precision("grand_total") or 2)
+						if getattr(p, "custom_payment_original_amount", None):
+							p.custom_payment_original_amount = flt(p.custom_payment_original_amount * factor, 0)
 		else:
 			return_doc.paid_amount = -abs(final_return_amount) if final_return_amount else 0.0
 			return_doc.base_paid_amount = (return_doc.paid_amount) * (return_doc.conversion_rate or 1)
