@@ -33,7 +33,18 @@ class MultiCurrencyPayment(Document):
 	def validate(self):
 		self.set_missing_values()
 		self.validate_lines()
+		self.validate_references()
 		self.set_totals()
+
+	def before_submit(self):
+		"""Block submission if Payment References are used but Difference is not zero."""
+		if self.references:
+			diff = flt(self.difference)
+			if abs(diff) > 0.001:
+				frappe.throw(_(
+					"Cannot submit: Difference between Total Payments and Total References "
+					"is <b>{0}</b>. It must be <b>0</b> before submitting."
+				).format(frappe.format(diff, {"fieldtype": "Currency"})))
 
 	def on_submit(self):
 		self.make_gl_entries()
@@ -63,6 +74,17 @@ class MultiCurrencyPayment(Document):
 		if not self.lines:
 			frappe.throw(_("Add at least one payment line."))
 
+		# Check for duplicate mode_of_payment
+		seen_mop = set()
+		for row in self.lines:
+			if row.mode_of_payment:
+				if row.mode_of_payment in seen_mop:
+					frappe.throw(_(
+						"Mode of Payment <b>{0}</b> is used more than once in the Payments table (row {1}). "
+						"Each mode of payment can only appear once."
+					).format(row.mode_of_payment, row.idx))
+				seen_mop.add(row.mode_of_payment)
+
 		for row in self.lines:
 			if not row.mode_of_payment:
 				frappe.throw(_("Mode of Payment is required in row {0}.").format(row.idx))
@@ -83,10 +105,41 @@ class MultiCurrencyPayment(Document):
 
 			row.amount_usd, row.amount_lbp = self._to_usd_lbp(row.amount, row.currency, row.exchange_rate)
 
+	def validate_references(self):
+		"""Validate Payment References: no duplicates, allocated > 0, allocated <= outstanding."""
+		if not self.references:
+			return
+
+		# Check for duplicate reference_name
+		seen_refs = set()
+		for row in self.references:
+			if row.reference_name:
+				if row.reference_name in seen_refs:
+					frappe.throw(_(
+						"Reference <b>{0}</b> is used more than once in the Payment References table (row {1}). "
+						"Each invoice can only appear once."
+					).format(row.reference_name, row.idx))
+				seen_refs.add(row.reference_name)
+
+		for row in self.references:
+			if not row.reference_doctype or not row.reference_name:
+				frappe.throw(_("Reference Doctype and Name are required in Payment References row {0}.").format(row.idx))
+			if flt(row.allocated_amount) <= 0:
+				frappe.throw(_("Allocated Amount must be greater than zero in Payment References row {0}.").format(row.idx))
+			if flt(row.outstanding_amount) and flt(row.allocated_amount) > flt(row.outstanding_amount):
+				frappe.throw(_(
+					"Allocated Amount {0} cannot exceed Outstanding Amount {1} in Payment References row {2}."
+				).format(row.allocated_amount, row.outstanding_amount, row.idx))
+
 	def set_totals(self):
 		self.total_usd = sum(flt(r.amount_usd) for r in self.lines)
 		self.total_lbp = sum(flt(r.amount_lbp) for r in self.lines)
 		self.total_company_amount = sum(flt(r.amount_base_currency) for r in self.lines)
+
+		# Summary totals shown on the form
+		self.total_payments = flt(self.total_company_amount)
+		self.total_references = sum(flt(r.allocated_amount) for r in (self.references or []))
+		self.difference = flt(self.total_payments) - flt(self.total_references)
 
 	# ── Currency helpers ────────────────────────────────────────────────────────
 
@@ -291,3 +344,45 @@ def get_exchange_rate(from_currency, to_currency):
 		order_by="date desc",
 	)
 	return flt(rate) or None
+
+
+@frappe.whitelist()
+def get_reference_details(reference_doctype, reference_name):
+	"""Return grand_total, outstanding_amount, due_date and bill_no for a
+	Sales Invoice or Purchase Invoice so the JS can fill the Payment References row."""
+	if not reference_doctype or not reference_name:
+		return {}
+
+	if reference_doctype == "Sales Invoice":
+		doc = frappe.db.get_value(
+			"Sales Invoice",
+			reference_name,
+			["grand_total", "outstanding_amount", "due_date"],
+			as_dict=True,
+		)
+		if not doc:
+			return {}
+		return {
+			"total_amount": flt(doc.grand_total),
+			"outstanding_amount": flt(doc.outstanding_amount),
+			"due_date": doc.due_date,
+			"bill_no": None,
+		}
+
+	if reference_doctype == "Purchase Invoice":
+		doc = frappe.db.get_value(
+			"Purchase Invoice",
+			reference_name,
+			["grand_total", "outstanding_amount", "due_date", "bill_no"],
+			as_dict=True,
+		)
+		if not doc:
+			return {}
+		return {
+			"total_amount": flt(doc.grand_total),
+			"outstanding_amount": flt(doc.outstanding_amount),
+			"due_date": doc.due_date,
+			"bill_no": doc.bill_no or None,
+		}
+
+	return {}

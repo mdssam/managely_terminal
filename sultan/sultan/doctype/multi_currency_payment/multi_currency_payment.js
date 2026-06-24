@@ -43,14 +43,30 @@ frappe.ui.form.on("Multi Currency Payment", {
 			frm.set_value("company_currency", r.message.default_currency);
 		});
 	},
+
+	// When parent exchange_rate changes → recalculate ALL lines (amount_usd, amount_lbp change)
+	exchange_rate(frm) {
+		_recalcAllLines(frm);
+	},
 });
 
-// ── Child table ───────────────────────────────────────────────────────────────
+// ── Payment Lines child table ─────────────────────────────────────────────────
 frappe.ui.form.on("Multi Currency Payment Line", {
 
 	mode_of_payment(frm, cdt, cdn) {
 		const row = locals[cdt][cdn];
 		if (!row.mode_of_payment || !frm.doc.company) return;
+
+		// Check for duplicate mode_of_payment in other rows
+		const duplicate = (frm.doc.lines || []).some(
+			r => r.name !== row.name && r.mode_of_payment === row.mode_of_payment
+		);
+		if (duplicate) {
+			frappe.model.set_value(cdt, cdn, "mode_of_payment", null);
+			frappe.msgprint(__("Mode of Payment '{0}' is already used in another row.",
+				[row.mode_of_payment]));
+			return;
+		}
 
 		// Fetch the account currency from the MOP's default account for this company
 		frappe.call({
@@ -93,9 +109,74 @@ frappe.ui.form.on("Multi Currency Payment Line", {
 	exchange_rate(frm, cdt, cdn) {
 		_recalcBase(frm, cdt, cdn);
 	},
+
+	lines_remove(frm) {
+		_recalcTotalPayments(frm);
+	},
+});
+
+// ── Payment References child table ────────────────────────────────────────────
+frappe.ui.form.on("Multi Currency Payment Reference", {
+
+	reference_name(frm, cdt, cdn) {
+		const row = locals[cdt][cdn];
+		if (!row.reference_doctype || !row.reference_name) return;
+
+		// Check for duplicate reference in other rows
+		const duplicate = (frm.doc.references || []).some(
+			r => r.name !== row.name && r.reference_name === row.reference_name
+		);
+		if (duplicate) {
+			frappe.model.set_value(cdt, cdn, "reference_name", null);
+			frappe.msgprint(__(
+				"Reference '{0}' is already added in another row.",
+				[row.reference_name]
+			));
+			return;
+		}
+
+		frappe.call({
+			method: "sultan.sultan.doctype.multi_currency_payment.multi_currency_payment.get_reference_details",
+			args: {
+				reference_doctype: row.reference_doctype,
+				reference_name: row.reference_name,
+			},
+			callback(r) {
+				if (!r.message) return;
+				const d = r.message;
+				frappe.model.set_value(cdt, cdn, "total_amount", d.total_amount || 0);
+				frappe.model.set_value(cdt, cdn, "outstanding_amount", d.outstanding_amount || 0);
+				frappe.model.set_value(cdt, cdn, "due_date", d.due_date || null);
+				frappe.model.set_value(cdt, cdn, "bill_no", d.bill_no || null);
+				// Default allocated to the full outstanding if not already set
+				if (!flt(row.allocated_amount)) {
+					frappe.model.set_value(cdt, cdn, "allocated_amount", d.outstanding_amount || 0);
+				}
+				frm.refresh_field("references");
+				_recalcDifference(frm);
+			},
+		});
+	},
+
+	// Clear read-only fields when reference_doctype changes
+	reference_doctype(frm, cdt, cdn) {
+		frappe.model.set_value(cdt, cdn, "reference_name", null);
+		frappe.model.set_value(cdt, cdn, "total_amount", 0);
+		frappe.model.set_value(cdt, cdn, "outstanding_amount", 0);
+		frappe.model.set_value(cdt, cdn, "due_date", null);
+		frappe.model.set_value(cdt, cdn, "bill_no", null);
+		frappe.model.set_value(cdt, cdn, "allocated_amount", 0);
+		_recalcDifference(frm);
+	},
+
+	allocated_amount(frm) {
+		_recalcDifference(frm);
+	},
 });
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+const DEFAULT_LBP_PER_USD = 89500;
 
 function convertCurrency(amount, fromCurrency, toCurrency, rate) {
 	amount = flt(amount);
@@ -111,12 +192,81 @@ function convertCurrency(amount, fromCurrency, toCurrency, rate) {
 	return amount * rate;
 }
 
+// Mirror of Python _to_usd_lbp() — returns { usd, lbp }
+function _toUsdLbp(amount, currency, rowRate, parentRate, companyCurrency) {
+	amount = flt(amount);
+	rowRate = flt(rowRate);
+	parentRate = flt(parentRate) || DEFAULT_LBP_PER_USD;
+
+	if (currency === "LBP") {
+		return { usd: parentRate ? amount / parentRate : 0, lbp: amount };
+	}
+	if (currency === "USD") {
+		return { usd: amount, lbp: amount * parentRate };
+	}
+
+	// Generic currency
+	let usdAmount;
+	if (companyCurrency === "USD") {
+		usdAmount = convertCurrency(amount, currency, "USD", rowRate);
+	} else {
+		const baseAmount = convertCurrency(amount, currency, companyCurrency, rowRate);
+		usdAmount = parentRate ? baseAmount / parentRate : 0;
+	}
+	return { usd: usdAmount, lbp: usdAmount * parentRate };
+}
+
+// Recalculate one row: base currency, USD, LBP amounts
 function _recalcBase(frm, cdt, cdn) {
 	const row = locals[cdt][cdn];
 	const amt = flt(row.amount);
-	const rate = flt(row.exchange_rate);
+	const rowRate = flt(row.exchange_rate);
+	const parentRate = flt(frm.doc.exchange_rate) || DEFAULT_LBP_PER_USD;
 	const companyCurrency = frm.doc.company_currency;
 
-	const base = convertCurrency(amt, row.currency, companyCurrency, rate);
-	frappe.model.set_value(cdt, cdn, "amount_base_currency", base);
+	// Base currency amount
+	const base = convertCurrency(amt, row.currency, companyCurrency, rowRate);
+	row.amount_base_currency = base;
+
+	// USD and LBP amounts
+	const { usd, lbp } = _toUsdLbp(amt, row.currency, rowRate, parentRate, companyCurrency);
+	row.amount_usd = usd;
+	row.amount_lbp = lbp;
+
+	frm.refresh_field("lines");
+	_recalcTotalPayments(frm);
+}
+
+// Recalculate all lines (used when parent exchange_rate changes)
+function _recalcAllLines(frm) {
+	(frm.doc.lines || []).forEach(row => {
+		_recalcBase(frm, row.doctype, row.name);
+	});
+}
+
+// Sum all lines → update total_payments, total_company_amount, total_usd, total_lbp
+function _recalcTotalPayments(frm) {
+	const lines = frm.doc.lines || [];
+	const totalBase = lines.reduce((s, r) => s + flt(r.amount_base_currency), 0);
+	const totalUsd  = lines.reduce((s, r) => s + flt(r.amount_usd), 0);
+	const totalLbp  = lines.reduce((s, r) => s + flt(r.amount_lbp), 0);
+
+	frm.set_value("total_payments", totalBase);
+	frm.set_value("total_company_amount", totalBase);
+	frm.set_value("total_usd", totalUsd);
+	frm.set_value("total_lbp", totalLbp);
+
+	_recalcDifference(frm);
+}
+
+// Difference = total_payments − total_references
+function _recalcDifference(frm) {
+	const totalPayments = (frm.doc.lines || []).reduce(
+		(s, r) => s + flt(r.amount_base_currency), 0
+	);
+	const totalRefs = (frm.doc.references || []).reduce(
+		(s, r) => s + flt(r.allocated_amount), 0
+	);
+	frm.set_value("total_references", totalRefs);
+	frm.set_value("difference", totalPayments - totalRefs);
 }

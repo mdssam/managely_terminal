@@ -21,6 +21,11 @@
   "remarks",
   "lines_section",
   "lines",
+  "total_payments",
+  "references_section",
+  "references",
+  "total_references",
+  "difference",
   "totals_section",
   "total_usd",
   "total_lbp",
@@ -115,7 +120,7 @@
   {
    "fieldname": "lines_section",
    "fieldtype": "Section Break",
-   "label": "Lines"
+   "label": "Payments"
   },
   {
    "fieldname": "lines",
@@ -123,6 +128,41 @@
    "label": "Payment Lines",
    "options": "Multi Currency Payment Line",
    "reqd": 1
+  },
+  {
+   "fieldname": "total_payments",
+   "fieldtype": "Currency",
+   "label": "Total Payments",
+   "read_only": 1,
+   "bold": 1,
+   "description": "Total amount of all payment lines in base currency"
+  },
+  {
+   "fieldname": "references_section",
+   "fieldtype": "Section Break",
+   "label": "Payment References"
+  },
+  {
+   "fieldname": "references",
+   "fieldtype": "Table",
+   "label": "Payment References",
+   "options": "Multi Currency Payment Reference"
+  },
+  {
+   "fieldname": "total_references",
+   "fieldtype": "Currency",
+   "label": "Total References",
+   "read_only": 1,
+   "bold": 1,
+   "description": "Total allocated amount across all payment references"
+  },
+  {
+   "fieldname": "difference",
+   "fieldtype": "Currency",
+   "label": "Difference",
+   "read_only": 1,
+   "bold": 1,
+   "description": "Difference between Total Payments and Total References. Must be 0 to submit."
   },
   {
    "fieldname": "totals_section",
@@ -160,7 +200,7 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-06-16 00:00:00.000000",
+ "modified": "2026-06-24 00:00:01.000000",
  "modified_by": "Administrator",
  "module": "Sultan",
  "name": "Multi Currency Payment",

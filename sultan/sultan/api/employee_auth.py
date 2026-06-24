@@ -128,7 +128,7 @@ def get_branch_employees_hashes(pos_profile: str) -> dict:
     employees = frappe.get_all(
         "Employee",
         filters={"status": "Active"},
-        fields=["name", "employee_name", "custom_pos_username", "custom_pos_role"]
+        fields=["name", "employee_name", "custom_pos_username", "custom_pos_role", "user_id"]
     )
 
     data = []
@@ -158,7 +158,8 @@ def get_branch_employees_hashes(pos_profile: str) -> dict:
                     "username": emp.custom_pos_username,
                     "role": emp.custom_pos_role or "Cashier",
                     "hash": p_hash,
-                    "allowed_pos_profiles": allowed_profiles
+                    "allowed_pos_profiles": allowed_profiles,
+                    "user": emp.user_id
                 })
 
     return {"success": True, "data": data}
