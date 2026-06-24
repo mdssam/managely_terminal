@@ -14,6 +14,7 @@
   "party_section",
   "party_type",
   "party",
+  "party_account",
   "col_break_party",
   "exchange_rate",
   "cost_center",
@@ -87,6 +88,12 @@
    "fieldtype": "Dynamic Link",
    "label": "Party",
    "options": "party_type"
+  },
+  {
+   "fieldname": "party_account",
+   "fieldtype": "Link",
+   "label": "Party Account",
+   "options": "Account"
   },
   {
    "fieldname": "col_break_party",

@@ -6,6 +6,22 @@ frappe.ui.form.on("Multi Currency Payment", {
 			filters: [["Party Type", "name", "in", ["Customer", "Supplier", "Employee", "Shareholder"]]]
 		}));
 
+		frm.set_query("party_account", () => {
+			if (!frm.doc.company) {
+				return { filters: {} };
+			}
+			const filters = {
+				company: frm.doc.company,
+				is_group: 0
+			};
+			if (frm.doc.party_type === "Customer") {
+				filters.account_type = "Receivable";
+			} else if (frm.doc.party_type === "Supplier") {
+				filters.account_type = "Payable";
+			}
+			return { filters: filters };
+		});
+
 		// Legacy: open linked Journal Entry if one exists
 		if (frm.doc.journal_entry) {
 			frm.add_custom_button(__("Journal Entry"), () => {
@@ -41,6 +57,33 @@ frappe.ui.form.on("Multi Currency Payment", {
 		if (!frm.doc.company) return;
 		frappe.db.get_value("Company", frm.doc.company, "default_currency").then(r => {
 			frm.set_value("company_currency", r.message.default_currency);
+		});
+	},
+
+	party_type(frm) {
+		frm.set_value("party", null);
+		frm.set_value("party_account", null);
+	},
+
+	party(frm) {
+		if (!frm.doc.party || !frm.doc.party_type || !frm.doc.company) {
+			frm.set_value("party_account", null);
+			return;
+		}
+		frappe.call({
+			method: "sultan.sultan.doctype.multi_currency_payment.multi_currency_payment.get_default_party_account",
+			args: {
+				company: frm.doc.company,
+				party_type: frm.doc.party_type,
+				party: frm.doc.party
+			},
+			callback(r) {
+				if (r.message) {
+					frm.set_value("party_account", r.message);
+				} else {
+					frm.set_value("party_account", null);
+				}
+			}
 		});
 	},
 

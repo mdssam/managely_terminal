@@ -195,6 +195,8 @@ class MultiCurrencyPayment(Document):
 		return account
 
 	def _get_party_account(self):
+		if getattr(self, "party_account", None):
+			return self.party_account
 		if not self.party_type or not self.party:
 			return None
 		account = frappe.db.get_value(
@@ -289,28 +291,60 @@ class MultiCurrencyPayment(Document):
 			if party_currency != self.company_currency and total_in_party_currency:
 				party_exchange_rate = flt(total_base / total_in_party_currency)
 
-			gl_map.append(frappe._dict({
-				"doctype": "GL Entry",
-				"posting_date": self.posting_date,
-				"account": party_account,
-				"party_type": self.party_type,
-				"party": self.party,
-				"against": against_party,
-				"debit": 0 if is_receive else total_base,
-				"credit": total_base if is_receive else 0,
-				"debit_in_account_currency": 0 if is_receive else total_in_party_currency,
-				"credit_in_account_currency": total_in_party_currency if is_receive else 0,
-				"account_currency": party_currency,
-				"exchange_rate": party_exchange_rate,
-				"voucher_type": "Multi Currency Payment",
-				"voucher_no": self.name,
-				"remarks": self.remarks or "",
-				"cost_center": cost_center,
-				"project": project,
-				"is_opening": "No",
-				"is_advance": "No",
-				"company": self.company,
-			}))
+			if self.references:
+				for ref in self.references:
+					ref_base = flt(ref.allocated_amount)
+					ref_in_party = ref_base
+					if party_currency != self.company_currency and party_exchange_rate:
+						ref_in_party = flt(ref_base / party_exchange_rate)
+
+					gl_map.append(frappe._dict({
+						"doctype": "GL Entry",
+						"posting_date": self.posting_date,
+						"account": party_account,
+						"party_type": self.party_type,
+						"party": self.party,
+						"against": against_party,
+						"debit": 0 if is_receive else ref_base,
+						"credit": ref_base if is_receive else 0,
+						"debit_in_account_currency": 0 if is_receive else ref_in_party,
+						"credit_in_account_currency": ref_in_party if is_receive else 0,
+						"account_currency": party_currency,
+						"exchange_rate": party_exchange_rate,
+						"voucher_type": "Multi Currency Payment",
+						"voucher_no": self.name,
+						"against_voucher_type": ref.reference_doctype,
+						"against_voucher": ref.reference_name,
+						"remarks": self.remarks or "",
+						"cost_center": cost_center,
+						"project": project,
+						"is_opening": "No",
+						"is_advance": "No",
+						"company": self.company,
+					}))
+			else:
+				gl_map.append(frappe._dict({
+					"doctype": "GL Entry",
+					"posting_date": self.posting_date,
+					"account": party_account,
+					"party_type": self.party_type,
+					"party": self.party,
+					"against": against_party,
+					"debit": 0 if is_receive else total_base,
+					"credit": total_base if is_receive else 0,
+					"debit_in_account_currency": 0 if is_receive else total_in_party_currency,
+					"credit_in_account_currency": total_in_party_currency if is_receive else 0,
+					"account_currency": party_currency,
+					"exchange_rate": party_exchange_rate,
+					"voucher_type": "Multi Currency Payment",
+					"voucher_no": self.name,
+					"remarks": self.remarks or "",
+					"cost_center": cost_center,
+					"project": project,
+					"is_opening": "No",
+					"is_advance": "No",
+					"company": self.company,
+				}))
 
 		return gl_map
 
@@ -386,3 +420,23 @@ def get_reference_details(reference_doctype, reference_name):
 		}
 
 	return {}
+
+
+@frappe.whitelist()
+def get_default_party_account(company, party_type, party):
+	"""Return default receivable/payable account for a party."""
+	if not company or not party_type or not party:
+		return None
+	account = frappe.db.get_value(
+		"Party Account",
+		{"parenttype": party_type, "parent": party, "company": company},
+		"account",
+	)
+	if account:
+		return account
+	if party_type == "Customer":
+		return frappe.get_cached_value("Company", company, "default_receivable_account")
+	if party_type == "Supplier":
+		return frappe.get_cached_value("Company", company, "default_payable_account")
+	return None
+
