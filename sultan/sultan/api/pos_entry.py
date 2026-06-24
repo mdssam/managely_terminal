@@ -751,26 +751,10 @@ def _create_and_submit_closing_doc(opening_entry, data, payment_data, user):
 	# Populate sales invoices linked to this opening entry
 	_populate_sales_invoices_to_closing_entry(doc, opening_entry.name)
 
-	# Populate pos_transactions for standard ERPNext consolidation
-	pos_invoices = frappe.get_all(
-		"POS Invoice",
-		filters={
-			"custom_pos_opening_entry": opening_entry.name,
-			"docstatus": 1,
-		},
-		fields=["name", "customer", "posting_date", "grand_total"],
-		order_by="posting_date, posting_time",
-	)
-	for inv in pos_invoices:
-		doc.append(
-			"pos_transactions",
-			{
-				"pos_invoice": inv.name,
-				"posting_date": inv.posting_date,
-				"grand_total": inv.grand_total,
-				"customer": inv.customer,
-			}
-		)
+	# Do not populate standard ERPNext pos_transactions table to avoid validation errors
+	# when POS invoices are created by another user (e.g. cashiers) but closed by Administrator.
+	# Sultan uses its own custom reconciliation system via custom_sales_invoice.
+
 
 	# Submit and link back to opening entry
 	doc.submit()
