@@ -1,20 +1,22 @@
-"use client"
-
+import React, { memo } from "react"
 import type { MenuItem } from "../../types"
-import { ChefHat } from "lucide-react"
+import { ChefHat, Star } from "lucide-react"
 
 interface ProductCardProps {
   item: MenuItem
   onAddToCart: (item: MenuItem) => void
   isMobile?: boolean
   scannerOnly?: boolean
+  isStarred?: boolean
+  onToggleStar?: (itemCode: string) => void
+  allowZeroStockSale?: boolean
 }
 
-export default function ProductCard({ item, onAddToCart, isMobile = false, scannerOnly = false }: ProductCardProps) {
+const ProductCard = memo(function ProductCard({ item, onAddToCart, isMobile = false, scannerOnly = false, isStarred = false, onToggleStar, allowZeroStockSale = false }: ProductCardProps) {
   const isStockTracking = item.is_stock_item === 1 || item.is_stock_item === true
   const isOutOfStock = isStockTracking && item.available <= 0
   const canBeManufactured = !!item.is_fresh_produce
-  const isDisabled = (isOutOfStock && !canBeManufactured) || scannerOnly
+  const isDisabled = (isOutOfStock && !canBeManufactured && !allowZeroStockSale) || scannerOnly
 
   const formattedPrice = item.currency_symbol
     ? `${item.currency_symbol}${item.price.toFixed(2)}`
@@ -50,6 +52,30 @@ export default function ProductCard({ item, onAddToCart, isMobile = false, scann
                 d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10" />
             </svg>
           </div>
+        )}
+
+        {/* Star button — top-left corner, above all overlays */}
+        {onToggleStar && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onToggleStar(item.id); }}
+            className="absolute top-2 left-2 z-30 w-7 h-7 rounded-full flex items-center justify-center transition-all duration-200 active:scale-90"
+            style={{
+              background: 'rgba(0,0,0,0.45)',
+              backdropFilter: 'blur(4px)',
+            }}
+            title={isStarred ? 'إزالة من المفضلة' : 'إضافة للمفضلة'}
+          >
+            <Star
+              size={14}
+              fill={isStarred ? '#ffd700' : 'none'}
+              stroke={isStarred ? '#ffd700' : 'rgba(255,255,255,0.85)'}
+              strokeWidth={2}
+              style={{
+                filter: isStarred ? 'drop-shadow(0 0 3px #ffd700)' : 'none'
+              }}
+            />
+          </button>
         )}
 
         {/* Badges — top-right corner */}
@@ -111,4 +137,6 @@ export default function ProductCard({ item, onAddToCart, isMobile = false, scann
       </div>
     </div>
   )
-}
+})
+
+export default ProductCard

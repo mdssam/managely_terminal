@@ -32,6 +32,11 @@ interface MenuGridProps {
   hideHeader?: boolean
   showOnlyAvailableAndCooking?: boolean
   onToggleAvailableAndCooking?: (val: boolean) => void
+  // Starred
+  isStarred?: (itemCode: string) => boolean
+  onToggleStar?: (itemCode: string) => void
+  starredCount?: number
+  allowZeroStockSale?: boolean
 }
 
 export default function MenuGrid({
@@ -52,6 +57,10 @@ export default function MenuGrid({
   hideHeader = false,
   showOnlyAvailableAndCooking = true,
   onToggleAvailableAndCooking,
+  isStarred,
+  onToggleStar,
+  starredCount = 0,
+  allowZeroStockSale = false,
 }: MenuGridProps) {
   const { user, logout, lockEmployee } = useAuth()
   const { theme, toggleTheme } = useTheme()
@@ -350,7 +359,11 @@ export default function MenuGrid({
 
       {/* Categories Bar */}
       <div className={`sticky top-0 z-10 bg-white border-b border-gray-200 px-4 ${hideHeader ? 'py-2' : 'pb-2'}`}>
-        <CategoryTabs selectedCategory={selectedCategory} onCategoryChange={onCategoryChange} />
+        <CategoryTabs
+          selectedCategory={selectedCategory}
+          onCategoryChange={onCategoryChange}
+          starredCount={starredCount}
+        />
       </div>
 
       {/* Products Grid */}
@@ -379,6 +392,9 @@ export default function MenuGrid({
             isLoadingMore={isLoadingMore}
             onLoadMore={onLoadMore}
             totalCount={totalCount}
+            isStarred={isStarred}
+            onToggleStar={onToggleStar}
+            allowZeroStockSale={allowZeroStockSale}
           />
         )}
       </div>

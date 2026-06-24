@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback, useRef } from "react"
+import { useState, useEffect, useCallback, useRef, useMemo } from "react"
 import { useProducts } from "../hooks/useProducts"
 import { usePOSDetails } from "../hooks/usePOSProfile"
 
@@ -19,6 +19,7 @@ import { useSalesTaxCharges } from "../hooks/useSalesTaxCharges"
 import { usePaymentModes } from "../hooks/usePaymentModes"
 import { useDeliveryPersonnel } from "../hooks/useDeliveryPersonnel"
 import { useCustomers } from "../hooks/useCustomers"
+import { useStarredItems } from "../hooks/useStarredItems"
 
 interface RetailPOSLayoutProps {
   isOrderStation?: boolean;
@@ -31,6 +32,9 @@ export default function RetailPOSLayout({ isOrderStation = false }: RetailPOSLay
   const [showScanner, setShowScanner] = useState(false)
   const [pinnedItemId, setPinnedItemId] = useState<string | null>(null)
   const [identifierItemId, setIdentifierItemId] = useState<string | null>(null)
+
+  // Starred items
+  const { starredCodes, isStarred, toggleStar, init: initStarred } = useStarredItems()
   const [showOnlyAvailableAndCooking, setShowOnlyAvailableAndCooking] = useState<boolean>(() => {
     if (typeof window !== 'undefined') {
       const cached = localStorage.getItem('pos_show_only_available_and_cooking')
@@ -194,14 +198,50 @@ export default function RetailPOSLayout({ isOrderStation = false }: RetailPOSLay
 
   const useScannerOnly = posDetails?.custom_use_scanner_fully || false
   const hideUnavailableItems = posDetails?.hide_unavailable_items || false
+  const allowZeroStockSale = !!(posDetails as any)?.custom_allow_zero_stock_sale
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const scalePrefix = (posDetails as any)?.custom_scale_barcodes_start_with || ""
 
+  // Init starred items once POS profile is known
+  useEffect(() => {
+    if (posDetails?.name) {
+      initStarred(posDetails.name)
+    }
+  }, [posDetails?.name])
 
-  const handleAddToCart = (item: MenuItem, quantity: number = 1) => {
+
+  // Separate function for adding items to cart (used by both click and barcode)
+  const addItemToCart = useCallback((item: MenuItem, quantity: number = 1) => {
+    const existingItem = cartItems.find((cartItem) => cartItem.id === item.id)
+    if (existingItem) {
+      updateQuantity(item.id, existingItem.quantity + quantity)
+    } else {
+      addToCartWithQuantity({
+        id: item.id,
+        name: item.name,
+        category: item.category,
+        price: item.price,
+        image: item.image,
+        available: item.available,
+        uom: item.uom,
+        base_uom: item.stock_uom,
+        conversion_factor: item.conversion_factor,
+        item_code: item.id,
+        is_fresh_produce: item.is_fresh_produce,
+        supports_weight_price: item.supports_weight_price,
+      }, quantity)
+    }
+
+    // Show success message for barcode scanning
+    if (useScannerOnly) {
+      // Barcode scanning success handled silently
+    }
+  }, [cartItems, updateQuantity, addToCartWithQuantity, useScannerOnly])
+
+  const handleAddToCart = useCallback((item: MenuItem, quantity: number = 1) => {
     const isStockTracking = item.is_stock_item === 1 || item.is_stock_item === true
-    // Don't add if item is not available (unless it can be manufactured or is a service item)
-    if (isStockTracking && item.available <= 0 && !item.is_fresh_produce) return
+    // Don't add if item is not available (unless it can be manufactured, is a service, or allow_zero_stock_sale is on)
+    if (isStockTracking && item.available <= 0 && !item.is_fresh_produce && !allowZeroStockSale) return
 
     // If scanner-only mode is enabled, prevent adding items by clicking
     if (useScannerOnly) {
@@ -210,7 +250,7 @@ export default function RetailPOSLayout({ isOrderStation = false }: RetailPOSLay
     }
 
     addItemToCart(item, quantity)
-  }
+  }, [allowZeroStockSale, useScannerOnly, addItemToCart])
 
   // Helpers for scale barcodes
   const parseScaleBarcode = useCallback((raw: string) => {
@@ -282,34 +322,6 @@ export default function RetailPOSLayout({ isOrderStation = false }: RetailPOSLay
       updateQuantity(item.id, quantity)
     }
   }, [cartItems, updateQuantity, addToCart])
-
-  // Separate function for adding items to cart (used by both click and barcode)
-  const addItemToCart = (item: MenuItem, quantity: number = 1) => {
-    const existingItem = cartItems.find((cartItem) => cartItem.id === item.id)
-    if (existingItem) {
-      updateQuantity(item.id, existingItem.quantity + quantity)
-    } else {
-      addToCartWithQuantity({
-        id: item.id,
-        name: item.name,
-        category: item.category,
-        price: item.price,
-        image: item.image,
-        available: item.available,
-        uom: item.uom,
-        base_uom: item.stock_uom,
-        conversion_factor: item.conversion_factor,
-        item_code: item.id,
-        is_fresh_produce: item.is_fresh_produce,
-        supports_weight_price: item.supports_weight_price,
-      }, quantity)
-    }
-
-    // Show success message for barcode scanning
-    if (useScannerOnly) {
-      // Barcode scanning success handled silently
-    }
-  }
 
   const handleUpdateQuantity = (id: string, quantity: number) => {
     if (quantity <= 0) {
@@ -593,57 +605,75 @@ export default function RetailPOSLayout({ isOrderStation = false }: RetailPOSLay
 
   // When server-side search is active, use menuItems directly (already filtered by server)
   // Only apply local filtering for category and scale barcode typing
-  const filteredItems = menuItems.filter((item) => {
-    // Availability filter - hide items with 0 quantity if hide_unavailable_items is enabled, unless they are fresh produce (cooking) items
-    if (hideUnavailableItems && item.available <= 0 && !item.is_fresh_produce) {
-      return false
-    }
+  const filteredItems = useMemo(() => {
+    return menuItems.filter((item) => {
+      // Starred category: only show starred items
+      if (selectedCategory === "starred") {
+        return starredCodes.has(item.id)
+      }
 
-    // Toggle filter: Only show items with quantity OR items to cooking
-    if (showOnlyAvailableAndCooking && item.available <= 0 && !item.is_fresh_produce) {
-      return false
-    }
+      // Availability filter
+      if (hideUnavailableItems && item.available <= 0 && !item.is_fresh_produce) {
+        return false
+      }
 
-    // If server-side search is active, do NOT apply category filter locally.
-    // Server already filtered; just return the item (respecting availability above).
-    if (serverSearchQuery) {
-      return true
-    }
+      // Toggle filter: Only show items with quantity OR items to cooking
+      if (showOnlyAvailableAndCooking && item.available <= 0 && !item.is_fresh_produce) {
+        return false
+      }
 
-    const matchesCategory = selectedCategory === "all" || item.category === selectedCategory
+      // If server-side search is active, do NOT apply category filter locally.
+      // Server already filtered; just return the item (respecting availability above).
+      if (serverSearchQuery) {
+        return true
+      }
 
-    // Special handling for scale barcodes while typing: if a scale prefix is set and
-    // the search starts with that numeric prefix, use only the base part (first 7 chars)
-    // for filtering so that extra quantity digits do not hide the item
-    const isScaleTyping = !!scalePrefix &&
-      localSearchQuery &&
-      /^[0-9]+$/.test(localSearchQuery) &&
-      localSearchQuery.startsWith(scalePrefix) &&
-      localSearchQuery.length >= 7
+      const matchesCategory = selectedCategory === "all" || item.category === selectedCategory
 
-    // If exactly one item is already matched and pinned, keep it visible regardless of extra digits
-    const queryForFilter = pinnedItemId && isScaleTyping ? localSearchQuery.substring(0, 7) : (isScaleTyping ? localSearchQuery.substring(0, 7) : '')
+      // Special handling for scale barcodes while typing: if a scale prefix is set and
+      // the search starts with that numeric prefix, use only the base part (first 7 chars)
+      // for filtering so that extra quantity digits do not hide the item
+      const isScaleTyping = !!scalePrefix &&
+        localSearchQuery &&
+        /^[0-9]+$/.test(localSearchQuery) &&
+        localSearchQuery.startsWith(scalePrefix) &&
+        localSearchQuery.length >= 7
 
-    // Local filtering for barcode typing or when no server search
-    const matchesSearch =
-      queryForFilter === "" ||
-      item.name.toLowerCase().includes(queryForFilter.toLowerCase()) ||
-      item.category.toLowerCase().includes(queryForFilter.toLowerCase()) ||
-      item.id.toLowerCase().includes(queryForFilter.toLowerCase()) ||
-      item.description?.toLowerCase().includes(queryForFilter.toLowerCase()) ||
-      (item.barcode && item.barcode.toLowerCase().includes(queryForFilter.toLowerCase()))
+      // If exactly one item is already matched and pinned, keep it visible regardless of extra digits
+      const queryForFilter = pinnedItemId && isScaleTyping ? localSearchQuery.substring(0, 7) : (isScaleTyping ? localSearchQuery.substring(0, 7) : '')
 
-    // If pinned or identifier resolved, ensure the item always passes
-    const passes = matchesCategory && matchesSearch
-    if (pinnedItemId && isScaleTyping) {
-      const keep = passes || item.id === pinnedItemId
-      return keep
-    }
-    if (identifierItemId) {
-      return passes || item.id === identifierItemId
-    }
-    return passes
-  })
+      // Local filtering for barcode typing or when no server search
+      const matchesSearch =
+        queryForFilter === "" ||
+        item.name.toLowerCase().includes(queryForFilter.toLowerCase()) ||
+        item.category.toLowerCase().includes(queryForFilter.toLowerCase()) ||
+        item.id.toLowerCase().includes(queryForFilter.toLowerCase()) ||
+        item.description?.toLowerCase().includes(queryForFilter.toLowerCase()) ||
+        (item.barcode && item.barcode.toLowerCase().includes(queryForFilter.toLowerCase()))
+
+      // If pinned or identifier resolved, ensure the item always passes
+      const passes = matchesCategory && matchesSearch
+      if (pinnedItemId && isScaleTyping) {
+        const keep = passes || item.id === pinnedItemId
+        return keep
+      }
+      if (identifierItemId) {
+        return passes || item.id === identifierItemId
+      }
+      return passes
+    })
+  }, [
+    menuItems,
+    selectedCategory,
+    starredCodes,
+    hideUnavailableItems,
+    showOnlyAvailableAndCooking,
+    serverSearchQuery,
+    scalePrefix,
+    localSearchQuery,
+    pinnedItemId,
+    identifierItemId
+  ])
 
   if (loading) {
     return <LoadingSpinner message="Loading products..." />
@@ -735,6 +765,10 @@ export default function RetailPOSLayout({ isOrderStation = false }: RetailPOSLay
             isSearching={isSearching}
             showOnlyAvailableAndCooking={showOnlyAvailableAndCooking}
             onToggleAvailableAndCooking={setShowOnlyAvailableAndCooking}
+            isStarred={isStarred}
+            onToggleStar={toggleStar}
+            starredCount={starredCodes.size}
+            allowZeroStockSale={allowZeroStockSale}
           />
         </div>
 

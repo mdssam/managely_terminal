@@ -478,6 +478,19 @@ def run():
 		}).insert(ignore_permissions=True)
 		print("Created custom_allowed_pos_profiles custom field on Employee.")
 
+	allow_returns_cf = "Employee-custom_allow_returns"
+	if not frappe.db.exists("Custom Field", allow_returns_cf):
+		frappe.get_doc({
+			"doctype": "Custom Field",
+			"dt": "Employee",
+			"fieldname": "custom_allow_returns",
+			"label": "Allow POS Returns",
+			"fieldtype": "Check",
+			"insert_after": "custom_allowed_pos_profiles",
+			"default": "1"
+		}).insert(ignore_permissions=True)
+		print("Created custom_allow_returns custom field on Employee.")
+
 	# Dynamic Multi-Stamp Settings
 	if not frappe.db.exists("DocType", "Sultan Stamp Setting"):
 		frappe.get_doc({

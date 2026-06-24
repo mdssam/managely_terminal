@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { Search } from "lucide-react"
 import ProductCard from "./ProductCard"
 import ProductLineView from "./ProductLineView"
@@ -17,6 +17,10 @@ interface ProductGridProps {
   isLoadingMore?: boolean
   onLoadMore?: () => void
   totalCount?: number
+  // Starred
+  isStarred?: (itemCode: string) => boolean
+  onToggleStar?: (itemCode: string) => void
+  allowZeroStockSale?: boolean
 }
 
 export default function ProductGrid({
@@ -29,16 +33,29 @@ export default function ProductGrid({
   isLoadingMore = false,
   onLoadMore,
   totalCount = 0,
+  isStarred,
+  onToggleStar,
+  allowZeroStockSale = false,
 }: ProductGridProps) {
   const loadMoreRef = useRef<HTMLDivElement>(null)
+  const [visibleCount, setVisibleCount] = useState(80)
+
+  // Reset visibleCount when items length or viewMode changes
+  useEffect(() => {
+    setVisibleCount(80)
+  }, [items.length, viewMode])
 
   // Intersection Observer for infinite scroll
   const handleObserver = useCallback((entries: IntersectionObserverEntry[]) => {
     const target = entries[0]
-    if (target.isIntersecting && hasMore && !isLoadingMore && onLoadMore) {
-      onLoadMore()
+    if (target.isIntersecting) {
+      if (visibleCount < items.length) {
+        setVisibleCount(prev => Math.min(prev + 40, items.length))
+      } else if (hasMore && !isLoadingMore && onLoadMore) {
+        onLoadMore()
+      }
     }
-  }, [hasMore, isLoadingMore, onLoadMore])
+  }, [visibleCount, items.length, hasMore, isLoadingMore, onLoadMore])
 
   useEffect(() => {
     const option = {
@@ -60,11 +77,13 @@ export default function ProductGrid({
     }
   }, [handleObserver])
 
+  const visibleItems = items.slice(0, visibleCount)
+
   // If viewMode is 'list', render the line view
   if (viewMode === 'list') {
     return (
       <div className="flex flex-col">
-        <ProductLineView items={items} onAddToCart={onAddToCart} isMobile={isMobile} scannerOnly={scannerOnly} />
+        <ProductLineView items={visibleItems} onAddToCart={onAddToCart} isMobile={isMobile} scannerOnly={scannerOnly} />
 
         {/* Load more trigger and indicator */}
         {onLoadMore && (
@@ -75,12 +94,12 @@ export default function ProductGrid({
                 <span className="text-gray-600 text-sm">Loading more items...</span>
               </div>
             )}
-            {!isLoadingMore && hasMore && (
+            {!isLoadingMore && (hasMore || visibleCount < items.length) && (
               <span className="text-gray-500 text-sm">
-                Showing {items.length} of {totalCount} items
+                Showing {visibleItems.length} of {items.length === totalCount || totalCount === 0 ? items.length : totalCount} items
               </span>
             )}
-            {!hasMore && items.length > 0 && (
+            {!(hasMore || visibleCount < items.length) && items.length > 0 && (
               <span className="text-gray-500 text-sm">
                 All {items.length} items loaded
               </span>
@@ -114,8 +133,17 @@ export default function ProductGrid({
             : "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
           }`}
       >
-        {items.map((item) => (
-          <ProductCard key={item.id} item={item} onAddToCart={onAddToCart} isMobile={isMobile} scannerOnly={scannerOnly} />
+        {visibleItems.map((item) => (
+          <ProductCard
+            key={item.id}
+            item={item}
+            onAddToCart={onAddToCart}
+            isMobile={isMobile}
+            scannerOnly={scannerOnly}
+            isStarred={isStarred ? isStarred(item.id) : false}
+            onToggleStar={onToggleStar}
+            allowZeroStockSale={allowZeroStockSale}
+          />
         ))}
       </div>
 
@@ -128,12 +156,12 @@ export default function ProductGrid({
               <span className="text-gray-600 text-sm">Loading more items...</span>
             </div>
           )}
-          {!isLoadingMore && hasMore && (
+          {!isLoadingMore && (hasMore || visibleCount < items.length) && (
             <span className="text-gray-500 text-sm">
-              Showing {items.length} of {totalCount} items • Scroll for more
+              Showing {visibleItems.length} of {items.length === totalCount || totalCount === 0 ? items.length : totalCount} items • Scroll for more
             </span>
           )}
-          {!hasMore && items.length > 0 && totalCount > 0 && (
+          {!(hasMore || visibleCount < items.length) && items.length > 0 && totalCount > 0 && (
             <span className="text-gray-500 text-sm">
               All {items.length} items loaded
             </span>

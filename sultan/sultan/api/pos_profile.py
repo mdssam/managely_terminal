@@ -163,6 +163,8 @@ def get_pos_details():
 			"current_opening_entry": None,
 			"custom_scale_barcodes_start_with": "",
 			"allow_discount_change": 0,
+			"custom_allow_zero_stock_sale": 0,
+			"custom_allow_returns": 0,
 			"role": frappe.db.get_value("User", frappe.session.user, "role_profile_name") or "Cashier"
 		}
 
@@ -185,6 +187,11 @@ def get_pos_details():
 		}
 
 	active_role = frappe.db.get_value("User", frappe.session.user, "role_profile_name") or "Cashier"
+
+	emp_name = frappe.db.get_value("Employee", {"user_id": frappe.session.user, "status": "Active"}, "name")
+	allow_returns = 0
+	if emp_name:
+		allow_returns = int(frappe.db.get_value("Employee", emp_name, "custom_allow_returns") or 0)
 
 	pos_currency = getattr(pos, "currency", None) or frappe.get_cached_value("Company", pos.company, "default_currency") or frappe.db.get_default("currency") or frappe.db.get_single_value("System Settings", "default_currency") or frappe.db.get_value("Company", {}, "default_currency")
 	details = {
@@ -213,6 +220,8 @@ def get_pos_details():
 		"custom_ignore_write_off_on_partial_returns": getattr(pos, "custom_ignore_write_off_on_partial_returns", 1.0),
 		"custom_delivery_required": int(getattr(pos, "custom_delivery_required", 0) or 0),
 		"allow_discount_change": getattr(pos, "allow_discount_change", 0),
+		"custom_allow_zero_stock_sale": int(getattr(pos, "custom_allow_zero_stock_sale", 0) or 0),
+		"custom_allow_returns": allow_returns,
 		"role": active_role,
 		"custom_is_branch": int(getattr(pos, "custom_is_branch", 0) or 0),
 		# Multi-currency dynamic resolution

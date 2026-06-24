@@ -418,7 +418,7 @@ export default function InvoiceViewPage() {
 
                 {/* Return Buttons */}
                            {/* @ts-expect-error just ignore */}
-                {["Paid", "Unpaid", "Overdue", "Partly Paid", "Credit Note Issued", "Consolidated"].includes(invoice.status) && !invoice.is_return && hasReturnableItems() && (
+                {!!posDetails?.custom_allow_returns && ["Paid", "Unpaid", "Overdue", "Partly Paid", "Credit Note Issued", "Consolidated"].includes(invoice.status) && !invoice.is_return && hasReturnableItems() && (
                   <>
                     <div className="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
 
