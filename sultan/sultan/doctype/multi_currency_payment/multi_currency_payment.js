@@ -22,6 +22,24 @@ frappe.ui.form.on("Multi Currency Payment", {
 			return { filters: filters };
 		});
 
+		frm.set_query("reference_name", "references", (doc, cdt, cdn) => {
+			const child = locals[cdt][cdn];
+			if (!doc.party || !doc.party_type) {
+				return { filters: { name: "No Party Selected" } };
+			}
+			const filters = {
+				docstatus: 1,
+				company: doc.company,
+				outstanding_amount: [">", 0]
+			};
+			if (child.reference_doctype === "Sales Invoice") {
+				filters.customer = doc.party;
+			} else if (child.reference_doctype === "Purchase Invoice") {
+				filters.supplier = doc.party;
+			}
+			return { filters: filters };
+		});
+
 		// Legacy: open linked Journal Entry if one exists
 		if (frm.doc.journal_entry) {
 			frm.add_custom_button(__("Journal Entry"), () => {
@@ -51,6 +69,40 @@ frappe.ui.form.on("Multi Currency Payment", {
 				}
 			});
 		}
+	},
+
+	get_outstanding_invoices(frm) {
+		if (!frm.doc.company || !frm.doc.party_type || !frm.doc.party) {
+			frappe.msgprint(__("Please select Company, Party Type and Party first."));
+			return;
+		}
+		frappe.call({
+			method: "sultan.sultan.doctype.multi_currency_payment.multi_currency_payment.get_outstanding_invoices",
+			args: {
+				company: frm.doc.company,
+				party_type: frm.doc.party_type,
+				party: frm.doc.party
+			},
+			callback(r) {
+				frm.clear_table("references");
+				if (r.message && r.message.length > 0) {
+					r.message.forEach(d => {
+						const row = frm.add_child("references");
+						row.reference_doctype = d.reference_doctype;
+						row.reference_name = d.reference_name;
+						row.total_amount = d.total_amount;
+						row.outstanding_amount = d.outstanding_amount;
+						row.due_date = d.due_date;
+						row.bill_no = d.bill_no;
+						row.allocated_amount = d.outstanding_amount;
+					});
+				} else {
+					frappe.msgprint(__("No outstanding invoices found for this Party."));
+				}
+				frm.refresh_field("references");
+				_recalcDifference(frm);
+			}
+		});
 	},
 
 	company(frm) {

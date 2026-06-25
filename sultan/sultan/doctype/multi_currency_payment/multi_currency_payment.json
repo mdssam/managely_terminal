@@ -24,6 +24,7 @@
   "lines",
   "total_payments",
   "references_section",
+  "get_outstanding_invoices",
   "references",
   "total_references",
   "difference",
@@ -81,13 +82,15 @@
    "fieldname": "party_type",
    "fieldtype": "Link",
    "label": "Party Type",
-   "options": "Party Type"
+   "options": "Party Type",
+   "reqd": 1
   },
   {
    "fieldname": "party",
    "fieldtype": "Dynamic Link",
    "label": "Party",
-   "options": "party_type"
+   "options": "party_type",
+   "reqd": 1
   },
   {
    "fieldname": "party_account",
@@ -148,6 +151,12 @@
    "fieldname": "references_section",
    "fieldtype": "Section Break",
    "label": "Payment References"
+  },
+  {
+   "depends_on": "eval:doc.docstatus==0",
+   "fieldname": "get_outstanding_invoices",
+   "fieldtype": "Button",
+   "label": "Get Outstanding Invoices"
   },
   {
    "fieldname": "references",

@@ -106,7 +106,7 @@ class MultiCurrencyPayment(Document):
 			row.amount_usd, row.amount_lbp = self._to_usd_lbp(row.amount, row.currency, row.exchange_rate)
 
 	def validate_references(self):
-		"""Validate Payment References: no duplicates, allocated > 0, allocated <= outstanding."""
+		"""Validate Payment References: no duplicates, allocated > 0, allocated <= outstanding, belongs to party."""
 		if not self.references:
 			return
 
@@ -130,6 +130,24 @@ class MultiCurrencyPayment(Document):
 				frappe.throw(_(
 					"Allocated Amount {0} cannot exceed Outstanding Amount {1} in Payment References row {2}."
 				).format(row.allocated_amount, row.outstanding_amount, row.idx))
+
+			# Validate that the invoice belongs to the selected party and company
+			if row.reference_doctype == "Sales Invoice":
+				inv_party, inv_company, inv_docstatus = frappe.db.get_value("Sales Invoice", row.reference_name, ["customer", "company", "docstatus"])
+				if inv_party != self.party:
+					frappe.throw(_("Sales Invoice {0} does not belong to Customer {1}.").format(row.reference_name, self.party))
+				if inv_company != self.company:
+					frappe.throw(_("Sales Invoice {0} does not belong to Company {1}.").format(row.reference_name, self.company))
+				if inv_docstatus != 1:
+					frappe.throw(_("Sales Invoice {0} must be submitted.").format(row.reference_name))
+			elif row.reference_doctype == "Purchase Invoice":
+				inv_party, inv_company, inv_docstatus = frappe.db.get_value("Purchase Invoice", row.reference_name, ["supplier", "company", "docstatus"])
+				if inv_party != self.party:
+					frappe.throw(_("Purchase Invoice {0} does not belong to Supplier {1}.").format(row.reference_name, self.party))
+				if inv_company != self.company:
+					frappe.throw(_("Purchase Invoice {0} does not belong to Company {1}.").format(row.reference_name, self.company))
+				if inv_docstatus != 1:
+					frappe.throw(_("Purchase Invoice {0} must be submitted.").format(row.reference_name))
 
 	def set_totals(self):
 		self.total_usd = sum(flt(r.amount_usd) for r in self.lines)
@@ -439,4 +457,59 @@ def get_default_party_account(company, party_type, party):
 	if party_type == "Supplier":
 		return frappe.get_cached_value("Company", company, "default_payable_account")
 	return None
+
+
+@frappe.whitelist()
+def get_outstanding_invoices(company, party_type, party):
+	"""Return a list of outstanding invoices (Sales or Purchase) for the given party."""
+	if not company or not party_type or not party:
+		return []
+
+	invoices = []
+	if party_type == "Customer":
+		# Fetch Sales Invoices
+		sales_invoices = frappe.db.get_all(
+			"Sales Invoice",
+			filters={
+				"docstatus": 1,
+				"company": company,
+				"customer": party,
+				"outstanding_amount": [">", 0]
+			},
+			fields=["name", "outstanding_amount", "grand_total as total_amount", "due_date"]
+		)
+		for si in sales_invoices:
+			invoices.append({
+				"reference_doctype": "Sales Invoice",
+				"reference_name": si.name,
+				"outstanding_amount": flt(si.outstanding_amount),
+				"total_amount": flt(si.total_amount),
+				"due_date": si.due_date,
+				"bill_no": None
+			})
+
+	elif party_type == "Supplier":
+		# Fetch Purchase Invoices
+		purchase_invoices = frappe.db.get_all(
+			"Purchase Invoice",
+			filters={
+				"docstatus": 1,
+				"company": company,
+				"supplier": party,
+				"outstanding_amount": [">", 0]
+			},
+			fields=["name", "outstanding_amount", "grand_total as total_amount", "due_date", "bill_no"]
+		)
+		for pi in purchase_invoices:
+			invoices.append({
+				"reference_doctype": "Purchase Invoice",
+				"reference_name": pi.name,
+				"outstanding_amount": flt(pi.outstanding_amount),
+				"total_amount": flt(pi.total_amount),
+				"due_date": pi.due_date,
+				"bill_no": pi.bill_no
+			})
+
+	return invoices
+
 
