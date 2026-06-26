@@ -20,7 +20,7 @@ interface CartState {
   addToCartWithQuantity: (item: Omit<CartItem, 'quantity'>, quantity: number) => Promise<void>
   updateQuantity: (id: string, quantity: number) => Promise<void>
   updateUOM: (id: string, uom: string, price: number) => Promise<void>
-  updateItemMods: (id: string, mods: string, notes: string) => void
+  updateItemMods: (id: string, mods: string, notes: string, extraCost?: number) => void
   removeItem: (id: string) => void
   clearCart: () => void
   applyCoupon: (coupon: GiftCoupon) => void
@@ -222,10 +222,14 @@ export const useCartStore = create<CartState>()(
         }
       },
 
-      updateItemMods: (id, mods, notes) => set((state) => ({
-        cartItems: state.cartItems.map((item) =>
-          item.id === id ? { ...item, custom_ingredients: mods, custom_notes: notes } : item
-        )
+      updateItemMods: (id, mods, notes, extraCost = 0) => set((state) => ({
+        cartItems: state.cartItems.map((item) => {
+          if (item.id !== id) return item;
+          // Preserve the original base price on first customization
+          const base = item.base_price ?? item.price;
+          const newPrice = base + extraCost;
+          return { ...item, custom_ingredients: mods, custom_notes: notes, base_price: base, extra_cost: extraCost, price: newPrice };
+        })
       })),
 
       removeItem: (id) => set((state) => ({

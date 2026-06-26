@@ -811,8 +811,9 @@ export default function RetailPOSLayout({ isOrderStation = false }: RetailPOSLay
           itemCode={selectedItemForMods.item_code || selectedItemForMods.id}
           itemName={selectedItemForMods.name}
           initialNotes={selectedItemForMods.custom_notes || ''}
-          onConfirm={(mods, notes) => {
-            updateItemMods(selectedItemForMods.id, JSON.stringify(mods), notes)
+          initialMods={selectedItemForMods.custom_ingredients || ''}
+          onConfirm={(mods, notes, extraCost) => {
+            updateItemMods(selectedItemForMods.id, JSON.stringify(mods), notes, extraCost)
             toast.success("Customizations applied")
           }}
         />

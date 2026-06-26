@@ -25,6 +25,8 @@ export interface CartItem {
   is_stock_item?: boolean | number
   custom_ingredients?: string
   custom_notes?: string
+  base_price?: number   // original price before any extras
+  extra_cost?: number   // total cost of added extras
 }
 
 export interface MenuItem {

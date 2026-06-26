@@ -1,10 +1,14 @@
 "use client"
 
+import { useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { ArrowLeft } from "lucide-react"
 import OrderSummary from "./OrderSummary"
 import BottomNavigation from "./BottomNavigation"
+import IngredientModifierModal from "./IngredientModifierModal"
 import { useCartStore } from "../stores/cartStore"
+import type { CartItem } from "../../types"
+import { toast } from "react-toastify"
 
 export default function CartPage() {
   const navigate = useNavigate()
@@ -15,8 +19,11 @@ export default function CartPage() {
     removeItem,
     clearCart,
     applyCoupon,
-    removeCoupon
+    removeCoupon,
+    updateItemMods,
   } = useCartStore()
+
+  const [selectedItemForMods, setSelectedItemForMods] = useState<CartItem | null>(null)
 
   return (
     <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900">
@@ -50,11 +57,28 @@ export default function CartPage() {
           onApplyCoupon={applyCoupon}
           onRemoveCoupon={removeCoupon}
           isMobile={true}
+          onEditItem={(item) => setSelectedItemForMods(item)}
         />
       </div>
 
       {/* Bottom Navigation */}
       <BottomNavigation />
+
+      {/* Ingredient Modifier Modal for fresh produce items */}
+      {selectedItemForMods && (
+        <IngredientModifierModal
+          isOpen={!!selectedItemForMods}
+          onClose={() => setSelectedItemForMods(null)}
+          itemCode={selectedItemForMods.item_code || selectedItemForMods.id}
+          itemName={selectedItemForMods.name}
+          initialNotes={selectedItemForMods.custom_notes || ''}
+          initialMods={selectedItemForMods.custom_ingredients || ''}
+          onConfirm={(mods, notes, extraCost) => {
+            updateItemMods(selectedItemForMods.id, JSON.stringify(mods), notes, extraCost)
+            toast.success("Customizations applied")
+          }}
+        />
+      )}
     </div>
   )
 }
