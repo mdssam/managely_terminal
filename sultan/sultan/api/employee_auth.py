@@ -8,7 +8,7 @@ def _lookup_employee(username: str):
     employee = frappe.db.get_value(
         "Employee",
         {"custom_pos_username": username, "status": "Active"},
-        ["name", "employee_name", "custom_pos_role"],
+        ["name", "employee_name", "custom_pos_role", "custom_allow_returns"],
         as_dict=True,
     )
     if employee:
@@ -48,6 +48,7 @@ def verify_employee_login(username: str, password: str) -> dict:
         "employee_name": employee.employee_name,
         "pos_role": employee.custom_pos_role or "Cashier",
         "allowed_pos_profiles": employee.get("custom_allowed_pos_profiles") or [],
+        "custom_allow_returns": employee.get("custom_allow_returns") or 0,
     }
 
 
@@ -84,6 +85,7 @@ def employee_pos_login(username: str, password: str) -> dict:
         "employee_name": employee.employee_name,
         "pos_role": employee.custom_pos_role or "Cashier",
         "allowed_pos_profiles": employee.get("custom_allowed_pos_profiles") or [],
+        "custom_allow_returns": employee.get("custom_allow_returns") or 0,
         "message": "Logged In",
         "csrf_token": csrf_token,
     }
@@ -128,7 +130,7 @@ def get_branch_employees_hashes(pos_profile: str) -> dict:
     employees = frappe.get_all(
         "Employee",
         filters={"status": "Active"},
-        fields=["name", "employee_name", "custom_pos_username", "custom_pos_role", "user_id"]
+        fields=["name", "employee_name", "custom_pos_username", "custom_pos_role", "user_id", "custom_allow_returns"]
     )
 
     data = []
@@ -159,7 +161,8 @@ def get_branch_employees_hashes(pos_profile: str) -> dict:
                     "role": emp.custom_pos_role or "Cashier",
                     "hash": p_hash,
                     "allowed_pos_profiles": allowed_profiles,
-                    "user": emp.user_id
+                    "user": emp.user_id,
+                    "custom_allow_returns": emp.custom_allow_returns
                 })
 
     return {"success": True, "data": data}
