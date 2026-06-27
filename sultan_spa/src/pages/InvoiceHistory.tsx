@@ -497,7 +497,7 @@ const getStatusBadge = (status: string) => {
                         </button>
                       )}
                       {/* @ts-expect-error just ignore */}
-                      {!!posDetails?.custom_allow_returns && ["Paid", "Unpaid", "Overdue", "Partly Paid", "Credit Note Issued", "Consolidated"].includes(invoice.status) && !invoice.is_return && hasReturnableItems(invoice) && (
+                      {(user?.custom_allow_returns !== undefined ? !!user.custom_allow_returns : !!posDetails?.custom_allow_returns) && ["Paid", "Unpaid", "Overdue", "Partly Paid", "Credit Note Issued", "Consolidated"].includes(invoice.status) && !invoice.is_return && hasReturnableItems(invoice) && (
                         <button onClick={() => handleSingleReturnClick(invoice)} className="flex items-center space-x-1 text-orange-600 hover:opacity-70 transition-opacity">
                           <RotateCcw className="w-4 h-4" /><span>Return</span>
                         </button>
@@ -542,7 +542,7 @@ const getStatusBadge = (status: string) => {
                     <Edit className="w-3 h-3" /><span>Edit</span>
                   </button>
                 )}
-                {!!posDetails?.custom_allow_returns && ["Paid", "Unpaid", "Overdue", "Partly Paid", "Credit Note Issued", "Consolidated"].includes(invoice.status) && hasReturnableItems(invoice) && (
+                 {(user?.custom_allow_returns !== undefined ? !!user.custom_allow_returns : !!posDetails?.custom_allow_returns) && ["Paid", "Unpaid", "Overdue", "Partly Paid", "Credit Note Issued", "Consolidated"].includes(invoice.status) && hasReturnableItems(invoice) && (
                   <button onClick={() => handleSingleReturnClick(invoice)} className="flex-1 text-xs px-3 py-2 bg-orange-600 text-white rounded-lg transition-colors">Return</button>
                 )}
               </div>

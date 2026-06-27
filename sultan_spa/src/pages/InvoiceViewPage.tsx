@@ -41,9 +41,11 @@ import SingleInvoiceReturn from "../components/SingleInvoiceReturn";
 import MultiInvoiceReturn from "../components/MultiInvoiceReturn";
 import { formatCurrency, formatPaymentMethodName } from "../utils/currency";
 import AddCustomerModal from "../components/AddCustomerModal";
+import { useAuth } from "../hooks/useAuth";
 
 export default function InvoiceViewPage() {
 
+  const { user } = useAuth();
   const { id } = useParams()
   const invoiceId = id ?? ""
 
@@ -418,7 +420,7 @@ export default function InvoiceViewPage() {
 
                 {/* Return Buttons */}
                            {/* @ts-expect-error just ignore */}
-                {!!posDetails?.custom_allow_returns && ["Paid", "Unpaid", "Overdue", "Partly Paid", "Credit Note Issued", "Consolidated"].includes(invoice.status) && !invoice.is_return && hasReturnableItems() && (
+                {(user?.custom_allow_returns !== undefined ? !!user.custom_allow_returns : !!posDetails?.custom_allow_returns) && ["Paid", "Unpaid", "Overdue", "Partly Paid", "Credit Note Issued", "Consolidated"].includes(invoice.status) && !invoice.is_return && hasReturnableItems() && (
                   <>
                     <div className="w-px h-6 bg-gray-300 dark:bg-gray-600"></div>
 
