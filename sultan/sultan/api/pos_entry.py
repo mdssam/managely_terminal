@@ -1167,23 +1167,20 @@ def get_sequence_state(pos_profile):
 	formatted_profile = pos_profile.upper().replace(" ", "_").replace("-", "_")
 	formatted_profile = "".join(c for c in formatted_profile if c.isalnum() or c == "_")
 	
-	# Fetch last Opening Entry (session) name
 	session_prefix = f"OP-{formatted_profile}-"
-	last_session = frappe.db.sql("""
-		SELECT name FROM `tabPOS Opening Entry` 
-		WHERE name LIKE %s 
-		ORDER BY creation DESC LIMIT 1
-	""", (session_prefix + "%",))
-	
-	# Fetch last POS Invoice name
 	invoice_prefix = f"PSINV-{formatted_profile}-"
-	last_invoice = frappe.db.sql("""
-		SELECT name FROM `tabPOS Invoice` 
-		WHERE name LIKE %s 
-		ORDER BY creation DESC LIMIT 1
-	""", (invoice_prefix + "%",))
+	
+	# Fetch current counters from tabSeries directly
+	session_current_res = frappe.db.sql("SELECT current FROM `tabSeries` WHERE name = %s", (session_prefix,))
+	session_current = session_current_res[0][0] if session_current_res else 0
+
+	invoice_current_res = frappe.db.sql("SELECT current FROM `tabSeries` WHERE name = %s", (invoice_prefix,))
+	invoice_current = invoice_current_res[0][0] if invoice_current_res else 0
+	
+	last_session_id = f"{session_prefix}{str(session_current).zfill(5)}" if session_current > 0 else None
+	last_invoice_id = f"{invoice_prefix}{str(invoice_current).zfill(5)}" if invoice_current > 0 else None
 	
 	return {
-		"last_session_id": last_session[0][0] if last_session else None,
-		"last_invoice_id": last_invoice[0][0] if last_invoice else None
+		"last_session_id": last_session_id,
+		"last_invoice_id": last_invoice_id
 	}

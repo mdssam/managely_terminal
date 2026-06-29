@@ -196,6 +196,7 @@ def get_pos_details():
 	pos_currency = getattr(pos, "currency", None) or frappe.get_cached_value("Company", pos.company, "default_currency") or frappe.db.get_default("currency") or frappe.db.get_single_value("System Settings", "default_currency") or frappe.db.get_value("Company", {}, "default_currency")
 	details = {
 		"name": pos.name,
+		"company": pos.company,
 		"business_type": business_type,
 		"print_format": print_format,
 		"currency": pos_currency,

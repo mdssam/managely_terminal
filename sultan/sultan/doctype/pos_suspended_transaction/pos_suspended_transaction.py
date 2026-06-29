@@ -213,7 +213,7 @@ class POSSuspendedTransaction(Document):
 
 @frappe.whitelist()
 def create_cash_transaction_from_pos(pos_session, amount, mode_of_payment,
-                                      description, transaction_type, employee=None):
+                                      description, transaction_type, employee=None, pre_assigned_name=None):
     if not pos_session:
         frappe.throw(_("POS Session is required."))
 
@@ -256,6 +256,9 @@ def create_cash_transaction_from_pos(pos_session, amount, mode_of_payment,
         employee = frappe.db.get_value("POS Opening Entry", pos_session, "custom_employee")
 
     doc = frappe.new_doc("POS Suspended Transaction")
+    if pre_assigned_name:
+        doc.name = pre_assigned_name
+        doc.flags.ignore_naming_series = True
     doc.pos_session = pos_session
     doc.company = company
     if employee:

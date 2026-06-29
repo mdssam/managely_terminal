@@ -105,7 +105,7 @@ def get_exchange_rate_for_cash_io(pos_profile, from_currency, to_currency):
 
 @frappe.whitelist()
 def create_cash_transaction(transaction_type, amount, description="",
-                            mode_of_payment=None, pos_session=None):
+                            mode_of_payment=None, pos_session=None, pre_assigned_name=None):
     """Create a POS Suspended Transaction for the active session."""
     try:
         if not pos_session:
@@ -124,6 +124,7 @@ def create_cash_transaction(transaction_type, amount, description="",
             mode_of_payment=mode_of_payment,
             description=description,
             transaction_type=transaction_type,
+            pre_assigned_name=pre_assigned_name,
         )
         return {"success": True, "name": name, "message": f"{transaction_type} of {amount} recorded."}
     except Exception as e:

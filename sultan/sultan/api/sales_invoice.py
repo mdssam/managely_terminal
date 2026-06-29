@@ -1140,6 +1140,9 @@ def build_sales_invoice_doc(
 		doc.set("pricing_rules", [])
 	else:
 		doc = frappe.new_doc("POS Invoice")
+		if draft_id:
+			doc.name = draft_id
+			doc.flags.ignore_naming_series = True
 		
 	doc.is_pos = 1
 
