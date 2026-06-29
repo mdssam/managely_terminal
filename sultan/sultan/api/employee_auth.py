@@ -8,7 +8,7 @@ def _lookup_employee(username: str):
     employee = frappe.db.get_value(
         "Employee",
         {"custom_pos_username": username, "status": "Active"},
-        ["name", "employee_name", "custom_pos_role", "custom_allow_returns"],
+        ["name", "employee_name", "custom_pos_role"],
         as_dict=True,
     )
     if employee:
@@ -48,7 +48,6 @@ def verify_employee_login(username: str, password: str) -> dict:
         "employee_name": employee.employee_name,
         "pos_role": employee.custom_pos_role or "Cashier",
         "allowed_pos_profiles": employee.get("custom_allowed_pos_profiles") or [],
-        "custom_allow_returns": employee.get("custom_allow_returns") or 0,
     }
 
 
@@ -85,7 +84,6 @@ def employee_pos_login(username: str, password: str) -> dict:
         "employee_name": employee.employee_name,
         "pos_role": employee.custom_pos_role or "Cashier",
         "allowed_pos_profiles": employee.get("custom_allowed_pos_profiles") or [],
-        "custom_allow_returns": employee.get("custom_allow_returns") or 0,
         "message": "Logged In",
         "csrf_token": csrf_token,
     }
@@ -130,7 +128,7 @@ def get_branch_employees_hashes(pos_profile: str) -> dict:
     employees = frappe.get_all(
         "Employee",
         filters={"status": "Active"},
-        fields=["name", "employee_name", "custom_pos_username", "custom_pos_role", "user_id", "custom_allow_returns"]
+        fields=["name", "employee_name", "custom_pos_username", "custom_pos_role"]
     )
 
     data = []
@@ -160,9 +158,33 @@ def get_branch_employees_hashes(pos_profile: str) -> dict:
                     "username": emp.custom_pos_username,
                     "role": emp.custom_pos_role or "Cashier",
                     "hash": p_hash,
-                    "allowed_pos_profiles": allowed_profiles,
-                    "user": emp.user_id,
-                    "custom_allow_returns": emp.custom_allow_returns
+                    "allowed_pos_profiles": allowed_profiles
                 })
 
     return {"success": True, "data": data}
+
+
+@frappe.whitelist(allow_guest=False)
+def get_branch_users_hashes() -> dict:
+	try:
+		users = frappe.db.sql(
+			"SELECT name, email, full_name, username FROM tabUser WHERE enabled=1",
+			as_dict=True
+		)
+		data = []
+		for u in users:
+			res = frappe.db.sql("SELECT password FROM `__Auth` WHERE doctype='User' AND name=%s AND fieldname='password'", (u.name,))
+			pwd_hash = res[0][0] if res else None
+			if pwd_hash:
+				data.append({
+					"username": u.username or u.name,
+					"email": u.email,
+					"full_name": u.full_name,
+					"hash": pwd_hash,
+					"role": "Branch User"
+				})
+		return {"success": True, "data": data}
+	except Exception as e:
+		frappe.log_error("Failed to fetch branch users hashes", str(e))
+		return {"success": False, "error": str(e)}
+

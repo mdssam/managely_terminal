@@ -224,6 +224,8 @@ def get_customers(limit: int = 100, start: int = 0, search: str = ""):
 					"custom_total_orders": customer_stats.get("total_orders", 0),
 					"custom_total_spent": customer_stats.get("total_spent", 0),
 					"custom_last_visit": customer_stats.get("last_visit"),
+					"company": company,
+					"unified_customer": None,
 					# "exchange_rate": get_currency_exchange_rate(company_currency, doc.default_currency)
 				}
 			)
@@ -236,7 +238,7 @@ def get_customers(limit: int = 100, start: int = 0, search: str = ""):
 		pos_customers = frappe.get_all(
 			"POS Customer",
 			filters=pos_cust_filters,
-			fields=["name", "customer_name", "mobile_no", "email_id"],
+			fields=["name", "customer_name", "mobile_no", "email_id", "company", "unified_customer"],
 			limit=limit,
 		)
 
@@ -259,6 +261,8 @@ def get_customers(limit: int = 100, start: int = 0, search: str = ""):
 				"custom_total_spent": 0,
 				"custom_last_visit": None,
 				"is_pos_customer": True,
+				"company": pc.get("company"),
+				"unified_customer": pc.get("unified_customer"),
 			})
 
 		# Deduplicate the merged list by customer_name
@@ -383,6 +387,8 @@ def get_customer_info(customer_name: str):
 				"email_id": pos_cust.email_id,
 				"mobile_no": pos_cust.mobile_no,
 				"is_pos_customer": True,
+				"company": pc.get("company"),
+				"unified_customer": pc.get("unified_customer"),
 				"contact_data": {
 					"first_name": pos_cust.customer_name,
 					"last_name": "",
@@ -507,8 +513,8 @@ def create_or_update_customer(customer_data):
 					"customer_name": customer_name,
 					"mobile_no": phone,
 					"email_id": email,
-					"unified_customer": unified_customer,
-					"company": pos_profile.company
+					"unified_customer": customer_data.get("unified_customer") or unified_customer,
+					"company": customer_data.get("company") or pos_profile.company
 				})
 				pos_cust_doc.insert(ignore_permissions=True)
 

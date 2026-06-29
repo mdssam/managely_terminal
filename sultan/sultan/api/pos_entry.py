@@ -164,12 +164,25 @@ def create_opening_entry():
 
 		# Create the POS Opening Entry
 		doc = frappe.new_doc("POS Opening Entry")
+		if data.get("pre_assigned_name"):
+			doc.name = data.get("pre_assigned_name")
+			doc.flags.ignore_naming_series = True
+
 		doc.user = user
 		doc.company = company
 		doc.pos_profile = pos_profile
-		doc.posting_date = today()
+
+		if data.get("posting_date"):
+			doc.posting_date = data.get("posting_date")
+		else:
+			doc.posting_date = today()
+
 		doc.set_posting_time = 1
-		doc.period_start_date = now_datetime()
+
+		if data.get("period_start_date"):
+			doc.period_start_date = data.get("period_start_date")
+		else:
+			doc.period_start_date = now_datetime()
 
 		if employee:
 			doc.custom_employee = employee
@@ -399,7 +412,11 @@ def create_closing_entry():
 		user = frappe.session.user
 		frappe.logger().info(f"POS Closing Entry Data Received: {data}")
 
-		opening_entry = _get_open_pos_entry(user)
+		pos_opening_entry_name = data.get("pos_opening_entry")
+		if pos_opening_entry_name:
+			opening_entry = frappe.get_doc("POS Opening Entry", pos_opening_entry_name)
+		else:
+			opening_entry = _get_open_pos_entry(user)
 
 		# Prevent closing if there are draft invoices
 		draft_pos_invoices = frappe.get_all(
@@ -715,13 +732,27 @@ def _populate_sales_invoices_to_closing_entry(closing_doc, opening_entry_name):
 def _create_and_submit_closing_doc(opening_entry, data, payment_data, user):
 	"""Create, populate, and submit the POS Closing Entry document."""
 	doc = frappe.new_doc("POS Closing Entry")
+	if data.get("pre_assigned_name"):
+		doc.name = data.get("pre_assigned_name")
+		doc.flags.ignore_naming_series = True
+
 	doc.user = user
 	doc.company = opening_entry.company
 	doc.pos_profile = opening_entry.pos_profile
 	doc.period_start_date = opening_entry.period_start_date
-	doc.period_end_date = now_datetime()
+	
+	if data.get("period_end_date"):
+		doc.period_end_date = data.get("period_end_date")
+	else:
+		doc.period_end_date = now_datetime()
+		
 	doc.set_posting_time = 1
-	doc.posting_date = today()
+	
+	if data.get("posting_date"):
+		doc.posting_date = data.get("posting_date")
+	else:
+		doc.posting_date = today()
+		
 	doc.pos_opening_entry = opening_entry.name
 
 	# Calculate totals from Sales Invoices linked to opening entry
@@ -1127,3 +1158,32 @@ def get_mode_of_payment_currency(mode_of_payment, company):
 		return frappe.get_cached_value("Company", company, "default_currency") or system_default
 	return frappe.get_cached_value("Account", account, "account_currency") or frappe.get_cached_value("Company", company, "default_currency") or system_default
 
+
+@frappe.whitelist()
+def get_sequence_state(pos_profile):
+	if not pos_profile:
+		frappe.throw(_("pos_profile is required"))
+	
+	formatted_profile = pos_profile.upper().replace(" ", "_").replace("-", "_")
+	formatted_profile = "".join(c for c in formatted_profile if c.isalnum() or c == "_")
+	
+	# Fetch last Opening Entry (session) name
+	session_prefix = f"OP-{formatted_profile}-"
+	last_session = frappe.db.sql("""
+		SELECT name FROM `tabPOS Opening Entry` 
+		WHERE name LIKE %s 
+		ORDER BY creation DESC LIMIT 1
+	""", (session_prefix + "%",))
+	
+	# Fetch last POS Invoice name
+	invoice_prefix = f"PSINV-{formatted_profile}-"
+	last_invoice = frappe.db.sql("""
+		SELECT name FROM `tabPOS Invoice` 
+		WHERE name LIKE %s 
+		ORDER BY creation DESC LIMIT 1
+	""", (invoice_prefix + "%",))
+	
+	return {
+		"last_session_id": last_session[0][0] if last_session else None,
+		"last_invoice_id": last_invoice[0][0] if last_invoice else None
+	}
