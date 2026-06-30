@@ -858,6 +858,11 @@ def create_and_submit_invoice(data):
 			draft_id=draft_id,
 		)
 
+		if data.get("is_return"):
+			doc.is_return = 1
+			doc.return_against = data.get("return_against")
+			doc.is_pos = 1
+
 		doc.base_paid_amount = amount_paid
 		doc.paid_amount = amount_paid
 		doc.outstanding_amount = 0
@@ -1131,6 +1136,7 @@ def build_sales_invoice_doc(
 	draft_id=None,
 ):
 	"""Main function to build a POS invoice document."""
+	is_return = any(frappe.utils.flt(item.get("quantity") or item.get("qty") or 0) < 0 for item in items)
 	if draft_id and frappe.db.exists("POS Invoice", draft_id):
 		doc = frappe.get_doc("POS Invoice", draft_id)
 		# Clear existing children to prevent duplicates
@@ -1143,8 +1149,10 @@ def build_sales_invoice_doc(
 		if draft_id:
 			doc.name = draft_id
 			doc.flags.ignore_naming_series = True
-		
-	doc.is_pos = 1
+		doc.is_pos = 1
+	
+	if is_return:
+		doc.is_return = 1
 
 	# Resolve POS Customer (B2C/Cash consolidation)
 	pos_customer_record = frappe.db.get_value("POS Customer", {"customer_name": customer}, ["name", "unified_customer"], as_dict=True)
@@ -1273,7 +1281,7 @@ def _validate_and_autofetch_batch_and_serial(items, pos_profile):
 	auto_fetch_enabled = int(getattr(pos_profile, "custom_autofetch_batchserial_", 0) or 0)
 
 	for item in items:
-		item_code = item.get("id")
+		item_code = item.get("id") or item.get("item_code")
 		if not item_code:
 			continue
 
@@ -1446,7 +1454,7 @@ def _set_taxes_and_charges(doc, sales_and_tax_charges, pos_profile):
 
 def _populate_invoice_items(doc, items, pos_profile):
 	"""Add all items to the invoice."""
-	item_codes = [item.get("id") for item in items]
+	item_codes = [item.get("id") or item.get("item_code") for item in items]
 
 	# Batch fetch item data and pre-cache accounts
 	item_data_map = _batch_fetch_item_data(item_codes)
@@ -1524,7 +1532,7 @@ def _precache_item_accounts(item_codes, company):
 
 def _prepare_item_data(item, item_data_map, pos_profile):
 	"""Prepare item data dictionary for invoice line."""
-	item_code = item.get("id")
+	item_code = item.get("id") or item.get("item_code")
 
 	# Get accounts and validate
 	income_account = get_income_accounts(item_code)
@@ -1553,6 +1561,7 @@ def _prepare_item_data(item, item_data_map, pos_profile):
 	item_data = {
 		"item_code": item_code,
 		"item_name": item_name,
+		"description": item_name or item_code or "No Description",
 		"qty": item.get("quantity") or item.get("qty"),
 		"rate": final_rate,
         "price_list_rate": flt(original_price),   # keep original for reference
