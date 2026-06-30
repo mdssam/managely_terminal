@@ -591,6 +591,26 @@ def _calculate_payment_reconciliation(opening_entry, data):
 				"closing_amount": closing_amount,
 				"difference": difference,
 			})
+			processed_keys.add(mode)
+
+	# Also include modes entered in closing_balance that had no opening balance and no sales
+	# This handles sessions where all modes start at zero (e.g. first day, no carry-over cash)
+	for cb_key, cb_val in closing_balance.items():
+		base_mode = cb_key.split("||")[0] if "||" in cb_key else cb_key
+		if base_mode not in processed_keys:
+			closing_amount = float(cb_val)
+			expected_amount = float(opening_balance_map.get(base_mode, 0))
+			difference = closing_amount - expected_amount
+			reconciliation.append({
+				"mode_of_payment": base_mode,
+				"currency": company_currency,
+				"opening_amount": expected_amount,
+				"sales_amount": 0.0,
+				"expected_amount": expected_amount,
+				"closing_amount": closing_amount,
+				"difference": difference,
+			})
+			processed_keys.add(base_mode)
 
 	return reconciliation
 
