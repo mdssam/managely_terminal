@@ -1,0 +1,167 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-06-30 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "barcode_settings_section",
+  "prefix_included_or_not",
+  "no_of_prefix_characters",
+  "prefix",
+  "column_break_1",
+  "item_code_starting_digit",
+  "item_code_total_digits",
+  "section_break_2",
+  "column_break_weight",
+  "weight_starting_digit",
+  "weight_total_digits",
+  "weight_decimals",
+  "column_break_price",
+  "price_included_in_barcode_or_not",
+  "price_starting_digit",
+  "price_total_digit",
+  "price_decimals"
+ ],
+ "fields": [
+  {
+   "fieldname": "barcode_settings_section",
+   "fieldtype": "Section Break",
+   "label": "Barcode Settings"
+  },
+  {
+   "default": "0",
+   "fieldname": "prefix_included_or_not",
+   "fieldtype": "Check",
+   "label": "Prefix Included in Barcode"
+  },
+  {
+   "default": "0",
+   "fieldname": "no_of_prefix_characters",
+   "fieldtype": "Int",
+   "label": "No. of Prefix Characters"
+  },
+  {
+   "fieldname": "prefix",
+   "fieldtype": "Data",
+   "label": "Prefix Value"
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "item_code_starting_digit",
+   "fieldtype": "Int",
+   "label": "Item Code Starting Digit"
+  },
+  {
+   "default": "5",
+   "fieldname": "item_code_total_digits",
+   "fieldtype": "Int",
+   "label": "Item Code Total Digits"
+  },
+  {
+   "fieldname": "section_break_2",
+   "fieldtype": "Section Break",
+   "label": "Weight Settings"
+  },
+  {
+   "fieldname": "column_break_weight",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "7",
+   "fieldname": "weight_starting_digit",
+   "fieldtype": "Int",
+   "label": "Weight Starting Digit"
+  },
+  {
+   "default": "5",
+   "fieldname": "weight_total_digits",
+   "fieldtype": "Int",
+   "label": "Weight Total Digits"
+  },
+  {
+   "default": "3",
+   "fieldname": "weight_decimals",
+   "fieldtype": "Int",
+   "label": "Weight Decimal Places"
+  },
+  {
+   "fieldname": "column_break_price",
+   "fieldtype": "Column Break",
+   "label": "Price Settings"
+  },
+  {
+   "default": "0",
+   "fieldname": "price_included_in_barcode_or_not",
+   "fieldtype": "Check",
+   "label": "Price Included in Barcode"
+  },
+  {
+   "default": "7",
+   "fieldname": "price_starting_digit",
+   "fieldtype": "Int",
+   "label": "Price Starting Digit"
+  },
+  {
+   "default": "5",
+   "fieldname": "price_total_digit",
+   "fieldtype": "Int",
+   "label": "Price Total Digits"
+  },
+  {
+   "default": "3",
+   "fieldname": "price_decimals",
+   "fieldtype": "Int",
+   "label": "Price Decimal Places"
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "is_single": 1,
+ "is_submittable": 0,
+ "issingle": 1,
+ "module": "Sultan",
+ "name": "Scale Settings",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Administrator",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 0,
+   "delete": 0,
+   "read": 1,
+   "role": "POS User",
+   "write": 0
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 0,
+ "track_seen": 0
+}

@@ -864,8 +864,10 @@ def get_items_with_balance_and_price(
 			)
 			for barcode_row in barcode_results:
 				item_code = barcode_row.get("parent")
-				if item_code and item_code not in barcode_map:
-					barcode_map[item_code] = barcode_row.get("barcode")
+				if item_code:
+					if item_code not in barcode_map:
+						barcode_map[item_code] = []
+					barcode_map[item_code].append(barcode_row.get("barcode"))
 		except Exception:
 			frappe.log_error(frappe.get_traceback(), "Error fetching item barcodes for POS")
 
@@ -898,7 +900,8 @@ def get_items_with_balance_and_price(
 
 			default_uom = item.get("stock_uom", "Nos")
 			price_info = price_map.get(item_code, {"price": 0, "currency": fallback_curr, "currency_symbol": fallback_sym})
-			primary_barcode = barcode_map.get(item_code)
+			primary_barcodes = barcode_map.get(item_code, [])
+			primary_barcode = primary_barcodes[0] if primary_barcodes else None
 
 			enriched_items.append(
 				{
@@ -915,6 +918,7 @@ def get_items_with_balance_and_price(
 					"preparationTime": 10,
 					"uom": default_uom,
 					"barcode": primary_barcode,
+					"barcodes": primary_barcodes,
 					"is_fresh_produce": item.get("is_fresh_produce") or 0,
 					"is_stock_item": item.get("is_stock_item") or 0,
 				}
