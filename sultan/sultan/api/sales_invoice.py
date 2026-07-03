@@ -861,7 +861,7 @@ def create_and_submit_invoice(data):
 		if data.get("is_return"):
 			doc.is_return = 1
 			doc.return_against = data.get("return_against")
-			doc.is_pos = 0
+			doc.is_pos = 1
 
 		doc.base_paid_amount = amount_paid
 		doc.paid_amount = amount_paid
@@ -1267,7 +1267,7 @@ def _validate_and_autofetch_batch_and_serial(items, pos_profile):
 	if not items:
 		return
 
-	item_codes = [item.get("id") for item in items if item.get("id")]
+	item_codes = [item.get("id") or item.get("item_code") for item in items if item.get("id") or item.get("item_code")]
 	if not item_codes:
 		return
 
@@ -1275,7 +1275,7 @@ def _validate_and_autofetch_batch_and_serial(items, pos_profile):
 	auto_fetch_enabled = int(getattr(pos_profile, "custom_autofetch_batchserial_", 0) or 0)
 
 	for item in items:
-		item_code = item.get("id")
+		item_code = item.get("id") or item.get("item_code")
 		if not item_code:
 			continue
 
@@ -1448,7 +1448,7 @@ def _set_taxes_and_charges(doc, sales_and_tax_charges, pos_profile):
 
 def _populate_invoice_items(doc, items, pos_profile):
 	"""Add all items to the invoice."""
-	item_codes = [item.get("id") for item in items]
+	item_codes = [item.get("id") or item.get("item_code") for item in items]
 
 	# Batch fetch item data and pre-cache accounts
 	item_data_map = _batch_fetch_item_data(item_codes)
@@ -1541,7 +1541,7 @@ def _precache_item_accounts(item_codes, company):
 
 def _prepare_item_data(item, item_data_map, pos_profile, prices_include_vat=False, tax_rate=0.0):
 	"""Prepare item data dictionary for invoice line."""
-	item_code = item.get("id")
+	item_code = item.get("id") or item.get("item_code")
 
 	# Get accounts and validate
 	income_account = get_income_accounts(item_code)
@@ -1576,6 +1576,7 @@ def _prepare_item_data(item, item_data_map, pos_profile, prices_include_vat=Fals
 	item_data = {
 		"item_code": item_code,
 		"item_name": item_name,
+		"description": item_name or item_code or "No Description",
 		"qty": item.get("quantity") or item.get("qty"),
 		"rate": final_rate,
         "price_list_rate": flt(original_price),   # keep original for reference

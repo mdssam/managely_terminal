@@ -360,7 +360,11 @@ def before_validate_pos_closing_entry(doc, method=None):
                     "amount": flt(t.total_amount),
                 })
 
-    invoices = [t.pos_invoice for t in doc.pos_transactions]
+    invoices = []
+    if doc.get("pos_transactions"):
+        invoices.extend([t.pos_invoice for t in doc.pos_transactions if t.pos_invoice])
+    if hasattr(doc, "custom_sales_invoice") and doc.custom_sales_invoice:
+        invoices.extend([t.sales_invoice for t in doc.custom_sales_invoice if t.sales_invoice])
     for row in doc.payment_reconciliation:
         mop = row.mode_of_payment
         rate = frappe.db.get_value(
