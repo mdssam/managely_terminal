@@ -139,23 +139,18 @@ def get_pos_details():
 	# Fallback for non-pos users (like order stations)
 	if not pos:
 		frappe.logger().info(f"Creating synthetic POS context for user {frappe.session.user}")
-		default_company = frappe.defaults.get_user_default("Company")
-		if not default_company:
-			default_company = frappe.db.get_value("Company", {}, "name")
-		company_currency = None
-		if default_company:
-			company_currency = frappe.get_cached_value("Company", default_company, "default_currency")
-		fallback_currency = company_currency or frappe.db.get_default("currency") or frappe.db.get_single_value("System Settings", "default_currency") or frappe.db.get_value("Company", {}, "default_currency")
 		return {
 			"name": "System Default",
 			"business_type": "Retail",
 			"print_format": "Standard",
-			"currency": fallback_currency,
-			"currency_symbol": frappe.db.get_value("Currency", fallback_currency, "symbol") or fallback_currency or "",
+			"currency": frappe.db.get_default("currency") or "SAR",
+			"currency_symbol": "",
 			"print_receipt_on_order_complete": 0,
 			"custom_pos_print_format_en": None,
 			"custom_pos_print_format_ar": None,
 			"custom_use_scanner_fully": 0,
+			"custom_allow_credit_sales": 0,
+			"custom_allow_return": 0,
 			"custom_hide_expected_amount": 0,
 			"hide_unavailable_items": 0,
 			"is_zatca_enabled": False,
@@ -163,8 +158,8 @@ def get_pos_details():
 			"current_opening_entry": None,
 			"custom_scale_barcodes_start_with": "",
 			"allow_discount_change": 0,
-			"custom_allow_zero_stock_sale": 0,
-			"custom_allow_returns": 0,
+			"custom_hide_tax_in_cart": 0,
+			"custom_prices_include_vat": 0,
 			"role": frappe.db.get_value("User", frappe.session.user, "role_profile_name") or "Cashier"
 		}
 
@@ -188,23 +183,18 @@ def get_pos_details():
 
 	active_role = frappe.db.get_value("User", frappe.session.user, "role_profile_name") or "Cashier"
 
-	emp_name = frappe.db.get_value("Employee", {"user_id": frappe.session.user, "status": "Active"}, "name")
-	allow_returns = 0
-	if emp_name:
-		allow_returns = int(frappe.db.get_value("Employee", emp_name, "custom_allow_returns") or 0)
-
-	pos_currency = getattr(pos, "currency", None) or frappe.get_cached_value("Company", pos.company, "default_currency") or frappe.db.get_default("currency") or frappe.db.get_single_value("System Settings", "default_currency") or frappe.db.get_value("Company", {}, "default_currency")
 	details = {
 		"name": pos.name,
-		"company": pos.company,
 		"business_type": business_type,
 		"print_format": print_format,
-		"currency": pos_currency,
-		"currency_symbol": frappe.db.get_value("Currency", pos_currency, "symbol") or pos_currency or "",
+		"currency": getattr(pos, "currency", None) or "SAR",
+		"currency_symbol": frappe.db.get_value("Currency", getattr(pos, "currency", "SAR"), "symbol") or "$",
 		"print_receipt_on_order_complete": getattr(pos, "print_receipt_on_order_complete", 0),
 		"custom_pos_print_format_en": getattr(pos, "custom_pos_print_format_en", None),
 		"custom_pos_print_format_ar": getattr(pos, "custom_pos_print_format_ar", None),
 		"custom_use_scanner_fully": getattr(pos, "custom_use_scanner_fully", 0),
+		"custom_allow_credit_sales": getattr(pos, "custom_allow_credit_sales", 0),
+		"custom_allow_return": getattr(pos, "custom_allow_return", 0),
 		"custom_hide_expected_amount": getattr(pos, "custom_hide_expected_amount", 0),
 		"hide_unavailable_items": getattr(pos, "hide_unavailable_items", 0),
 		"custom_default_view": getattr(pos, "custom_default_view", "Grid View"),
@@ -221,51 +211,19 @@ def get_pos_details():
 		"custom_ignore_write_off_on_partial_returns": getattr(pos, "custom_ignore_write_off_on_partial_returns", 1.0),
 		"custom_delivery_required": int(getattr(pos, "custom_delivery_required", 0) or 0),
 		"allow_discount_change": getattr(pos, "allow_discount_change", 0),
-		"custom_allow_zero_stock_sale": int(getattr(pos, "custom_allow_zero_stock_sale", 0) or 0),
-		"custom_allow_returns": allow_returns,
 		"role": active_role,
 		"custom_is_branch": int(getattr(pos, "custom_is_branch", 0) or 0),
-		# Multi-currency dynamic resolution
+		# Multi-currency
+		"custom_enable_multi_currency": int(getattr(pos, "custom_enable_multi_currency", 0) or 0),
+		"custom_secondary_currency": getattr(pos, "custom_secondary_currency", None) or None,
+		"custom_secondary_currency_symbol": (
+			frappe.db.get_value("Currency", getattr(pos, "custom_secondary_currency", None), "symbol")
+			if getattr(pos, "custom_secondary_currency", None) else None
+		),
+		"custom_exchange_rate": float(getattr(pos, "custom_exchange_rate", 0) or 0),
+		"custom_hide_tax_in_cart": int(getattr(pos, "custom_hide_tax_in_cart", 0) or 0),
+		"custom_prices_include_vat": int(getattr(pos, "custom_prices_include_vat", 0) or 0),
 	}
-
-	payment_methods = frappe.get_all(
-		"POS Payment Method",
-		filters={"parent": pos.name},
-		fields=["mode_of_payment", "custom_currency", "custom_exchange_rate"]
-	)
-
-	seen_currencies = set()
-	rates = []
-	company_currency = frappe.get_cached_value("Company", pos.company, "default_currency") or frappe.db.get_default("currency") or frappe.db.get_single_value("System Settings", "default_currency") or frappe.db.get_value("Company", {}, "default_currency")
-	base_currency = pos.currency or company_currency
-
-	from sultan.sultan.doctype.multi_currency_payment.multi_currency_payment import get_exchange_rate
-	from sultan.sultan.accounting.customizations import get_lbp_usd_rate
-	from sultan.sultan.api.pos_entry import get_mode_of_payment_currency
-
-	for m in payment_methods:
-		cur = m.custom_currency
-		if not cur:
-			cur = get_mode_of_payment_currency(m.mode_of_payment, pos.company)
-		
-		if cur and cur != base_currency and cur not in seen_currencies:
-			seen_currencies.add(cur)
-			rate = m.custom_exchange_rate
-			if not rate or rate == 0:
-				rate = get_exchange_rate(cur, base_currency)
-				if not rate:
-					rate = get_lbp_usd_rate()
-			
-			rates.append({
-				"currency": cur,
-				"exchange_rate": float(rate or 1.0),
-				"symbol": frappe.db.get_value("Currency", cur, "symbol") or cur
-			})
-
-	details.update({
-		"custom_enable_multi_currency": 1 if len(rates) > 0 else 0,
-		"custom_multi_currency_rates": rates
-	})
 	return details
 
 
@@ -308,16 +266,6 @@ def validate_pos_profile_change(doc, method=None):
 				_("Cannot modify POS Profile '{0}' because there is an active POS session open. Please close all active POS sessions first.")
 				.format(doc.name)
 			)
-
-	# Enforce currency on Payment Methods, and set exchange rate to 1 if it is company currency
-	company_currency = frappe.db.get_value("Company", doc.company, "default_currency") or frappe.db.get_default("currency") or frappe.db.get_single_value("System Settings", "default_currency") or frappe.db.get_value("Company", {}, "default_currency")
-	from sultan.sultan.api.pos_entry import get_mode_of_payment_currency
-
-	for method_row in doc.get("payments") or []:
-		mop_currency = get_mode_of_payment_currency(method_row.mode_of_payment, doc.company)
-		method_row.custom_currency = mop_currency
-		if mop_currency == company_currency:
-			method_row.custom_exchange_rate = 1.0
 
 
 @frappe.whitelist()

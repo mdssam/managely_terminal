@@ -12,13 +12,12 @@ def setup_custom_fields():
         {"dt": "Item", "fieldname": "is_fresh_produce", "label": "Is Fresh Produce", "fieldtype": "Check", "insert_after": "allow_negative_stock"},
         {"dt": "Item", "fieldname": "supports_weight_price", "label": "Supports Weight Price", "fieldtype": "Check", "insert_after": "is_fresh_produce"},
         {"dt": "POS Invoice Item", "fieldname": "custom_ingredients", "label": "Custom Ingredients", "fieldtype": "Small Text", "insert_after": "item_code"},
-        {"dt": "POS Invoice Item", "fieldname": "custom_notes", "label": "Custom Notes", "fieldtype": "Small Text", "insert_after": "custom_ingredients"},
         {"dt": "Sales Order Item", "fieldname": "custom_ingredients", "label": "Custom Ingredients", "fieldtype": "Small Text", "insert_after": "item_code"},
-        {"dt": "Sales Order Item", "fieldname": "custom_notes", "label": "Custom Notes", "fieldtype": "Small Text", "insert_after": "custom_ingredients"},
         {"dt": "Work Order", "fieldname": "custom_pos_invoice", "label": "Source POS Invoice", "fieldtype": "Link", "options": "POS Invoice", "insert_after": "sales_order"},
         {"dt": "Work Order", "fieldname": "custom_sales_order", "label": "Source Sales Order", "fieldtype": "Link", "options": "Sales Order", "insert_after": "custom_pos_invoice"},
         {"dt": "Work Order", "fieldname": "custom_sales_invoice", "label": "Source Sales Invoice", "fieldtype": "Link", "options": "Sales Invoice", "insert_after": "custom_sales_order"},
-        {"dt": "Work Order", "fieldname": "custom_notes", "label": "Custom Notes", "fieldtype": "Small Text", "insert_after": "custom_sales_invoice"}
+        {"dt": "POS Profile", "fieldname": "custom_hide_tax_in_cart", "label": "Hide Tax in Cart and Print", "fieldtype": "Check", "insert_after": "company"},
+        {"dt": "POS Profile", "fieldname": "custom_prices_include_vat", "label": "Prices Include VAT in Print", "fieldtype": "Check", "insert_after": "custom_hide_tax_in_cart"}
     ]
     
     count = 0
@@ -104,7 +103,6 @@ def generate_production_order(doc, method=None):
             "custom_pos_invoice": doc.name if doc.doctype == "POS Invoice" else None,
             "custom_sales_order": doc.name if doc.doctype == "Sales Order" else None,
             "custom_sales_invoice": doc.name if doc.doctype == "Sales Invoice" else None,
-            "custom_notes": item.get("custom_notes"),
         })
         
         # Save Work Order to generate standard required items child table
@@ -266,26 +264,18 @@ def parse_sultan_barcode(barcode):
     return {"status": "error", "message": _("Barcode not found or unrecognized")}
 
 
-@frappe.whitelist()
-def get_item_price(item_code, weight=1.0, price_list=None):
+def get_item_price(item_code, weight=1.0):
     """
-    Returns the selling price for an item. Supports weight-based pricing.
-    Used by the frontend to price extra BOM additions in the cart.
+    Calculates item price, supporting weight-based calculation if enabled on the Item.
     """
-    if not price_list:
-        price_list = frappe.db.get_single_value("Selling Settings", "selling_price_list") or "Standard Selling"
-
     supports_weight_price = frappe.db.get_value("Item", item_code, "supports_weight_price")
-
-    price_list_rate = (
-        frappe.db.get_value("Item Price", {"item_code": item_code, "price_list": price_list}, "price_list_rate")
-        or frappe.db.get_value("Item Price", {"item_code": item_code, "price_list": "Standard Selling"}, "price_list_rate")
-        or 0.0
-    )
-
-    final_price = flt(price_list_rate * flt(weight)) if supports_weight_price and flt(weight) > 0 else flt(price_list_rate)
-
-    return {"price_list_rate": price_list_rate, "price": final_price, "price_list": price_list}
+    
+    # Fetch price from standard selling price list
+    price_list_rate = frappe.db.get_value("Item Price", {"item_code": item_code, "price_list": "Standard Selling"}, "price_list_rate") or 0.0
+    
+    if supports_weight_price and weight > 0:
+        return flt(price_list_rate * weight)
+    return flt(price_list_rate)
 
 
 @frappe.whitelist()
@@ -346,7 +336,7 @@ def check_batch_expiry():
 
 
 @frappe.whitelist()
-def create_instant_work_order(item_code, qty=1, custom_ingredients=None, custom_notes=None, **kwargs):
+def create_instant_work_order(item_code, qty=1, custom_ingredients=None, **kwargs):
     """
     Creates an instant Work Order for an item directly from UI interaction.
     Expects custom_ingredients to be a JSON string or list of modifications.
@@ -396,7 +386,6 @@ def create_instant_work_order(item_code, qty=1, custom_ingredients=None, custom_
         "company": default_company,
         "planned_start_date": now_datetime(),
         "skip_transfer": 1,
-        "custom_notes": custom_notes,
     })
 
     wo.flags.ignore_permissions = True
@@ -430,25 +419,6 @@ def get_item_bom_ingredients(item_code):
         fields=["item_code", "item_name", "qty_consumed_per_unit as qty", "uom", "rate"]
     )
     return ingredients
-
-@frappe.whitelist()
-def search_items(search_term="", limit=20):
-    """
-    Search for items by name or item_code, for use in custom BOM additions.
-    Returns a list of items matching the search term.
-    """
-    import json
-    search = f"%{search_term}%"
-    items = frappe.db.sql("""
-        SELECT name AS item_code, item_name, stock_uom AS uom
-        FROM `tabItem`
-        WHERE disabled = 0
-          AND is_stock_item = 1
-          AND (item_name LIKE %(search)s OR name LIKE %(search)s)
-        ORDER BY item_name ASC
-        LIMIT %(limit)s
-    """, {"search": search, "limit": int(limit)}, as_dict=True)
-    return items
 
 @frappe.whitelist()
 def get_batch_nos_with_qty(item_code, warehouse=None):

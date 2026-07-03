@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { useFrappeGetDoc } from "frappe-react-sdk";
-import { secureDbGet, secureDbSet, APP_CACHE_STORE } from "../services/offlineDB"
+import { dbGet, dbSet, APP_CACHE_STORE } from "../services/offlineDB"
 import { makeAPICall } from "../utils/apiUtils"
 
 interface PaymentMode {
@@ -16,6 +16,8 @@ interface POSProfile {
   write_off_account?: string;
   write_off_cost_center?: string;
   payment_methods?: PaymentMode[];
+  custom_hide_tax_in_cart?: number | boolean;
+  custom_prices_include_vat?: number | boolean;
   default_customer?: {
     id: string;
     name: string;
@@ -44,23 +46,28 @@ export function usePOSProfile(profileName: string): UsePOSProfileReturn {
 
   const fetchProfile = async () => {
     if (!profileName) return;
-    setIsLoading(true);
     const cacheKey = `cached_pos_profile_${profileName}`;
 
-    // Read cache first if offline
-    if (typeof window !== 'undefined' && !navigator.onLine) {
-      const cached = await secureDbGet<POSProfile>(APP_CACHE_STORE, cacheKey);
+    // Read cache first (SWR pattern)
+    if (typeof window !== 'undefined') {
+      const cached = await dbGet<POSProfile>(APP_CACHE_STORE, cacheKey);
       if (cached) {
         setProfile(cached);
         setIsLoading(false);
-        return;
+      } else {
+        setIsLoading(true);
       }
+    }
+
+    if (typeof window !== 'undefined' && !navigator.onLine) {
+      setIsLoading(false);
+      return;
     }
 
     try {
       const response = await makeAPICall(`/api/resource/POS Profile/${encodeURIComponent(profileName)}`, {
-        timeout: 2000,
-        retries: 0
+        timeout: 5000,
+        retries: 1
       });
       const resData = await response.json();
       const profileData = resData.data;
@@ -68,13 +75,13 @@ export function usePOSProfile(profileName: string): UsePOSProfileReturn {
       if (profileData) {
         setProfile(profileData);
         setError(null);
-        await secureDbSet(APP_CACHE_STORE, cacheKey, profileData);
+        await dbSet(APP_CACHE_STORE, cacheKey, profileData);
       } else {
         throw new Error("Invalid POS Profile data");
       }
     } catch (err: any) {
       console.error("Error loading POS Profile:", err);
-      const cached = await secureDbGet<POSProfile>(APP_CACHE_STORE, cacheKey);
+      const cached = await dbGet<POSProfile>(APP_CACHE_STORE, cacheKey);
       if (cached) {
         setProfile(cached);
         setError(null);
@@ -117,39 +124,65 @@ export function usePOSProfiles() {
   useEffect(() => {
     const fetchPOSProfiles = async () => {
       const cacheKey = "cached_pos_profiles";
-      if (typeof window !== "undefined" && !navigator.onLine) {
-        const cached = await secureDbGet<POSProfileOption[]>(APP_CACHE_STORE, cacheKey);
-        if (cached) {
+      let cached: POSProfileOption[] | null = null;
+      
+      if (typeof window !== "undefined") {
+        cached = await dbGet<POSProfileOption[]>(APP_CACHE_STORE, cacheKey);
+        
+        // Fallback 1: construct from cached POS details if empty
+        if (!cached || cached.length === 0) {
+          const cachedDetails = await dbGet<any>(APP_CACHE_STORE, 'cached_pos_details');
+          const details = (cachedDetails && typeof cachedDetails === 'object' && 'data' in cachedDetails) ? cachedDetails.data : cachedDetails;
+          if (details && details.name) {
+            cached = [{ name: details.name, is_default: true }];
+          }
+        }
+        
+        // Fallback 2: construct from SQLite device config
+        if (!cached || cached.length === 0) {
+          try {
+            const { readDeviceConfig } = await import('../services/sqliteClient');
+            const devConfig = await readDeviceConfig();
+            if (devConfig && (devConfig.pos_profile || devConfig.posProfile)) {
+              cached = [{ name: devConfig.pos_profile || devConfig.posProfile, is_default: true }];
+            }
+          } catch {}
+        }
+
+        if (cached && cached.length > 0) {
           setProfiles(cached);
           setLoading(false);
-          return;
+        } else {
+          setLoading(true);
         }
       }
 
-      try {
-        setLoading(true)
+      if (typeof window !== "undefined" && !navigator.onLine) {
+        setLoading(false);
+        return;
+      }
 
+      try {
         const response = await makeAPICall("/api/method/sultan.sultan.api.pos_profile.get_pos_profiles_for_user", {
           method: "GET",
           headers: {
             "Accept": "application/json",
           },
           credentials: "include",
-          timeout: 2000,
-          retries: 0
+          timeout: 5000,
+          retries: 1
         })
 
         const data = await response.json()
         if (response.ok && data.message) {
           setProfiles(data.message)
-          secureDbSet(APP_CACHE_STORE, cacheKey, data.message).catch(() => {});
+          dbSet(APP_CACHE_STORE, cacheKey, data.message).catch(() => {});
         } else {
           throw new Error(data._server_messages || "Failed to fetch POS Profiles")
         }
       } catch (err: unknown) {
         console.error("Error loading POS Profiles:", err)
-        const cached = await secureDbGet<POSProfileOption[]>(APP_CACHE_STORE, cacheKey);
-        if (cached) {
+        if (cached && cached.length > 0) {
           setProfiles(cached);
           setError(null);
         } else {
@@ -187,73 +220,158 @@ export type POSDetails = {
   [key: string]: unknown;
 }
 
+let cachedPOSDetails: POSDetails | null = null;
+let activePOSDetailsPromise: Promise<POSDetails | null> | null = null;
+
 export function usePOSDetails() {
-  const [posDetails, setPOSDetails] = useState<POSDetails | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [posDetails, setPOSDetails] = useState<POSDetails | null>(cachedPOSDetails)
+  const [loading, setLoading] = useState(!cachedPOSDetails)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    let isMounted = true;
+    
+    if (cachedPOSDetails) {
+      if (isMounted) {
+        setPOSDetails(cachedPOSDetails);
+        setLoading(false);
+      }
+      return;
+    }
+
     const fetchPOSDetails = async () => {
       const cacheKey = 'cached_pos_details';
       try {
-        setLoading(true)
+        if (!cachedPOSDetails) {
+          setLoading(true)
+        }
 
-        if (typeof window !== 'undefined' && !navigator.onLine) {
-          const cached = await secureDbGet<POSDetails>(APP_CACHE_STORE, cacheKey);
+        // Try reading from SQLite app_settings first
+        let details = null;
+        try {
+          const { getPOSDetailsFromSQLite } = await import('../services/sqliteClient');
+          details = await getPOSDetailsFromSQLite();
+        } catch (sqliteErr) {
+          console.warn('[usePOSProfile] Failed to read POS details from SQLite:', sqliteErr);
+        }
+
+        // Fallback to IndexedDB cache
+        if (!details) {
+          const cached = await dbGet<any>(APP_CACHE_STORE, cacheKey);
           if (cached) {
-            setPOSDetails(cached);
-            if (cached.currency) {
-              sessionStorage.setItem('pos_currency', cached.currency);
-              sessionStorage.setItem('pos_currency_symbol', cached.currency_symbol || '');
+            details = (cached && typeof cached === 'object' && 'data' in cached) ? cached.data : cached;
+          }
+        }
+
+        if (details && !cachedPOSDetails) {
+          // Inject actual SQLite open session ID as the source of truth
+          try {
+            const { isElectron, dbSQLiteGetAll } = await import('../services/sqliteClient');
+            if (isElectron) {
+              const openLocalSessions = await dbSQLiteGetAll<any>('pos_sessions', "status = 'Open'");
+              details = {
+                ...details,
+                current_opening_entry: openLocalSessions.length > 0 ? openLocalSessions[0].id : null
+              };
             }
+          } catch (e) {
+            console.warn('[usePOSProfile] Failed to override cache details from SQLite:', e);
+          }
+
+          cachedPOSDetails = details;
+          if (isMounted) {
+            setPOSDetails(details);
             setLoading(false);
+          }
+          if (typeof window !== 'undefined' && !navigator.onLine) {
             return;
           }
         }
 
-        const response = await makeAPICall("/api/method/sultan.sultan.api.pos_profile.get_pos_details", {
-          method: "GET",
-          headers: {
-            "Accept": "application/json",
-          },
-          credentials: "include",
-          timeout: 2000,
-          retries: 0
-        })
+        if (!activePOSDetailsPromise) {
+          activePOSDetailsPromise = (async () => {
+            const response = await makeAPICall("/api/method/sultan.sultan.api.pos_profile.get_pos_details", {
+              method: "GET",
+              headers: {
+                "Accept": "application/json",
+              },
+              credentials: "include",
+              timeout: 5000,
+              retries: 1
+            });
 
-        const data = await response.json()
-        if (response.ok && data.message) {
-          setPOSDetails(data.message as POSDetails)
-          if (data.message.currency) {
-            sessionStorage.setItem('pos_currency', data.message.currency);
-            sessionStorage.setItem('pos_currency_symbol', data.message.currency_symbol || '');
+            const data = await response.json()
+            if (response.ok && data.message) {
+              let details = data.message as POSDetails;
+              
+              // Inject actual SQLite open session ID as the source of truth
+              try {
+                const { isElectron, dbSQLiteGetAll } = await import('../services/sqliteClient');
+                if (isElectron) {
+                  const openLocalSessions = await dbSQLiteGetAll<any>('pos_sessions', "status = 'Open'");
+                  details = {
+                    ...details,
+                    current_opening_entry: openLocalSessions.length > 0 ? openLocalSessions[0].id : null
+                  };
+                }
+              } catch (err) {
+                console.warn('[usePOSProfile] Failed to check local open sessions:', err);
+              }
+
+              if (details?.name && details.name !== 'System Default') {
+                dbSet(APP_CACHE_STORE, cacheKey, details).catch(() => {});
+                
+                // Save to SQLite app_settings
+                try {
+                  const { savePOSDetailsToSQLite } = await import('../services/sqliteClient');
+                  await savePOSDetailsToSQLite(details);
+                } catch (sqliteSaveErr) {
+                  console.warn('[usePOSProfile] Failed to save POS details to SQLite:', sqliteSaveErr);
+                }
+              }
+              return details;
+            } else {
+              throw new Error(data._server_messages || "Failed to fetch POS details")
+            }
+          })();
+        }
+
+        const data = await activePOSDetailsPromise;
+        if (data) {
+          cachedPOSDetails = data;
+          if (isMounted) {
+            setPOSDetails(data);
+            setError(null);
           }
-          // Don't cache the synthetic System Default placeholder — it lacks a real profile
-          if (data.message?.name && data.message.name !== 'System Default') {
-            secureDbSet(APP_CACHE_STORE, cacheKey, data.message).catch(() => {});
-          }
-        } else {
-          throw new Error(data._server_messages || "Failed to fetch POS details")
         }
       } catch (err: unknown) {
         console.error("Error loading POS details:", err)
-        const cached = await secureDbGet<POSDetails>(APP_CACHE_STORE, 'cached_pos_details');
+        const cached = await dbGet<any>(APP_CACHE_STORE, 'cached_pos_details');
         if (cached) {
-          setPOSDetails(cached);
-          if (cached.currency) {
-            sessionStorage.setItem('pos_currency', cached.currency);
-            sessionStorage.setItem('pos_currency_symbol', cached.currency_symbol || '');
+          const details = (cached && typeof cached === 'object' && 'data' in cached) ? cached.data : cached;
+          cachedPOSDetails = details;
+          if (isMounted) {
+            setPOSDetails(details);
+            setError(null);
           }
-          setError(null);
         } else {
-          setError(err instanceof Error ? err.message : "Unknown error")
+          if (isMounted) {
+            setError(err instanceof Error ? err.message : "Unknown error")
+          }
         }
       } finally {
-        setLoading(false)
+        if (isMounted) {
+          setLoading(false)
+        }
+        activePOSDetailsPromise = null;
       }
     }
 
     fetchPOSDetails()
+
+    return () => {
+      isMounted = false;
+    }
   }, [])
 
   return { posDetails, loading, error }

@@ -503,7 +503,31 @@ export default function PaymentDialog({
           });
         }
       })
-      .catch(() => { /* non-fatal — falls back to POS Profile rate */ });
+      .catch(async () => {
+        try {
+          const { isElectron, dbSQLiteGetAll } = await import("../services/sqliteClient");
+          if (isElectron) {
+            const rows = await dbSQLiteGetAll<any>("exchange_rates");
+            if (rows && rows.length > 0) {
+              const rates: Record<string, number> = {};
+              for (const r of rows) {
+                rates[r.currency] = r.rate;
+              }
+              setSessionRates(prev => ({ ...rates, ...prev }));
+              setSessionRateInputs(prev => {
+                const updates: Record<string, string> = {};
+                for (const [cur, rate] of Object.entries(rates)) {
+                  if (!prev[cur]) updates[cur] = String(rate);
+                }
+                return { ...updates, ...prev };
+              });
+              console.log("[PaymentDialog] Loaded exchange rates from SQLite offline fallback:", rates);
+            }
+          }
+        } catch (sqliteErr) {
+          console.warn("Failed to load exchange rates from SQLite:", sqliteErr);
+        }
+      });
   }, [currencies.enabled, currencies.baseCurrency, currencies.secondaryCurrencies.length]);
 
   // Populate sharing data from external invoice data
@@ -1930,14 +1954,16 @@ export default function PaymentDialog({
 
                 {/* Totals */}
                 <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 space-y-3">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">
-                      Subtotal
-                    </span>
-                    <span className="font-medium text-gray-900 dark:text-white">
-                      {formatCurrency(calculations.subtotal)}
-                    </span>
-                  </div>
+                  {!posDetails?.custom_hide_tax_in_cart && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">
+                        Subtotal
+                      </span>
+                      <span className="font-medium text-gray-900 dark:text-white">
+                        {formatCurrency(calculations.subtotal)}
+                      </span>
+                    </div>
+                  )}
                   {calculations.couponDiscount > 0 && (
                     <div className="flex justify-between text-gray-900 dark:text-gray-500">
                       <span>Discount</span>
@@ -1946,23 +1972,25 @@ export default function PaymentDialog({
                       </span>
                     </div>
                   )}
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">
-                      Tax ({calculations.selectedTax?.rate}%{" "}
-                      {calculations.isInclusive ? "Incl." : "Excl."})
-                    </span>
-                    <span
-                      className={`font-medium ${
-                        calculations.isInclusive
-                          ? "text-gray-900 dark:text-gray-500"
-                          : "text-gray-900 dark:text-white"
-                      }`}
-                    >
-                      {calculations.isInclusive
-                        ? `(${formatCurrency(calculations.taxAmount)})`
-                        : formatCurrency(calculations.taxAmount)}
-                    </span>
-                  </div>
+                  {!posDetails?.custom_hide_tax_in_cart && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">
+                        Tax ({calculations.selectedTax?.rate}%{" "}
+                        {calculations.isInclusive ? "Incl." : "Excl."})
+                      </span>
+                      <span
+                        className={`font-medium ${
+                          calculations.isInclusive
+                            ? "text-gray-900 dark:text-gray-500"
+                            : "text-gray-900 dark:text-white"
+                        }`}
+                      >
+                        {calculations.isInclusive
+                          ? `(${formatCurrency(calculations.taxAmount)})`
+                          : formatCurrency(calculations.taxAmount)}
+                      </span>
+                    </div>
+                  )}
                   {roundOffAmount !== 0 && (
                     <div className="flex justify-between">
                       <span className="text-gray-600 dark:text-gray-400">
@@ -2676,51 +2704,53 @@ export default function PaymentDialog({
                 </div>
 
                 {/* Tax Section */}
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                    Tax Configuration
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Sales & Tax Charges
-                      </label>
-                      <select
-                        value={selectedSalesTaxCharges}
-                        onChange={(e) => handleSalesTaxChange(e.target.value)}
-                        disabled={invoiceSubmitted || isProcessingPayment}
-                        className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-ziditech-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
-                          invoiceSubmitted || isProcessingPayment
-                            ? "cursor-not-allowed opacity-50"
-                            : ""
-                        }`}
-                      >
-                        {salesTaxCharges.map((tax) => (
-                          <option key={tax.id} value={tax.id}>
-                            {tax.name} ({tax.rate}%{" "}
-                            {tax.is_inclusive ? "Incl." : "Excl."})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Tax Amount {calculations.isInclusive && "(Included)"}
-                      </label>
-                      <div
-                        className={`px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg font-medium ${
-                          calculations.isInclusive
-                            ? "text-gray-900 dark:text-blue-400"
-                            : "text-gray-900 dark:text-white"
-                        }`}
-                      >
-                        {calculations.isInclusive
-                          ? `(${formatCurrency(calculations.taxAmount)})`
-                          : formatCurrency(calculations.taxAmount)}
+                {!posDetails?.custom_hide_tax_in_cart && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                      Tax Configuration
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          Sales & Tax Charges
+                        </label>
+                        <select
+                          value={selectedSalesTaxCharges}
+                          onChange={(e) => handleSalesTaxChange(e.target.value)}
+                          disabled={invoiceSubmitted || isProcessingPayment}
+                          className={`w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-ziditech-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white ${
+                            invoiceSubmitted || isProcessingPayment
+                              ? "cursor-not-allowed opacity-50"
+                              : ""
+                          }`}
+                        >
+                          {salesTaxCharges.map((tax) => (
+                            <option key={tax.id} value={tax.id}>
+                              {tax.name} ({tax.rate}%{" "}
+                              {tax.is_inclusive ? "Incl." : "Excl."})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                          Tax Amount {calculations.isInclusive && "(Included)"}
+                        </label>
+                        <div
+                          className={`px-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg font-medium ${
+                            calculations.isInclusive
+                              ? "text-gray-900 dark:text-blue-400"
+                              : "text-gray-900 dark:text-white"
+                          }`}
+                        >
+                          {calculations.isInclusive
+                            ? `(${formatCurrency(calculations.taxAmount)})`
+                            : formatCurrency(calculations.taxAmount)}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
+                )}
 
                 {/* Totals Section */}
                 <div>
@@ -2766,14 +2796,16 @@ export default function PaymentDialog({
                     </div>
 
                     <div className="border-t border-gray-200 dark:border-gray-600 pt-3 space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-gray-600 dark:text-gray-400">
-                          Subtotal
-                        </span>
-                        <span className="font-medium text-gray-900 dark:text-white">
-                          {formatCurrency(calculations.subtotal)}
-                        </span>
-                      </div>
+                      {!posDetails?.custom_hide_tax_in_cart && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600 dark:text-gray-400">
+                            Subtotal
+                          </span>
+                          <span className="font-medium text-gray-900 dark:text-white">
+                            {formatCurrency(calculations.subtotal)}
+                          </span>
+                        </div>
+                      )}
                       {calculations.couponDiscount > 0 && (
                         <div className="flex justify-between text-gray-900 dark:text-gray-500">
                           <span>Coupon Discount</span>
@@ -2782,23 +2814,25 @@ export default function PaymentDialog({
                           </span>
                         </div>
                       )}
-                      <div className="flex justify-between">
-                        <span className="text-gray-600 dark:text-gray-400">
-                          Tax ({calculations.selectedTax?.rate}%{" "}
-                          {calculations.isInclusive ? "Incl." : "Excl."})
-                        </span>
-                        <span
-                          className={`font-medium ${
-                            calculations.isInclusive
-                              ? "text-gray-900 dark:text-blue-400"
-                              : "text-gray-900 dark:text-white"
-                          }`}
-                        >
-                          {calculations.isInclusive
-                            ? `(${formatCurrency(calculations.taxAmount)})`
-                            : formatCurrency(calculations.taxAmount)}
-                        </span>
-                      </div>
+                      {!posDetails?.custom_hide_tax_in_cart && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-600 dark:text-gray-400">
+                            Tax ({calculations.selectedTax?.rate}%{" "}
+                            {calculations.isInclusive ? "Incl." : "Excl."})
+                          </span>
+                          <span
+                            className={`font-medium ${
+                              calculations.isInclusive
+                                ? "text-gray-900 dark:text-blue-400"
+                                : "text-gray-900 dark:text-white"
+                            }`}
+                          >
+                            {calculations.isInclusive
+                              ? `(${formatCurrency(calculations.taxAmount)})`
+                              : formatCurrency(calculations.taxAmount)}
+                          </span>
+                        </div>
+                      )}
                       {roundOffAmount !== 0 && (
                         <div className="flex justify-between">
                           <span className="text-gray-600 dark:text-gray-400">
@@ -2987,14 +3021,16 @@ export default function PaymentDialog({
                 </div>
 
                 <div className="border-t border-gray-200 dark:border-gray-600 pt-2 space-y-1 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">
-                      Subtotal
-                    </span>
-                    <span className="text-gray-900 dark:text-white">
-                      {formatCurrency(calculations.subtotal)}
-                    </span>
-                  </div>
+                  {!posDetails?.custom_hide_tax_in_cart && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">
+                        Subtotal
+                      </span>
+                      <span className="text-gray-900 dark:text-white">
+                        {formatCurrency(calculations.subtotal)}
+                      </span>
+                    </div>
+                  )}
                   {calculations.couponDiscount > 0 && (
                     <div className="flex justify-between text-gray-900 dark:text-gray-500">
                       <span>Discount</span>
@@ -3003,23 +3039,25 @@ export default function PaymentDialog({
                       </span>
                     </div>
                   )}
-                  <div className="flex justify-between">
-                    <span className="text-gray-600 dark:text-gray-400">
-                      Tax ({calculations.selectedTax?.rate}%{" "}
-                      {calculations.isInclusive ? "Incl." : "Excl."})
-                    </span>
-                    <span
-                      className={`${
-                        calculations.isInclusive
-                          ? "text-gray-900 dark:text-blue-400"
-                          : "text-gray-900 dark:text-white"
-                      }`}
-                    >
-                      {calculations.isInclusive
-                        ? `(${formatCurrency(calculations.taxAmount)})`
-                        : formatCurrency(calculations.taxAmount)}
-                    </span>
-                  </div>
+                  {!posDetails?.custom_hide_tax_in_cart && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-600 dark:text-gray-400">
+                        Tax ({calculations.selectedTax?.rate}%{" "}
+                        {calculations.isInclusive ? "Incl." : "Excl."})
+                      </span>
+                      <span
+                        className={`${
+                          calculations.isInclusive
+                            ? "text-gray-900 dark:text-blue-400"
+                            : "text-gray-900 dark:text-white"
+                        }`}
+                      >
+                        {calculations.isInclusive
+                          ? `(${formatCurrency(calculations.taxAmount)})`
+                          : formatCurrency(calculations.taxAmount)}
+                      </span>
+                    </div>
+                  )}
                   {roundOffAmount !== 0 && (
                     <div className="flex justify-between">
                       <span className="text-gray-600 dark:text-gray-400">
@@ -3092,7 +3130,7 @@ export default function PaymentDialog({
                   )}
 
                   {/* Tax Type Note */}
-                  {calculations.selectedTax && (
+                  {calculations.selectedTax && !posDetails?.custom_hide_tax_in_cart && (
                     <div className="border-t border-gray-200 dark:border-gray-600 pt-2 mt-2">
                       <p
                         className={`text-xs ${

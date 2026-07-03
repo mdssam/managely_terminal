@@ -2,6 +2,7 @@ import type React from "react"
 import { useState, useEffect, createContext, useContext } from "react"
 import erpnextAPI from "../services/erpnext-api"
 import { dbGet, dbSet, dbRemove, dbClearStore, AUTH_STORE, APP_CACHE_STORE } from "../services/offlineDB"
+import { dbSQLiteGet, dbSQLiteInsert, auditLogSQLite } from "../services/sqliteClient"
 
 interface User {
   name: string
@@ -13,6 +14,7 @@ interface User {
   user_image?: string
   is_employee?: boolean
   allowed_pos_profiles?: string[]
+  custom_allow_returns?: boolean | number
 }
 
 interface AuthContextType {
@@ -34,7 +36,7 @@ interface AuthContextType {
       token_delivery?: boolean
     }
   }>
-  loginAsEmployee: (employeeId: string, employeeDisplayName: string, role?: string, allowedPosProfiles?: string[]) => Promise<void>
+  loginAsEmployee: (employeeId: string, employeeDisplayName: string, role?: string, allowedPosProfiles?: string[], customAllowReturns?: boolean | number) => Promise<void>
   logout: () => Promise<void>
   lockEmployee: () => Promise<void>
   checkSession: () => Promise<boolean>
@@ -58,87 +60,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const initAuth = async () => {
       try {
-        // Initialize ERPNext API session from IndexedDB
+        // Initialize session from local storage/IndexedDB
         await erpnextAPI.initializeSession()
 
-        // Check if user has cached credentials in IndexedDB
+        // Check if user has cached credentials
         const token    = await dbGet<string>(AUTH_STORE, "erpnext_token")
         const userData = await dbGet<User>(AUTH_STORE, "user_data")
 
         if (token && userData) {
-          // If offline, trust cached credentials — don't call the server
-          if (!navigator.onLine) {
-            console.log("[Auth] Offline: using cached session without server validation")
-            setUser(userData)
-            return
+          console.log("[Auth] Boot: using cached session without server validation")
+          if (userData.is_employee) {
+            userData.is_employee = false
+            await dbSet(AUTH_STORE, "user_data", userData)
+            await dbRemove(APP_CACHE_STORE, 'pos_employee')
           }
-
-          // Online: validate session with server
-          let isSessionValid = false
-          try {
-            isSessionValid = await erpnextAPI.validateSession()
-          } catch (networkErr) {
-            // Network error during validation — treat as offline, keep session
-            console.warn("[Auth] Session validation network error, keeping cached session:", networkErr)
-            setUser(userData)
-            return
-          }
-
-          if (isSessionValid) {
-            setUser(userData)
-
-            // Attempt a profile refresh passively to capture updates
-            try {
-              const freshUserData = await erpnextAPI.getCurrentUserProfile()
-              if (freshUserData) {
-                const updatedUser: User = {
-                  name:       userData.is_employee ? userData.name : (freshUserData.name || userData.name),
-                  email:      userData.is_employee ? userData.email : (freshUserData.email || freshUserData.name || userData.email),
-                  full_name:  userData.is_employee ? userData.full_name : (freshUserData.full_name || `${freshUserData.first_name} ${freshUserData.last_name || ""}`.trim() || userData.full_name),
-                  role:       userData.is_employee ? userData.role : (freshUserData.role_profile_name || freshUserData.role || userData.role || "User"),
-                  first_name: freshUserData.first_name as string | undefined,
-                  last_name:  freshUserData.last_name  as string | undefined,
-                  user_image: freshUserData.user_image as string | undefined,
-                  is_employee: userData.is_employee
-                }
-                setUser(updatedUser)
-                await dbSet(AUTH_STORE, "user_data", updatedUser)
-              }
-            } catch (e) {
-              console.warn("Passive user profile sync failed:", e)
-            }
-          } else {
-            // Server explicitly said session is invalid — purge cached auth
-            console.warn("Stale session detected on boot, purging auth cache")
-            await dbClearStore(AUTH_STORE)
-            setUser(null)
-          }
-        } else if (navigator.onLine) {
-          // No cached data, but user might be logged in via Frappe desk (session cookie)
-          try {
-            const isSessionValid = await erpnextAPI.validateSession()
-            if (isSessionValid) {
-              const freshUserData = await erpnextAPI.getCurrentUserProfile()
-              if (freshUserData) {
-                const newUser: User = {
-                  name: freshUserData.name,
-                  email: freshUserData.email || freshUserData.name,
-                  full_name: freshUserData.full_name || `${freshUserData.first_name} ${freshUserData.last_name || ""}`.trim(),
-                  role: freshUserData.role_profile_name || freshUserData.role || "User",
-                  first_name: freshUserData.first_name,
-                  last_name: freshUserData.last_name,
-                  user_image: freshUserData.user_image,
-                  is_employee: false
-                }
-                setUser(newUser)
-                await dbSet(AUTH_STORE, "user_data", newUser)
-                // Use a dummy token or standard "session" token
-                await dbSet(AUTH_STORE, "erpnext_token", "frappe-session")
-              }
-            }
-          } catch (e) {
-            console.warn("No active session cookie found:", e)
-          }
+          setUser(userData)
         }
       } catch (error) {
         console.error("Auth init error:", error)
@@ -151,40 +87,211 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [mounted])
 
   const login = async (username: string, password: string, otp?: string, tmpId?: string) => {
+    console.log("[Auth Debug] login function called. username:", username);
     try {
       setLoading(true)
 
-      const result = await erpnextAPI.login(username, password, otp, tmpId)
+      let cachedBranch = null
 
-      if (result.requires_otp) {
-        return {
-          success: false,
-          message: result.message,
-          requires_otp: true,
-          tmp_id: result.tmp_id,
-          verification: result.verification,
+      // Try reading from SQLite users table first (always, online or offline)
+      try {
+        console.log("[Auth Debug] Querying SQLite users table for username:", username);
+        const row = await dbSQLiteGet<any>(
+          "users", 
+          "LOWER(username) = ? OR LOWER(email) = ? OR email LIKE ?", 
+          [username.toLowerCase(), username.toLowerCase(), username.toLowerCase() + '@%']
+        )
+        console.log("[Auth Debug] Query result row:", row);
+        if (row) {
+          cachedBranch = {
+            username: row.username,
+            hash: row.password_hash,
+            userData: {
+              name: row.username,
+              email: row.email,
+              full_name: row.full_name,
+              role: row.role || "User"
+            }
+          }
+        }
+      } catch (sqliteErr) {
+        console.warn("[Auth Debug] Failed to read user from SQLite users table", sqliteErr)
+      }
+
+      if (cachedBranch) {
+        const normUsername = username.toLowerCase()
+        const cachedNormUsername = cachedBranch.username.toLowerCase()
+        const cachedNormEmail = (cachedBranch.userData.email || "").toLowerCase()
+        const isUserMatched = (normUsername === cachedNormUsername || 
+                               normUsername === cachedNormEmail || 
+                               cachedNormEmail.startsWith(normUsername + "@"));
+        console.log("[Auth Debug] User matched status:", isUserMatched, "cachedNormUsername:", cachedNormUsername, "cachedNormEmail:", cachedNormEmail);
+                               
+        if (isUserMatched) {
+          let passwordMatched = false;
+
+          // Check if stored hash is a PBKDF2-SHA256 string ($pbkdf2-sha256$iterations$salt$hash)
+          if (cachedBranch.hash && cachedBranch.hash.startsWith('$pbkdf2')) {
+            try {
+              console.log("[Auth Debug] Verifying PBKDF2 hash...");
+              const parts = cachedBranch.hash.split('$');
+              if (parts.length >= 5) {
+                const iterations = parseInt(parts[2], 10);
+                const saltStr = parts[3];
+                const targetHashBase64 = parts[4];
+
+                const encoder = new TextEncoder();
+                const passwordKey = await window.crypto.subtle.importKey(
+                  'raw',
+                  encoder.encode(password),
+                  { name: 'PBKDF2' },
+                  false,
+                  ['deriveBits']
+                );
+
+                // Base64-decode the saltStr, since Django/passlib stores it base64-encoded
+                let base64Salt = saltStr.replace(/-/g, '+').replace(/_/g, '/');
+                while (base64Salt.length % 4) {
+                  base64Salt += '=';
+                }
+                const binaryStr = atob(base64Salt);
+                const saltBytes = new Uint8Array(binaryStr.length);
+                for (let i = 0; i < binaryStr.length; i++) {
+                  saltBytes[i] = binaryStr.charCodeAt(i);
+                }
+
+                const derivedBits = await window.crypto.subtle.deriveBits(
+                  {
+                    name: 'PBKDF2',
+                    salt: saltBytes,
+                    iterations: iterations,
+                    hash: 'SHA-256'
+                  },
+                  passwordKey,
+                  256
+                );
+
+                const derivedArray = new Uint8Array(derivedBits);
+                const derivedBase64 = btoa(String.fromCharCode(...derivedArray));
+                const normalize = (s: string) => s.replace(/=/g, '').trim();
+
+                passwordMatched = (normalize(derivedBase64) === normalize(targetHashBase64));
+              }
+            } catch (pbkdf2Err) {
+              console.error("[Auth Debug] PBKDF2 verification failed:", pbkdf2Err);
+            }
+          } else if (cachedBranch.hash) {
+            console.log("[Auth Debug] Stored hash is NOT PBKDF2, testing standard SHA-256 fallbacks...", cachedBranch.hash);
+            // 1. Salted SHA-256 (password + username)
+            const msgBuffer = new TextEncoder().encode(password + cachedNormUsername)
+            const hashBuffer = await window.crypto.subtle.digest("SHA-256", msgBuffer)
+            const hashArray = Array.from(new Uint8Array(hashBuffer))
+            const computedHash = hashArray.map(b => b.toString(16).padStart(2, "0")).join("")
+            
+            // 2. Plain SHA-256 (just password)
+            const msgBufferPlain = new TextEncoder().encode(password)
+            const hashBufferPlain = await window.crypto.subtle.digest("SHA-256", msgBufferPlain)
+            const hashArrayPlain = Array.from(new Uint8Array(hashBufferPlain))
+            const computedHashPlain = hashArrayPlain.map(b => b.toString(16).padStart(2, "0")).join("")
+
+            passwordMatched = (computedHash === cachedBranch.hash || computedHashPlain === cachedBranch.hash);
+          }
+
+          console.log("[Auth Debug] Password matched:", passwordMatched);
+          if (passwordMatched) {
+            setUser(cachedBranch.userData)
+            await dbSet(AUTH_STORE, "erpnext_token", "authenticated")
+            await dbSet(AUTH_STORE, "user_data",     cachedBranch.userData)
+            
+            // Log offline login to audit log
+            await auditLogSQLite('BRANCH_LOGIN_OFFLINE', 'user', cachedBranch.userData.name, 'system', 'Branch user logged in offline').catch(() => {});
+            
+            if (typeof window !== "undefined") {
+              sessionStorage.removeItem("pos_db_preloaded")
+            }
+            console.log("[Auth Debug] SQLite local login successful!");
+            return { success: true, message: "Logged in successfully" }
+          }
+        }
+      }
+      // If user not found in SQLite: check if the SQLite users table is completely empty
+      let isDbEmpty = false;
+      try {
+        const { dbSQLiteGetAll } = await import("../services/sqliteClient");
+        const allUsers = await dbSQLiteGetAll<any>("users");
+        if (!allUsers || allUsers.length === 0) {
+          isDbEmpty = true;
+        }
+      } catch (err) {
+        isDbEmpty = true;
+      }
+
+      if (isDbEmpty && typeof window !== "undefined" && navigator.onLine) {
+        console.log("[Auth Debug] SQLite users table is empty. Attempting online login for setup...");
+        let onlineResult = null;
+        try {
+          onlineResult = await erpnextAPI.login(username, password, otp, tmpId);
+        } catch (onlineErr) {
+          console.warn("[Auth Debug] Online login failed:", onlineErr);
+          return { success: false, message: "Connection to server failed. Please check network." };
+        }
+
+        if (onlineResult && onlineResult.requires_otp) {
+          return {
+            success: false,
+            message: onlineResult.message,
+            requires_otp: true,
+            tmp_id: onlineResult.tmp_id,
+            verification: onlineResult.verification,
+          };
+        }
+
+        if (onlineResult && onlineResult.success && onlineResult.user) {
+          const userData: User = {
+            name:      onlineResult.user.name      || username,
+            email:     onlineResult.user.email     || username,
+            full_name: onlineResult.user.full_name || onlineResult.user.name || username,
+            role:      onlineResult.user.role      || "User",
+          };
+
+          setUser(userData);
+          await dbSet(AUTH_STORE, "erpnext_token", "authenticated");
+          await dbSet(AUTH_STORE, "user_data",     userData);
+
+          // Cache the branch user credentials hash in SQLite users table
+          try {
+            const normUser = (onlineResult.user.name || username).toLowerCase();
+            const msgBuffer = new TextEncoder().encode(password + normUser);
+            const hashBuffer = await window.crypto.subtle.digest("SHA-256", msgBuffer);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const computedHash = hashArray.map(b => b.toString(16).padStart(2, "0")).join("");
+
+            // Save directly to SQLite users table
+            const { dbSQLiteInsert } = await import("../services/sqliteClient");
+            await dbSQLiteInsert("users", {
+              username: normUser,
+              password_hash: computedHash,
+              full_name: userData.full_name,
+              email: userData.email,
+              role: userData.role || "User",
+              last_sync: Date.now()
+            });
+          } catch (hashErr) {
+            console.warn("Failed to compute and cache branch credentials hash", hashErr);
+          }
+
+          if (typeof window !== "undefined") {
+            sessionStorage.removeItem("pos_db_preloaded");
+          }
+
+          return { success: true, message: onlineResult.message };
+        } else {
+          return { success: false, message: onlineResult?.message || "Login failed" };
         }
       }
 
-      if (result.success && result.user) {
-        const userData: User = {
-          name:      result.user.name      || username,
-          email:     result.user.email     || username,
-          full_name: result.user.full_name || result.user.name || username,
-          role:      result.user.role      || "User",
-        }
-
-        setUser(userData)
-        await dbSet(AUTH_STORE, "erpnext_token", "authenticated")
-        await dbSet(AUTH_STORE, "user_data",     userData)
-        if (typeof window !== "undefined") {
-          sessionStorage.removeItem("pos_db_preloaded")
-        }
-
-        return { success: true, message: result.message }
-      } else {
-        return { success: false, message: result.message }
-      }
+      console.log("[Auth Debug] SQLite local login failed: Invalid username or password");
+      return { success: false, message: "Invalid username or password." }
     } catch (error) {
       console.error("Login error:", error)
       return { success: false, message: "Login failed. Please try again." }
@@ -193,38 +300,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  const loginAsEmployee = async (employeeId: string, employeeDisplayName: string, role?: string, allowedPosProfiles?: string[]) => {
+  const loginAsEmployee = async (employeeId: string, employeeDisplayName: string, role?: string, allowedPosProfiles?: string[], customAllowReturns?: boolean | number) => {
     const userData: User = {
       name:      employeeId,
       email:     employeeId,
       full_name: employeeDisplayName,
       role:      role || "Cashier",
       is_employee: true,
-      allowed_pos_profiles: allowedPosProfiles,
-    }
-    setUser(userData)
-    await dbSet(AUTH_STORE, "erpnext_token", "authenticated")
-    await dbSet(AUTH_STORE, "user_data",     userData)
-    if (typeof window !== "undefined") {
-      sessionStorage.removeItem("pos_db_preloaded")
-    }
-  }
-
-  const logout = async () => {
-    await erpnextAPI.logout()
-    setUser(null)
-    await dbClearStore(AUTH_STORE)
-    if (typeof window !== "undefined") {
-      sessionStorage.removeItem("pos_db_preloaded")
-    }
-  }
-
-  const lockEmployee = async () => {
-    try {
-      await dbRemove(APP_CACHE_STORE, 'pos_employee')
+        allowed_pos_profiles: allowedPosProfiles,
+        custom_allow_returns: customAllowReturns,
+      }
+      setUser(userData)
+      await dbSet(AUTH_STORE, "erpnext_token", "authenticated")
+      await dbSet(AUTH_STORE, "user_data",     userData)
       if (typeof window !== "undefined") {
         sessionStorage.removeItem("pos_db_preloaded")
       }
+      try {
+        const { clearGuardMemoryCache } = await import("../components/POSOpeningEntryGuard");
+        clearGuardMemoryCache();
+      } catch (e) {}
+    }
+  
+    const logout = async () => {
+      await erpnextAPI.logout()
+      setUser(null)
+      await dbClearStore(AUTH_STORE)
+      if (typeof window !== "undefined") {
+        sessionStorage.removeItem("pos_db_preloaded")
+      }
+      try {
+        const { clearGuardMemoryCache } = await import("../components/POSOpeningEntryGuard");
+        clearGuardMemoryCache();
+      } catch (e) {}
+    }
+  
+    const lockEmployee = async () => {
+      try {
+        await dbRemove(APP_CACHE_STORE, 'pos_employee')
+        if (typeof window !== "undefined") {
+          sessionStorage.removeItem("pos_db_preloaded")
+        }
+        try {
+          const { clearGuardMemoryCache } = await import("../components/POSOpeningEntryGuard");
+          clearGuardMemoryCache();
+        } catch (e) {}
       const userData = await dbGet<User>(AUTH_STORE, "user_data")
       if (userData) {
         userData.is_employee = false

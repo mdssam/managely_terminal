@@ -861,7 +861,7 @@ def create_and_submit_invoice(data):
 		if data.get("is_return"):
 			doc.is_return = 1
 			doc.return_against = data.get("return_against")
-			doc.is_pos = 1
+			doc.is_pos = 0
 
 		doc.base_paid_amount = amount_paid
 		doc.paid_amount = amount_paid
@@ -1136,7 +1136,6 @@ def build_sales_invoice_doc(
 	draft_id=None,
 ):
 	"""Main function to build a POS invoice document."""
-	is_return = any(frappe.utils.flt(item.get("quantity") or item.get("qty") or 0) < 0 for item in items)
 	if draft_id and frappe.db.exists("POS Invoice", draft_id):
 		doc = frappe.get_doc("POS Invoice", draft_id)
 		# Clear existing children to prevent duplicates
@@ -1146,13 +1145,8 @@ def build_sales_invoice_doc(
 		doc.set("pricing_rules", [])
 	else:
 		doc = frappe.new_doc("POS Invoice")
-		if draft_id:
-			doc.name = draft_id
-			doc.flags.ignore_naming_series = True
-		doc.is_pos = 1
-	
-	if is_return:
-		doc.is_return = 1
+		
+	doc.is_pos = 1
 
 	# Resolve POS Customer (B2C/Cash consolidation)
 	pos_customer_record = frappe.db.get_value("POS Customer", {"customer_name": customer}, ["name", "unified_customer"], as_dict=True)
@@ -1281,7 +1275,7 @@ def _validate_and_autofetch_batch_and_serial(items, pos_profile):
 	auto_fetch_enabled = int(getattr(pos_profile, "custom_autofetch_batchserial_", 0) or 0)
 
 	for item in items:
-		item_code = item.get("id") or item.get("item_code")
+		item_code = item.get("id")
 		if not item_code:
 			continue
 
@@ -1454,15 +1448,30 @@ def _set_taxes_and_charges(doc, sales_and_tax_charges, pos_profile):
 
 def _populate_invoice_items(doc, items, pos_profile):
 	"""Add all items to the invoice."""
-	item_codes = [item.get("id") or item.get("item_code") for item in items]
+	item_codes = [item.get("id") for item in items]
 
 	# Batch fetch item data and pre-cache accounts
 	item_data_map = _batch_fetch_item_data(item_codes)
 	_precache_item_accounts(item_codes, pos_profile.company)
 
+	# Resolve tax rate if custom_prices_include_vat is enabled
+	tax_rate = 0.0
+	prices_include_vat = False
+	try:
+		if pos_profile and getattr(pos_profile, "custom_prices_include_vat", 0):
+			prices_include_vat = True
+			if doc.taxes_and_charges:
+				tax_doc = get_tax_template(doc.taxes_and_charges)
+				if tax_doc and tax_doc.taxes:
+					for tax in tax_doc.taxes:
+						if not tax.get("custom_is_stamp"):
+							tax_rate += flt(tax.rate)
+	except Exception:
+		pass
+
 	# Add each item to the invoice
 	for item in items:
-		item_data = _prepare_item_data(item, item_data_map, pos_profile)
+		item_data = _prepare_item_data(item, item_data_map, pos_profile, prices_include_vat, tax_rate)
 		doc.append("items", item_data)
 
 
@@ -1530,9 +1539,9 @@ def _precache_item_accounts(item_codes, company):
 		_cached_item_accounts[f"{item_code}_expense"] = expense
 
 
-def _prepare_item_data(item, item_data_map, pos_profile):
+def _prepare_item_data(item, item_data_map, pos_profile, prices_include_vat=False, tax_rate=0.0):
 	"""Prepare item data dictionary for invoice line."""
-	item_code = item.get("id") or item.get("item_code")
+	item_code = item.get("id")
 
 	# Get accounts and validate
 	income_account = get_income_accounts(item_code)
@@ -1553,6 +1562,12 @@ def _prepare_item_data(item, item_data_map, pos_profile):
 		final_rate = flt(original_price)
 		ignore_pricing_rule = 0	
 
+	if prices_include_vat and tax_rate > 0:
+		final_rate = final_rate / (1.0 + tax_rate / 100.0)
+		original_price = flt(original_price) / (1.0 + tax_rate / 100.0)
+	else:
+		original_price = flt(original_price)
+
 	# Fetch item name
 	db_item = item_data_map.get(item_code, {}) or {}
 	item_name = item.get("item_name") or item.get("name") or db_item.get("item_name") or item_code
@@ -1561,7 +1576,6 @@ def _prepare_item_data(item, item_data_map, pos_profile):
 	item_data = {
 		"item_code": item_code,
 		"item_name": item_name,
-		"description": item_name or item_code or "No Description",
 		"qty": item.get("quantity") or item.get("qty"),
 		"rate": final_rate,
         "price_list_rate": flt(original_price),   # keep original for reference
@@ -1643,7 +1657,20 @@ def _populate_tax_details(doc):
 	if not tax_doc:
 		return
 
+	# Check if the POS Profile has custom_prices_include_vat enabled
+	# If so, force all tax rows to be inclusive (included_in_print_rate = 1)
+	# so the grand total = price list price (tax is already baked in)
+	prices_include_vat = False
+	try:
+		pos_profile = _get_active_pos_profile()
+		if pos_profile and getattr(pos_profile, "custom_prices_include_vat", 0):
+			prices_include_vat = True
+	except Exception:
+		pass
+
 	for tax in tax_doc.taxes:
+		# If prices_include_vat is active, we manually divided the rates. The tax row must be exclusive (0)
+		included = 0 if prices_include_vat else int(tax.included_in_print_rate or 0)
 		doc.append(
 			"taxes",
 			{
@@ -1654,7 +1681,7 @@ def _populate_tax_details(doc):
 				"rate": tax.rate,
 				"row_id": tax.row_id,
 				"tax_amount": tax.tax_amount,
-				"included_in_print_rate": tax.included_in_print_rate,
+				"included_in_print_rate": included,
 				"custom_is_stamp": tax.get("custom_is_stamp") or 0,
 				"custom_stamp_amount_lbp": tax.get("custom_stamp_amount_lbp") or 0,
 			},
