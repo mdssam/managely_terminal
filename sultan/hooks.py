@@ -224,6 +224,7 @@ doc_events = {
 # -----------------------
 override_doctype_class = {
 	"Sales Invoice": "sultan.sultan.api.sales_invoice.CustomSalesInvoice",
+	"POS Invoice": "sultan.sultan.api.sales_invoice.CustomPOSInvoice",
 	"Purchase Invoice": "sultan.sultan.api.purchase_invoice.CustomPurchaseInvoice",
 }
 

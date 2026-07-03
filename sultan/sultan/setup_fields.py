@@ -579,6 +579,20 @@ def run():
 		}).insert(ignore_permissions=True)
 		print("Created Custom Single DocType Sultan Settings")
 
+	# Custom field for POS Invoice to avoid erpnext 15 AttributeError
+	pos_invoice_roundoff_cost_center = "POS Invoice-use_company_roundoff_cost_center"
+	if not frappe.db.exists("Custom Field", pos_invoice_roundoff_cost_center):
+		doc = frappe.get_doc({
+			"doctype": "Custom Field",
+			"dt": "POS Invoice",
+			"fieldname": "use_company_roundoff_cost_center",
+			"label": "Use Company Roundoff Cost Center",
+			"fieldtype": "Check",
+			"insert_after": "company"
+		})
+		doc.insert(ignore_permissions=True)
+		print("Created use_company_roundoff_cost_center custom field on POS Invoice.")
+
 	frappe.clear_cache(doctype="POS Profile")
 	frappe.clear_cache(doctype="Sales Invoice")
 	frappe.clear_cache(doctype="Employee")

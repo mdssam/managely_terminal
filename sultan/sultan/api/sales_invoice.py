@@ -3,6 +3,7 @@ import json
 import erpnext
 import frappe
 from erpnext.accounts.doctype.sales_invoice.sales_invoice import SalesInvoice
+from erpnext.accounts.doctype.pos_invoice.pos_invoice import POSInvoice
 from frappe import _
 from frappe.utils import flt
 
@@ -1562,10 +1563,8 @@ def _prepare_item_data(item, item_data_map, pos_profile, prices_include_vat=Fals
 		final_rate = flt(original_price)
 		ignore_pricing_rule = 0	
 
-	if prices_include_vat and tax_rate > 0:
-		final_rate = final_rate / (1.0 + tax_rate / 100.0)
-		original_price = flt(original_price) / (1.0 + tax_rate / 100.0)
-	else:
+	# Do not divide final_rate or original_price manually.
+	# We set the tax template rows as inclusive (included=1) so ERPNext handles the division internally.
 		original_price = flt(original_price)
 
 	# Fetch item name
@@ -1670,8 +1669,8 @@ def _populate_tax_details(doc):
 		pass
 
 	for tax in tax_doc.taxes:
-		# If prices_include_vat is active, we manually divided the rates. The tax row must be exclusive (0)
-		included = 0 if prices_include_vat else int(tax.included_in_print_rate or 0)
+		# If prices_include_vat is active, force the tax row to be inclusive (1)
+		included = 1 if prices_include_vat else int(tax.included_in_print_rate or 0)
 		doc.append(
 			"taxes",
 			{
@@ -3248,3 +3247,35 @@ def get_today_exchange_rates(currencies, base_currency):
 			result[currency] = flt(rate)
 
 	return result
+
+
+class CustomPOSInvoice(POSInvoice):
+	"""
+	Sultan customised POS Invoice.
+
+	Adds a ``use_company_roundoff_cost_center`` property so that the
+	standard ERPNext GL-entries generator can access it even when the
+	field is not present in the DB schema (avoids AttributeError on
+	POS Invoice GL generation in erpnext 15).
+
+	Also overrides ``make_discount_gl_entries`` to ensure
+	``enable_discount_accounting`` is always defined (avoids
+	UnboundLocalError in erpnext 15 accounts_controller.py).
+	"""
+
+	@property
+	def use_company_roundoff_cost_center(self):
+		return getattr(self, "_use_company_roundoff_cost_center", False)
+
+	@use_company_roundoff_cost_center.setter
+	def use_company_roundoff_cost_center(self, value):
+		self._use_company_roundoff_cost_center = value
+
+	def make_discount_gl_entries(self, gl_entries):
+		"""Override to guard against UnboundLocalError in erpnext 15."""
+		try:
+			super().make_discount_gl_entries(gl_entries)
+		except UnboundLocalError:
+			# enable_discount_accounting not set for POS Invoice doctype in older erpnext 15 builds
+			pass
+

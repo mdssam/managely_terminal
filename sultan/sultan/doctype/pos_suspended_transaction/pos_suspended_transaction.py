@@ -500,6 +500,12 @@ def on_pos_closing_entry_submit(doc, method=None):
         doc.name,
     )
 
+    # --- Sultan: Consolidate POS Invoices into a single Sales Invoice at shift close ---
+    try:
+        _sultan_consolidate_invoices(doc)
+    except Exception:
+        frappe.log_error(frappe.get_traceback(), f"[Sultan] POS Invoice consolidation failed for {doc.name}")
+
 
 @frappe.whitelist()
 def get_session_reconciliation_data(pos_session):
@@ -866,3 +872,48 @@ def on_pos_closing_entry_cancel(doc, method=None):
         "pos_closing_entry",
         None,
     )
+
+
+def _sultan_consolidate_invoices(closing_entry_doc):
+    """
+    Consolidate all POS Invoices of this shift into a single Sales Invoice
+    using ERPNext's standard POS Invoice Merge Log mechanism.
+
+    Sultan does not populate pos_transactions on the closing entry to avoid
+    owner/user validation errors. Instead we collect the invoices here and
+    pass them directly to consolidate_pos_invoices.
+    """
+    from frappe.utils import flt
+    from erpnext.accounts.doctype.pos_invoice_merge_log.pos_invoice_merge_log import (
+        consolidate_pos_invoices,
+    )
+
+    pos_opening = closing_entry_doc.pos_opening_entry
+    if not pos_opening:
+        return
+
+    # Fetch all submitted, unconsolidated POS Invoices for this shift
+    raw_invoices = frappe.get_all(
+        "POS Invoice",
+        filters={
+            "custom_pos_opening_entry": pos_opening,
+            "docstatus": 1,
+        },
+        fields=["name", "customer", "is_return", "return_against", "consolidated_invoice"],
+    )
+
+    # Filter out already-consolidated invoices
+    invoices = [
+        frappe._dict(pos_invoice=r.name, customer=r.customer, is_return=r.is_return, return_against=r.return_against)
+        for r in raw_invoices
+        if not r.consolidated_invoice
+    ]
+
+    if not invoices:
+        frappe.logger().info(f"[Sultan] No unconsolidated POS Invoices for shift {pos_opening}")
+        return
+
+    frappe.logger().info(f"[Sultan] Consolidating {len(invoices)} POS Invoices for shift {pos_opening}")
+    consolidate_pos_invoices(pos_invoices=invoices, closing_entry=closing_entry_doc)
+    frappe.logger().info(f"[Sultan] Consolidation complete for shift {pos_opening}")
+
