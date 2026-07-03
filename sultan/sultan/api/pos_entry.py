@@ -470,6 +470,11 @@ def _parse_request_data():
 
 	# Normalize closing_balance format
 	closing_balance_raw = data.get("closing_balance", {})
+	if isinstance(closing_balance_raw, str):
+		try:
+			closing_balance_raw = json.loads(closing_balance_raw)
+		except Exception:
+			pass
 	closing_balance = {}
 
 	if isinstance(closing_balance_raw, list):
