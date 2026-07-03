@@ -1189,6 +1189,8 @@ def get_sequence_state(pos_profile):
 	
 	session_prefix = f"OP-{formatted_profile}-"
 	invoice_prefix = f"PSINV-{formatted_profile}-"
+	closing_prefix = f"CL-{formatted_profile}-"
+	cash_tx_prefix = f"CSH-{formatted_profile}-"
 	
 	# Fetch current counters from tabSeries directly
 	session_current_res = frappe.db.sql("SELECT current FROM `tabSeries` WHERE name = %s", (session_prefix,))
@@ -1196,11 +1198,21 @@ def get_sequence_state(pos_profile):
 
 	invoice_current_res = frappe.db.sql("SELECT current FROM `tabSeries` WHERE name = %s", (invoice_prefix,))
 	invoice_current = invoice_current_res[0][0] if invoice_current_res else 0
+
+	closing_current_res = frappe.db.sql("SELECT current FROM `tabSeries` WHERE name = %s", (closing_prefix,))
+	closing_current = closing_current_res[0][0] if closing_current_res else 0
+
+	cash_tx_current_res = frappe.db.sql("SELECT current FROM `tabSeries` WHERE name = %s", (cash_tx_prefix,))
+	cash_tx_current = cash_tx_current_res[0][0] if cash_tx_current_res else 0
 	
 	last_session_id = f"{session_prefix}{str(session_current).zfill(5)}" if session_current > 0 else None
 	last_invoice_id = f"{invoice_prefix}{str(invoice_current).zfill(5)}" if invoice_current > 0 else None
+	last_closing_id = f"{closing_prefix}{str(closing_current).zfill(5)}" if closing_current > 0 else None
+	last_cash_tx_id = f"{cash_tx_prefix}{str(cash_tx_current).zfill(5)}" if cash_tx_current > 0 else None
 	
 	return {
 		"last_session_id": last_session_id,
-		"last_invoice_id": last_invoice_id
+		"last_invoice_id": last_invoice_id,
+		"last_closing_id": last_closing_id,
+		"last_cash_tx_id": last_cash_tx_id
 	}

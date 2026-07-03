@@ -350,7 +350,7 @@ def before_validate_pos_closing_entry(doc, method=None):
     txn_sums = {}
     for t in txns:
         mop = t.mode_of_payment
-        if t.transaction_type in ("Cash In", "Cash Out"):
+        if t.transaction_type in ("Cash In", "Cash Out", "Opening Difference"):
             txn_sums[mop] = txn_sums.get(mop, 0.0) + flt(t.total_amount)
         if t.transaction_type != "Closing Difference":
             if hasattr(doc, "custom_pos_suspended_transactions"):
