@@ -143,9 +143,17 @@ def run():
 			"istable": 1,
 			"fields": [
 				{
+					"fieldname": "reference_doctype",
+					"label": "Reference Doctype",
+					"fieldtype": "Link",
+					"options": "DocType",
+					"hidden": 1
+				},
+				{
 					"fieldname": "sales_invoice",
 					"label": "Sales Invoice",
-					"fieldtype": "Data",
+					"fieldtype": "Dynamic Link",
+					"options": "reference_doctype",
 					"in_list_view": 1,
 					"reqd": 1
 				},
@@ -175,14 +183,26 @@ def run():
 	else:
 		doc = frappe.get_doc("DocType", "Klik Sales Invoice Reference")
 		modified = False
+		has_ref_dt = any(f.fieldname == "reference_doctype" for f in doc.fields)
+		if not has_ref_dt:
+			doc.append("fields", {
+				"fieldname": "reference_doctype",
+				"label": "Reference Doctype",
+				"fieldtype": "Link",
+				"options": "DocType",
+				"hidden": 1
+			})
+			modified = True
+
 		for field in doc.fields:
-			if field.fieldname == "sales_invoice" and (field.fieldtype != "Data" or field.options):
-				field.fieldtype = "Data"
-				field.options = None
-				modified = True
+			if field.fieldname == "sales_invoice":
+				if field.fieldtype != "Dynamic Link" or field.options != "reference_doctype":
+					field.fieldtype = "Dynamic Link"
+					field.options = "reference_doctype"
+					modified = True
 		if modified:
 			doc.save(ignore_permissions=True)
-			print("Updated Klik Sales Invoice Reference fields to allow Data")
+			print("Updated Klik Sales Invoice Reference fields to Dynamic Link")
 		else:
 			print("Custom DocType Klik Sales Invoice Reference already exists and is up to date.")
 

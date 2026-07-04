@@ -133,11 +133,13 @@ class POSSuspendedTransaction(Document):
             return
 
         pos_profile = frappe.db.get_value("POS Opening Entry", self.pos_session, "pos_profile")
-        cost_center = None
-        if pos_profile:
-            cost_center = frappe.db.get_value("POS Profile", pos_profile, "cost_center")
-        if not cost_center:
-            cost_center = frappe.get_cached_value("Company", self.company, "cost_center")
+        parent_cost_center = self.get("cost_center")
+        if not parent_cost_center:
+            if pos_profile:
+                parent_cost_center = frappe.db.get_value("POS Profile", pos_profile, "cost_center")
+            if not parent_cost_center:
+                parent_cost_center = frappe.get_cached_value("Company", self.company, "cost_center")
+        parent_project = self.get("project")
 
         posting_date = frappe.utils.getdate(self.posting_date_time)
         company_currency = frappe.get_cached_value("Company", self.company, "default_currency")
@@ -159,45 +161,50 @@ class POSSuspendedTransaction(Document):
             cash_amount_in_ac = flt(row.amount) / gl_rate_cash if gl_rate_cash else flt(row.amount)
             gl_row_rate = 1.0 / row.exchange_rate if row.exchange_rate > 1.0 else (row.exchange_rate or 1.0)
 
+            row_cost_center = row.get("cost_center") or parent_cost_center
+            row_project = row.get("project") or parent_project
+
             gl_entries.append(frappe._dict({
-                "doctype": "GL Entry",
-                "company": self.company,
-                "account": self.pos_cash_account,
-                "posting_date": posting_date,
-                "transaction_date": posting_date,
-                "voucher_type": self.doctype,
-                "voucher_no": self.name,
-                "against": row.account,
-                "remarks": self.description or _("POS Cash Transaction"),
-                "debit": abs(flt(row.amount)) if is_cash_in else 0.0,
-                "credit": 0.0 if is_cash_in else abs(flt(row.amount)),
-                "debit_in_account_currency": abs(flt(cash_amount_in_ac)) if is_cash_in else 0.0,
-                "credit_in_account_currency": 0.0 if is_cash_in else abs(flt(cash_amount_in_ac)),
-                "account_currency": cash_currency,
-                "exchange_rate": gl_rate_cash,
-                "cost_center": cost_center,
-                "is_opening": "No",
+                 "doctype": "GL Entry",
+                 "company": self.company,
+                 "account": self.pos_cash_account,
+                 "posting_date": posting_date,
+                 "transaction_date": posting_date,
+                 "voucher_type": self.doctype,
+                 "voucher_no": self.name,
+                 "against": row.account,
+                 "remarks": self.description or _("POS Cash Transaction"),
+                 "debit": abs(flt(row.amount)) if is_cash_in else 0.0,
+                 "credit": 0.0 if is_cash_in else abs(flt(row.amount)),
+                 "debit_in_account_currency": abs(flt(cash_amount_in_ac)) if is_cash_in else 0.0,
+                 "credit_in_account_currency": 0.0 if is_cash_in else abs(flt(cash_amount_in_ac)),
+                 "account_currency": cash_currency,
+                 "exchange_rate": gl_rate_cash,
+                 "cost_center": parent_cost_center,
+                 "project": parent_project,
+                 "is_opening": "No",
             }))
             gl_entries.append(frappe._dict({
-                "doctype": "GL Entry",
-                "company": self.company,
-                "account": row.account,
-                "posting_date": posting_date,
-                "transaction_date": posting_date,
-                "voucher_type": self.doctype,
-                "voucher_no": self.name,
-                "against": self.pos_cash_account,
-                "remarks": row.reference or self.description or _("POS Cash Settlement"),
-                "debit": abs(flt(row.amount)) if not is_cash_in else 0.0,
-                "credit": 0.0 if not is_cash_in else abs(flt(row.amount)),
-                "debit_in_account_currency": abs(flt(row.amount_in_account_currency)) if not is_cash_in else 0.0,
-                "credit_in_account_currency": 0.0 if not is_cash_in else abs(flt(row.amount_in_account_currency)),
-                "account_currency": row.account_currency,
-                "exchange_rate": gl_row_rate,
-                "party_type": row.party_type,
-                "party": row.party,
-                "cost_center": cost_center,
-                "is_opening": "No",
+                 "doctype": "GL Entry",
+                 "company": self.company,
+                 "account": row.account,
+                 "posting_date": posting_date,
+                 "transaction_date": posting_date,
+                 "voucher_type": self.doctype,
+                 "voucher_no": self.name,
+                 "against": self.pos_cash_account,
+                 "remarks": row.reference or self.description or _("POS Cash Settlement"),
+                 "debit": abs(flt(row.amount)) if not is_cash_in else 0.0,
+                 "credit": 0.0 if not is_cash_in else abs(flt(row.amount)),
+                 "debit_in_account_currency": abs(flt(row.amount_in_account_currency)) if not is_cash_in else 0.0,
+                 "credit_in_account_currency": 0.0 if not is_cash_in else abs(flt(row.amount_in_account_currency)),
+                 "account_currency": row.account_currency,
+                 "exchange_rate": gl_row_rate,
+                 "party_type": row.party_type,
+                 "party": row.party,
+                 "cost_center": row_cost_center,
+                 "project": row_project,
+                 "is_opening": "No",
             }))
 
         make_gl_entries(gl_entries)

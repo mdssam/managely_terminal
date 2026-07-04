@@ -20,6 +20,8 @@
   "currency",
   "exchange_rate",
   "pos_cash_account",
+  "cost_center",
+  "project",
   "sec_amounts",
   "debit",
   "credit",
@@ -52,7 +54,7 @@
    "fieldtype": "Link",
    "label": "POS Session",
    "options": "POS Opening Entry",
-   "in_list_view": 1,
+   "in_list_view": 0,
    "in_standard_filter": 1,
    "read_only": 1,
    "reqd": 1
@@ -62,7 +64,7 @@
    "fieldtype": "Link",
    "label": "POS Profile",
    "options": "POS Profile",
-   "in_list_view": 1,
+   "in_list_view": 0,
    "read_only": 1
   },
   {
@@ -121,7 +123,7 @@
    "fieldtype": "Link",
    "label": "Method",
    "options": "Mode of Payment",
-   "in_list_view": 1,
+   "in_list_view": 0,
    "read_only": 1,
    "reqd": 1
   },
@@ -148,6 +150,18 @@
    "label": "POS Cash Account",
    "options": "Account",
    "read_only": 1
+  },
+  {
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
+   "label": "Cost Center",
+   "options": "Cost Center"
+  },
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "label": "Project",
+   "options": "Project"
   },
   {
    "fieldname": "sec_amounts",
@@ -191,7 +205,7 @@
    "fieldtype": "Currency",
    "label": "Amount",
    "options": "company:company_currency",
-   "in_list_view": 1,
+   "in_list_view": 0,
    "read_only": 1,
    "reqd": 1
   },
@@ -200,6 +214,7 @@
    "fieldtype": "Currency",
    "label": "Amount (Transaction Currency)",
    "options": "currency",
+   "in_list_view": 1,
    "read_only": 1
   },
   {
@@ -224,6 +239,7 @@
    "fieldtype": "Table",
    "label": "Accounts",
    "options": "POS Cash Transaction Detail",
+   "in_list_view": 1,
    "reqd": 1
   }
  ],

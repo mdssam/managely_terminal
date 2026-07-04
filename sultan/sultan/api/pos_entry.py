@@ -722,6 +722,7 @@ def _populate_sales_invoices_to_closing_entry(closing_doc, opening_entry_name):
 			closing_doc.append(
 				"custom_sales_invoice",
 				{
+					"reference_doctype": "Sales Invoice",
 					"sales_invoice": invoice.name,
 					"customer": invoice.customer,
 					"posting_date": invoice.posting_date,
@@ -734,6 +735,7 @@ def _populate_sales_invoices_to_closing_entry(closing_doc, opening_entry_name):
 			closing_doc.append(
 				"custom_sales_invoice",
 				{
+					"reference_doctype": "POS Invoice",
 					"sales_invoice": invoice.name,
 					"customer": invoice.customer,
 					"posting_date": invoice.posting_date,

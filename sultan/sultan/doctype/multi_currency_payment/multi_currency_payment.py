@@ -267,6 +267,9 @@ class MultiCurrencyPayment(Document):
 			base_amount = flt(row.amount_base_currency)
 			exchange_rate = flt(row.exchange_rate) or 1.0
 
+			row_cost_center = row.get("cost_center") or cost_center
+			row_project = row.get("project") or project
+
 			gl_map.append(frappe._dict({
 				"doctype": "GL Entry",
 				"posting_date": self.posting_date,
@@ -283,8 +286,8 @@ class MultiCurrencyPayment(Document):
 				"voucher_type": "Multi Currency Payment",
 				"voucher_no": self.name,
 				"remarks": row.remarks or self.remarks or "",
-				"cost_center": cost_center,
-				"project": project,
+				"cost_center": row_cost_center,
+				"project": row_project,
 				"is_opening": "No",
 				"is_advance": "No",
 				"company": self.company,

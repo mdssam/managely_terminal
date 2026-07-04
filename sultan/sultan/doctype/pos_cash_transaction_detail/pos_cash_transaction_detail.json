@@ -6,11 +6,13 @@
  "engine": "InnoDB",
  "field_order": [
   "account",
-  "party_type",
-  "party",
+  "amount_in_account_currency",
   "account_currency",
   "exchange_rate",
-  "amount_in_account_currency",
+  "cost_center",
+  "project",
+  "party_type",
+  "party",
   "amount",
   "reference"
  ],
@@ -24,18 +26,12 @@
    "reqd": 1
   },
   {
-   "fieldname": "party_type",
-   "fieldtype": "Link",
+   "fieldname": "amount_in_account_currency",
+   "fieldtype": "Currency",
    "in_list_view": 1,
-   "label": "Party Type",
-   "options": "Party Type"
-  },
-  {
-   "fieldname": "party",
-   "fieldtype": "Dynamic Link",
-   "in_list_view": 1,
-   "label": "Party",
-   "options": "party_type"
+   "label": "Amount in Account Currency",
+   "options": "account_currency",
+   "reqd": 1
   },
   {
    "fieldname": "account_currency",
@@ -54,12 +50,32 @@
    "reqd": 1
   },
   {
-   "fieldname": "amount_in_account_currency",
-   "fieldtype": "Currency",
+   "fieldname": "cost_center",
+   "fieldtype": "Link",
    "in_list_view": 1,
-   "label": "Amount in Account Currency",
-   "options": "account_currency",
-   "reqd": 1
+   "label": "Cost Center",
+   "options": "Cost Center"
+  },
+  {
+   "fieldname": "project",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Project",
+   "options": "Project"
+  },
+  {
+   "fieldname": "party_type",
+   "fieldtype": "Link",
+   "in_list_view": 0,
+   "label": "Party Type",
+   "options": "Party Type"
+  },
+  {
+   "fieldname": "party",
+   "fieldtype": "Dynamic Link",
+   "in_list_view": 0,
+   "label": "Party",
+   "options": "party_type"
   },
   {
    "fieldname": "amount",
