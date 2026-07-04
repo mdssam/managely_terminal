@@ -901,6 +901,18 @@ def create_and_submit_invoice(data):
 		# Standard path: save then submit; if submit fails (e.g. negative stock),
 		# rollback the save and return error.
 		doc.save(ignore_permissions=True)
+		# After save, ERPNext recalculates rounded_total / grand_total.
+		# Sync paid_amount with the final invoice total to satisfy validate_full_payment().
+		_invoice_total = flt(doc.rounded_total) or flt(doc.grand_total)
+		if _invoice_total and flt(doc.paid_amount) != _invoice_total:
+			if doc.payments:
+				# Adjust last payment row to cover any rounding gap
+				_diff = _invoice_total - sum(flt(p.amount) for p in doc.payments[:-1])
+				doc.payments[-1].amount = flt(_diff, doc.precision("paid_amount"))
+			doc.paid_amount = _invoice_total
+			doc.base_paid_amount = _invoice_total * (doc.conversion_rate or 1)
+			doc.outstanding_amount = 0
+			doc.db_update()
 		try:
 			doc.submit()
 		except Exception as submit_err:
