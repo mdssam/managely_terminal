@@ -1,4 +1,4 @@
-import json
+﻿import json
 
 import frappe
 from erpnext.setup.utils import get_exchange_rate
@@ -238,7 +238,7 @@ def get_customers(limit: int = 100, start: int = 0, search: str = ""):
 		pos_customers = frappe.get_all(
 			"POS Customer",
 			filters=pos_cust_filters,
-			fields=["name", "customer_name", "mobile_no", "email_id", "company", "unified_customer"],
+			fields=["name", "customer_name", "mobile_no", "email_id", "company", "unified_customer", "address"],
 			limit=limit,
 		)
 
@@ -254,7 +254,7 @@ def get_customers(limit: int = 100, start: int = 0, search: str = ""):
 					"phone": pc.mobile_no,
 					"mobile_no": pc.mobile_no,
 				},
-				"address": None,
+				"address": {"address_line1": pc.get("address")} if pc.get("address") else None,
 				"default_currency": company_currency,
 				"company_currency": company_currency,
 				"custom_total_orders": 0,
@@ -373,9 +373,9 @@ def get_customer_info(customer_name: str):
 		print("CUSTOMER WETU", customer_name)
 
 		# Try POS Customer first
-		pos_cust = frappe.db.get_value("POS Customer", {"customer_name": customer_name}, ["name", "customer_name", "mobile_no", "email_id", "unified_customer"], as_dict=True)
+		pos_cust = frappe.db.get_value("POS Customer", {"customer_name": customer_name}, ["name", "customer_name", "mobile_no", "email_id", "unified_customer", "address"], as_dict=True)
 		if not pos_cust:
-			pos_cust = frappe.db.get_value("POS Customer", {"name": customer_name}, ["name", "customer_name", "mobile_no", "email_id", "unified_customer"], as_dict=True)
+			pos_cust = frappe.db.get_value("POS Customer", {"name": customer_name}, ["name", "customer_name", "mobile_no", "email_id", "unified_customer", "address"], as_dict=True)
 
 		if pos_cust:
 			return {
@@ -396,7 +396,14 @@ def get_customer_info(customer_name: str):
 					"mobile_no": pos_cust.mobile_no,
 					"phone": pos_cust.mobile_no,
 				},
-				"address_data": None,
+				"address_data": {
+					"address_line1": pos_cust.address,
+					"address_line2": "",
+					"city": "",
+					"state": "",
+					"country": "",
+					"pincode": "",
+				} if pos_cust.get("address") else None,
 			}
 
 		# First try to find by customer_name
@@ -508,11 +515,25 @@ def create_or_update_customer(customer_data):
 			if existing_pos_cust:
 				frappe.throw(_("A customer with the name '{0}' already exists.").format(customer_name))
 			else:
+				address = customer_data.get("address", {})
+				addr_str = ""
+				if address:
+					parts = [
+						address.get("address_line1") or address.get("street") or "",
+						address.get("address_line2") or address.get("buildingNumber") or "",
+						address.get("city") or "",
+						address.get("state") or "",
+						address.get("pincode") or address.get("zipCode") or "",
+						address.get("country") or ""
+					]
+					addr_str = ", ".join([p for p in parts if p])
+
 				pos_cust_doc = frappe.get_doc({
 					"doctype": "POS Customer",
 					"customer_name": customer_name,
 					"mobile_no": phone,
 					"email_id": email,
+					"address": addr_str,
 					"unified_customer": customer_data.get("unified_customer") or unified_customer,
 					"company": customer_data.get("company") or pos_profile.company
 				})

@@ -312,6 +312,15 @@ def _build_filters_and_fields(
 	if has_zatca_status:
 		fields.append("custom_zatca_submit_status")
 
+	if "custom_delivery_status" in all_fieldnames:
+		fields.append("custom_delivery_status")
+	if "custom_delivery_cod" in all_fieldnames:
+		fields.append("custom_delivery_cod")
+	if "custom_delivery_fee" in all_fieldnames:
+		fields.append("custom_delivery_fee")
+	if "custom_delivery_personnel" in all_fieldnames:
+		fields.append("custom_delivery_personnel")
+
 	# Add cashier filter if provided. Prefer the employee attached to the POS
 	# Opening Entry because the ERPNext browser session may still be Administrator.
 	if cashier_opening_entries and has_opening_entry:
@@ -857,6 +866,7 @@ def create_and_submit_invoice(data):
 			include_payments=True,
 			delivery_personnel=delivery_personnel,
 			draft_id=draft_id,
+			delivery_fee=flt(data.get("deliveryFee", 0.0)),
 		)
 
 		if data.get("is_return"):
@@ -866,7 +876,13 @@ def create_and_submit_invoice(data):
 
 		doc.base_paid_amount = amount_paid
 		doc.paid_amount = amount_paid
-		doc.outstanding_amount = 0
+		
+		# If it is a COD delivery order, it is unpaid until driver settles
+		is_delivery_cod = (data.get("deliveryPersonnel") and data.get("paymentMethods") is None) or (data.get("deliveryStatus") == "Pending")
+		if is_delivery_cod:
+			doc.outstanding_amount = doc.grand_total
+		else:
+			doc.outstanding_amount = flt(doc.grand_total) - flt(amount_paid)
 
 		# When the POS Profile has "Consolidate Invoice on Close" enabled, save as a
 		# draft and return immediately.  GL entries and stock deductions are posted
@@ -904,7 +920,7 @@ def create_and_submit_invoice(data):
 		# After save, ERPNext recalculates rounded_total / grand_total.
 		# Sync paid_amount with the final invoice total to satisfy validate_full_payment().
 		_invoice_total = flt(doc.rounded_total) or flt(doc.grand_total)
-		if _invoice_total and flt(doc.paid_amount) != _invoice_total:
+		if not doc.get("custom_delivery_cod") and _invoice_total and flt(doc.paid_amount) != _invoice_total:
 			if doc.payments:
 				# Adjust last payment row to cover any rounding gap
 				_diff = _invoice_total - sum(flt(p.amount) for p in doc.payments[:-1])
@@ -1147,6 +1163,7 @@ def build_sales_invoice_doc(
 	include_payments=False,
 	delivery_personnel=None,
 	draft_id=None,
+	delivery_fee=0.0,
 ):
 	"""Main function to build a POS invoice document."""
 	if draft_id and frappe.db.exists("POS Invoice", draft_id):
@@ -1174,9 +1191,12 @@ def build_sales_invoice_doc(
 	doc.due_date = frappe.utils.nowdate()
 	doc.custom_delivery_date = frappe.utils.nowdate()
 
-	# Set delivery personnel if provided
-	if delivery_personnel:
-		doc.custom_delivery_personnel = delivery_personnel
+	# Set delivery details if provided or has delivery fee
+	if delivery_personnel or flt(delivery_fee) > 0.0:
+		if delivery_personnel:
+			doc.custom_delivery_personnel = delivery_personnel
+		doc.custom_delivery_status = "Pending"
+		doc.custom_delivery_fee = flt(delivery_fee)
 
 	# Configure POS profile and company settings
 	pos_profile = _get_active_pos_profile()
@@ -3291,3 +3311,31 @@ class CustomPOSInvoice(POSInvoice):
 			# enable_discount_accounting not set for POS Invoice doctype in older erpnext 15 builds
 			pass
 
+
+
+@frappe.whitelist()
+def settle_delivery_invoices(invoice_names, current_session_id):
+	"""
+	Settle delivery invoices: mark them as settled and move to current active session.
+	"""
+	try:
+		if isinstance(invoice_names, str):
+			invoice_names = json.loads(invoice_names)
+
+		for name in invoice_names:
+			if frappe.db.exists("POS Invoice", name):
+				frappe.db.set_value("POS Invoice", name, {
+					"custom_delivery_status": "Settled",
+					"custom_pos_opening_entry": current_session_id
+				})
+			if frappe.db.exists("Sales Invoice", name):
+				frappe.db.set_value("Sales Invoice", name, {
+					"custom_delivery_status": "Settled",
+					"custom_pos_opening_entry": current_session_id
+				})
+
+		frappe.db.commit()
+		return {"success": True}
+	except Exception as e:
+		frappe.log_error(frappe.get_traceback(), "Error settling delivery invoices")
+		return {"success": False, "error": str(e)}

@@ -253,6 +253,54 @@ def run():
 	else:
 		print("custom_pos_opening_entry field already exists.")
 
+	# Delivery fields on POS Invoice and Sales Invoice
+	for dt in ["POS Invoice", "Sales Invoice"]:
+		delivery_fields = [
+			{
+				"dt": dt,
+				"fieldname": "custom_delivery_personnel",
+				"label": "Delivery Personnel",
+				"fieldtype": "Link" if frappe.db.exists("DocType", "Delivery Personnel") else "Data",
+				"options": "Delivery Personnel" if frappe.db.exists("DocType", "Delivery Personnel") else None,
+				"insert_after": "customer"
+			},
+			{
+				"dt": dt,
+				"fieldname": "custom_delivery_status",
+				"label": "Delivery Status",
+				"fieldtype": "Select",
+				"options": "Pending\nOut for Delivery\nDelivered\nSettled\nCancelled",
+				"default": "Pending",
+				"insert_after": "custom_delivery_personnel"
+			},
+			{
+				"dt": dt,
+				"fieldname": "custom_delivery_fee",
+				"label": "Delivery Fee",
+				"fieldtype": "Currency",
+				"default": "0.0",
+				"insert_after": "custom_delivery_status"
+			}
+		]
+		for f in delivery_fields:
+			cf_name = f"{dt}-{f['fieldname']}"
+			if not frappe.db.exists("Custom Field", cf_name):
+				doc = frappe.new_doc("Custom Field")
+				for k, v in f.items():
+					setattr(doc, k, v)
+				doc.insert(ignore_permissions=True)
+				print(f"Created {cf_name}.")
+			else:
+				doc = frappe.get_doc("Custom Field", cf_name)
+				changed = False
+				for k, v in f.items():
+					if getattr(doc, k, None) != v:
+						setattr(doc, k, v)
+						changed = True
+				if changed:
+					doc.save(ignore_permissions=True)
+					print(f"Updated {cf_name}.")
+
 	# Custom field for POS Opening Entry in POS Invoice
 	pos_invoice_opening_field = "POS Invoice-custom_pos_opening_entry"
 	if not frappe.db.exists("Custom Field", pos_invoice_opening_field):
