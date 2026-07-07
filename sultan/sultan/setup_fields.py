@@ -791,6 +791,13 @@ def ensure_sultan_pos_profile_fields():
 			"fieldtype": "Check",
 		},
 		{
+			"fieldname": "custom_delivery_charge_account",
+			"label": "Delivery Charge Account",
+			"fieldtype": "Link",
+			"options": "Account",
+			"description": "Account where delivery fee income will be booked"
+		},
+		{
 			"fieldname": "custom_consolidate_invoicing",
 			"label": "Consolidate Invoice on Close",
 			"fieldtype": "Check",

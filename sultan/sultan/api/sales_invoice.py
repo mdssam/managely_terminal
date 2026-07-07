@@ -320,6 +320,15 @@ def _build_filters_and_fields(
 		fields.append("custom_delivery_fee")
 	if "custom_delivery_personnel" in all_fieldnames:
 		fields.append("custom_delivery_personnel")
+	if "custom_driver_settled" in all_fieldnames:
+		fields.append("custom_driver_settled")
+
+	if "custom_pos_order_type" in all_fieldnames:
+		fields.append("custom_pos_order_type")
+	if "cashier_name" in all_fieldnames:
+		fields.append("cashier_name")
+	if "employee_username" in all_fieldnames:
+		fields.append("employee_username")
 
 	# Add cashier filter if provided. Prefer the employee attached to the POS
 	# Opening Entry because the ERPNext browser session may still be Administrator.
@@ -537,7 +546,7 @@ def _batch_fetch_items(invoice_names):
 def _process_invoices(invoices, cashier_names_map, opening_cashier_map, payment_methods_map, items_map):
 	"""Process and enrich invoices with related data."""
 	for inv in invoices:
-		inv["cashier_name"] = opening_cashier_map.get(inv.name) or cashier_names_map.get(inv.owner, inv.owner)
+		inv["cashier_name"] = inv.get("cashier_name") or opening_cashier_map.get(inv.name) or cashier_names_map.get(inv.owner, inv.owner)
 
 		# Override display customer details if POS Customer is linked
 		if inv.get("custom_pos_customer"):
@@ -874,13 +883,40 @@ def create_and_submit_invoice(data):
 			doc.return_against = data.get("return_against")
 			doc.is_pos = 1
 
+		# Sultan custom fields
+		doc.custom_pos_order_type = data.get("custom_pos_order_type") or ("Delivery" if float(data.get("deliveryFee", 0.0)) > 0 or data.get("deliveryPersonnel") else "Pickup")
+		doc.cashier_name = data.get("cashier_name") or ""
+		doc.employee_username = data.get("employee_username") or ""
+		doc.custom_driver_settled = data.get("custom_driver_settled") or 0
+
 		doc.base_paid_amount = amount_paid
 		doc.paid_amount = amount_paid
 		
 		# If it is a COD delivery order, it is unpaid until driver settles
-		is_delivery_cod = (data.get("deliveryPersonnel") and data.get("paymentMethods") is None) or (data.get("deliveryStatus") == "Pending")
+		custom_delivery_cod = data.get("custom_delivery_cod")
+		if custom_delivery_cod is not None:
+			is_delivery_cod = int(custom_delivery_cod) == 1
+		else:
+			is_delivery_cod = (data.get("deliveryPersonnel") and data.get("paymentMethods") is None) or (data.get("deliveryStatus") == "Pending")
 		if is_delivery_cod:
+			doc.custom_delivery_cod = 1
 			doc.outstanding_amount = doc.grand_total
+			# POS Invoice requires at least one payment row to pass validate_mode_of_payment
+			if not doc.get("payments"):
+				try:
+					pos_profile_doc = frappe.get_cached_doc("POS Profile", doc.pos_profile)
+					default_mop = None
+					if pos_profile_doc.get("payments"):
+						for pm in pos_profile_doc.payments:
+							if pm.default:
+								default_mop = pm.mode_of_payment
+								break
+						if not default_mop:
+							default_mop = pos_profile_doc.payments[0].mode_of_payment
+					if default_mop:
+						doc.append("payments", {"mode_of_payment": default_mop, "amount": 0, "default": 1})
+				except Exception:
+					pass
 		else:
 			doc.outstanding_amount = flt(doc.grand_total) - flt(amount_paid)
 
@@ -916,11 +952,37 @@ def create_and_submit_invoice(data):
 
 		# Standard path: save then submit; if submit fails (e.g. negative stock),
 		# rollback the save and return error.
+		# COD delivery invoices are saved as Draft until the driver collects payment.
+		if is_delivery_cod:
+			doc.save(ignore_permissions=True)
+			processing_time = time.time() - start_time
+			frappe.logger().info(f"COD Invoice {doc.name} saved as Draft (unpaid) in {processing_time:.2f}s")
+			return {
+				"success": True,
+				"invoice_name": doc.name,
+				"invoice_id": doc.name,
+				"invoice": {
+					"name": doc.name,
+					"doctype": doc.doctype,
+					"customer": doc.customer,
+					"customer_name": doc.customer_name,
+					"posting_date": doc.posting_date,
+					"base_grand_total": doc.base_grand_total,
+					"currency": doc.currency,
+					"status": "Draft",
+					"is_pos": doc.is_pos,
+					"company": doc.company,
+					"docstatus": 0,
+				},
+				"payment_entry": None,
+				"processing_time": round(processing_time, 2),
+			}
+
 		doc.save(ignore_permissions=True)
 		# After save, ERPNext recalculates rounded_total / grand_total.
 		# Sync paid_amount with the final invoice total to satisfy validate_full_payment().
 		_invoice_total = flt(doc.rounded_total) or flt(doc.grand_total)
-		if not doc.get("custom_delivery_cod") and _invoice_total and flt(doc.paid_amount) != _invoice_total:
+		if _invoice_total and flt(doc.paid_amount) != _invoice_total:
 			if doc.payments:
 				# Adjust last payment row to cover any rounding gap
 				_diff = _invoice_total - sum(flt(p.amount) for p in doc.payments[:-1])
@@ -1222,6 +1284,29 @@ def build_sales_invoice_doc(
 
 	# Populate tax details
 	_populate_tax_details(doc)
+
+	# Inject Delivery Fee into taxes to add it to grand_total
+	if flt(delivery_fee) > 0.0:
+		shipping_account = None
+		if pos_profile and getattr(pos_profile, "custom_delivery_charge_account", None):
+			shipping_account = pos_profile.custom_delivery_charge_account
+		
+		if not shipping_account:
+			shipping_account = "626100020 - Delivery Charge - SG"
+			
+		if not frappe.db.exists("Account", shipping_account):
+			shipping_account = frappe.db.get_value("Company", doc.company, "default_income_account")
+		if shipping_account:
+			doc.append("taxes", {
+				"charge_type": "Actual",
+				"account_head": shipping_account,
+				"description": "Delivery Fee",
+				"tax_amount": flt(delivery_fee),
+				"base_tax_amount": flt(delivery_fee),
+				"cost_center": doc.cost_center
+			})
+			# Re-calculate taxes and totals to update grand_total
+			doc.run_method("calculate_taxes_and_totals")
 
 	# Add payment information
 	if include_payments:
@@ -3316,26 +3401,92 @@ class CustomPOSInvoice(POSInvoice):
 @frappe.whitelist()
 def settle_delivery_invoices(invoice_names, current_session_id):
 	"""
-	Settle delivery invoices: mark them as settled and move to current active session.
+	Settle COD delivery invoices:
+	- If POS Invoice is Draft (docstatus=0), add full payment and submit it.
+	- Mark custom_delivery_status = Settled and move to current session.
 	"""
 	try:
 		if isinstance(invoice_names, str):
 			invoice_names = json.loads(invoice_names)
 
-		for name in invoice_names:
-			if frappe.db.exists("POS Invoice", name):
-				frappe.db.set_value("POS Invoice", name, {
-					"custom_delivery_status": "Settled",
-					"custom_pos_opening_entry": current_session_id
-				})
-			if frappe.db.exists("Sales Invoice", name):
-				frappe.db.set_value("Sales Invoice", name, {
-					"custom_delivery_status": "Settled",
-					"custom_pos_opening_entry": current_session_id
-				})
+		settled = []
+		errors = []
 
+		for name in invoice_names:
+			try:
+				if frappe.db.exists("POS Invoice", name):
+					doc = frappe.get_doc("POS Invoice", name)
+					doc.custom_delivery_status = "Delivered"
+					doc.custom_driver_settled = 1
+					doc.custom_pos_opening_entry = current_session_id
+					if doc.docstatus == 0:
+						invoice_total = flt(doc.rounded_total) or flt(doc.grand_total)
+						if doc.payments:
+							for p in doc.payments:
+								p.amount = 0
+							doc.payments[-1].amount = invoice_total
+						else:
+							default_mop = "Cash"
+							try:
+								pos_profile_doc = frappe.get_cached_doc("POS Profile", doc.pos_profile)
+								if pos_profile_doc.get("payments"):
+									for pm in pos_profile_doc.payments:
+										if pm.default:
+											default_mop = pm.mode_of_payment
+											break
+									if not default_mop:
+										default_mop = pos_profile_doc.payments[0].mode_of_payment
+							except Exception:
+								pass
+							doc.append("payments", {"mode_of_payment": default_mop, "amount": invoice_total, "default": 1})
+						doc.paid_amount = invoice_total
+						doc.base_paid_amount = invoice_total * (doc.conversion_rate or 1)
+						doc.outstanding_amount = 0
+						doc.custom_delivery_cod = 0
+						doc.save(ignore_permissions=True)
+						doc.submit()
+					else:
+						doc.save(ignore_permissions=True)
+					settled.append(name)
+				elif frappe.db.exists("Sales Invoice", name):
+					frappe.db.set_value("Sales Invoice", name, {
+						"custom_delivery_status": "Delivered",
+						"custom_driver_settled": 1,
+						"custom_pos_opening_entry": current_session_id
+					})
+					settled.append(name)
+			except Exception as inv_err:
+				frappe.log_error(frappe.get_traceback(), f"Error settling invoice {name}")
+				errors.append({"name": name, "error": str(inv_err)})
+
+		frappe.db.commit()
+		return {"success": True, "settled": settled, "errors": errors}
+	except Exception as e:
+		frappe.log_error(frappe.get_traceback(), "Error settling delivery invoices")
+		return {"success": False, "error": str(e)}
+
+
+@frappe.whitelist()
+def assign_driver_to_invoice(invoice_name, driver_name=None, status=None):
+	try:
+		fields_to_update = {}
+		if driver_name is not None:
+			fields_to_update["custom_delivery_personnel"] = driver_name
+		if status is not None:
+			fields_to_update["custom_delivery_status"] = status
+			
+		if not fields_to_update:
+			return {"success": False, "error": "No fields to update"}
+
+		if frappe.db.exists("POS Invoice", invoice_name):
+			frappe.db.set_value("POS Invoice", invoice_name, fields_to_update)
+		elif frappe.db.exists("Sales Invoice", invoice_name):
+			frappe.db.set_value("Sales Invoice", invoice_name, fields_to_update)
+		else:
+			return {"success": False, "error": "Invoice not found"}
+			
 		frappe.db.commit()
 		return {"success": True}
 	except Exception as e:
-		frappe.log_error(frappe.get_traceback(), "Error settling delivery invoices")
+		frappe.log_error(frappe.get_traceback(), "Error assigning driver to invoice")
 		return {"success": False, "error": str(e)}

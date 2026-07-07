@@ -160,8 +160,18 @@ def get_pos_details():
 			"allow_discount_change": 0,
 			"custom_hide_tax_in_cart": 0,
 			"custom_prices_include_vat": 0,
+			"custom_allow_zero_stock_sale": 0,
 			"role": frappe.db.get_value("User", frappe.session.user, "role_profile_name") or "Cashier"
 		}
+
+	# Resolve country code based on company's country
+	country_code = None
+	if getattr(pos, "company", None):
+		company_country = frappe.db.get_value("Company", pos.company, "country")
+		if company_country:
+			raw_code = frappe.db.get_value("Country", company_country, "code")
+			if raw_code:
+				country_code = str(raw_code).upper()
 
 	business_type = getattr(pos, "custom_business_type", "Retail")
 	print_format = getattr(pos, "custom_pos_printformat", "Standard")
@@ -211,6 +221,7 @@ def get_pos_details():
 		"custom_ignore_write_off_on_partial_returns": getattr(pos, "custom_ignore_write_off_on_partial_returns", 1.0),
 		"custom_delivery_required": int(getattr(pos, "custom_delivery_required", 0) or 0),
 		"allow_discount_change": getattr(pos, "allow_discount_change", 0),
+		"custom_allow_zero_stock_sale": getattr(pos, "custom_allow_zero_stock_sale", 0),
 		"role": active_role,
 		"custom_is_branch": int(getattr(pos, "custom_is_branch", 0) or 0),
 		# Multi-currency
@@ -223,6 +234,7 @@ def get_pos_details():
 		"custom_exchange_rate": float(getattr(pos, "custom_exchange_rate", 0) or 0),
 		"custom_hide_tax_in_cart": int(getattr(pos, "custom_hide_tax_in_cart", 0) or 0),
 		"custom_prices_include_vat": int(getattr(pos, "custom_prices_include_vat", 0) or 0),
+		"country_code": country_code or "LB",
 	}
 	return details
 

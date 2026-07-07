@@ -495,9 +495,14 @@ def create_or_update_customer(customer_data):
 		email = customer_data.get("email")
 		phone = customer_data.get("phone")
 		cust_type = customer_data.get("customer_type", customer_data.get("type", "individual")).lower()
-		country = customer_data.get("address", {}).get("country", "Kenya")
+		address = customer_data.get("address") or {}
+		if isinstance(address, str):
+			address_dict = {"address_line1": address}
+		else:
+			address_dict = address
+
+		country = address_dict.get("country", "Saudi Arabia")
 		name_arabic = customer_data.get("name_arabic", "")
-		address = customer_data.get("address", {})
 
 		if not customer_name:
 			customer_name = phone or email
@@ -515,9 +520,10 @@ def create_or_update_customer(customer_data):
 			if existing_pos_cust:
 				frappe.throw(_("A customer with the name '{0}' already exists.").format(customer_name))
 			else:
-				address = customer_data.get("address", {})
 				addr_str = ""
-				if address:
+				if isinstance(address, str):
+					addr_str = address
+				elif address:
 					parts = [
 						address.get("address_line1") or address.get("street") or "",
 						address.get("address_line2") or address.get("buildingNumber") or "",
@@ -534,7 +540,7 @@ def create_or_update_customer(customer_data):
 					"mobile_no": phone,
 					"email_id": email,
 					"address": addr_str,
-					"unified_customer": customer_data.get("unified_customer") or unified_customer,
+					"unified_customer": unified_customer if customer_data.get("unified_customer") == "Walk-in Customer" else (customer_data.get("unified_customer") or unified_customer),
 					"company": customer_data.get("company") or pos_profile.company
 				})
 				pos_cust_doc.insert(ignore_permissions=True)
