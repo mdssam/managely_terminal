@@ -316,6 +316,8 @@ def _build_filters_and_fields(
 		fields.append("custom_delivery_status")
 	if "custom_delivery_cod" in all_fieldnames:
 		fields.append("custom_delivery_cod")
+	if "custom_delivery_prepaid" in all_fieldnames:
+		fields.append("custom_delivery_prepaid")
 	if "custom_delivery_fee" in all_fieldnames:
 		fields.append("custom_delivery_fee")
 	if "custom_delivery_personnel" in all_fieldnames:
@@ -888,6 +890,9 @@ def create_and_submit_invoice(data):
 		doc.cashier_name = data.get("cashier_name") or ""
 		doc.employee_username = data.get("employee_username") or ""
 		doc.custom_driver_settled = data.get("custom_driver_settled") or 0
+		doc.custom_delivery_prepaid = data.get("custom_delivery_prepaid") or 0
+		if not getattr(doc, "custom_pos_opening_entry", None):
+			doc.custom_pos_opening_entry = data.get("custom_pos_opening_entry") or data.get("pos_session")
 
 		doc.base_paid_amount = amount_paid
 		doc.paid_amount = amount_paid
@@ -3416,10 +3421,10 @@ def settle_delivery_invoices(invoice_names, current_session_id):
 			try:
 				if frappe.db.exists("POS Invoice", name):
 					doc = frappe.get_doc("POS Invoice", name)
-					doc.custom_delivery_status = "Delivered"
-					doc.custom_driver_settled = 1
-					doc.custom_pos_opening_entry = current_session_id
 					if doc.docstatus == 0:
+						doc.custom_delivery_status = "Delivered"
+						doc.custom_driver_settled = 1
+						doc.custom_pos_opening_entry = current_session_id
 						invoice_total = flt(doc.rounded_total) or flt(doc.grand_total)
 						if doc.payments:
 							for p in doc.payments:
@@ -3442,11 +3447,15 @@ def settle_delivery_invoices(invoice_names, current_session_id):
 						doc.paid_amount = invoice_total
 						doc.base_paid_amount = invoice_total * (doc.conversion_rate or 1)
 						doc.outstanding_amount = 0
-						doc.custom_delivery_cod = 0
+						doc.custom_delivery_cod = 1
 						doc.save(ignore_permissions=True)
 						doc.submit()
 					else:
-						doc.save(ignore_permissions=True)
+						frappe.db.set_value("POS Invoice", name, {
+							"custom_delivery_status": "Delivered",
+							"custom_driver_settled": 1,
+							"custom_pos_opening_entry": current_session_id
+						}, update_modified=False)
 					settled.append(name)
 				elif frappe.db.exists("Sales Invoice", name):
 					frappe.db.set_value("Sales Invoice", name, {

@@ -421,12 +421,20 @@ def create_closing_entry():
 		# Prevent closing if there are draft invoices
 		draft_pos_invoices = frappe.get_all(
 			"POS Invoice",
-			filters={"custom_pos_opening_entry": opening_entry.name, "docstatus": 0},
+			filters={
+				"custom_pos_opening_entry": opening_entry.name,
+				"docstatus": 0,
+				"custom_delivery_cod": ["!=", 1]
+			},
 			limit=1
 		)
 		draft_sales_invoices = frappe.get_all(
 			"Sales Invoice",
-			filters={"custom_pos_opening_entry": opening_entry.name, "docstatus": 0},
+			filters={
+				"custom_pos_opening_entry": opening_entry.name,
+				"docstatus": 0,
+				"custom_delivery_cod": ["!=", 1]
+			},
 			limit=1
 		)
 		
@@ -1223,3 +1231,25 @@ def get_sequence_state(pos_profile):
 		"last_closing_id": last_closing_id,
 		"last_cash_tx_id": last_cash_tx_id
 	}
+
+@frappe.whitelist()
+def get_current_opening_entry():
+	user = frappe.session.user
+	own_entry = frappe.db.get_value(
+		'POS Opening Entry',
+		{'user': user, 'docstatus': 1, 'pos_closing_entry': None, 'status': 'Open'},
+		'name'
+	)
+	if own_entry:
+		return {'name': own_entry, 'success': True}
+	from sultan.sultan.utils import get_user_pos_profile_name
+	pos_profile_name = get_user_pos_profile_name(user)
+	if pos_profile_name:
+		profile_entry = frappe.db.get_value(
+			'POS Opening Entry',
+			{'pos_profile': pos_profile_name, 'docstatus': 1, 'status': 'Open'},
+			'name'
+		)
+		if profile_entry:
+			return {'name': profile_entry, 'success': True}
+	return {'name': None, 'success': True}
