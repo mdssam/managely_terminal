@@ -89,59 +89,10 @@ def setup_custom_fields():
 		_ensure_property_setter(dt, "set_warehouse", "reqd", "1", "Check")
 		_ensure_property_setter(dt, "set_warehouse", "bold", "1", "Check")
 
-	_upgrade_sultan_pos_cash_transaction_type()
 
 	frappe.db.commit()
 	frappe.clear_cache()
 	return f"Created/updated {count} accounting custom fields."
-
-
-_TXN_TYPE_OPTIONS = "Cash In\nCash Out\nOpening Difference\nClosing Difference"
-
-
-def _upgrade_sultan_pos_cash_transaction_type():
-	"""Ensure Sultan POS Cash Transaction has all 4 options and mode_of_payment field."""
-	row = frappe.db.get_value(
-		"DocField",
-		{"parent": "Sultan POS Cash Transaction", "fieldname": "transaction_type"},
-		["name", "options", "read_only", "default"],
-		as_dict=True,
-	)
-	if not row:
-		return
-	if row.options != _TXN_TYPE_OPTIONS or not row.read_only or row.default != "Cash In":
-		frappe.db.set_value("DocField", row.name, {
-			"options": _TXN_TYPE_OPTIONS,
-			"read_only": 1,
-			"default": "Cash In",
-		})
-
-	# Ensure mode_of_payment field exists (added after initial doctype creation)
-	if not frappe.db.get_value(
-		"DocField",
-		{"parent": "Sultan POS Cash Transaction", "fieldname": "mode_of_payment"},
-		"name",
-	):
-		pos_profile_idx = frappe.db.get_value(
-			"DocField",
-			{"parent": "Sultan POS Cash Transaction", "fieldname": "pos_profile"},
-			"idx",
-		) or 0
-		new_field = frappe.new_doc("DocField")
-		new_field.parent = "Sultan POS Cash Transaction"
-		new_field.parenttype = "DocType"
-		new_field.parentfield = "fields"
-		new_field.fieldname = "mode_of_payment"
-		new_field.label = "Mode of Payment"
-		new_field.fieldtype = "Link"
-		new_field.options = "Mode of Payment"
-		new_field.idx = pos_profile_idx + 1
-		new_field.insert(ignore_permissions=True)
-		if not frappe.db.has_column("Sultan POS Cash Transaction", "mode_of_payment"):
-			frappe.db.commit()
-			frappe.db.sql("ALTER TABLE `tabSultan POS Cash Transaction` ADD COLUMN mode_of_payment varchar(140)")
-			frappe.db.begin()
-		frappe.clear_cache(doctype="Sultan POS Cash Transaction")
 
 
 def _ensure_property_setter(dt, field, prop, value, prop_type="Data"):

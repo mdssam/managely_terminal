@@ -68,67 +68,6 @@ def ensure_employee_pos_login_fields():
 	frappe.clear_cache(doctype="Employee")
 
 
-_TXN_TYPE_OPTIONS = "Cash In\nCash Out\nOpening Difference\nClosing Difference"
-
-
-def _upgrade_sultan_pos_cash_transaction_type():
-    """Ensure Sultan POS Cash Transaction has all 4 options and mode_of_payment field."""
-    # Ensure transaction_type has all 4 options and is read-only
-    row = frappe.db.get_value(
-        "DocField",
-        {"parent": "Sultan POS Cash Transaction", "fieldname": "transaction_type"},
-        ["name", "options", "read_only", "default"],
-        as_dict=True,
-    )
-    if not row:
-        return
-    needs_update = (
-        row.options != _TXN_TYPE_OPTIONS
-        or not row.read_only
-        or row.default != "Cash In"
-    )
-    if needs_update:
-        frappe.db.set_value("DocField", row.name, {
-            "options": _TXN_TYPE_OPTIONS,
-            "read_only": 1,
-            "default": "Cash In",
-        })
-        frappe.clear_cache(doctype="Sultan POS Cash Transaction")
-        print("Upgraded Sultan POS Cash Transaction.transaction_type options.")
-    else:
-        print("Sultan POS Cash Transaction.transaction_type already up-to-date.")
-
-    # Ensure mode_of_payment field exists (added after initial doctype creation)
-    mop_field = frappe.db.get_value(
-        "DocField",
-        {"parent": "Sultan POS Cash Transaction", "fieldname": "mode_of_payment"},
-        "name",
-    )
-    if not mop_field:
-        # Find the idx of pos_profile to insert after it
-        pos_profile_idx = frappe.db.get_value(
-            "DocField",
-            {"parent": "Sultan POS Cash Transaction", "fieldname": "pos_profile"},
-            "idx",
-        ) or 0
-        new_field = frappe.new_doc("DocField")
-        new_field.parent = "Sultan POS Cash Transaction"
-        new_field.parenttype = "DocType"
-        new_field.parentfield = "fields"
-        new_field.fieldname = "mode_of_payment"
-        new_field.label = "Mode of Payment"
-        new_field.fieldtype = "Link"
-        new_field.options = "Mode of Payment"
-        new_field.idx = pos_profile_idx + 1
-        new_field.insert(ignore_permissions=True)
-        # Add the actual DB column
-        if not frappe.db.has_column("Sultan POS Cash Transaction", "mode_of_payment"):
-            frappe.db.add_column("Sultan POS Cash Transaction", "mode_of_payment", "varchar(140)")
-        frappe.clear_cache(doctype="Sultan POS Cash Transaction")
-        print("Added mode_of_payment field to Sultan POS Cash Transaction.")
-    else:
-        print("Sultan POS Cash Transaction.mode_of_payment already exists.")
-
 
 def run():
 	setup_accounting_custom_fields()
@@ -358,58 +297,6 @@ def run():
 	# ── Reorganize POS Profile custom fields ─────────────────────────────────
 	ensure_sultan_pos_profile_fields()
 
-	# ── Items 1 & 7: Sultan POS Cash Transaction doctype ─────────────────────
-	if not frappe.db.exists("DocType", "Sultan POS Cash Transaction"):
-		txn_doc = frappe.get_doc({
-			"doctype": "DocType",
-			"name": "Sultan POS Cash Transaction",
-			"module": "Sultan",
-			"custom": 1,
-			"naming_rule": "By \"Naming Series\" field",
-			"autoname": "naming_series:",
-			"is_submittable": 1,
-			"track_changes": 1,
-			"fields": [
-				{"fieldname": "naming_series", "label": "Series", "fieldtype": "Select",
-				 "options": "CASH-IO-.YYYY.-.####\n", "default": "CASH-IO-.YYYY.-.####", "reqd": 1},
-				{"fieldname": "transaction_type", "label": "Transaction Type", "fieldtype": "Select",
-				 "options": "Cash In\nCash Out\nOpening Difference\nClosing Difference",
-				 "reqd": 1, "in_list_view": 1, "read_only": 1, "default": "Cash In"},
-				{"fieldname": "amount", "label": "Amount", "fieldtype": "Currency", "reqd": 1, "in_list_view": 1},
-				{"fieldname": "description", "label": "Description", "fieldtype": "Small Text", "in_list_view": 1},
-				{"fieldname": "col_break_1", "fieldtype": "Column Break"},
-				{"fieldname": "pos_opening_entry", "label": "POS Opening Entry", "fieldtype": "Link",
-				 "options": "POS Opening Entry", "reqd": 1},
-				{"fieldname": "pos_profile", "label": "POS Profile", "fieldtype": "Link",
-				 "options": "POS Profile", "read_only": 1},
-				{"fieldname": "posting_date", "label": "Posting Date", "fieldtype": "Date",
-				 "default": "Today", "reqd": 1},
-				{"fieldname": "posting_time", "label": "Posting Time", "fieldtype": "Time"},
-				{"fieldname": "sec_accounts", "label": "Accounts", "fieldtype": "Section Break"},
-				# Cash In  → Debit = POS cash (read-only), Credit = bucket (editable)
-				# Cash Out → Debit = bucket (editable), Credit = POS cash (read-only)
-				{"fieldname": "account_debit", "label": "Account (Debit)", "fieldtype": "Link",
-				 "options": "Account", "in_list_view": 0},
-				{"fieldname": "account_credit", "label": "Account (Credit)", "fieldtype": "Link",
-				 "options": "Account", "in_list_view": 0},
-				{"fieldname": "currency", "label": "Currency", "fieldtype": "Link", "options": "Currency"},
-				{"fieldname": "linked_journal_entry", "label": "Journal Entry", "fieldtype": "Link",
-				 "options": "Journal Entry", "read_only": 1},
-				{"fieldname": "cashier_employee", "label": "Cashier Employee", "fieldtype": "Link",
-				 "options": "Employee"},
-			],
-			"permissions": [
-				{"role": "System Manager", "read": 1, "write": 1, "create": 1,
-				 "delete": 1, "submit": 1, "cancel": 1, "amend": 1},
-				{"role": "Accounts User", "read": 1, "write": 1, "create": 1, "submit": 1},
-			]
-		})
-		txn_doc.insert(ignore_permissions=True)
-		print("Created Sultan POS Cash Transaction doctype.")
-	else:
-		# Upgrade existing DocType: ensure transaction_type has all 4 options and is read_only
-		_upgrade_sultan_pos_cash_transaction_type()
-
 	# ── Employee POS Login fields ─────────────────────────────────────────────
 	ensure_employee_pos_login_fields()
 
@@ -482,56 +369,6 @@ def run():
 		})
 		doc.insert(ignore_permissions=True)
 		print("Created Custom DocType Allowed POS Profile")
-
-	if not frappe.db.exists("DocType", "POS Security Incident"):
-		frappe.get_doc({
-			"doctype": "DocType",
-			"name": "POS Security Incident",
-			"module": "Sultan",
-			"custom": 1,
-			"autoname": "hash",
-			"fields": [
-				{
-					"fieldname": "incident_id",
-					"label": "Incident ID",
-					"fieldtype": "Data",
-					"reqd": 1,
-					"in_list_view": 1
-				},
-				{
-					"fieldname": "timestamp",
-					"label": "Timestamp",
-					"fieldtype": "Datetime",
-					"reqd": 1,
-					"in_list_view": 1
-				},
-				{
-					"fieldname": "cashier",
-					"label": "Cashier",
-					"fieldtype": "Data",
-					"in_list_view": 1
-				},
-				{
-					"fieldname": "incident_type",
-					"label": "Incident Type",
-					"fieldtype": "Select",
-					"options": "Console Opened\nDatabase Tampered\nUnauthorized Access",
-					"in_list_view": 1,
-					"reqd": 1
-				},
-				{
-					"fieldname": "details",
-					"label": "Details",
-					"fieldtype": "Small Text",
-					"in_list_view": 1
-				}
-			],
-			"permissions": [
-				{"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1},
-				{"role": "Administrator", "read": 1, "write": 1, "create": 1, "delete": 1}
-			]
-		}).insert(ignore_permissions=True)
-		print("Created Custom DocType POS Security Incident")
 
 	allowed_pos_cf = "Employee-custom_allowed_pos_profiles"
 	if not frappe.db.exists("Custom Field", allowed_pos_cf):
@@ -647,19 +484,19 @@ def run():
 		}).insert(ignore_permissions=True)
 		print("Created Custom Single DocType Sultan Settings")
 
-	# Custom field for POS Invoice to avoid erpnext 15 AttributeError
-	pos_invoice_roundoff_cost_center = "POS Invoice-use_company_roundoff_cost_center"
-	if not frappe.db.exists("Custom Field", pos_invoice_roundoff_cost_center):
-		doc = frappe.get_doc({
-			"doctype": "Custom Field",
-			"dt": "POS Invoice",
-			"fieldname": "use_company_roundoff_cost_center",
-			"label": "Use Company Roundoff Cost Center",
-			"fieldtype": "Check",
-			"insert_after": "company"
-		})
-		doc.insert(ignore_permissions=True)
-		print("Created use_company_roundoff_cost_center custom field on POS Invoice.")
+# 	# Custom field for POS Invoice to avoid erpnext 15 AttributeError
+# 	pos_invoice_roundoff_cost_center = "POS Invoice-use_company_roundoff_cost_center"
+# 	if not frappe.db.exists("Custom Field", pos_invoice_roundoff_cost_center):
+# 		doc = frappe.get_doc({
+# 			"doctype": "Custom Field",
+# 			"dt": "POS Invoice",
+# 			"fieldname": "use_company_roundoff_cost_center",
+# 			"label": "Use Company Roundoff Cost Center",
+# 			"fieldtype": "Check",
+# 			"insert_after": "company"
+# 		})
+# 		doc.insert(ignore_permissions=True)
+# 		print("Created use_company_roundoff_cost_center custom field on POS Invoice.")
 
 	frappe.clear_cache(doctype="POS Profile")
 	frappe.clear_cache(doctype="Sales Invoice")
