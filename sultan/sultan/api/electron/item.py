@@ -1902,3 +1902,70 @@ def _add_unprocessed_items(result_items, cart_items):
 		cart_item_code = cart_item.get("id") or cart_item.get("item_code")
 		if cart_item_code and cart_item_code not in processed_item_codes:
 			result_items.append(cart_item)
+
+
+@frappe.whitelist()
+def get_pricing_rules_for_pos():
+	try:
+		rules = frappe.get_all("Pricing Rule", filters={"docstatus": 1, "disable": 0}, fields=[
+			"name", "title", "apply_on", "mixed_conditions", "apply_discount_on",
+			"discount_percentage", "discount_amount", "rate_or_discount",
+			"free_item", "free_qty", "valid_from", "valid_upto",
+			"company", "priority", "same_item"
+		])
+		
+		flat_rules = []
+		for r in rules:
+			r["is_free_item"] = 1 if (r.get("free_item") or r.get("same_item")) else 0
+			if r.get("same_item") and not r.get("free_item"):
+				r["free_item"] = "Same Item"
+				
+			item_codes = []
+			item_groups = []
+			brands = []
+			
+			if r.apply_on == "Item Code":
+				item_codes = frappe.get_all("Pricing Rule Item Code", filters={"parent": r.name, "parenttype": "Pricing Rule"}, fields=["item_code"])
+			elif r.apply_on == "Item Group":
+				item_groups = frappe.get_all("Pricing Rule Item Group", filters={"parent": r.name, "parenttype": "Pricing Rule"}, fields=["item_group"])
+			elif r.apply_on == "Brand":
+				brands = frappe.get_all("Pricing Rule Brand", filters={"parent": r.name, "parenttype": "Pricing Rule"}, fields=["brand"])
+				
+			if r.apply_on == "Item Code" and item_codes:
+				for ic in item_codes:
+					rule_copy = r.copy()
+					rule_copy["item_code"] = ic.item_code
+					rule_copy["item_group"] = None
+					rule_copy["brand"] = None
+					flat_rules.append(rule_copy)
+			elif r.apply_on == "Item Group" and item_groups:
+				for ig in item_groups:
+					rule_copy = r.copy()
+					rule_copy["item_code"] = None
+					rule_copy["item_group"] = ig.item_group
+					rule_copy["brand"] = None
+					flat_rules.append(rule_copy)
+			elif r.apply_on == "Brand" and brands:
+				for b in brands:
+					rule_copy = r.copy()
+					rule_copy["item_code"] = None
+					rule_copy["item_group"] = None
+					rule_copy["brand"] = b.brand
+					flat_rules.append(rule_copy)
+			else:
+				rule_copy = r.copy()
+				rule_copy["item_code"] = None
+				rule_copy["item_group"] = None
+				rule_copy["brand"] = None
+				flat_rules.append(rule_copy)
+				
+		return {
+			"success": True,
+			"data": flat_rules
+		}
+	except Exception as e:
+		frappe.log_error(frappe.get_traceback(), "Error in get_pricing_rules_for_pos")
+		return {
+			"success": False,
+			"error": str(e)
+		}

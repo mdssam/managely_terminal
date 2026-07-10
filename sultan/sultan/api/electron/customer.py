@@ -226,6 +226,8 @@ def get_customers(limit: int = 100, start: int = 0, search: str = ""):
 					"custom_last_visit": customer_stats.get("last_visit"),
 					"company": company,
 					"unified_customer": None,
+					"loyalty_program": "",
+					"loyalty_points": 0,
 					# "exchange_rate": get_currency_exchange_rate(company_currency, doc.default_currency)
 				}
 			)
@@ -238,7 +240,7 @@ def get_customers(limit: int = 100, start: int = 0, search: str = ""):
 		pos_customers = frappe.get_all(
 			"POS Customer",
 			filters=pos_cust_filters,
-			fields=["name", "customer_name", "mobile_no", "email_id", "company", "unified_customer", "address"],
+			fields=["name", "customer_name", "mobile_no", "email_id", "company", "unified_customer", "address", "loyalty_program", "loyalty_points"],
 			limit=limit,
 		)
 
@@ -263,6 +265,8 @@ def get_customers(limit: int = 100, start: int = 0, search: str = ""):
 				"is_pos_customer": True,
 				"company": pc.get("company"),
 				"unified_customer": pc.get("unified_customer"),
+				"loyalty_program": pc.get("loyalty_program") or "",
+				"loyalty_points": pc.get("loyalty_points") or 0,
 			})
 
 		# Deduplicate the merged list by customer_name
@@ -1015,3 +1019,35 @@ def check_customer_permission(customer_name):
 	except Exception as e:
 		frappe.logger().error(f"Error checking customer permission: {e!s}")
 		return {"success": False, "error": str(e), "has_permission": False}
+
+
+def update_pos_customer_loyalty(doc, method=None):
+	"""
+	Hook function triggered when a Loyalty Point Entry is created, modified or deleted.
+	Synchronizes the active loyalty points in real-time to the custom POS Customer DocType.
+	"""
+	try:
+		if getattr(doc, "customer", None):
+			import frappe
+			# 1. Sum up all active loyalty points for this customer
+			points_query = frappe.db.sql("""
+				SELECT SUM(loyalty_points) 
+				FROM `tabLoyalty Point Entry` 
+				WHERE customer = %s 
+				  AND (expiry_date IS NULL OR expiry_date >= CURDATE())
+			""", (doc.customer,))
+			points = points_query[0][0] or 0.0
+			
+			# 2. Check if a POS Customer record exists for this customer name/ID
+			pos_cust = frappe.db.get_value("POS Customer", {"customer_name": doc.customer}, "name")
+			if not pos_cust:
+				pos_cust = frappe.db.get_value("POS Customer", {"name": doc.customer}, "name")
+				
+			if pos_cust:
+				# 3. Update the loyalty points directly in the database
+				frappe.db.set_value("POS Customer", pos_cust, "loyalty_points", points)
+				frappe.db.commit()
+				frappe.logger().info(f"Loyalty Sync: Updated POS Customer '{pos_cust}' points to {points}")
+	except Exception as e:
+		import frappe
+		frappe.logger().error(f"Loyalty Sync Error: Failed to update POS Customer loyalty points: {e!s}")

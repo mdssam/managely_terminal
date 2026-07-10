@@ -303,6 +303,7 @@ def _build_filters_and_fields(
 		"currency",
 		"custom_pos_customer",
 		"is_return",
+		"return_against",
 	]
 
 	# Inject dynamic custom fields only if present
@@ -3404,20 +3405,32 @@ class CustomPOSInvoice(POSInvoice):
 
 
 @frappe.whitelist()
-def settle_delivery_invoices(invoice_names, current_session_id):
+def settle_delivery_invoices(invoice_names=None, current_session_id=None, payload=None):
 	"""
-	Settle COD delivery invoices:
-	- If POS Invoice is Draft (docstatus=0), add full payment and submit it.
-	- Mark custom_delivery_status = Settled and move to current session.
+	Settle COD delivery invoices and create a submitted Driver Settlement DocType.
+	Accepts either legacy format (invoice_names list) or new rich payload dict.
 	"""
 	try:
-		if isinstance(invoice_names, str):
-			invoice_names = json.loads(invoice_names)
+		# Support both old (invoice_names) and new (payload) call formats
+		if payload:
+			if isinstance(payload, str):
+				payload = json.loads(payload)
+			invoice_rows = payload.get("invoices", [])
+			if isinstance(invoice_rows, str):
+				invoice_rows = json.loads(invoice_rows)
+			invoice_names_list = [r["id"] for r in invoice_rows]
+			current_session_id = payload.get("session_id", current_session_id)
+		else:
+			if isinstance(invoice_names, str):
+				invoice_names = json.loads(invoice_names)
+			invoice_names_list = invoice_names or []
+			payload = {}
+			invoice_rows = [{"id": n} for n in invoice_names_list]
 
 		settled = []
 		errors = []
 
-		for name in invoice_names:
+		for name in invoice_names_list:
 			try:
 				if frappe.db.exists("POS Invoice", name):
 					doc = frappe.get_doc("POS Invoice", name)
@@ -3468,12 +3481,52 @@ def settle_delivery_invoices(invoice_names, current_session_id):
 				frappe.log_error(frappe.get_traceback(), f"Error settling invoice {name}")
 				errors.append({"name": name, "error": str(inv_err)})
 
+		# ── Create & submit Driver Settlement DocType ──────────────────
+		settlement_name = None
+		try:
+			if frappe.db.table_exists("tabDriver Settlement"):
+				from frappe.utils import now_datetime
+				settlement_doc = frappe.get_doc({
+					"doctype": "Driver Settlement",
+					"driver_id": payload.get("driver_id", ""),
+					"driver_name": payload.get("driver_name", ""),
+					"session_id": current_session_id,
+					"settled_at": payload.get("settled_at") or str(now_datetime()),
+					"total_amount": flt(payload.get("total_amount", 0)),
+					"delivery_amount": flt(payload.get("delivery_amount", 0)),
+					"net_amount": flt(payload.get("net_amount", 0)),
+					"invoice_count": len(invoice_rows),
+					"invoices": [
+						{
+							"invoice_id": r.get("id", ""),
+							"customer": r.get("customer", ""),
+							"posting_date": r.get("posting_date", ""),
+							"total_amount": flt(r.get("total_amount", 0)),
+							"delivery_fee": flt(r.get("delivery_fee", 0)),
+							"is_cod": int(r.get("is_cod", 0)),
+							"cod_amount": flt(r.get("cod_amount", 0)),
+						}
+						for r in invoice_rows
+					],
+				})
+				settlement_doc.insert(ignore_permissions=True)
+				settlement_doc.submit()
+				settlement_name = settlement_doc.name
+				frappe.logger().info(f"Driver Settlement created and submitted: {settlement_name}")
+		except Exception as ds_err:
+			frappe.log_error(frappe.get_traceback(), "Driver Settlement DocType creation failed")
+			# Non-fatal — invoices are already settled
+
 		frappe.db.commit()
-		return {"success": True, "settled": settled, "errors": errors}
+		return {
+			"success": True,
+			"settled": settled,
+			"errors": errors,
+			"settlement_name": settlement_name,
+		}
 	except Exception as e:
 		frappe.log_error(frappe.get_traceback(), "Error settling delivery invoices")
 		return {"success": False, "error": str(e)}
-
 
 @frappe.whitelist()
 def assign_driver_to_invoice(invoice_name, driver_name=None, status=None):

@@ -303,6 +303,7 @@ def _build_filters_and_fields(
 		"currency",
 		"custom_pos_customer",
 		"is_return",
+		"return_against",
 	]
 
 	# Inject dynamic custom fields only if present

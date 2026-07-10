@@ -234,6 +234,7 @@ def get_pos_details():
 		"custom_exchange_rate": float(getattr(pos, "custom_exchange_rate", 0) or 0),
 		"custom_hide_tax_in_cart": int(getattr(pos, "custom_hide_tax_in_cart", 0) or 0),
 		"custom_prices_include_vat": int(getattr(pos, "custom_prices_include_vat", 0) or 0),
+		"custom_allow_loyalty_points": int(getattr(pos, "custom_allow_loyalty_points", 1) or 0),
 		"country_code": country_code or "LB",
 	}
 	return details

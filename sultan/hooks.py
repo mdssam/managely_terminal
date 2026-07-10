@@ -159,6 +159,10 @@ after_migrate = [
 # Hook on document methods and events
 
 doc_events = {
+	"Loyalty Point Entry": {
+		"on_update": "sultan.sultan.api.electron.customer.update_pos_customer_loyalty",
+		"on_trash": "sultan.sultan.api.electron.customer.update_pos_customer_loyalty",
+	},
 	"POS Invoice": {
 		"autoname": "sultan.sultan.api.pos_entry.autoname_pos_invoice",
 		"validate": "sultan.sultan.api.fix_invoice_items_valuation",
