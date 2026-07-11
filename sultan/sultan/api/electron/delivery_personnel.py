@@ -51,7 +51,16 @@ def get_delivery_personnel_list():
 			return {"success": True, "data": []}
 		personnel = frappe.get_all(
 			"Delivery Personnel",
-			fields=["name", "delivery_personnel", "phone", "custom_photo", "custom_driver_license", "custom_vehicle_license", "custom_national_id"],
+			fields=[
+				"name", 
+				"delivery_personnel", 
+				"phone", 
+				"custom_photo", 
+				"custom_driver_license", 
+				"custom_vehicle_license", 
+				"custom_national_id",
+				"custom_pos_profile"
+			],
 			order_by="delivery_personnel asc",
 		)
 		return {"success": True, "data": personnel}
@@ -61,7 +70,7 @@ def get_delivery_personnel_list():
 
 
 @frappe.whitelist()
-def add_delivery_personnel(name, phone=None, photo=None, driver_license=None, vehicle_license=None, national_id=None):
+def add_delivery_personnel(name, phone=None, photo=None, driver_license=None, vehicle_license=None, national_id=None, pos_profile=None):
 	try:
 		if not name:
 			return {"success": False, "error": "Name is required"}
@@ -72,7 +81,8 @@ def add_delivery_personnel(name, phone=None, photo=None, driver_license=None, ve
 			"doctype": "Delivery Personnel",
 			"delivery_personnel": name,
 			"phone": phone,
-			"cell_number": phone
+			"cell_number": phone,
+			"custom_pos_profile": pos_profile
 		})
 		doc.insert(ignore_permissions=True)
 		
@@ -93,7 +103,7 @@ def add_delivery_personnel(name, phone=None, photo=None, driver_license=None, ve
 
 
 @frappe.whitelist()
-def edit_delivery_personnel(old_name, new_name, phone=None, photo=None, driver_license=None, vehicle_license=None, national_id=None):
+def edit_delivery_personnel(old_name, new_name, phone=None, photo=None, driver_license=None, vehicle_license=None, national_id=None, pos_profile=None):
 	try:
 		if not old_name or not new_name:
 			return {"success": False, "error": "Old name and new name are required"}
@@ -104,10 +114,11 @@ def edit_delivery_personnel(old_name, new_name, phone=None, photo=None, driver_l
 		if old_name != new_name:
 			frappe.rename_doc("Delivery Personnel", old_name, new_name, force=True)
 			
-		# Update phone number
+		# Update driver fields
 		doc = frappe.get_doc("Delivery Personnel", new_name)
 		doc.phone = phone
 		doc.cell_number = phone
+		doc.custom_pos_profile = pos_profile
 		doc.save(ignore_permissions=True)
 		
 		# Save attachments

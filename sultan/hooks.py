@@ -237,6 +237,7 @@ override_doctype_class = {
 override_doctype_dashboards = {
 	"POS Opening Entry": "sultan.sultan.utils.get_pos_opening_entry_dashboard",
 	"POS Closing Entry": "sultan.sultan.utils.get_pos_closing_entry_dashboard",
+	"POS Invoice": "sultan.sultan.utils.get_pos_invoice_dashboard",
 }
 
 # Scheduled Tasks

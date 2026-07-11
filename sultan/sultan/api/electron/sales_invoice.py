@@ -3439,10 +3439,12 @@ def settle_delivery_invoices(invoice_names=None, current_session_id=None, payloa
 						doc.custom_driver_settled = 1
 						doc.custom_pos_opening_entry = current_session_id
 						invoice_total = flt(doc.rounded_total) or flt(doc.grand_total)
+						write_off = flt(doc.write_off_amount)
+						paid_amt = invoice_total - write_off
 						if doc.payments:
 							for p in doc.payments:
 								p.amount = 0
-							doc.payments[-1].amount = invoice_total
+							doc.payments[-1].amount = paid_amt
 						else:
 							default_mop = "Cash"
 							try:
@@ -3456,9 +3458,9 @@ def settle_delivery_invoices(invoice_names=None, current_session_id=None, payloa
 										default_mop = pos_profile_doc.payments[0].mode_of_payment
 							except Exception:
 								pass
-							doc.append("payments", {"mode_of_payment": default_mop, "amount": invoice_total, "default": 1})
-						doc.paid_amount = invoice_total
-						doc.base_paid_amount = invoice_total * (doc.conversion_rate or 1)
+							doc.append("payments", {"mode_of_payment": default_mop, "amount": paid_amt, "default": 1})
+						doc.paid_amount = paid_amt
+						doc.base_paid_amount = paid_amt * (doc.conversion_rate or 1)
 						doc.outstanding_amount = 0
 						doc.custom_delivery_cod = 1
 						doc.save(ignore_permissions=True)
@@ -3484,30 +3486,48 @@ def settle_delivery_invoices(invoice_names=None, current_session_id=None, payloa
 		# ── Create & submit Driver Settlement DocType ──────────────────
 		settlement_name = None
 		try:
-			if frappe.db.table_exists("tabDriver Settlement"):
+			if frappe.db.table_exists("Driver Settlement"):
 				from frappe.utils import now_datetime
+				from frappe.utils import get_datetime, now_datetime
+				if payload.get("settled_at"):
+					dt = get_datetime(payload.get("settled_at"))
+					settled_at_val = dt.replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S")
+				else:
+					settled_at_val = str(now_datetime())
+				from frappe.utils import getdate
+				settlement_invoices = []
+				for r in invoice_rows:
+					posting_date_raw = r.get("posting_date", "")
+					posting_date_cleaned = None
+					if posting_date_raw:
+						try:
+							posting_date_cleaned = getdate(posting_date_raw).strftime("%Y-%m-%d")
+						except Exception:
+							posting_date_cleaned = str(posting_date_raw)
+					is_cod_val = int(r.get("is_cod", 0))
+					total_amt_val = flt(r.get("total_amount", 0))
+					settlement_invoices.append({
+						"invoice_id": r.get("id", ""),
+						"customer": r.get("customer", ""),
+						"posting_date": posting_date_cleaned,
+						"total_amount": total_amt_val,
+						"delivery_fee": flt(r.get("delivery_fee", 0)),
+						"is_cod": is_cod_val,
+						"cod_amount": flt(r.get("cod_amount", 0)) if is_cod_val else 0.0,
+						"prepaid_amount": total_amt_val if not is_cod_val else 0.0,
+					})
+
 				settlement_doc = frappe.get_doc({
 					"doctype": "Driver Settlement",
 					"driver_id": payload.get("driver_id", ""),
 					"driver_name": payload.get("driver_name", ""),
 					"session_id": current_session_id,
-					"settled_at": payload.get("settled_at") or str(now_datetime()),
+					"settled_at": settled_at_val,
 					"total_amount": flt(payload.get("total_amount", 0)),
 					"delivery_amount": flt(payload.get("delivery_amount", 0)),
 					"net_amount": flt(payload.get("net_amount", 0)),
 					"invoice_count": len(invoice_rows),
-					"invoices": [
-						{
-							"invoice_id": r.get("id", ""),
-							"customer": r.get("customer", ""),
-							"posting_date": r.get("posting_date", ""),
-							"total_amount": flt(r.get("total_amount", 0)),
-							"delivery_fee": flt(r.get("delivery_fee", 0)),
-							"is_cod": int(r.get("is_cod", 0)),
-							"cod_amount": flt(r.get("cod_amount", 0)),
-						}
-						for r in invoice_rows
-					],
+					"invoices": settlement_invoices,
 				})
 				settlement_doc.insert(ignore_permissions=True)
 				settlement_doc.submit()

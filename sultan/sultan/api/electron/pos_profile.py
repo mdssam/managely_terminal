@@ -202,6 +202,7 @@ def get_pos_details():
 		"print_receipt_on_order_complete": getattr(pos, "print_receipt_on_order_complete", 0),
 		"custom_pos_print_format_en": getattr(pos, "custom_pos_print_format_en", None),
 		"custom_pos_print_format_ar": getattr(pos, "custom_pos_print_format_ar", None),
+		"custom_print_currency": getattr(pos, "custom_print_currency", None) or None,
 		"custom_use_scanner_fully": getattr(pos, "custom_use_scanner_fully", 0),
 		"custom_allow_credit_sales": getattr(pos, "custom_allow_credit_sales", 0),
 		"custom_allow_return": getattr(pos, "custom_allow_return", 0),

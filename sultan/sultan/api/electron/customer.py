@@ -538,6 +538,7 @@ def create_or_update_customer(customer_data):
 					]
 					addr_str = ", ".join([p for p in parts if p])
 
+				default_lp = frappe.db.get_single_value("Sultan Settings", "default_loyalty_program")
 				pos_cust_doc = frappe.get_doc({
 					"doctype": "POS Customer",
 					"customer_name": customer_name,
@@ -545,7 +546,9 @@ def create_or_update_customer(customer_data):
 					"email_id": email,
 					"address": addr_str,
 					"unified_customer": unified_customer if customer_data.get("unified_customer") == "Walk-in Customer" else (customer_data.get("unified_customer") or unified_customer),
-					"company": customer_data.get("company") or pos_profile.company
+					"company": customer_data.get("company") or pos_profile.company,
+					"loyalty_program": default_lp or None,
+					"naming_series": "pos-cust-.####"
 				})
 				pos_cust_doc.insert(ignore_permissions=True)
 

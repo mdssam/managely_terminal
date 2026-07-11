@@ -3411,11 +3411,12 @@ class CustomPOSInvoice(POSInvoice):
 
 
 @frappe.whitelist()
-def settle_delivery_invoices(invoice_names, current_session_id):
+def settle_delivery_invoices(invoice_names, current_session_id, payload=None):
 	"""
 	Settle COD delivery invoices:
 	- If POS Invoice is Draft (docstatus=0), add full payment and submit it.
 	- Mark custom_delivery_status = Settled and move to current session.
+	- Create and submit a Driver Settlement document if payload is provided.
 	"""
 	try:
 		if isinstance(invoice_names, str):
@@ -3433,10 +3434,12 @@ def settle_delivery_invoices(invoice_names, current_session_id):
 						doc.custom_driver_settled = 1
 						doc.custom_pos_opening_entry = current_session_id
 						invoice_total = flt(doc.rounded_total) or flt(doc.grand_total)
+						write_off = flt(doc.write_off_amount)
+						paid_amt = invoice_total - write_off
 						if doc.payments:
 							for p in doc.payments:
 								p.amount = 0
-							doc.payments[-1].amount = invoice_total
+							doc.payments[-1].amount = paid_amt
 						else:
 							default_mop = "Cash"
 							try:
@@ -3450,9 +3453,9 @@ def settle_delivery_invoices(invoice_names, current_session_id):
 										default_mop = pos_profile_doc.payments[0].mode_of_payment
 							except Exception:
 								pass
-							doc.append("payments", {"mode_of_payment": default_mop, "amount": invoice_total, "default": 1})
-						doc.paid_amount = invoice_total
-						doc.base_paid_amount = invoice_total * (doc.conversion_rate or 1)
+							doc.append("payments", {"mode_of_payment": default_mop, "amount": paid_amt, "default": 1})
+						doc.paid_amount = paid_amt
+						doc.base_paid_amount = paid_amt * (doc.conversion_rate or 1)
 						doc.outstanding_amount = 0
 						doc.custom_delivery_cod = 1
 						doc.save(ignore_permissions=True)
@@ -3475,8 +3478,59 @@ def settle_delivery_invoices(invoice_names, current_session_id):
 				frappe.log_error(frappe.get_traceback(), f"Error settling invoice {name}")
 				errors.append({"name": name, "error": str(inv_err)})
 
+		# Create Driver Settlement DocType if payload is present and we have at least one successfully settled invoice
+		settlement_name = None
+		if payload and settled:
+			try:
+				if isinstance(payload, str):
+					payload = json.loads(payload)
+				
+				# Format settled_at from ISO format (e.g., '2026-07-11T01:16:29.400Z') to DB Datetime format
+				settled_at_raw = payload.get("settled_at")
+				settled_at_cleaned = None
+				if settled_at_raw:
+					settled_at_cleaned = str(settled_at_raw).replace("T", " ").replace("Z", "")
+					if "." in settled_at_cleaned:
+						settled_at_cleaned = settled_at_cleaned.split(".")[0]
+
+				settlement_doc = frappe.get_doc({
+					"doctype": "Driver Settlement",
+					"driver_id": payload.get("driver_id"),
+					"driver_name": payload.get("driver_name"),
+					"session_id": payload.get("session_id"),
+					"settled_at": settled_at_cleaned,
+					"total_amount": flt(payload.get("total_amount")),
+					"delivery_amount": flt(payload.get("delivery_amount")),
+					"net_amount": flt(payload.get("net_amount")),
+					"invoice_count": len(payload.get("invoices", [])),
+					"invoices": []
+				})
+				
+				for inv in payload.get("invoices", []):
+					# Only add to Driver Settlement if it was successfully settled/processed
+					if inv.get("id") in settled:
+						is_cod_val = int(inv.get("is_cod") or 0)
+						total_amt_val = flt(inv.get("total_amount") or 0)
+						settlement_doc.append("invoices", {
+							"invoice_id": inv.get("id"),
+							"customer": inv.get("customer"),
+							"posting_date": inv.get("posting_date"),
+							"is_cod": is_cod_val,
+							"delivery_fee": flt(inv.get("delivery_fee") or 0),
+							"total_amount": total_amt_val,
+							"cod_amount": flt(inv.get("cod_amount") or 0) if is_cod_val else 0.0,
+							"prepaid_amount": total_amt_val if not is_cod_val else 0.0
+						})
+				
+				settlement_doc.insert(ignore_permissions=True)
+				settlement_doc.submit()
+				settlement_name = settlement_doc.name
+			except Exception as ds_err:
+				frappe.log_error(frappe.get_traceback(), "Error creating Driver Settlement DocType")
+				errors.append({"name": "Driver Settlement", "error": f"Failed to create/submit Driver Settlement: {str(ds_err)}"})
+
 		frappe.db.commit()
-		return {"success": True, "settled": settled, "errors": errors}
+		return {"success": True, "settled": settled, "settlement_name": settlement_name, "errors": errors}
 	except Exception as e:
 		frappe.log_error(frappe.get_traceback(), "Error settling delivery invoices")
 		return {"success": False, "error": str(e)}

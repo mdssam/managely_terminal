@@ -107,3 +107,20 @@ def get_pos_closing_entry_dashboard(data=None):
 			return data
 	transactions.append({"label": "Transactions", "items": ["POS Suspended Transaction"]})
 	return data
+
+def get_pos_invoice_dashboard(data=None):
+	if not data:
+		data = {}
+	data.setdefault("non_standard_fieldnames", {})
+	data["non_standard_fieldnames"]["POS Invoice"] = "customer"
+	
+	transactions = data.setdefault("transactions", [])
+	transactions.append({
+		"label": "Invoices",
+		"items": ["POS Invoice"]
+	})
+	
+	data.setdefault("internal_links", {})
+	data["internal_links"]["Customer"] = ["customer"]
+	
+	return data
