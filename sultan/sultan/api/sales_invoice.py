@@ -2382,6 +2382,14 @@ def _fix_multi_currency_payment_gl_entries(doc, gl_entries):
 
 
 class CustomSalesInvoice(SalesInvoice):
+	def validate(self):
+		if getattr(self, "custom_pos_customer", None) and not getattr(self, "loyalty_program", None):
+			self.loyalty_program = frappe.db.get_single_value("Sultan Settings", "default_loyalty_program")
+		super().validate()
+
+	def make_loyalty_point_entry(self):
+		custom_make_loyalty_point_entry(self)
+
 	def validate_account_currency(self, account, account_currency=None):
 		# Skip stamp tax accounts - they use LBP regardless of invoice currency
 		if _is_stamp_account(self, account):
@@ -3392,6 +3400,14 @@ class CustomPOSInvoice(POSInvoice):
 	UnboundLocalError in erpnext 15 accounts_controller.py).
 	"""
 
+	def validate(self):
+		if getattr(self, "custom_pos_customer", None) and not getattr(self, "loyalty_program", None):
+			self.loyalty_program = frappe.db.get_single_value("Sultan Settings", "default_loyalty_program")
+		super().validate()
+
+	def make_loyalty_point_entry(self):
+		custom_make_loyalty_point_entry(self)
+
 	@property
 	def use_company_roundoff_cost_center(self):
 		return getattr(self, "_use_company_roundoff_cost_center", False)
@@ -3562,3 +3578,144 @@ def assign_driver_to_invoice(invoice_name, driver_name=None, status=None):
 	except Exception as e:
 		frappe.log_error(frappe.get_traceback(), "Error assigning driver to invoice")
 		return {"success": False, "error": str(e)}
+
+
+# ── Custom Loyalty points support for POS Customer (B2C) ────────────────────
+
+def custom_make_loyalty_point_entry(self):
+	import frappe
+	if getattr(self, "custom_pos_customer", None):
+		from frappe.utils import flt, cint, add_days, getdate
+		from erpnext.accounts.doctype.loyalty_program.loyalty_program import get_loyalty_program_details_with_points
+
+		customer_id = self.custom_pos_customer
+
+		# 1. Ensure standard Customer doc exists for the custom_pos_customer (shadow customer)
+		if not frappe.db.exists("Customer", customer_id):
+			pos_cust_details = frappe.db.get_value("POS Customer", customer_id, ["customer_name", "mobile_no", "email_id"], as_dict=True)
+			if pos_cust_details:
+				cust_doc = frappe.get_doc({
+					"doctype": "Customer",
+					"customer_name": customer_id,
+					"customer_type": "Individual",
+					"customer_group": "Individual",
+					"territory": "All Territories",
+					"mobile_no": pos_cust_details.mobile_no,
+					"email_id": pos_cust_details.email_id,
+					"loyalty_program": frappe.db.get_single_value("Sultan Settings", "default_loyalty_program")
+				})
+				cust_doc.insert(ignore_permissions=True)
+				if pos_cust_details.customer_name:
+					frappe.db.set_value("Customer", customer_id, "customer_name", pos_cust_details.customer_name)
+				frappe.db.commit()
+
+		# Ensure loyalty_program is set on the invoice
+		if not self.loyalty_program:
+			self.loyalty_program = frappe.db.get_single_value("Sultan Settings", "default_loyalty_program")
+
+		if not self.loyalty_program:
+			return
+
+		# 2. Prevent duplicate entries
+		if frappe.db.exists("Loyalty Point Entry", {"invoice_type": self.doctype, "invoice": self.name}):
+			return
+
+		# 3. Calculate points using the shadow customer
+		returned_amount = self.get_returned_amount()
+		current_amount = flt(self.grand_total) - cint(self.loyalty_amount)
+		eligible_amount = current_amount - returned_amount
+
+		lp_details = get_loyalty_program_details_with_points(
+			customer_id,
+			company=self.company,
+			current_transaction_amount=current_amount,
+			loyalty_program=self.loyalty_program,
+			expiry_date=self.posting_date,
+			include_expired_entry=True,
+		)
+		if (
+			lp_details
+			and getdate(lp_details.from_date) <= getdate(self.posting_date)
+			and (not lp_details.to_date or getdate(lp_details.to_date) >= getdate(self.posting_date))
+		):
+			collection_factor = lp_details.collection_factor if lp_details.collection_factor else 1.0
+			points_earned = cint(eligible_amount / collection_factor)
+
+			doc = frappe.get_doc({
+				"doctype": "Loyalty Point Entry",
+				"company": self.company,
+				"loyalty_program": lp_details.loyalty_program,
+				"loyalty_program_tier": lp_details.tier_name,
+				"customer": customer_id,
+				"invoice_type": self.doctype,
+				"invoice": self.name,
+				"loyalty_points": points_earned,
+				"purchase_amount": eligible_amount,
+				"expiry_date": add_days(self.posting_date, lp_details.expiry_duration) if lp_details.expiry_duration else None,
+				"posting_date": self.posting_date,
+			})
+			doc.flags.ignore_permissions = 1
+			doc.save()
+			frappe.logger().info(f"[LOYALTY] {points_earned} pts -> Shadow Customer '{customer_id}'")
+	else:
+		# Call standard controller method
+		super(self.__class__, self).make_loyalty_point_entry()
+
+import erpnext.accounts.doctype.loyalty_program.loyalty_program as lp_module
+import erpnext.accounts.doctype.sales_invoice.sales_invoice as si_module
+
+def custom_validate_loyalty_points(ref_doc, points_to_redeem):
+	# If this is a Sultan POS invoice and has custom_pos_customer
+	if getattr(ref_doc, "custom_pos_customer", None):
+		import frappe
+		from frappe.utils import flt, today
+		from erpnext.accounts.doctype.loyalty_program.loyalty_program import get_loyalty_program_details_with_points
+
+		customer_id = ref_doc.custom_pos_customer
+		
+		# Ensure the customer's loyalty program is set on the invoice
+		if not ref_doc.loyalty_program:
+			ref_doc.loyalty_program = frappe.db.get_single_value("Sultan Settings", "default_loyalty_program")
+
+		if not ref_doc.loyalty_program:
+			return
+
+		if points_to_redeem:
+			# Ensure standard Customer doc exists for custom_pos_customer
+			if not frappe.db.exists("Customer", customer_id):
+				pos_cust_details = frappe.db.get_value("POS Customer", customer_id, ["customer_name", "mobile_no", "email_id"], as_dict=True)
+				if pos_cust_details:
+					cust_doc = frappe.get_doc({
+						"doctype": "Customer",
+						"customer_name": customer_id,
+						"customer_type": "Individual",
+						"customer_group": "Individual",
+						"territory": "All Territories",
+						"mobile_no": pos_cust_details.mobile_no,
+						"email_id": pos_cust_details.email_id,
+						"loyalty_program": frappe.db.get_single_value("Sultan Settings", "default_loyalty_program")
+					})
+					cust_doc.insert(ignore_permissions=True)
+					frappe.db.set_value("Customer", customer_id, "customer_name", pos_cust_details.customer_name)
+					frappe.db.commit()
+
+			loyalty_program_details = get_loyalty_program_details_with_points(
+				customer_id, ref_doc.loyalty_program, ref_doc.posting_date or today(), ref_doc.company
+			)
+
+			if points_to_redeem > loyalty_program_details.loyalty_points:
+				frappe.throw(f"You don't have enough Loyalty Points to redeem. Available: {loyalty_program_details.loyalty_points}")
+
+			loyalty_amount = flt(points_to_redeem * loyalty_program_details.conversion_factor)
+			ref_doc.loyalty_amount = loyalty_amount
+	else:
+		# Call original standard validation
+		lp_module.original_validate_loyalty_points(ref_doc, points_to_redeem)
+
+# Keep original references
+if not hasattr(lp_module, "original_validate_loyalty_points"):
+	lp_module.original_validate_loyalty_points = lp_module.validate_loyalty_points
+
+# Apply monkey patches
+lp_module.validate_loyalty_points = custom_validate_loyalty_points
+si_module.validate_loyalty_points = custom_validate_loyalty_points

@@ -236,6 +236,7 @@ def get_pos_details():
 		"custom_hide_tax_in_cart": int(getattr(pos, "custom_hide_tax_in_cart", 0) or 0),
 		"custom_prices_include_vat": int(getattr(pos, "custom_prices_include_vat", 0) or 0),
 		"custom_allow_loyalty_points": int(getattr(pos, "custom_allow_loyalty_points", 1) or 0),
+		"custom_default_loyalty_program": frappe.db.get_single_value("Sultan Settings", "default_loyalty_program") or "",
 		"country_code": country_code or "LB",
 	}
 	return details
@@ -329,3 +330,13 @@ def get_dashboard_branches(employee=None):
 	return [p.name for p in profiles]
 
 
+
+
+@frappe.whitelist()
+def check_active_session():
+	from sultan.sultan.api.electron.sales_invoice import get_current_pos_opening_entry
+	session_name = get_current_pos_opening_entry()
+	return {
+		"has_active_session": bool(session_name),
+		"session_name": session_name
+	}

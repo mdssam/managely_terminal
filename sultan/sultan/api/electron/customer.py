@@ -230,10 +230,11 @@ def get_customers(limit: int = 100, start: int = 0, search: str = ""):
 		if search:
 			pos_cust_filters["customer_name"] = ["like", f"%{search}%"]
 
+		default_lp = frappe.db.get_single_value("Sultan Settings", "default_loyalty_program") or ""
 		pos_customers = frappe.get_all(
 			"POS Customer",
 			filters=pos_cust_filters,
-			fields=["name", "customer_name", "mobile_no", "email_id", "company", "unified_customer", "address", "loyalty_program", "loyalty_points"],
+			fields=["name", "customer_name", "mobile_no", "email_id", "company", "unified_customer", "address", "loyalty_points"],
 			limit=limit,
 		)
 
@@ -258,7 +259,7 @@ def get_customers(limit: int = 100, start: int = 0, search: str = ""):
 				"is_pos_customer": True,
 				"company": pc.get("company"),
 				"unified_customer": pc.get("unified_customer"),
-				"loyalty_program": pc.get("loyalty_program") or "",
+				"loyalty_program": default_lp,
 				"loyalty_points": pc.get("loyalty_points") or 0,
 			})
 
@@ -531,7 +532,6 @@ def create_or_update_customer(customer_data):
 					]
 					addr_str = ", ".join([p for p in parts if p])
 
-				default_lp = frappe.db.get_single_value("Sultan Settings", "default_loyalty_program")
 				pos_cust_doc = frappe.get_doc({
 					"doctype": "POS Customer",
 					"customer_name": customer_name,
@@ -540,12 +540,11 @@ def create_or_update_customer(customer_data):
 					"address": addr_str,
 					"unified_customer": unified_customer if customer_data.get("unified_customer") == "Walk-in Customer" else (customer_data.get("unified_customer") or unified_customer),
 					"company": customer_data.get("company") or pos_profile.company,
-					"loyalty_program": default_lp or None,
 					"naming_series": "pos-cust-.####"
 				})
 				
 				inserted = False
-				for _ in range(10):
+				for i in range(10):
 					try:
 						pos_cust_doc.insert(ignore_permissions=True)
 						inserted = True
@@ -1054,17 +1053,18 @@ def update_pos_customer_loyalty(doc, method=None):
 				  AND (expiry_date IS NULL OR expiry_date >= CURDATE())
 			""", (doc.customer,))
 			points = points_query[0][0] or 0.0
-			
-			# 2. Check if a POS Customer record exists for this customer name/ID
-			pos_cust = frappe.db.get_value("POS Customer", {"customer_name": doc.customer}, "name")
-			if not pos_cust:
-				pos_cust = frappe.db.get_value("POS Customer", {"name": doc.customer}, "name")
-				
+
+			# 2. Find POS Customer directly by name (since shadow Customer name matches POS Customer name)
+			pos_cust = frappe.db.get_value("POS Customer", {"name": doc.customer}, "name")
+
 			if pos_cust:
 				# 3. Update the loyalty points directly in the database
 				frappe.db.set_value("POS Customer", pos_cust, "loyalty_points", points)
 				frappe.db.commit()
-				frappe.logger().info(f"Loyalty Sync: Updated POS Customer '{pos_cust}' points to {points}")
+				frappe.logger().info(f"Loyalty Sync: Updated POS Customer '{pos_cust}' (unified: {doc.customer}) points to {points}")
+			else:
+				frappe.logger().warning(f"Loyalty Sync: No POS Customer found for customer '{doc.customer}'")
 	except Exception as e:
 		import frappe
 		frappe.logger().error(f"Loyalty Sync Error: Failed to update POS Customer loyalty points: {e!s}")
+

@@ -3553,20 +3553,19 @@ def settle_delivery_invoices(invoice_names=None, current_session_id=None, payloa
 						"prepaid_amount": total_amt_val if not is_cod_val else 0.0,
 					})
 
-				# Resolve or create standard Driver document
+				# Resolve or create standard Delivery Personnel document
 				driver_name_val = payload.get("driver_name") or payload.get("driver_id") or ""
-				driver_id_val = frappe.db.get_value("Driver", {"full_name": driver_name_val}, "name")
+				driver_id_val = frappe.db.get_value("Delivery Personnel", {"delivery_personnel": driver_name_val}, "name")
 				if not driver_id_val and driver_name_val:
 					try:
 						driver_doc = frappe.get_doc({
-							"doctype": "Driver",
-							"full_name": driver_name_val,
-							"status": "Active"
+							"doctype": "Delivery Personnel",
+							"delivery_personnel": driver_name_val
 						})
 						driver_doc.insert(ignore_permissions=True)
 						driver_id_val = driver_doc.name
 					except Exception as driver_err:
-						frappe.log_error(frappe.get_traceback(), "Failed to auto-create Driver document")
+						frappe.log_error(frappe.get_traceback(), "Failed to auto-create Delivery Personnel document")
 
 				settlement_doc = frappe.get_doc({
 					"doctype": "Driver Settlement",
