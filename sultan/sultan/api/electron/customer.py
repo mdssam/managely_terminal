@@ -17,6 +17,7 @@ def get_customers(limit: int = 100, start: int = 0, search: str = ""):
 	try:
 		pos_profile = get_current_pos_profile()
 		business_type = getattr(pos_profile, "custom_business_type", "B2C")
+		default_customer = getattr(pos_profile, "customer", None) or "Walk-in Customer" 
 		company, company_currency = get_user_company_and_currency()
 		result = []
 
@@ -89,7 +90,7 @@ def get_customers(limit: int = 100, start: int = 0, search: str = ""):
                 LEFT JOIN `tabContact` ct ON ct.name = dl.parent
                 LEFT JOIN `tabContact Email` ce ON ce.parent = ct.name
                 LEFT JOIN `tabContact Phone` cp ON cp.parent = ct.name
-                WHERE (
+                WHERE c.name = %s AND (
                     c.customer_name LIKE %s OR c.name LIKE %s OR
                     ce.email_id LIKE %s OR cp.phone LIKE %s
                 )
@@ -101,6 +102,7 @@ def get_customers(limit: int = 100, start: int = 0, search: str = ""):
                 """,
 				tuple(
 					[
+						default_customer,
 						like_param,
 						like_param,
 						like_param,
@@ -124,7 +126,7 @@ def get_customers(limit: int = 100, start: int = 0, search: str = ""):
                 LEFT JOIN `tabContact` ct ON ct.name = dl.parent
                 LEFT JOIN `tabContact Email` ce ON ce.parent = ct.name
                 LEFT JOIN `tabContact Phone` cp ON cp.parent = ct.name
-                WHERE (
+                WHERE c.name = %s AND (
                     c.customer_name LIKE %s OR c.name LIKE %s OR
                     ce.email_id LIKE %s OR cp.phone LIKE %s
                 )
@@ -134,6 +136,7 @@ def get_customers(limit: int = 100, start: int = 0, search: str = ""):
                 """,
 				tuple(
 					[
+						default_customer,
 						like_param,
 						like_param,
 						like_param,
@@ -148,19 +151,9 @@ def get_customers(limit: int = 100, start: int = 0, search: str = ""):
 			total_count = (total_count_row[0].total if total_count_row else 0) or 0
 		else:
 			# Original logic for when no search term - keep capped limit for performance
-			filters = {}
-			if business_type == "B2B":
-				filters["customer_type"] = "Company"
-			elif business_type == "B2C":
-				filters["customer_type"] = "Individual"
-
-			# Add customer group filtering if configured
-			if customer_group_names:
-				filters["customer_group"] = ["in", customer_group_names]
-
-			# Add user permission filtering if configured
-			if permitted_customer_names:
-				filters["name"] = ["in", permitted_customer_names]
+			filters = {
+				"name": default_customer or "___non_existent_customer___"
+			}
 
 			customer_names = frappe.get_all(
 				"Customer",
@@ -550,7 +543,27 @@ def create_or_update_customer(customer_data):
 					"loyalty_program": default_lp or None,
 					"naming_series": "pos-cust-.####"
 				})
-				pos_cust_doc.insert(ignore_permissions=True)
+				
+				inserted = False
+				for _ in range(10):
+					try:
+						pos_cust_doc.insert(ignore_permissions=True)
+						inserted = True
+						break
+					except Exception as e:
+						err_str = str(e)
+						if "Duplicate entry" in err_str or "1062" in err_str:
+							res = frappe.db.sql("select current from tabSeries where name = 'pos-cust-'")
+							if not res:
+								frappe.db.sql("insert into tabSeries (name, current) values ('pos-cust-', 1)")
+							else:
+								frappe.db.sql("update tabSeries set current = current + 1 where name = 'pos-cust-'")
+							frappe.db.commit()
+							pos_cust_doc.name = None
+						else:
+							raise e
+				if not inserted:
+					frappe.throw(_("Could not generate a unique name for the customer."))
 
 			return {
 				"success": True,
@@ -966,6 +979,7 @@ def check_customer_permission(customer_name):
 		# Get POS profile details
 		pos_profile = get_current_pos_profile()
 		business_type = getattr(pos_profile, "custom_business_type", "B2C")
+		default_customer = getattr(pos_profile, "customer", None) or "Walk-in Customer" 
 
 		# Get customer groups from POS profile if configured
 		customer_group_names = []

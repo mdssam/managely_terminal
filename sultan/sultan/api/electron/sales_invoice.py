@@ -1177,9 +1177,23 @@ def parse_invoice_data(data):
 	pos_profile = get_current_pos_profile()
 	sales_and_tax_charges = pos_profile.taxes_and_charges
 
-	# Offline-synced invoices carry a temporary OFFLINE_CUST- id. Resolve it to a
+	# Offline-synced invoices carry a temporary OFFLINE_CUST- or CUST- id. Resolve it to a
 	# real ERPNext customer before building the invoice document.
-	if not customer or (isinstance(customer, str) and customer.startswith("OFFLINE_CUST-")):
+	if customer and isinstance(customer, str) and (customer.startswith("CUST-") or customer.startswith("OFFLINE_CUST-")):
+		phone = customer_obj.get("phone") or customer_obj.get("mobile_no")
+		cust_name = customer_obj.get("name") or customer_obj.get("customer_name")
+		pos_cust_name = None
+		if phone:
+			pos_cust_name = frappe.db.get_value("POS Customer", {"mobile_no": phone}, "name")
+		if not pos_cust_name and cust_name:
+			pos_cust_name = frappe.db.get_value("POS Customer", {"customer_name": cust_name}, "name")
+		if pos_cust_name:
+			customer = pos_cust_name
+		else:
+			resolved = _resolve_offline_customer(customer_obj, pos_profile)
+			if resolved:
+				customer = resolved
+	elif not customer or (isinstance(customer, str) and customer.startswith("OFFLINE_CUST-")):
 		resolved = _resolve_offline_customer(customer_obj, pos_profile)
 		if resolved:
 			customer = resolved
@@ -1245,6 +1259,7 @@ def build_sales_invoice_doc(
 		doc = frappe.new_doc("POS Invoice")
 		
 	doc.is_pos = 1
+	doc.ignore_pricing_rule = 1
 
 	# Resolve POS Customer (B2C/Cash consolidation)
 	pos_customer_record = frappe.db.get_value("POS Customer", {"customer_name": customer}, ["name", "unified_customer"], as_dict=True)
@@ -1259,12 +1274,17 @@ def build_sales_invoice_doc(
 	doc.due_date = frappe.utils.nowdate()
 	doc.custom_delivery_date = frappe.utils.nowdate()
 
-	# Set delivery details if provided or has delivery fee
-	if delivery_personnel or flt(delivery_fee) > 0.0:
+	# Set delivery details only for Delivery orders (not Pickup)
+	# Determine order type: check custom_pos_order_type if available
+	_is_pickup_order = (business_type == "Pickup") or (not delivery_personnel and flt(delivery_fee) == 0.0)
+	if (delivery_personnel or flt(delivery_fee) > 0.0) and not _is_pickup_order:
 		if delivery_personnel:
 			doc.custom_delivery_personnel = delivery_personnel
 		doc.custom_delivery_status = "Pending"
 		doc.custom_delivery_fee = flt(delivery_fee)
+	else:
+		# Pickup order: ensure no delivery_status is set
+		doc.custom_delivery_status = None
 
 	# Configure POS profile and company settings
 	pos_profile = _get_active_pos_profile()
@@ -1391,7 +1411,7 @@ def _validate_and_autofetch_batch_and_serial(items, pos_profile):
 	if not items:
 		return
 
-	item_codes = [item.get("id") or item.get("item_code") for item in items if item.get("id") or item.get("item_code")]
+	item_codes = [item.get("item_code") or item.get("id") for item in items if item.get("item_code") or item.get("id")]
 	if not item_codes:
 		return
 
@@ -1399,7 +1419,7 @@ def _validate_and_autofetch_batch_and_serial(items, pos_profile):
 	auto_fetch_enabled = int(getattr(pos_profile, "custom_autofetch_batchserial_", 0) or 0)
 
 	for item in items:
-		item_code = item.get("id") or item.get("item_code")
+		item_code = item.get("item_code") or item.get("id")
 		if not item_code:
 			continue
 
@@ -1572,7 +1592,7 @@ def _set_taxes_and_charges(doc, sales_and_tax_charges, pos_profile):
 
 def _populate_invoice_items(doc, items, pos_profile):
 	"""Add all items to the invoice."""
-	item_codes = [item.get("id") or item.get("item_code") for item in items]
+	item_codes = [item.get("item_code") or item.get("id") for item in items]
 
 	# Batch fetch item data and pre-cache accounts
 	item_data_map = _batch_fetch_item_data(item_codes)
@@ -1665,26 +1685,41 @@ def _precache_item_accounts(item_codes, company):
 
 def _prepare_item_data(item, item_data_map, pos_profile, prices_include_vat=False, tax_rate=0.0):
 	"""Prepare item data dictionary for invoice line."""
-	item_code = item.get("id") or item.get("item_code")
+	item_code = item.get("item_code") or item.get("id")
 
 	# Get accounts and validate
 	income_account = get_income_accounts(item_code)
 	expense_account = get_expense_accounts(item_code)
 	_validate_item_accounts(item_code, income_account, expense_account)
 
-	discounted_price = item.get("discountedPrice")
-	original_price   = item.get("price")
+	final_rate = flt(item.get("rate") if item.get("rate") is not None else (item.get("price") or 0.0))
+	original_price = flt(item.get("price_list_rate") or item.get("price") or 0.0)
 
-	if discounted_price is not None and flt(discounted_price) != flt(original_price):
-        # Discount was applied in the POS UI — send the final rate directly.
-        # Also tell ERPNext to ignore its own pricing rules for this line so
-        # they don't recalculate and override our explicit rate.
-		final_rate = flt(discounted_price)
+	# If price_list_rate was not provided by the frontend, fetch it from the ERPNext price list
+	if not original_price:
+		try:
+			original_price = flt(frappe.db.get_value(
+				"Item Price",
+				{"item_code": item_code, "selling": 1},
+				"price_list_rate",
+				order_by="creation desc",
+			) or 0.0)
+		except Exception:
+			original_price = 0.0
+
+	# Determine if pricing rule should be ignored
+	if final_rate == 0.0 and original_price > 0.0:
+		# This is a free/promotional item ??? preserve the 0 rate
 		ignore_pricing_rule = 1
+		discount_percentage = 100.0
+		discount_amount = original_price
 	else:
-        # No POS discount — let ERPNext use the price list rate as-is.
-		final_rate = flt(original_price)
-		ignore_pricing_rule = 0	
+		if original_price and final_rate != original_price:
+			ignore_pricing_rule = 1
+		else:
+			ignore_pricing_rule = 0
+		discount_percentage = flt(item.get("discountPercentage") or item.get("discount_percentage") or 0.0)
+		discount_amount = flt(item.get("discountAmount") or item.get("discount_amount") or 0.0)
 
 	# Do not divide final_rate or original_price manually.
 	# We set the tax template rows as inclusive (included=1) so ERPNext handles the division internally.
@@ -1702,12 +1737,13 @@ def _prepare_item_data(item, item_data_map, pos_profile, prices_include_vat=Fals
 		"qty": item.get("quantity") or item.get("qty"),
 		"rate": final_rate,
         "price_list_rate": flt(original_price),   # keep original for reference
+        "is_free_item": 1 if final_rate == 0.0 else 0,
         "ignore_pricing_rule": ignore_pricing_rule,
 		# "rate": item.get("price"),
 		# "rate": item.get("original_price") or item.get("price"),
 		# "rate": item.get("discountedPrice") or item.get("price"),
-		"discount_percentage": flt(item.get("discountPercentage", 0)),
-    	"discount_amount": flt(item.get("discountAmount", 0)),
+		"discount_percentage": flt(discount_percentage),
+    	"discount_amount": flt(discount_amount),
 		"income_account": income_account,
 		"expense_account": expense_account,
 		"warehouse": pos_profile.warehouse,
@@ -3517,10 +3553,25 @@ def settle_delivery_invoices(invoice_names=None, current_session_id=None, payloa
 						"prepaid_amount": total_amt_val if not is_cod_val else 0.0,
 					})
 
+				# Resolve or create standard Driver document
+				driver_name_val = payload.get("driver_name") or payload.get("driver_id") or ""
+				driver_id_val = frappe.db.get_value("Driver", {"full_name": driver_name_val}, "name")
+				if not driver_id_val and driver_name_val:
+					try:
+						driver_doc = frappe.get_doc({
+							"doctype": "Driver",
+							"full_name": driver_name_val,
+							"status": "Active"
+						})
+						driver_doc.insert(ignore_permissions=True)
+						driver_id_val = driver_doc.name
+					except Exception as driver_err:
+						frappe.log_error(frappe.get_traceback(), "Failed to auto-create Driver document")
+
 				settlement_doc = frappe.get_doc({
 					"doctype": "Driver Settlement",
-					"driver_id": payload.get("driver_id", ""),
-					"driver_name": payload.get("driver_name", ""),
+					"driver_id": driver_id_val or payload.get("driver_id", ""),
+					"driver_name": driver_name_val,
 					"session_id": current_session_id,
 					"settled_at": settled_at_val,
 					"total_amount": flt(payload.get("total_amount", 0)),
@@ -3529,6 +3580,8 @@ def settle_delivery_invoices(invoice_names=None, current_session_id=None, payloa
 					"invoice_count": len(invoice_rows),
 					"invoices": settlement_invoices,
 				})
+				if payload.get("name") or payload.get("pre_assigned_name"):
+					settlement_doc.name = payload.get("name") or payload.get("pre_assigned_name")
 				settlement_doc.insert(ignore_permissions=True)
 				settlement_doc.submit()
 				settlement_name = settlement_doc.name

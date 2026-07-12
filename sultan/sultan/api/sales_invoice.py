@@ -3522,6 +3522,8 @@ def settle_delivery_invoices(invoice_names, current_session_id, payload=None):
 							"prepaid_amount": total_amt_val if not is_cod_val else 0.0
 						})
 				
+				if payload.get("name") or payload.get("pre_assigned_name"):
+					settlement_doc.name = payload.get("name") or payload.get("pre_assigned_name")
 				settlement_doc.insert(ignore_permissions=True)
 				settlement_doc.submit()
 				settlement_name = settlement_doc.name
