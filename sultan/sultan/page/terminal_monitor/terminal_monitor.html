@@ -1,0 +1,251 @@
+<div class="terminal-monitor-container p-4" style="background-color: #f8f9fa; min-height: 100vh;">
+    <!-- Header -->
+    <div class="row align-items-center mb-4">
+        <div class="col">
+            <h3 class="m-0 text-dark font-weight-bold" style="letter-spacing: -0.5px;">Terminal Monitor</h3>
+            <p class="text-muted m-0 small">Monitor online status, cashier sessions, and pull telemetry/logs remotely.</p>
+        </div>
+        <div class="col-auto">
+            <button id="btn-refresh-terminals" class="btn btn-primary btn-sm px-3 shadow-sm font-weight-bold" style="border-radius: 6px;">
+                Refresh Terminals
+            </button>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Terminals List -->
+        <div class="col-md-4">
+            <div class="card shadow-sm border-0 mb-4" style="border-radius: 8px; overflow: hidden;">
+                <div class="card-header bg-white py-3 border-bottom">
+                    <h6 class="m-0 text-dark font-weight-bold">Registered Terminals</h6>
+                </div>
+                <div class="card-body p-0">
+                    <div id="terminals-list-group" class="list-group list-group-flush" style="max-height: 600px; overflow-y: auto;">
+                        <div class="p-4 text-center text-muted">Loading terminals...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logs & Troubleshooting Panel -->
+        <div class="col-md-8">
+            <div class="card shadow-sm border-0" style="border-radius: 8px; overflow: hidden;">
+                <div class="card-header bg-white py-3 d-flex align-items-center justify-content-between border-bottom">
+                    <h6 class="m-0 text-dark font-weight-bold">Remote Troubleshooting & Diagnostics</h6>
+                    <div id="selected-terminal-badge" class="badge badge-info px-3 py-2 text-white font-weight-bold" style="display: none; border-radius: 4px; font-size: 0.85em;">No Terminal Selected</div>
+                </div>
+                
+                <div id="diagnostics-panel-placeholder" class="card-body py-5 text-center text-muted">
+                    Select an active terminal from the list to start pulling logs and diagnostics.
+                </div>
+
+                <div id="diagnostics-panel-content" class="card-body" style="display: none; background-color: #ffffff;">
+                    <!-- System Telemetry Grid -->
+                    <div id="device-insights-card" class="card border-0 mb-4" style="display: none; border-radius: 6px; background-color: #f1f3f5;">
+                        <div class="card-body py-3 px-4">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <span class="font-weight-bold text-secondary small uppercase tracking-wider">Device System Telemetry</span>
+                                <span id="stat-last-updated" class="text-muted small"></span>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-3 mb-2 mb-md-0 border-right">
+                                    <div class="text-muted small">App & Platform</div>
+                                    <div id="stat-app-platform" class="font-weight-bold text-dark mt-1" style="font-size: 1.05em;">-</div>
+                                </div>
+                                <div class="col-md-3 mb-2 mb-md-0 border-right">
+                                    <div class="text-muted small">Device Uptime</div>
+                                    <div id="stat-uptime" class="font-weight-bold text-dark mt-1" style="font-size: 1.05em;">-</div>
+                                </div>
+                                <div class="col-md-3 mb-2 mb-md-0 border-right">
+                                    <div class="text-muted small">RAM Usage</div>
+                                    <div id="stat-ram" class="font-weight-bold text-dark mt-1" style="font-size: 1.05em;">-</div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-muted small">Hardware Arch</div>
+                                    <div id="stat-arch" class="font-weight-bold text-dark mt-1" style="font-size: 1.05em;">-</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Filters and Pull Logs Form -->
+                    <div class="row bg-light p-3 rounded mb-4 align-items-end border border-secondary mx-0" style="border-radius: 6px;">
+                        <div class="col-md-4 px-2">
+                            <label class="font-weight-bold text-secondary small">From Date/Time</label>
+                            <input type="datetime-local" id="filter-from-date" class="form-control form-control-sm border border-secondary" style="border-radius: 4px;">
+                        </div>
+                        <div class="col-md-4 px-2">
+                            <label class="font-weight-bold text-secondary small">To Date/Time</label>
+                            <input type="datetime-local" id="filter-to-date" class="form-control form-control-sm border border-secondary" style="border-radius: 4px;">
+                        </div>
+                        <div class="col-md-2 px-2">
+                            <label class="font-weight-bold text-secondary small">Limit</label>
+                            <select id="filter-limit" class="form-control form-control-sm border border-secondary" style="border-radius: 4px;">
+                                <option value="100">100</option>
+                                <option value="200" selected>200</option>
+                                <option value="500">500</option>
+                            </select>
+                        </div>
+                        <div class="col-md-2 px-2 mt-2 mt-md-0">
+                            <button id="btn-pull-logs" class="btn btn-secondary btn-sm btn-block font-weight-bold py-2 shadow-sm" style="border-radius: 4px; font-size: 0.85em;">Pull Logs</button>
+                        </div>
+                    </div>
+
+                    <!-- Logs Table Area -->
+                    <div class="tabs-container">
+                        <ul class="nav nav-tabs mb-3" id="logsTab" role="tablist" style="border-bottom: 2px solid #dee2e6;">
+                            <li class="nav-item">
+                                <a class="nav-link active font-weight-bold text-secondary px-3 py-2" id="sync-history-tab" data-toggle="tab" href="#" data-target="#sync-history-panel" role="tab" style="border: none; border-bottom: 2px solid transparent;">Sync History</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link font-weight-bold text-secondary px-3 py-2" id="sync-queue-tab" data-toggle="tab" href="#" data-target="#sync-queue-panel" role="tab" style="border: none; border-bottom: 2px solid transparent;">Sync Queue (Pending)</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link font-weight-bold text-secondary px-3 py-2" id="audit-logs-tab" data-toggle="tab" href="#" data-target="#audit-logs-panel" role="tab" style="border: none; border-bottom: 2px solid transparent;">Audit Log</a>
+                            </li>
+                        </ul>
+                        <div class="tab-content" id="logsTabContent">
+                            <!-- Sync History -->
+                            <div class="tab-pane fade show active" id="sync-history-panel" role="tabpanel">
+                                <div class="table-responsive border rounded" style="max-height: 450px; overflow-y: auto; border-radius: 6px;">
+                                    <table class="table table-sm table-hover text-left mb-0" style="font-size: 0.9em;">
+                                        <thead class="bg-light">
+                                            <tr>
+                                                <th class="border-0 py-2" style="width: 80px;">ID</th>
+                                                <th class="border-0 py-2" style="width: 150px;">Local ID</th>
+                                                <th class="border-0 py-2" style="width: 120px;">Type</th>
+                                                <th class="border-0 py-2" style="width: 100px;">Status</th>
+                                                <th class="border-0 py-2" style="width: 100px; text-align: center;">Details</th>
+                                                <th class="border-0 py-2" style="width: 180px;">Time</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="sync-history-tbody">
+                                            <tr><td colspan="6" class="text-center py-4 text-muted">Pull logs to view data.</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div id="sync-history-pager" class="d-flex justify-content-between align-items-center mt-3" style="display: none !important;">
+                                    <span class="text-muted small pager-info"></span>
+                                    <div class="btn-group">
+                                        <button class="btn btn-outline-secondary btn-sm pager-prev font-weight-bold px-3" style="border-radius: 4px 0 0 4px;">Previous</button>
+                                        <button class="btn btn-outline-secondary btn-sm pager-next font-weight-bold px-3" style="border-radius: 0 4px 4px 0;">Next</button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Sync Queue (Pending/Stuck) -->
+                            <div class="tab-pane fade" id="sync-queue-panel" role="tabpanel">
+                                <div class="table-responsive border rounded" style="max-height: 450px; overflow-y: auto; border-radius: 6px;">
+                                    <table class="table table-sm table-hover text-left mb-0" style="font-size: 0.9em;">
+                                        <thead class="bg-light">
+                                            <tr>
+                                                <th class="border-0 py-2" style="width: 80px;">ID</th>
+                                                <th class="border-0 py-2" style="width: 150px;">Local ID</th>
+                                                <th class="border-0 py-2" style="width: 120px;">Type</th>
+                                                <th class="border-0 py-2" style="width: 100px;">Status</th>
+                                                <th class="border-0 py-2" style="width: 100px; text-align: center;">Details</th>
+                                                <th class="border-0 py-2" style="width: 180px;">Created At</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="sync-queue-tbody">
+                                            <tr><td colspan="6" class="text-center py-4 text-muted">Pull logs to view data.</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div id="sync-queue-pager" class="d-flex justify-content-between align-items-center mt-3" style="display: none !important;">
+                                    <span class="text-muted small pager-info"></span>
+                                    <div class="btn-group">
+                                        <button class="btn btn-outline-secondary btn-sm pager-prev font-weight-bold px-3" style="border-radius: 4px 0 0 4px;">Previous</button>
+                                        <button class="btn btn-outline-secondary btn-sm pager-next font-weight-bold px-3" style="border-radius: 0 4px 4px 0;">Next</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Audit Logs -->
+                            <div class="tab-pane fade" id="audit-logs-panel" role="tabpanel">
+                                <div class="table-responsive border rounded" style="max-height: 450px; overflow-y: auto; border-radius: 6px;">
+                                    <table class="table table-sm table-hover text-left mb-0" style="font-size: 0.9em;">
+                                        <thead class="bg-light">
+                                            <tr>
+                                                <th class="border-0 py-2">ID</th>
+                                                <th class="border-0 py-2">Action</th>
+                                                <th class="border-0 py-2">Entity Type</th>
+                                                <th class="border-0 py-2">Entity ID</th>
+                                                <th class="border-0 py-2">Details</th>
+                                                <th class="border-0 py-2">Time</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="audit-logs-tbody">
+                                            <tr><td colspan="6" class="text-center py-4 text-muted">Pull logs to view data.</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div id="audit-logs-pager" class="d-flex justify-content-between align-items-center mt-3" style="display: none !important;">
+                                    <span class="text-muted small pager-info"></span>
+                                    <div class="btn-group">
+                                        <button class="btn btn-outline-secondary btn-sm pager-prev font-weight-bold px-3" style="border-radius: 4px 0 0 4px;">Previous</button>
+                                        <button class="btn btn-outline-secondary btn-sm pager-next font-weight-bold px-3" style="border-radius: 0 4px 4px 0;">Next</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for details view popup -->
+<div class="modal fade" id="log-details-modal" tabindex="-1" role="dialog" aria-hidden="true">
+    <div class="modal-dialog modal-lg" role="document">
+        <div class="modal-content" style="border-radius: 8px; border: none;">
+            <div class="modal-header border-bottom">
+                <h5 class="modal-title font-weight-bold text-dark" id="details-modal-title">Transaction Details</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body bg-light">
+                <div class="mb-3 p-3 bg-white border rounded">
+                    <div class="row">
+                        <div class="col-md-6 border-right">
+                            <span class="text-secondary small">Local ID</span>
+                            <h6 id="details-modal-local-id" class="font-weight-bold font-mono text-primary mt-1">-</h6>
+                        </div>
+                        <div class="col-md-6">
+                            <span class="text-secondary small">Payload Type</span>
+                            <h6 id="details-modal-type" class="font-weight-bold text-uppercase mt-1">-</h6>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="details-modal-sync-error-box" class="alert alert-danger font-weight-bold mb-3" style="display: none; border-radius: 6px;"></div>
+
+                <div class="p-3 bg-white border rounded">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="text-secondary small">Detailed Payload JSON</span>
+                        <div class="btn-group">
+                            <button type="button" id="btn-edit-payload-toggle" class="btn btn-xs btn-outline-secondary font-weight-bold" style="font-size: 0.8em; border-radius: 4px;">
+                                Toggle Edit Mode
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- View JSON Area -->
+                    <pre id="details-modal-json" class="font-mono bg-light p-3 border rounded text-dark mb-0" style="max-height: 400px; overflow-y: auto; font-size: 0.9em; white-space: pre-wrap;"></pre>
+
+                    <!-- Edit JSON Area -->
+                    <textarea id="details-modal-json-editor" class="form-control font-mono bg-white p-3 border rounded text-dark mb-0" style="display: none; max-height: 400px; height: 350px; font-size: 0.9em; overflow-y: auto; white-space: pre-wrap; font-family: monospace;"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer border-top bg-white d-flex justify-content-between">
+                <button type="button" id="btn-modal-requeue-edited" class="btn btn-warning text-white font-weight-bold px-4" style="display: none; border-radius: 6px; background-color: #f0ad4e;">
+                    Save and Re-Sync
+                </button>
+                <button type="button" class="btn btn-secondary font-weight-bold px-4" data-dismiss="modal" style="border-radius: 6px;">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+

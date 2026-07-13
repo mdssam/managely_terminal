@@ -1164,7 +1164,8 @@ def branch_login(email, password):
 			"warehouse": warehouse or "",
 			"pos_profile": pos_profile_name,
 			"api_key": user_doc.api_key,
-			"api_secret": api_secret
+			"api_secret": api_secret,
+			"site_name": frappe.local.site
 		}
 	except frappe.AuthenticationError:
 		return {
