@@ -1,0 +1,146 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:SETTLE-{driver_id}-{YYYY}-{MM}-{DD}-{###}",
+ "creation": "2026-07-15 14:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "section_info",
+  "driver_id",
+  "driver_name",
+  "session_id",
+  "settled_at",
+  "col_break_1",
+  "total_amount",
+  "delivery_amount",
+  "net_amount",
+  "invoice_count",
+  "section_invoices",
+  "invoices"
+ ],
+ "fields": [
+  {
+   "fieldname": "section_info",
+   "fieldtype": "Section Break",
+   "label": "Settlement Info"
+  },
+  {
+   "fieldname": "driver_id",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Driver ID",
+   "options": "Delivery Personnel",
+   "reqd": 1
+  },
+  {
+   "fieldname": "driver_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Driver Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "session_id",
+   "fieldtype": "Data",
+   "label": "POS Session ID",
+   "reqd": 1
+  },
+  {
+   "fieldname": "settled_at",
+   "fieldtype": "Datetime",
+   "in_list_view": 1,
+   "label": "Settled At",
+   "reqd": 1
+  },
+  {
+   "fieldname": "col_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "total_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Total Outstanding",
+   "reqd": 1
+  },
+  {
+   "fieldname": "delivery_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Total Delivery Fee"
+  },
+  {
+   "fieldname": "net_amount",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Net Orders Amount"
+  },
+  {
+   "fieldname": "invoice_count",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Invoice Count"
+  },
+  {
+   "fieldname": "section_invoices",
+   "fieldtype": "Section Break",
+   "label": "Settled Invoices"
+  },
+  {
+   "fieldname": "invoices",
+   "fieldtype": "Table",
+   "label": "Invoices",
+   "options": "Driver Settlement Invoice"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-07-15 14:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sultan",
+ "name": "Driver Settlement",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "amend": 1,
+   "cancel": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts Manager",
+   "share": 1,
+   "submit": 1,
+   "write": 1
+  },
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts User",
+   "share": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

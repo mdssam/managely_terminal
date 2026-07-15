@@ -1,0 +1,66 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "creation": "2026-07-15 14:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "stamp_name",
+  "amount_lbp",
+  "account",
+  "currency",
+  "description"
+ ],
+ "fields": [
+  {
+   "fieldname": "stamp_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Stamp Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "amount_lbp",
+   "fieldtype": "Currency",
+   "in_list_view": 1,
+   "label": "Stamp Amount LBP",
+   "precision": "0",
+   "reqd": 1
+  },
+  {
+   "fieldname": "account",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Account",
+   "options": "Account",
+   "reqd": 1
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "fetch_from": "account.account_currency",
+   "in_list_view": 1,
+   "label": "Currency",
+   "options": "Currency",
+   "read_only": 1
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Description"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-07-15 14:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Sultan",
+ "name": "Sultan Stamp Setting",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

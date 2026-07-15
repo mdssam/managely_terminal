@@ -55,11 +55,11 @@ def get_delivery_personnel_list():
 				"name", 
 				"delivery_personnel", 
 				"phone", 
-				"custom_photo", 
-				"custom_driver_license", 
-				"custom_vehicle_license", 
-				"custom_national_id",
-				"custom_pos_profile"
+				"photo", 
+				"driver_license", 
+				"vehicle_license", 
+				"national_id",
+				"pos_profile"
 			],
 			order_by="delivery_personnel asc",
 		)
@@ -82,19 +82,19 @@ def add_delivery_personnel(name, phone=None, photo=None, driver_license=None, ve
 			"delivery_personnel": name,
 			"phone": phone,
 			"cell_number": phone,
-			"custom_pos_profile": pos_profile
+			"pos_profile": pos_profile
 		})
 		doc.insert(ignore_permissions=True)
 		
 		# Save attachments
 		if photo:
-			save_driver_attachment(name, "custom_photo", photo)
+			save_driver_attachment(name, "photo", photo)
 		if driver_license:
-			save_driver_attachment(name, "custom_driver_license", driver_license)
+			save_driver_attachment(name, "driver_license", driver_license)
 		if vehicle_license:
-			save_driver_attachment(name, "custom_vehicle_license", vehicle_license)
+			save_driver_attachment(name, "vehicle_license", vehicle_license)
 		if national_id:
-			save_driver_attachment(name, "custom_national_id", national_id)
+			save_driver_attachment(name, "national_id", national_id)
 		
 		return {"success": True, "data": {"name": doc.name, "delivery_personnel": doc.delivery_personnel, "phone": phone}}
 	except Exception as e:
@@ -118,18 +118,18 @@ def edit_delivery_personnel(old_name, new_name, phone=None, photo=None, driver_l
 		doc = frappe.get_doc("Delivery Personnel", new_name)
 		doc.phone = phone
 		doc.cell_number = phone
-		doc.custom_pos_profile = pos_profile
+		doc.pos_profile = pos_profile
 		doc.save(ignore_permissions=True)
 		
 		# Save attachments
 		if photo:
-			save_driver_attachment(new_name, "custom_photo", photo)
+			save_driver_attachment(new_name, "photo", photo)
 		if driver_license:
-			save_driver_attachment(new_name, "custom_driver_license", driver_license)
+			save_driver_attachment(new_name, "driver_license", driver_license)
 		if vehicle_license:
-			save_driver_attachment(new_name, "custom_vehicle_license", vehicle_license)
+			save_driver_attachment(new_name, "vehicle_license", vehicle_license)
 		if national_id:
-			save_driver_attachment(new_name, "custom_national_id", national_id)
+			save_driver_attachment(new_name, "national_id", national_id)
 			
 		return {"success": True}
 	except Exception as e:

@@ -72,78 +72,7 @@ def ensure_employee_pos_login_fields():
 def run():
 	setup_accounting_custom_fields()
 
-	# Custom Child DocType for Sales Invoices in POS Closing Entry
-	if not frappe.db.exists("DocType", "Klik Sales Invoice Reference"):
-		doc = frappe.get_doc({
-			"doctype": "DocType",
-			"name": "Klik Sales Invoice Reference",
-			"module": "Sultan",
-			"custom": 1,
-			"istable": 1,
-			"fields": [
-				{
-					"fieldname": "reference_doctype",
-					"label": "Reference Doctype",
-					"fieldtype": "Link",
-					"options": "DocType",
-					"hidden": 1
-				},
-				{
-					"fieldname": "sales_invoice",
-					"label": "Sales Invoice",
-					"fieldtype": "Dynamic Link",
-					"options": "reference_doctype",
-					"in_list_view": 1,
-					"reqd": 1
-				},
-				{
-					"fieldname": "customer",
-					"label": "Customer",
-					"fieldtype": "Link",
-					"options": "Customer",
-					"in_list_view": 1
-				},
-				{
-					"fieldname": "posting_date",
-					"label": "Posting Date",
-					"fieldtype": "Date",
-					"in_list_view": 1
-				},
-				{
-					"fieldname": "amount",
-					"label": "Amount",
-					"fieldtype": "Currency",
-					"in_list_view": 1
-				}
-			]
-		})
-		doc.insert(ignore_permissions=True)
-		print("Created Custom DocType Klik Sales Invoice Reference")
-	else:
-		doc = frappe.get_doc("DocType", "Klik Sales Invoice Reference")
-		modified = False
-		has_ref_dt = any(f.fieldname == "reference_doctype" for f in doc.fields)
-		if not has_ref_dt:
-			doc.append("fields", {
-				"fieldname": "reference_doctype",
-				"label": "Reference Doctype",
-				"fieldtype": "Link",
-				"options": "DocType",
-				"hidden": 1
-			})
-			modified = True
 
-		for field in doc.fields:
-			if field.fieldname == "sales_invoice":
-				if field.fieldtype != "Dynamic Link" or field.options != "reference_doctype":
-					field.fieldtype = "Dynamic Link"
-					field.options = "reference_doctype"
-					modified = True
-		if modified:
-			doc.save(ignore_permissions=True)
-			print("Updated Klik Sales Invoice Reference fields to Dynamic Link")
-		else:
-			print("Custom DocType Klik Sales Invoice Reference already exists and is up to date.")
 
 	# Fix POS Closing Entry custom field options to Klik Sales Invoice Reference
 	field_name = "POS Closing Entry-custom_sales_invoice"
@@ -353,26 +282,7 @@ def run():
 		except Exception:
 			pass
 
-	if not frappe.db.exists("DocType", "Allowed POS Profile"):
-		doc = frappe.get_doc({
-			"doctype": "DocType",
-			"name": "Allowed POS Profile",
-			"module": "Sultan",
-			"custom": 1,
-			"istable": 1,
-			"fields": [
-				{
-					"fieldname": "pos_profile",
-					"label": "POS Profile",
-					"fieldtype": "Link",
-					"options": "POS Profile",
-					"in_list_view": 1,
-					"reqd": 1
-				}
-			]
-		})
-		doc.insert(ignore_permissions=True)
-		print("Created Custom DocType Allowed POS Profile")
+	# Allowed POS Profile DocType is now standard
 
 	allowed_pos_cf = "Employee-custom_allowed_pos_profiles"
 	if not frappe.db.exists("Custom Field", allowed_pos_cf):
@@ -400,93 +310,7 @@ def run():
 		}).insert(ignore_permissions=True)
 		print("Created custom_allow_returns custom field on Employee.")
 
-	# Dynamic Multi-Stamp Settings
-	if not frappe.db.exists("DocType", "Sultan Stamp Setting"):
-		frappe.get_doc({
-			"doctype": "DocType",
-			"name": "Sultan Stamp Setting",
-			"module": "Sultan",
-			"custom": 1,
-			"istable": 1,
-			"fields": [
-				{
-					"fieldname": "stamp_name",
-					"label": "Stamp Name",
-					"fieldtype": "Data",
-					"reqd": 1,
-					"in_list_view": 1
-				},
-				{
-					"fieldname": "amount_lbp",
-					"label": "Stamp Amount LBP",
-					"fieldtype": "Currency",
-					"reqd": 1,
-					"in_list_view": 1,
-					"precision": "0"
-				},
-				{
-					"fieldname": "account",
-					"label": "Account",
-					"fieldtype": "Link",
-					"options": "Account",
-					"reqd": 1,
-					"in_list_view": 1
-				},
-				{
-					"fieldname": "currency",
-					"label": "Currency",
-					"fieldtype": "Link",
-					"options": "Currency",
-					"read_only": 1,
-					"in_list_view": 1,
-					"fetch_from": "account.account_currency"
-				},
-				{
-					"fieldname": "description",
-					"label": "Description",
-					"fieldtype": "Data",
-					"in_list_view": 1
-				}
-			]
-		}).insert(ignore_permissions=True)
-		print("Created Custom DocType Sultan Stamp Setting")
-	else:
-		# Check and add currency field if missing on existing DocType
-		stamp_setting_meta = frappe.get_doc("DocType", "Sultan Stamp Setting")
-		if not any(f.fieldname == "currency" for f in stamp_setting_meta.fields):
-			stamp_setting_meta.append("fields", {
-				"fieldname": "currency",
-				"label": "Currency",
-				"fieldtype": "Link",
-				"options": "Currency",
-				"read_only": 1,
-				"in_list_view": 1,
-				"fetch_from": "account.account_currency"
-			})
-			stamp_setting_meta.save(ignore_permissions=True)
-			print("Added currency field to existing Sultan Stamp Setting DocType")
-
-	if not frappe.db.exists("DocType", "Sultan Settings"):
-		frappe.get_doc({
-			"doctype": "DocType",
-			"name": "Sultan Settings",
-			"module": "Sultan",
-			"custom": 1,
-			"issingle": 1,
-			"fields": [
-				{
-					"fieldname": "stamps",
-					"label": "Stamps",
-					"fieldtype": "Table",
-					"options": "Sultan Stamp Setting"
-				}
-			],
-			"permissions": [
-				{"role": "System Manager", "read": 1, "write": 1, "create": 1, "delete": 1},
-				{"role": "Accounts User", "read": 1, "write": 1}
-			]
-		}).insert(ignore_permissions=True)
-		print("Created Custom Single DocType Sultan Settings")
+	# Sultan Stamp Setting and Sultan Settings DocTypes are now standard
 
 # 	# Custom field for POS Invoice to avoid erpnext 15 AttributeError
 # 	pos_invoice_roundoff_cost_center = "POS Invoice-use_company_roundoff_cost_center"
