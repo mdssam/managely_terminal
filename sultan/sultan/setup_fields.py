@@ -234,6 +234,10 @@ def run():
 				changed = False
 				for k, v in f.items():
 					if getattr(doc, k, None) != v:
+						if k == "fieldtype" and getattr(doc, k, None) == "Link" and v == "Data":
+							continue
+						if k == "options" and getattr(doc, "fieldtype", None) == "Link" and v is None:
+							continue
 						setattr(doc, k, v)
 						changed = True
 				if changed:

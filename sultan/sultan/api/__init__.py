@@ -11,6 +11,7 @@ def setup_custom_fields():
     fields = [
         {"dt": "Item", "fieldname": "is_fresh_produce", "label": "Is Fresh Produce", "fieldtype": "Check", "insert_after": "allow_negative_stock"},
         {"dt": "Item", "fieldname": "supports_weight_price", "label": "Supports Weight Price", "fieldtype": "Check", "insert_after": "is_fresh_produce"},
+        {"dt": "Item", "fieldname": "is_weight_item", "label": "Is Weight Item", "fieldtype": "Check", "insert_after": "is_fresh_produce"},
         {"dt": "POS Invoice Item", "fieldname": "custom_ingredients", "label": "Custom Ingredients", "fieldtype": "Small Text", "insert_after": "item_code"},
         {"dt": "Sales Order Item", "fieldname": "custom_ingredients", "label": "Custom Ingredients", "fieldtype": "Small Text", "insert_after": "item_code"},
         {"dt": "Work Order", "fieldname": "custom_pos_invoice", "label": "Source POS Invoice", "fieldtype": "Link", "options": "POS Invoice", "insert_after": "sales_order"},

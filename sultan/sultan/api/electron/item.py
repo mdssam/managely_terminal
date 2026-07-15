@@ -699,7 +699,7 @@ def get_items_with_balance_and_price(
 
 	try:
 		# Build the base query
-		select_fields = "i.name, i.item_name, i.description, i.item_group, i.image, i.stock_uom, i.is_fresh_produce, i.is_stock_item"
+		select_fields = "i.name, i.item_name, i.description, i.item_group, i.image, i.stock_uom, i.is_fresh_produce, i.is_stock_item, i.is_weight_item"
 
 		if hide_unavailable:
 			base_query = [
@@ -921,6 +921,7 @@ def get_items_with_balance_and_price(
 					"barcodes": primary_barcodes,
 					"is_fresh_produce": item.get("is_fresh_produce") or 0,
 					"is_stock_item": item.get("is_stock_item") or 0,
+					"is_weight_item": item.get("is_weight_item") or 0,
 				}
 			)
 
