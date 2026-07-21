@@ -1112,6 +1112,7 @@ def autoname_work_order(doc, method=None):
 def branch_login(email, password):
 	try:
 		from frappe.utils.password import get_decrypted_password
+		import frappe.auth
 		
 		# Authenticate using login manager
 		login_manager = frappe.auth.LoginManager()
@@ -1143,7 +1144,8 @@ def branch_login(email, password):
 		user_doc = frappe.get_doc("User", user)
 		if not user_doc.api_key:
 			user_doc.api_key = frappe.generate_hash(length=15)
-			user_doc.save(ignore_permissions=True)
+			# Update database directly to avoid timeline / comment logging
+			frappe.db.set_value("User", user, "api_key", user_doc.api_key, update_modified=False)
 			
 		api_secret = None
 		try:
