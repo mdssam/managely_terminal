@@ -11,23 +11,16 @@ app_license = "mit"
 # required_apps = []
 
 # Each item in the list will be shown as an app in the apps page
-add_to_apps_screen = [
-	{
-		"name": "sultan_spa",
-		"logo": "/assets/sultan/sultan_spa/pos_desk_icon.jpg",
-		"title": "POS",
-		"route": "/sultan_spa",
-	}
-]
+# add_to_apps_screen removed for Web POS
 
 # Includes in <head>
 # ------------------
 
 # include js, css files in header of desk.html
 # app_include_css = "/assets/sultan/css/sultan.css"
-app_include_js = "/assets/sultan/js/sultan_pos_modifier.js"
+# app_include_js = "/assets/sultan/js/sultan_pos_modifier.js"
 
-page_js = {"point-of-sale": "public/js/pos_extension.js"}
+# page_js = {"point-of-sale": "public/js/pos_extension.js"}
 
 # include js, css files in header of web template
 # web_include_css = "/assets/sultan/css/sultan.css"
@@ -80,10 +73,7 @@ doctype_tree_js = {"Account": "public/js/doctype/account_autonumber.js"}
 # automatically create page for each record of this doctype
 # website_generators = ["Web Page"]
 
-website_route_rules = [
-	{"from_route": "/sultan_spa", "to_route": "sultan_spa"},
-	{"from_route": "/sultan_spa/<path:app_path>", "to_route": "sultan_spa"},
-]
+
 
 # Jinja
 # ----------
@@ -280,7 +270,7 @@ scheduler_events = {
 # Request Events
 # ----------------
 # before_request = ["sultan.utils.before_request"]
-after_request = ["sultan.sultan.api.sw.add_sw_header"]
+# after_request = ["sultan.sultan.api.sw.add_sw_header"]
 
 # Job Events
 # ----------
