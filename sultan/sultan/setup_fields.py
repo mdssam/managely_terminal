@@ -426,6 +426,13 @@ def ensure_sultan_pos_profile_fields():
 			"description": "Thermal receipt print format used by the Sultan POS SPA",
 		},
 		{
+			"fieldname": "custom_print_currency",
+			"label": "Secondary Print Currency",
+			"fieldtype": "Link",
+			"options": "Currency",
+			"description": "Additional currency to automatically convert and display at the bottom of thermal receipts (e.g. LBP or USD)",
+		},
+		{
 			"fieldname": "custom_sultan_hardware_section",
 			"label": "Hardware & Scale Settings",
 			"fieldtype": "Section Break",
