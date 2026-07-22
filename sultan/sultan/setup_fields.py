@@ -121,8 +121,15 @@ def run():
 	else:
 		print("custom_pos_opening_entry field already exists.")
 
-	# Delivery fields on POS Invoice and Sales Invoice
-	for dt in ["POS Invoice", "Sales Invoice"]:
+	# Clean up any legacy delivery custom fields from Sales Invoice so they only exist on POS Invoice
+	for legacy_fn in ["custom_delivery_personnel", "custom_delivery_personnel_name", "custom_delivery_status", "custom_delivery_fee", "custom_delivery_cod", "custom_delivery_prepaid", "custom_pos_order_type", "custom_driver_settled", "custom_delivery", "custom_column_break_hnemi"]:
+		legacy_cf = f"Sales Invoice-{legacy_fn}"
+		if frappe.db.exists("Custom Field", legacy_cf):
+			frappe.delete_doc("Custom Field", legacy_cf, ignore_permissions=True)
+			print(f"Removed legacy {legacy_cf}.")
+
+	# Delivery fields on POS Invoice ONLY
+	for dt in ["POS Invoice"]:
 		delivery_fields = [
 			{
 				"dt": dt,
