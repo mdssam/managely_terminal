@@ -32,7 +32,7 @@ function setup_pos_password_reveal(frm) {
 		}
 
 		frappe.call({
-			method: "sultan.sultan.api.employee_auth.get_employee_pos_password",
+			method: "sultan.sultan.api.electron.employee_auth.get_employee_pos_password",
 			args: { employee: frm.doc.name },
 			callback(r) {
 				if (r.message !== undefined) {

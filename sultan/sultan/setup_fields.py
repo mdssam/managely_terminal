@@ -144,8 +144,8 @@ def run():
 				"fieldname": "custom_delivery_status",
 				"label": "Delivery Status",
 				"fieldtype": "Select",
-				"options": "Pending\nOut for Delivery\nDelivered\nSettled\nCancelled",
-				"default": "Pending",
+				"options": "\nPending\nOut for Delivery\nDelivered\nSettled\nCancelled",
+				"default": None,
 				"insert_after": "custom_delivery_personnel"
 			},
 			{
