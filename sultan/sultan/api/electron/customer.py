@@ -7,212 +7,61 @@ from frappe import _
 from sultan.sultan.utils import get_current_pos_profile
 
 
+import json
+import frappe
+from erpnext.setup.utils import get_exchange_rate
+from frappe import _
+from sultan.sultan.utils import get_current_pos_profile
+
 @frappe.whitelist(allow_guest=True)
 def get_customers(limit: int = 100, start: int = 0, search: str = "", include_all: int = 0):
 	"""
-	Fetch customers with structured primary contact & address details.
-	Returns all customers based on business type and search criteria.
+	Fetch customers:
+	- Standard Customer DocType: ONLY return the single default_customer of the active POS Profile.
+	- POS Customer DocType: return all POS Customers.
 	"""
-
 	try:
 		pos_profile = get_current_pos_profile()
 		business_type = getattr(pos_profile, "custom_business_type", "B2C")
-		default_customer = getattr(pos_profile, "customer", None) or "Walk-in Customer" 
-		company, company_currency = get_user_company_and_currency()
+		default_customer = getattr(pos_profile, "customer", None) or getattr(pos_profile, "name", None) or "Walk-in Customer" 
+		company = getattr(pos_profile, "company", None) or frappe.defaults.get_user_default("Company") or "Sultan Global"
+		company_currency = frappe.db.get_value("Company", company, "default_currency") or "USD"
 		result = []
 
-		# Get customer groups from POS profile if configured
-		customer_group_names = []
-		if hasattr(pos_profile, "customer_groups") and pos_profile.customer_groups:
-			customer_group_names = [d.customer_group for d in pos_profile.customer_groups if d.customer_group]
+		# 1. Standard Customer DocType: ONLY get default_customer for this POS Profile
+		if default_customer and frappe.db.exists("Customer", default_customer):
+			match_default = True
+			if search:
+				s_lower = search.strip().lower()
+				d_lower = default_customer.strip().lower()
+				match_default = (s_lower in d_lower)
 
-		# Get user permissions for Customer doctype
-		user_permitted = frappe.permissions.get_user_permissions(frappe.session.user)
-		permitted_customer_names = []
-		has_customer_permissions = False
-		if user_permitted and "Customer" in user_permitted:
-			permitted_customer_names = [perm.get("doc") for perm in user_permitted["Customer"]]
-			has_customer_permissions = True
-
-		# If user has customer permissions configured but no customers are permitted, return empty result
-		if has_customer_permissions and not permitted_customer_names:
-			return {
-				"success": True,
-				"data": [],
-				"total_count": 0,
-			}
-
-		# If there's a search term, broaden the query across name, customer_name, contact email/phone.
-		# Also increase limit for search results to surface older matches.
-		if search:
-			# Sanitize search input for LIKE
-			like_param = f"%{search}%"
-
-			# Build optional customer_type filter
-			cust_type_filter = ""
-			cust_type_params = []
-			if business_type == "B2B":
-				cust_type_filter = "AND c.customer_type = %s"
-				cust_type_params.append("Company")
-			elif business_type == "B2C":
-				cust_type_filter = "AND c.customer_type = %s"
-				cust_type_params.append("Individual")
-			print("Busines type", business_type)
-			# Build optional customer_group filter
-			cust_group_filter = ""
-			cust_group_params = []
-			if customer_group_names:
-				placeholders = ",".join(["%s"] * len(customer_group_names))
-				cust_group_filter = f"AND c.customer_group IN ({placeholders})"
-				cust_group_params.extend(customer_group_names)
-
-			# Build optional user permission filter
-			user_perm_filter = ""
-			user_perm_params = []
-			if permitted_customer_names:
-				placeholders = ",".join(["%s"] * len(permitted_customer_names))
-				user_perm_filter = f"AND c.name IN ({placeholders})"
-				user_perm_params.extend(permitted_customer_names)
-
-			# Prefer higher cap when searching
-			try:
-				limit_val = int(limit) if limit else 100
-			except Exception:
-				limit_val = 100
-			# Boost limits for search to show more matches
-			limit_val = max(limit_val, 500)
-
-			customer_names = frappe.db.sql(
-				f"""
-                SELECT DISTINCT c.name, c.customer_name, c.customer_type, c.customer_group, c.territory, c.default_currency
-                FROM `tabCustomer` c
-                LEFT JOIN `tabDynamic Link` dl ON dl.link_doctype='Customer' AND dl.link_name=c.name AND dl.parenttype='Contact'
-                LEFT JOIN `tabContact` ct ON ct.name = dl.parent
-                LEFT JOIN `tabContact Email` ce ON ce.parent = ct.name
-                LEFT JOIN `tabContact Phone` cp ON cp.parent = ct.name
-                WHERE c.name = %s AND (
-                    c.customer_name LIKE %s OR c.name LIKE %s OR
-                    ce.email_id LIKE %s OR cp.phone LIKE %s
-                )
-                {cust_type_filter}
-                {cust_group_filter}
-                {user_perm_filter}
-                ORDER BY c.creation DESC
-                LIMIT %s OFFSET %s
-                """,
-				tuple(
-					[
-						default_customer,
-						like_param,
-						like_param,
-						like_param,
-						like_param,
-						*cust_type_params,
-						*cust_group_params,
-						*user_perm_params,
-						limit_val,
-						int(start) or 0,
-					]
-				),
-				as_dict=True,
-			)
-
-			# Total count for search
-			total_count_row = frappe.db.sql(
-				f"""
-                SELECT COUNT(DISTINCT c.name) as total
-                FROM `tabCustomer` c
-                LEFT JOIN `tabDynamic Link` dl ON dl.link_doctype='Customer' AND dl.link_name=c.name AND dl.parenttype='Contact'
-                LEFT JOIN `tabContact` ct ON ct.name = dl.parent
-                LEFT JOIN `tabContact Email` ce ON ce.parent = ct.name
-                LEFT JOIN `tabContact Phone` cp ON cp.parent = ct.name
-                WHERE c.name = %s AND (
-                    c.customer_name LIKE %s OR c.name LIKE %s OR
-                    ce.email_id LIKE %s OR cp.phone LIKE %s
-                )
-                {cust_type_filter}
-                {cust_group_filter}
-                {user_perm_filter}
-                """,
-				tuple(
-					[
-						default_customer,
-						like_param,
-						like_param,
-						like_param,
-						like_param,
-						*cust_type_params,
-						*cust_group_params,
-						*user_perm_params,
-					]
-				),
-				as_dict=True,
-			)
-			total_count = (total_count_row[0].total if total_count_row else 0) or 0
-		else:
-			# Original logic for when no search term - keep capped limit for performance
-			try:
-				include_all = int(include_all) if include_all else 0
-			except (ValueError, TypeError):
-				include_all = 0
-
-			if include_all:
-				filters = {"disabled": 0}
-			else:
-				filters = {
-					"name": default_customer or "___non_existent_customer___"
-				}
-
-			customer_names = frappe.get_all(
-				"Customer",
-				filters=filters,
-				fields=[
-					"name",
-					"customer_name",
-					"customer_type",
-					"customer_group",
-					"territory",
-					"default_currency",
-				],
-				order_by="creation desc",
-				limit=limit,
-				start=start,
-			)
-
-			total_count = frappe.db.count("Customer", filters=filters)
-
-		# Process each customer to get detailed information
-		for cust in customer_names:
-			doc = frappe.get_doc("Customer", cust.name)
-
-			contact = (
-				frappe.db.get_value(
-					"Contact",
-					{"name": doc.customer_primary_contact},
-					["first_name", "last_name", "email_id", "phone", "mobile_no"],
-					as_dict=True,
+			if match_default:
+				doc = frappe.get_doc("Customer", default_customer)
+				contact = (
+					frappe.db.get_value(
+						"Contact",
+						{"name": doc.customer_primary_contact},
+						["first_name", "last_name", "email_id", "phone", "mobile_no"],
+						as_dict=True,
+					)
+					if doc.customer_primary_contact
+					else None
 				)
-				if doc.customer_primary_contact
-				else None
-			)
-
-			address = (
-				frappe.db.get_value(
-					"Address",
-					{"name": doc.customer_primary_address},
-					["address_line1", "city", "state", "country", "pincode"],
-					as_dict=True,
+				address = (
+					frappe.db.get_value(
+						"Address",
+						{"name": doc.customer_primary_address},
+						["address_line1", "city", "state", "country", "pincode"],
+						as_dict=True,
+					)
+					if doc.customer_primary_address
+					else None
 				)
-				if doc.customer_primary_address
-				else None
-			)
+				stats = get_customer_statistics(doc.name)
+				customer_stats = stats.get("data", {}) if stats.get("success") else {}
 
-			# Get customer statistics
-			stats = get_customer_statistics(doc.name)
-			customer_stats = stats.get("data", {}) if stats.get("success") else {}
-
-			result.append(
-				{
+				result.append({
 					"name": doc.name,
 					"customer_name": doc.customer_name,
 					"customer_type": doc.customer_type,
@@ -227,18 +76,16 @@ def get_customers(limit: int = 100, start: int = 0, search: str = "", include_al
 					"custom_last_visit": customer_stats.get("last_visit"),
 					"company": company,
 					"unified_customer": None,
+					"is_pos_customer": 0,
 					"loyalty_program": "",
 					"loyalty_points": 0,
-					# "exchange_rate": get_currency_exchange_rate(company_currency, doc.default_currency)
-				}
-			)
+				})
 
-		# Fetch and append POS Customer records
+		# 2. POS Customer DocType: fetch all active POS Customers
 		pos_cust_filters = {}
 		if search:
-			pos_cust_filters["customer_name"] = ["like", f"%{search}%"]
+			pos_cust_filters["customer_name"] = ["like", f"%{search.strip()}%"]
 
-		default_lp = frappe.db.get_single_value("Sultan Settings", "default_loyalty_program") or ""
 		pos_customers = frappe.get_all(
 			"POS Customer",
 			filters=pos_cust_filters,
@@ -253,58 +100,29 @@ def get_customers(limit: int = 100, start: int = 0, search: str = "", include_al
 				"customer_type": "Individual",
 				"customer_group": "All Customer Groups",
 				"territory": "All Territories",
-				"contact": {
-					"email_id": pc.email_id,
-					"phone": pc.mobile_no,
-					"mobile_no": pc.mobile_no,
-				},
-				"address": {"address_line1": pc.get("address")} if pc.get("address") else None,
+				"contact": {"phone": pc.mobile_no, "email_id": pc.email_id},
+				"address": {"address_line1": pc.address},
 				"default_currency": company_currency,
 				"company_currency": company_currency,
 				"custom_total_orders": 0,
 				"custom_total_spent": 0,
 				"custom_last_visit": None,
-				"is_pos_customer": True,
-				"company": pc.get("company"),
-				"unified_customer": pc.get("unified_customer"),
-				"loyalty_program": default_lp,
-				"loyalty_points": pc.get("loyalty_points") or 0,
+				"company": pc.company,
+				"unified_customer": pc.unified_customer,
+				"is_pos_customer": 1,
+				"loyalty_program": "",
+				"loyalty_points": pc.loyalty_points or 0,
 			})
-
-		# Deduplicate the merged list by customer_name
-		seen_names = set()
-		deduped_result = []
-		for r in result:
-			name_key = r.get("customer_name")
-			if name_key not in seen_names:
-				seen_names.add(name_key)
-				deduped_result.append(r)
-		result = deduped_result
 
 		return {
 			"success": True,
 			"data": result,
 			"total_count": len(result),
-			"start": start,
-			"limit": limit,
 		}
 
-	except Exception:
-		frappe.log_error(frappe.get_traceback(), "Error fetching customers")
-		return {
-			"success": False,
-			"error": _("Something went wrong while fetching customers."),
-		}
-
-
-def get_user_company_and_currency():
-	default_company = frappe.defaults.get_user_default("Company")
-	if not default_company:
-		default_company = frappe.db.get_single_value("Global Defaults", "default_company")
-
-	company_currency = frappe.db.get_value("Company", default_company, "default_currency")
-
-	return default_company, company_currency
+	except Exception as e:
+		frappe.log_error(frappe.get_traceback(), "Get Customers Error")
+		return {"success": False, "error": str(e), "data": [], "total_count": 0}
 
 
 @frappe.whitelist(allow_guest=True)
@@ -884,7 +702,7 @@ def update_customer(customer_id, customer_data):
 		return {"success": False, "error": str(e)}
 
 
-@frappe.whitelist()
+@frappe.whitelist(allow_guest=True)
 def get_customer_statistics(customer_id):
 	"""Get customer statistics including total orders and total spent"""
 	try:
