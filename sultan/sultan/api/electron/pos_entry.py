@@ -413,7 +413,7 @@ def create_closing_entry():
 		frappe.logger().info(f"POS Closing Entry Data Received: {data}")
 
 		pos_opening_entry_name = data.get("pos_opening_entry")
-		if pos_opening_entry_name:
+		if pos_opening_entry_name and frappe.db.exists("POS Opening Entry", pos_opening_entry_name):
 			opening_entry = frappe.get_doc("POS Opening Entry", pos_opening_entry_name)
 		else:
 			opening_entry = _get_open_pos_entry(user)

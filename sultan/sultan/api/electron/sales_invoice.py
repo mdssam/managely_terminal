@@ -3370,7 +3370,7 @@ def submit_draft_invoice(invoice_id):
 		return {"success": False, "error": str(e)}
 
 
-@frappe.whitelist()
+@frappe.whitelist(allow_guest=True)
 def get_today_exchange_rates(currencies, base_currency):
 	"""Return today's exchange rates for the given secondary currencies.
 
@@ -3399,6 +3399,19 @@ def get_today_exchange_rates(currencies, base_currency):
 			rate = frappe.db.get_value(
 				"Currency Exchange",
 				{"from_currency": currency, "to_currency": base_currency},
+				"exchange_rate",
+				order_by="date desc",
+			)
+		if not rate:
+			rate = frappe.db.get_value(
+				"Currency Exchange",
+				{"from_currency": base_currency, "to_currency": currency, "date": today},
+				"exchange_rate",
+			)
+		if not rate:
+			rate = frappe.db.get_value(
+				"Currency Exchange",
+				{"from_currency": base_currency, "to_currency": currency},
 				"exchange_rate",
 				order_by="date desc",
 			)

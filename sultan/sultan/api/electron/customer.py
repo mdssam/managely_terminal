@@ -8,7 +8,7 @@ from sultan.sultan.utils import get_current_pos_profile
 
 
 @frappe.whitelist(allow_guest=True)
-def get_customers(limit: int = 100, start: int = 0, search: str = ""):
+def get_customers(limit: int = 100, start: int = 0, search: str = "", include_all: int = 0):
 	"""
 	Fetch customers with structured primary contact & address details.
 	Returns all customers based on business type and search criteria.
@@ -151,9 +151,17 @@ def get_customers(limit: int = 100, start: int = 0, search: str = ""):
 			total_count = (total_count_row[0].total if total_count_row else 0) or 0
 		else:
 			# Original logic for when no search term - keep capped limit for performance
-			filters = {
-				"name": default_customer or "___non_existent_customer___"
-			}
+			try:
+				include_all = int(include_all) if include_all else 0
+			except (ValueError, TypeError):
+				include_all = 0
+
+			if include_all:
+				filters = {"disabled": 0}
+			else:
+				filters = {
+					"name": default_customer or "___non_existent_customer___"
+				}
 
 			customer_names = frappe.get_all(
 				"Customer",

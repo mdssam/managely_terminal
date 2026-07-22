@@ -599,8 +599,8 @@ def _fetch_batch_prices(item_codes: list, price_list: str | None, uom_map: dict)
 		# Build query for Item Price
 		placeholders = ", ".join(["%s"] * len(item_codes))
 
+		results = []
 		if price_list and price_list.strip():
-			# Try with price list first
 			sql = f"""
 				SELECT item_code, price_list_rate, currency, uom
 				FROM `tabItem Price`
@@ -609,17 +609,22 @@ def _fetch_batch_prices(item_codes: list, price_list: str | None, uom_map: dict)
 				AND selling = 1
 			"""
 			params = [*item_codes, price_list]
-		else:
-			sql = f"""
+			results = frappe.db.sql(sql, params, as_dict=True)
+
+		found_codes = {r["item_code"] for r in results}
+		missing_codes = [c for c in item_codes if c not in found_codes]
+
+		if missing_codes:
+			ph_missing = ", ".join(["%s"] * len(missing_codes))
+			sql_fallback = f"""
 				SELECT item_code, price_list_rate, currency, uom
 				FROM `tabItem Price`
-				WHERE item_code IN ({placeholders})
+				WHERE item_code IN ({ph_missing})
 				AND selling = 1
 				ORDER BY modified DESC
 			"""
-			params = item_codes
-
-		results = frappe.db.sql(sql, params, as_dict=True)
+			fallback_results = frappe.db.sql(sql_fallback, missing_codes, as_dict=True)
+			results.extend(fallback_results)
 
 		currency_symbols = {}
 		# Build price map - prefer prices matching the item's UOM
@@ -671,6 +676,7 @@ def get_items_with_balance_and_price(
 	offset: int = 0,
 	search: str | None = None,
 	category: str | None = None,
+	include_all: int = 1,
 ):
 	"""
 	Get items with balance and price - optimized with pagination and server-side search.
@@ -696,6 +702,14 @@ def get_items_with_balance_and_price(
 	limit = min(limit, 2000)
 
 	pos_doc, warehouse, price_list, hide_unavailable = _get_pos_context()
+
+	# include_all=1 bypasses hide_unavailable (used for full SQLite sync)
+	try:
+		include_all = int(include_all) if include_all else 0
+	except (ValueError, TypeError):
+		include_all = 0
+	if include_all:
+		hide_unavailable = False
 
 	try:
 		# Build the base query

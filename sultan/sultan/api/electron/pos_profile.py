@@ -237,6 +237,8 @@ def get_pos_details():
 		"custom_prices_include_vat": int(getattr(pos, "custom_prices_include_vat", 0) or 0),
 		"custom_allow_loyalty_points": int(getattr(pos, "custom_allow_loyalty_points", 1) or 0),
 		"custom_default_loyalty_program": frappe.db.get_single_value("Sultan Settings", "default_loyalty_program") or "",
+		"allow_rate_change": int(getattr(pos, "allow_rate_change", 1) if pos else 1),
+		"custom_allow_edit_exchange_rate": int(getattr(pos, "custom_allow_edit_exchange_rate", 1) if pos else 1),
 		"country_code": country_code or "LB",
 	}
 	return details
