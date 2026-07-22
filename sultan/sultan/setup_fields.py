@@ -441,11 +441,6 @@ def ensure_sultan_pos_profile_fields():
 			"fieldtype": "Data",
 		},
 		{
-			"fieldname": "custom_autofetch_batchserial_",
-			"label": "Auto-fetch Batch/Serial ",
-			"fieldtype": "Check",
-		},
-		{
 			"fieldname": "custom_sultan_checkout_section",
 			"label": "Checkout & Session Settings",
 			"fieldtype": "Section Break",
@@ -519,6 +514,9 @@ def ensure_sultan_pos_profile_fields():
 		"custom_multi_currency_rates",
 		"custom_multi_currency_section"
 	]
+	if frappe.db.exists("Custom Field", "POS Payment Method-custom_exchange_rate"):
+		frappe.delete_doc("Custom Field", "POS Payment Method-custom_exchange_rate", ignore_permissions=True)
+		print("Deleted old POS Payment Method-custom_exchange_rate")
 	for fieldname in old_pos_profile_fields:
 		cf_name = f"POS Profile-{fieldname}"
 		if frappe.db.exists("Custom Field", cf_name):
@@ -568,15 +566,6 @@ def ensure_sultan_pos_profile_fields():
 			"in_list_view": 1,
 			"read_only": 1,
 			"insert_after": "mode_of_payment"
-		},
-		{
-			"fieldname": "custom_exchange_rate",
-			"label": "Exchange Rate",
-			"fieldtype": "Float",
-			"in_list_view": 1,
-			"default": "1.0",
-			"read_only_depends_on": "eval:!doc.custom_currency || doc.custom_currency == parent.currency",
-			"insert_after": "custom_currency"
 		}
 	]
 	for f in payment_method_fields:
@@ -601,5 +590,4 @@ def ensure_sultan_pos_profile_fields():
 
 	frappe.clear_cache(doctype="POS Profile")
 	frappe.clear_cache(doctype="POS Payment Method")
-
 
