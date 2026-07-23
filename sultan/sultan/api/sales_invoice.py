@@ -879,6 +879,8 @@ def create_and_submit_invoice(data):
 			delivery_personnel=delivery_personnel,
 			draft_id=draft_id,
 			delivery_fee=flt(data.get("deliveryFee", 0.0)),
+			pre_assigned_name=data.get("pre_assigned_name") or data.get("name"),
+			naming_series=data.get("naming_series"),
 		)
 
 		if data.get("is_return"):
@@ -1238,6 +1240,8 @@ def build_sales_invoice_doc(
 	delivery_personnel=None,
 	draft_id=None,
 	delivery_fee=0.0,
+	pre_assigned_name=None,
+	naming_series=None,
 ):
 	"""Main function to build a POS invoice document."""
 	if draft_id and frappe.db.exists("POS Invoice", draft_id):
@@ -1249,6 +1253,11 @@ def build_sales_invoice_doc(
 		doc.set("pricing_rules", [])
 	else:
 		doc = frappe.new_doc("POS Invoice")
+		if pre_assigned_name:
+			doc.name = pre_assigned_name
+			doc.flags.ignore_naming_series = True
+		elif naming_series:
+			doc.naming_series = naming_series
 		
 	doc.is_pos = 1
 

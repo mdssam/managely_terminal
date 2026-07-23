@@ -240,6 +240,10 @@ def _create_sultan_cash_transaction(pos_session, amount, mode_of_payment,
 
     # 2. Create and submit Sultan POS Cash Transaction linked to the JE
     doc = frappe.new_doc("Sultan POS Cash Transaction")
+    pre_assigned = data.get("pre_assigned_name") or data.get("name") if isinstance(data, dict) else None
+    if pre_assigned:
+        doc.name = pre_assigned
+        doc.flags.ignore_naming_series = True
     doc.transaction_type = transaction_type
     doc.amount = flt(amount)
     doc.description = description

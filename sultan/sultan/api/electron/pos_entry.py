@@ -166,6 +166,7 @@ def create_opening_entry():
 		doc = frappe.new_doc("POS Opening Entry")
 		if data.get("pre_assigned_name"):
 			doc.name = data.get("pre_assigned_name")
+			doc.flags.pre_assigned_name = data.get("pre_assigned_name")
 			doc.flags.ignore_naming_series = True
 
 		doc.user = user
@@ -769,6 +770,7 @@ def _create_and_submit_closing_doc(opening_entry, data, payment_data, user):
 	doc = frappe.new_doc("POS Closing Entry")
 	if data.get("pre_assigned_name"):
 		doc.name = data.get("pre_assigned_name")
+		doc.flags.pre_assigned_name = data.get("pre_assigned_name")
 		doc.flags.ignore_naming_series = True
 
 	doc.user = user

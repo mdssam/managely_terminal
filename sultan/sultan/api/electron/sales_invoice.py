@@ -879,6 +879,10 @@ def create_and_submit_invoice(data):
 			delivery_personnel=delivery_personnel,
 			draft_id=draft_id,
 			delivery_fee=flt(data.get("deliveryFee", 0.0)),
+			pre_assigned_name=data.get("pre_assigned_name") or data.get("name"),
+			naming_series=data.get("naming_series"),
+			pos_order_type=data.get("custom_pos_order_type") or data.get("orderType"),
+			delivery_status=data.get("deliveryStatus") or data.get("custom_delivery_status"),
 		)
 
 		if data.get("is_return"):
@@ -887,7 +891,12 @@ def create_and_submit_invoice(data):
 			doc.is_pos = 1
 
 		# Sultan custom fields
-		doc.custom_pos_order_type = data.get("custom_pos_order_type") or ("Delivery" if float(data.get("deliveryFee", 0.0)) > 0 or data.get("deliveryPersonnel") else "Pickup")
+		req_order_type = data.get("custom_pos_order_type") or data.get("orderType")
+		if not req_order_type:
+			req_order_type = "Delivery" if (float(data.get("deliveryFee", 0.0)) > 0 or data.get("deliveryPersonnel") or data.get("deliveryStatus")) else "Pickup"
+		doc.custom_pos_order_type = req_order_type
+		if req_order_type == "Delivery" and not doc.custom_delivery_status:
+			doc.custom_delivery_status = data.get("deliveryStatus") or data.get("custom_delivery_status") or "Pending"
 		doc.cashier_name = data.get("cashier_name") or ""
 		doc.employee_username = data.get("employee_username") or ""
 		doc.custom_driver_settled = data.get("custom_driver_settled") or 0
@@ -1246,6 +1255,10 @@ def build_sales_invoice_doc(
 	delivery_personnel=None,
 	draft_id=None,
 	delivery_fee=0.0,
+	pre_assigned_name=None,
+	naming_series=None,
+	pos_order_type=None,
+	delivery_status=None,
 ):
 	"""Main function to build a POS invoice document."""
 	if draft_id and frappe.db.exists("POS Invoice", draft_id):
@@ -1257,6 +1270,12 @@ def build_sales_invoice_doc(
 		doc.set("pricing_rules", [])
 	else:
 		doc = frappe.new_doc("POS Invoice")
+		if pre_assigned_name:
+			doc.name = pre_assigned_name
+			doc.flags.pre_assigned_name = pre_assigned_name
+			doc.flags.ignore_naming_series = True
+		elif naming_series:
+			doc.naming_series = naming_series
 		
 	doc.is_pos = 1
 	doc.ignore_pricing_rule = 1
@@ -1274,17 +1293,19 @@ def build_sales_invoice_doc(
 	doc.due_date = frappe.utils.nowdate()
 	doc.custom_delivery_date = frappe.utils.nowdate()
 
-	# Set delivery details only for Delivery orders (not Pickup)
-	# Determine order type: check custom_pos_order_type if available
-	_is_pickup_order = (business_type == "Pickup") or (not delivery_personnel and flt(delivery_fee) == 0.0)
-	if (delivery_personnel or flt(delivery_fee) > 0.0) and not _is_pickup_order:
+	# Set delivery details for Delivery orders vs Pickup orders
+	_is_delivery = (pos_order_type == "Delivery") or (business_type == "Delivery") or bool(delivery_personnel) or (flt(delivery_fee) > 0.0) or bool(delivery_status)
+	_is_pickup = (pos_order_type == "Pickup") or (business_type == "Pickup" and not (bool(delivery_personnel) or flt(delivery_fee) > 0.0 or bool(delivery_status)))
+
+	if _is_delivery and not _is_pickup:
 		if delivery_personnel:
 			doc.custom_delivery_personnel = delivery_personnel
-		doc.custom_delivery_status = "Pending"
+		doc.custom_delivery_status = delivery_status or "Pending"
 		doc.custom_delivery_fee = flt(delivery_fee)
+		doc.custom_pos_order_type = "Delivery"
 	else:
-		# Pickup order: ensure no delivery_status is set
 		doc.custom_delivery_status = None
+		doc.custom_pos_order_type = "Pickup"
 
 	# Configure POS profile and company settings
 	pos_profile = _get_active_pos_profile()
@@ -1738,7 +1759,7 @@ def _prepare_item_data(item, item_data_map, pos_profile, prices_include_vat=Fals
 		"rate": final_rate,
         "price_list_rate": flt(original_price),   # keep original for reference
         "is_free_item": 1 if final_rate == 0.0 else 0,
-        "ignore_pricing_rule": ignore_pricing_rule,
+        "ignore_pricing_rule": 1,
 		# "rate": item.get("price"),
 		# "rate": item.get("original_price") or item.get("price"),
 		# "rate": item.get("discountedPrice") or item.get("price"),
@@ -3594,6 +3615,7 @@ def settle_delivery_invoices(invoice_names=None, current_session_id=None, payloa
 				})
 				if payload.get("name") or payload.get("pre_assigned_name"):
 					settlement_doc.name = payload.get("name") or payload.get("pre_assigned_name")
+					settlement_doc.flags.pre_assigned_name = settlement_doc.name
 				settlement_doc.insert(ignore_permissions=True)
 				settlement_doc.submit()
 				settlement_name = settlement_doc.name

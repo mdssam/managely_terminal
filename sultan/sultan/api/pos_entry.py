@@ -1040,6 +1040,9 @@ def resume_profile_session(pos_profile: str, employee: str = None, employee_name
 # --- Custom Naming Series Hooks ---
 
 def autoname_pos_opening_entry(doc, method=None):
+	if getattr(doc.flags, "pre_assigned_name", None):
+		doc.name = doc.flags.pre_assigned_name
+		return
 	from frappe.model.naming import make_autoname
 	profile = doc.pos_profile
 	if not profile:
@@ -1050,6 +1053,9 @@ def autoname_pos_opening_entry(doc, method=None):
 	doc.name = make_autoname(prefix)
 
 def autoname_pos_closing_entry(doc, method=None):
+	if getattr(doc.flags, "pre_assigned_name", None):
+		doc.name = doc.flags.pre_assigned_name
+		return
 	from frappe.model.naming import make_autoname
 	profile = None
 	if doc.pos_opening_entry:
@@ -1062,6 +1068,9 @@ def autoname_pos_closing_entry(doc, method=None):
 	doc.name = make_autoname(prefix)
 
 def autoname_pos_invoice(doc, method=None):
+	if getattr(doc.flags, "pre_assigned_name", None):
+		doc.name = doc.flags.pre_assigned_name
+		return
 	from frappe.model.naming import make_autoname
 	profile = doc.pos_profile
 	if not profile and getattr(doc, "pos_opening_entry", None):
@@ -1076,6 +1085,9 @@ def autoname_pos_invoice(doc, method=None):
 	doc.name = make_autoname(prefix)
 
 def autoname_pos_suspended_transaction(doc, method=None):
+	if getattr(doc.flags, "pre_assigned_name", None):
+		doc.name = doc.flags.pre_assigned_name
+		return
 	from frappe.model.naming import make_autoname
 	profile = doc.pos_profile
 	if not profile and doc.pos_session:

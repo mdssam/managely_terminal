@@ -1919,14 +1919,14 @@ def _add_unprocessed_items(result_items, cart_items):
 			result_items.append(cart_item)
 
 
-@frappe.whitelist()
+@frappe.whitelist(allow_guest=True)
 def get_pricing_rules_for_pos():
 	try:
-		rules = frappe.get_all("Pricing Rule", filters={"docstatus": 1, "disable": 0}, fields=[
+		rules = frappe.get_all("Pricing Rule", filters={"disable": 0}, fields=[
 			"name", "title", "apply_on", "mixed_conditions", "apply_discount_on",
 			"discount_percentage", "discount_amount", "rate_or_discount",
 			"free_item", "free_qty", "valid_from", "valid_upto",
-			"company", "priority", "same_item"
+			"company", "priority", "same_item", "min_qty", "max_qty", "is_recursive", "recurse_for", "round_free_qty"
 		])
 		
 		flat_rules = []
@@ -1984,3 +1984,8 @@ def get_pricing_rules_for_pos():
 			"success": False,
 			"error": str(e)
 		}
+
+
+def on_pricing_rule_cancel(doc, method=None):
+	"""Automatically set disable=1 when a Pricing Rule is cancelled so ERPNext engine ignores it."""
+	frappe.db.set_value("Pricing Rule", doc.name, "disable", 1)
