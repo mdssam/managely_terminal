@@ -195,6 +195,7 @@ def get_pos_details():
 
 	details = {
 		"name": pos.name,
+		"custom_pos_cipher": getattr(pos, "custom_pos_cipher", None),
 		"business_type": business_type,
 		"print_format": print_format,
 		"currency": getattr(pos, "currency", None) or "SAR",
@@ -342,3 +343,40 @@ def check_active_session():
 		"has_active_session": bool(session_name),
 		"session_name": session_name
 	}
+
+
+@frappe.whitelist()
+def register_pos_cipher(pos_profile, cipher):
+	if not pos_profile or not cipher:
+		return {"success": False, "error": "pos_profile and cipher are required."}
+	if not frappe.db.exists("POS Profile", pos_profile):
+		return {"success": False, "error": f"POS Profile {pos_profile} does not exist."}
+
+	# Check read permission on the POS Profile
+	frappe.has_permission("POS Profile", "read", doc=pos_profile, throw=True)
+	
+	current_cipher = frappe.db.get_value("POS Profile", pos_profile, "custom_pos_cipher")
+	if not current_cipher:
+		frappe.db.set_value("POS Profile", pos_profile, "custom_pos_cipher", cipher)
+		frappe.db.commit()
+		return {"success": True, "message": "POS Cipher registered successfully."}
+	elif current_cipher == cipher:
+		return {"success": True, "message": "POS Cipher matches registered device."}
+	else:
+		return {"success": False, "error": "This POS Profile is already registered on another device."}
+
+
+@frappe.whitelist()
+def clear_pos_cipher(pos_profile):
+	if not pos_profile:
+		return {"success": False, "error": "pos_profile is required."}
+	if not frappe.db.exists("POS Profile", pos_profile):
+		return {"success": False, "error": f"POS Profile {pos_profile} does not exist."}
+
+	# Check write permission on the POS Profile
+	frappe.has_permission("POS Profile", "write", doc=pos_profile, throw=True)
+
+	frappe.db.set_value("POS Profile", pos_profile, "custom_pos_cipher", None)
+	frappe.db.commit()
+	return {"success": True, "message": "POS Cipher cleared successfully."}
+

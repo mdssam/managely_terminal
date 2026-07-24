@@ -323,5 +323,7 @@ scheduler_events = {
 fixtures = [
 	"Custom Field",
 	"Property Setter",
+	"Custom DocPerm",
+	"Client Script",
 	{"dt": "Workspace", "filters": [["name", "in", ["Sultan POS", "Accounting"]]]}
 ]
