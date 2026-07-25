@@ -136,6 +136,17 @@ def get_pos_details():
 		except Exception:
 			pos = None
 
+	default_currency = None
+	if pos and getattr(pos, "company", None):
+		default_currency = frappe.get_cached_value("Company", pos.company, "default_currency")
+	if not default_currency:
+		default_currency = (
+			frappe.db.get_default("currency")
+			or frappe.db.get_single_value("System Settings", "default_currency")
+			or frappe.db.get_value("Company", {}, "default_currency")
+			or ""
+		)
+
 	# Fallback for non-pos users (like order stations)
 	if not pos:
 		frappe.logger().info(f"Creating synthetic POS context for user {frappe.session.user}")
@@ -143,7 +154,7 @@ def get_pos_details():
 			"name": "System Default",
 			"business_type": "Retail",
 			"print_format": "Standard",
-			"currency": frappe.db.get_default("currency") or "SAR",
+			"currency": default_currency,
 			"currency_symbol": "",
 			"print_receipt_on_order_complete": 0,
 			"custom_pos_print_format_en": None,
@@ -197,8 +208,12 @@ def get_pos_details():
 		"name": pos.name,
 		"business_type": business_type,
 		"print_format": print_format,
-		"currency": getattr(pos, "currency", None) or "SAR",
-		"currency_symbol": frappe.db.get_value("Currency", getattr(pos, "currency", "SAR"), "symbol") or "$",
+		"currency": getattr(pos, "currency", None) or default_currency,
+		"currency_symbol": (
+			frappe.db.get_value("Currency", getattr(pos, "currency", None) or default_currency, "symbol")
+			if (getattr(pos, "currency", None) or default_currency)
+			else "$"
+		) or "$",
 		"print_receipt_on_order_complete": getattr(pos, "print_receipt_on_order_complete", 0),
 		"custom_pos_print_format_en": getattr(pos, "custom_pos_print_format_en", None),
 		"custom_pos_print_format_ar": getattr(pos, "custom_pos_print_format_ar", None),
