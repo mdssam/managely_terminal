@@ -105,7 +105,7 @@ def get_exchange_rate_for_cash_io(pos_profile, from_currency, to_currency):
 
 @frappe.whitelist()
 def create_cash_transaction(transaction_type, amount, description="",
-                            mode_of_payment=None, pos_session=None, pre_assigned_name=None):
+                            mode_of_payment=None, pos_session=None, pre_assigned_name=None, is_delivery_payout=0):
     """Create a POS Suspended Transaction for the active session."""
     try:
         if not pos_session:
@@ -125,6 +125,7 @@ def create_cash_transaction(transaction_type, amount, description="",
             description=description,
             transaction_type=transaction_type,
             pre_assigned_name=pre_assigned_name,
+            is_delivery_payout=is_delivery_payout,
         )
         return {"success": True, "name": name, "message": f"{transaction_type} of {amount} recorded."}
     except Exception as e:
@@ -156,14 +157,20 @@ def _create_sultan_cash_transaction(pos_session, amount, mode_of_payment,
             "Go to Mode of Payment → {0} and add an account row for company {1}."
         ).format(mode_of_payment, company))
 
-    # Offset account — POS Profile write-off account, or company write-off account
-    offset_account = (
-        frappe.db.get_value("POS Profile", pos_profile, "write_off_account")
-        or frappe.get_cached_value("Company", company, "write_off_account")
-    )
+    # Offset account — POS Profile delivery charge account (if delivery payout), write-off account, or company write-off account
+    is_delivery_tx = any(k in (description or "").lower() for k in ["توصيل", "delivery", "سائق", "driver"])
+    offset_account = None
+    if is_delivery_tx and pos_profile:
+        offset_account = frappe.db.get_value("POS Profile", pos_profile, "custom_delivery_charge_account")
+    if not offset_account and pos_profile:
+        offset_account = frappe.db.get_value("POS Profile", pos_profile, "write_off_account")
+    if not offset_account:
+        offset_account = frappe.get_cached_value("Company", company, "write_off_account")
+    if not offset_account and pos_profile:
+        offset_account = frappe.db.get_value("POS Profile", pos_profile, "custom_delivery_charge_account")
     if not offset_account:
         frappe.throw(_(
-            "Please configure 'Write Off Account' in POS Profile '{0}' or Company '{1}'."
+            "Please configure 'Write Off Account' or 'Delivery Charge Account' in POS Profile '{0}' or Company '{1}'."
         ).format(pos_profile, company))
 
     now_date = nowdate()

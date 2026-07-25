@@ -11,7 +11,6 @@
   "company_name",
   "settled_at",
   "col_break_1",
-  "receivable_account",
   "mode_of_payment",
   "section_amounts",
   "total_amount",
@@ -55,13 +54,6 @@
   {
    "fieldname": "col_break_1",
    "fieldtype": "Column Break"
-  },
-  {
-   "fieldname": "receivable_account",
-   "fieldtype": "Link",
-   "label": "Receivable Account",
-   "options": "Account",
-   "read_only": 1
   },
   {
    "fieldname": "mode_of_payment",

@@ -220,7 +220,7 @@ class POSSuspendedTransaction(Document):
 
 @frappe.whitelist()
 def create_cash_transaction_from_pos(pos_session, amount, mode_of_payment,
-                                      description, transaction_type, employee=None, pre_assigned_name=None):
+                                      description, transaction_type, employee=None, pre_assigned_name=None, is_delivery_payout=0):
     if not pos_session:
         frappe.throw(_("POS Session is required."))
 
@@ -241,12 +241,18 @@ def create_cash_transaction_from_pos(pos_session, amount, mode_of_payment,
     cash_currency = frappe.db.get_value("Account", cash_account, "account_currency") or company_currency
 
     # Offset account
-    account = frappe.db.get_value("POS Profile", pos_profile, "write_off_account")
+    account = None
+    if frappe.utils.cint(is_delivery_payout) and pos_profile:
+        account = frappe.db.get_value("POS Profile", pos_profile, "custom_delivery_charge_account")
+    if not account and pos_profile:
+        account = frappe.db.get_value("POS Profile", pos_profile, "write_off_account")
     if not account:
         account = frappe.get_cached_value("Company", company, "write_off_account")
+    if not account and pos_profile:
+        account = frappe.db.get_value("POS Profile", pos_profile, "custom_delivery_charge_account")
     if not account:
         frappe.throw(_(
-            "Please configure 'Write Off Account' in POS Profile {0} or Company {1}."
+            "Please configure 'Write Off Account' or 'Delivery Charge Account' in POS Profile {0} or Company {1}."
         ).format(pos_profile, company))
     offset_currency = frappe.db.get_value("Account", account, "account_currency") or company_currency
 

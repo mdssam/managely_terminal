@@ -107,13 +107,13 @@ def ensure_delivery_company_doctype_and_fields():
 					"reqd": 1,
 					"in_list_view": 1
 				},
-				{
-					"fieldname": "receivable_account",
-					"label": "Receivable Account",
-					"fieldtype": "Link",
-					"options": "Account",
-					"in_list_view": 1
-				},
+# 				{
+# 					"fieldname": "receivable_account",
+# 					"label": "Receivable Account",
+# 					"fieldtype": "Link",
+# 					"options": "Account",
+# 					"in_list_view": 1
+# 				},
 				{
 					"fieldname": "phone",
 					"label": "Phone",
@@ -131,21 +131,22 @@ def ensure_delivery_company_doctype_and_fields():
 		doc.insert(ignore_permissions=True)
 		print("Created DocType Delivery Company")
 	else:
-		# Add receivable_account field if missing
-		if frappe.db.exists("DocType", "Delivery Company"):
-			dc_doc = frappe.get_doc("DocType", "Delivery Company")
-			field_names = [f.fieldname for f in dc_doc.fields]
-			if "receivable_account" not in field_names:
-				dc_doc.append("fields", {
-					"fieldname": "receivable_account",
-					"label": "Receivable Account",
-					"fieldtype": "Link",
-					"options": "Account",
-					"in_list_view": 1,
-					"insert_after": "company_name"
-				})
-				dc_doc.save(ignore_permissions=True)
-				print("Added receivable_account field to Delivery Company DocType")
+		pass
+# 		# Add receivable_account field if missing
+# 		if frappe.db.exists("DocType", "Delivery Company"):
+# 			dc_doc = frappe.get_doc("DocType", "Delivery Company")
+# 			field_names = [f.fieldname for f in dc_doc.fields]
+# 			if "receivable_account" not in field_names:
+# 				dc_doc.append("fields", {
+# 					"fieldname": "receivable_account",
+# 					"label": "Receivable Account",
+# 					"fieldtype": "Link",
+# 					"options": "Account",
+# 					"in_list_view": 1,
+# 					"insert_after": "company_name"
+# 				})
+# 				dc_doc.save(ignore_permissions=True)
+# 				print("Added receivable_account field to Delivery Company DocType")
 
 	# 4. Custom fields for Delivery Personnel
 	delivery_personnel_fields = [

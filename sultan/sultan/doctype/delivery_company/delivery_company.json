@@ -7,7 +7,6 @@
  "engine": "InnoDB",
  "field_order": [
   "company_name",
-  "receivable_account",
   "mode_of_payment",
   "phone",
   "disabled"
@@ -20,13 +19,6 @@
    "label": "Company Name",
    "reqd": 1,
    "unique": 1
-  },
-  {
-   "fieldname": "receivable_account",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "Receivable Account",
-   "options": "Account"
   },
   {
    "fieldname": "phone",

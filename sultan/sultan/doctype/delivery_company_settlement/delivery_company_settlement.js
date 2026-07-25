@@ -44,6 +44,19 @@ frappe.ui.form.on('Delivery Company Settlement', {
 				});
 			}).addClass('btn-primary');
 		}
+
+		if (frm.doc.docstatus === 1) {
+			frm.add_custom_button(__('Ledger'), function() {
+				frappe.route_options = {
+					"voucher_no": frm.doc.name,
+					"company": frm.doc.company || frappe.defaults.get_user_default("company"),
+					"from_date": frm.doc.posting_date || frappe.datetime.get_today(),
+					"to_date": frm.doc.posting_date || frappe.datetime.get_today(),
+					"show_cancelled_entries": 1
+				};
+				frappe.set_route("query-report", "General Ledger");
+			});
+		}
 	},
 
 	delivery_company: function(frm) {
@@ -51,9 +64,8 @@ frappe.ui.form.on('Delivery Company Settlement', {
 			if (!frm.doc.company_name) {
 				frm.set_value('company_name', frm.doc.delivery_company);
 			}
-			frappe.db.get_value('Delivery Company', frm.doc.delivery_company, ['receivable_account', 'mode_of_payment'], function(r) {
+			frappe.db.get_value('Delivery Company', frm.doc.delivery_company, ['mode_of_payment'], function(r) {
 				if (r) {
-					if (r.receivable_account) frm.set_value('receivable_account', r.receivable_account);
 					if (r.mode_of_payment) frm.set_value('mode_of_payment', r.mode_of_payment);
 				}
 			});

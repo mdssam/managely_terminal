@@ -1384,12 +1384,29 @@ def build_sales_invoice_doc(
 	# Inject Delivery Fee into taxes to add it to grand_total
 	if flt(delivery_fee) > 0.0:
 		shipping_account = None
-		if pos_profile and getattr(pos_profile, "custom_delivery_charge_account", None):
-			shipping_account = pos_profile.custom_delivery_charge_account
-		
+		delivery_comp = getattr(doc, "custom_delivery_company", None)
+
+		# For delivery companies: credit delivery fee to the company's MOP account
+		# This creates a net receivable = (order total - delivery fee) from the company
+		if delivery_comp and frappe.db.exists("Delivery Company", delivery_comp):
+			company_mop = frappe.db.get_value("Delivery Company", delivery_comp, "mode_of_payment")
+			if company_mop:
+				mop_account = frappe.db.get_value(
+					"Mode of Payment Account",
+					{"parent": company_mop, "company": doc.company},
+					"default_account"
+				)
+				if mop_account:
+					shipping_account = mop_account
+
+		# For internal drivers / fallback: use the POS Profile's delivery charge account
+		if not shipping_account:
+			if pos_profile and getattr(pos_profile, "custom_delivery_charge_account", None):
+				shipping_account = pos_profile.custom_delivery_charge_account
+
 		if not shipping_account:
 			shipping_account = "626100020 - Delivery Charge - SG"
-			
+
 		if not frappe.db.exists("Account", shipping_account):
 			shipping_account = frappe.db.get_value("Company", doc.company, "default_income_account")
 		if shipping_account:

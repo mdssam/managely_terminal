@@ -16,6 +16,7 @@ def get_delivery_companies_list():
 				"name", 
 				"company_name", 
 				"receivable_account", 
+				"mode_of_payment", 
 				"phone", 
 				"disabled"
 			],
