@@ -69,7 +69,126 @@ def ensure_employee_pos_login_fields():
 
 
 
+def ensure_delivery_company_doctype_and_fields():
+	# 1. Create Child DocType POS Profile Delivery Fee if it doesn't exist
+	if not frappe.db.exists("DocType", "POS Profile Delivery Fee"):
+		doc = frappe.get_doc({
+			"doctype": "DocType",
+			"name": "POS Profile Delivery Fee",
+			"module": "Sultan",
+			"custom": 1,
+			"istable": 1,
+			"fields": [
+				{
+					"fieldname": "delivery_fee",
+					"label": "Delivery Fee",
+					"fieldtype": "Currency",
+					"in_list_view": 1,
+					"reqd": 1
+				}
+			]
+		})
+		doc.insert(ignore_permissions=True)
+		print("Created DocType POS Profile Delivery Fee")
+
+	# 2. Create DocType Delivery Company if it doesn't exist
+	if not frappe.db.exists("DocType", "Delivery Company"):
+		doc = frappe.get_doc({
+			"doctype": "DocType",
+			"name": "Delivery Company",
+			"module": "Sultan",
+			"custom": 1,
+			"istable": 0,
+			"fields": [
+				{
+					"fieldname": "company_name",
+					"label": "Company Name",
+					"fieldtype": "Data",
+					"reqd": 1,
+					"in_list_view": 1
+				},
+				{
+					"fieldname": "receivable_account",
+					"label": "Receivable Account",
+					"fieldtype": "Link",
+					"options": "Account",
+					"in_list_view": 1
+				},
+				{
+					"fieldname": "phone",
+					"label": "Phone",
+					"fieldtype": "Data"
+				},
+				{
+					"fieldname": "disabled",
+					"label": "Disabled",
+					"fieldtype": "Check",
+					"default": "0"
+				}
+			],
+			"autoname": "field:company_name"
+		})
+		doc.insert(ignore_permissions=True)
+		print("Created DocType Delivery Company")
+	else:
+		# Add receivable_account field if missing
+		if frappe.db.exists("DocType", "Delivery Company"):
+			dc_doc = frappe.get_doc("DocType", "Delivery Company")
+			field_names = [f.fieldname for f in dc_doc.fields]
+			if "receivable_account" not in field_names:
+				dc_doc.append("fields", {
+					"fieldname": "receivable_account",
+					"label": "Receivable Account",
+					"fieldtype": "Link",
+					"options": "Account",
+					"in_list_view": 1,
+					"insert_after": "company_name"
+				})
+				dc_doc.save(ignore_permissions=True)
+				print("Added receivable_account field to Delivery Company DocType")
+
+	# 4. Custom fields for Delivery Personnel
+	delivery_personnel_fields = [
+		{
+			"dt": "Delivery Personnel",
+			"fieldname": "custom_is_third_party",
+			"label": "Is Third-Party Company",
+			"fieldtype": "Check",
+			"default": "0",
+			"insert_after": "pos_profile"
+		},
+		{
+			"dt": "Delivery Personnel",
+			"fieldname": "custom_mode_of_payment",
+			"label": "Mode of Payment",
+			"fieldtype": "Link",
+			"options": "Mode of Payment",
+			"insert_after": "custom_is_third_party"
+		}
+	]
+
+	for f in delivery_personnel_fields:
+		cf_name = f"{f['dt']}-{f['fieldname']}"
+		if not frappe.db.exists("Custom Field", cf_name):
+			doc = frappe.new_doc("Custom Field")
+			for k, v in f.items():
+				setattr(doc, k, v)
+			doc.insert(ignore_permissions=True)
+			print(f"Created Custom Field {cf_name}")
+		else:
+			doc = frappe.get_doc("Custom Field", cf_name)
+			changed = False
+			for k, v in f.items():
+				if getattr(doc, k, None) != v:
+					setattr(doc, k, v)
+					changed = True
+			if changed:
+				doc.save(ignore_permissions=True)
+				print(f"Updated Custom Field {cf_name}")
+
+
 def run():
+	ensure_delivery_company_doctype_and_fields()
 	setup_accounting_custom_fields()
 
 
@@ -133,11 +252,28 @@ def run():
 		delivery_fields = [
 			{
 				"dt": dt,
+				"fieldname": "custom_delivery_type",
+				"label": "Delivery Type",
+				"fieldtype": "Select",
+				"options": "\nCompany Driver\nDelivery Company",
+				"default": "Company Driver",
+				"insert_after": "customer"
+			},
+			{
+				"dt": dt,
+				"fieldname": "custom_delivery_company",
+				"label": "Delivery Company",
+				"fieldtype": "Link",
+				"options": "Delivery Company",
+				"insert_after": "custom_delivery_type"
+			},
+			{
+				"dt": dt,
 				"fieldname": "custom_delivery_personnel",
 				"label": "Delivery Personnel",
 				"fieldtype": "Link" if frappe.db.exists("DocType", "Delivery Personnel") else "Data",
 				"options": "Delivery Personnel" if frappe.db.exists("DocType", "Delivery Personnel") else None,
-				"insert_after": "customer"
+				"insert_after": "custom_delivery_company"
 			},
 			{
 				"dt": dt,
@@ -519,6 +655,23 @@ def ensure_sultan_pos_profile_fields():
 			"fieldtype": "Check",
 			"default": "1",
 		},
+		{
+			"fieldname": "custom_sultan_delivery_fees_section",
+			"label": "Delivery Fees Settings",
+			"fieldtype": "Section Break",
+		},
+		{
+			"fieldname": "custom_allow_manual_delivery_fee",
+			"label": "Allow Manual Delivery Fee",
+			"fieldtype": "Check",
+			"default": "0",
+		},
+		{
+			"fieldname": "custom_delivery_fees",
+			"label": "Preset Delivery Fees",
+			"fieldtype": "Table",
+			"options": "POS Profile Delivery Fee",
+		},
 	]
 
 	# Clean up old multi-currency fields on POS Profile if they exist
@@ -604,4 +757,3 @@ def ensure_sultan_pos_profile_fields():
 
 	frappe.clear_cache(doctype="POS Profile")
 	frappe.clear_cache(doctype="POS Payment Method")
-

@@ -241,6 +241,8 @@ def get_pos_details():
 		"allow_rate_change": int(getattr(pos, "allow_rate_change", 1) if pos else 1),
 		"custom_allow_edit_exchange_rate": int(getattr(pos, "custom_allow_edit_exchange_rate", 1) if pos else 1),
 		"country_code": country_code or "LB",
+		"custom_allow_manual_delivery_fee": int(getattr(pos, "custom_allow_manual_delivery_fee", 0) or 0),
+		"custom_delivery_fees": [float(d.delivery_fee) for d in getattr(pos, "custom_delivery_fees", [])],
 	}
 	return details
 
@@ -379,4 +381,3 @@ def clear_pos_cipher(pos_profile):
 	frappe.db.set_value("POS Profile", pos_profile, "custom_pos_cipher", None)
 	frappe.db.commit()
 	return {"success": True, "message": "POS Cipher cleared successfully."}
-

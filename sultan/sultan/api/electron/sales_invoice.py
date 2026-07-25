@@ -907,12 +907,46 @@ def create_and_submit_invoice(data):
 		doc.base_paid_amount = amount_paid
 		doc.paid_amount = amount_paid
 		
-		# If it is a COD delivery order, it is unpaid until driver settles
-		custom_delivery_cod = data.get("custom_delivery_cod")
-		if custom_delivery_cod is not None:
-			is_delivery_cod = int(custom_delivery_cod) == 1
+		# Check if assigned to a Delivery Company
+		delivery_comp = data.get("custom_delivery_company") or data.get("deliveryCompany") or getattr(doc, "custom_delivery_company", None)
+		is_delivery_company = bool(delivery_comp) and bool(frappe.db.exists("Delivery Company", delivery_comp))
+
+		if is_delivery_company:
+			is_delivery_cod = False
+			doc.custom_delivery_company = delivery_comp
+			doc.custom_delivery_personnel = None
+			doc.custom_delivery_cod = 0
+
+			company_mop = frappe.db.get_value("Delivery Company", delivery_comp, "mode_of_payment")
+			receivable_acc = frappe.db.get_value("Delivery Company", delivery_comp, "receivable_account")
+			if not company_mop or not frappe.db.exists("Mode of Payment", company_mop):
+				mop_name = delivery_comp
+				if not frappe.db.exists("Mode of Payment", mop_name):
+					mop_doc = frappe.new_doc("Mode of Payment")
+					mop_doc.mode_of_payment = mop_name
+					mop_doc.type = "Bank"
+					if receivable_acc:
+						mop_doc.append("accounts", {"company": doc.company, "default_account": receivable_acc})
+					mop_doc.insert(ignore_permissions=True)
+				company_mop = mop_name
+				frappe.db.set_value("Delivery Company", delivery_comp, "mode_of_payment", company_mop)
+
+			inv_total = flt(doc.rounded_total) or flt(doc.grand_total)
+			doc.set("payments", [])
+			doc.append("payments", {
+				"mode_of_payment": company_mop,
+				"amount": inv_total,
+				"default": 1
+			})
+			doc.paid_amount = inv_total
+			doc.base_paid_amount = inv_total * (doc.conversion_rate or 1)
+			doc.outstanding_amount = 0
 		else:
-			is_delivery_cod = (data.get("deliveryPersonnel") and data.get("paymentMethods") is None) or (data.get("deliveryStatus") == "Pending")
+			custom_delivery_cod = data.get("custom_delivery_cod")
+			if custom_delivery_cod is not None:
+				is_delivery_cod = int(custom_delivery_cod) == 1
+			else:
+				is_delivery_cod = (data.get("deliveryPersonnel") and data.get("paymentMethods") is None) or (data.get("deliveryStatus") == "Pending")
 		if is_delivery_cod:
 			doc.custom_delivery_cod = 1
 			doc.outstanding_amount = doc.grand_total
@@ -1008,6 +1042,11 @@ def create_and_submit_invoice(data):
 			doc.db_update()
 		try:
 			doc.submit()
+			if hasattr(doc, "make_gl_entries"):
+				try:
+					doc.make_gl_entries()
+				except Exception as gl_err:
+					frappe.logger().error(f"make_gl_entries error on {doc.name}: {gl_err}")
 		except Exception as submit_err:
 			frappe.db.rollback()  # ← undo the save + partial submit atomically
 			frappe.log_error(frappe.get_traceback(), "Submit Invoice Error (e.g. negative stock)")
@@ -1299,7 +1338,17 @@ def build_sales_invoice_doc(
 
 	if _is_delivery and not _is_pickup:
 		if delivery_personnel:
-			doc.custom_delivery_personnel = delivery_personnel
+			if frappe.db.exists("Delivery Company", delivery_personnel):
+				doc.custom_delivery_company = delivery_personnel
+				doc.custom_delivery_personnel = None
+			elif frappe.db.exists("Delivery Personnel", delivery_personnel):
+				doc.custom_delivery_personnel = delivery_personnel
+			else:
+				dp_name = frappe.db.get_value("Delivery Personnel", {"delivery_personnel": delivery_personnel}, "name")
+				if dp_name:
+					doc.custom_delivery_personnel = dp_name
+				else:
+					doc.custom_delivery_personnel = None
 		doc.custom_delivery_status = delivery_status or "Pending"
 		doc.custom_delivery_fee = flt(delivery_fee)
 		doc.custom_pos_order_type = "Delivery"
@@ -3497,6 +3546,23 @@ def settle_delivery_invoices(invoice_names=None, current_session_id=None, payloa
 			payload = {}
 			invoice_rows = [{"id": n} for n in invoice_names_list]
 
+		# Check if it is a third-party courier company or a third-party driver
+		courier_name = payload.get("driver_name") or payload.get("driver_id") or ""
+		is_courier = False
+		custom_mop = None
+
+		if courier_name:
+			if frappe.db.exists("Delivery Company", courier_name):
+				is_courier = True
+				custom_mop = frappe.db.get_value("Delivery Company", courier_name, "mode_of_payment")
+			else:
+				driver_id_val = frappe.db.get_value("Delivery Personnel", {"delivery_personnel": courier_name}, "name")
+				if driver_id_val:
+					is_third_party = int(frappe.db.get_value("Delivery Personnel", driver_id_val, "custom_is_third_party") or 0)
+					if is_third_party:
+						is_courier = True
+						custom_mop = frappe.db.get_value("Delivery Personnel", driver_id_val, "custom_mode_of_payment")
+
 		settled = []
 		errors = []
 
@@ -3511,10 +3577,10 @@ def settle_delivery_invoices(invoice_names=None, current_session_id=None, payloa
 						invoice_total = flt(doc.rounded_total) or flt(doc.grand_total)
 						write_off = flt(doc.write_off_amount)
 						paid_amt = invoice_total - write_off
-						if doc.payments:
-							for p in doc.payments:
-								p.amount = 0
-							doc.payments[-1].amount = paid_amt
+						
+						# Resolve Mode of Payment
+						if is_courier and custom_mop:
+							default_mop = custom_mop
 						else:
 							default_mop = "Cash"
 							try:
@@ -3528,7 +3594,23 @@ def settle_delivery_invoices(invoice_names=None, current_session_id=None, payloa
 										default_mop = pos_profile_doc.payments[0].mode_of_payment
 							except Exception:
 								pass
+						
+						if doc.payments:
+							for p in doc.payments:
+								p.amount = 0
+							# Set correct Mode of Payment and amount
+							found_mop = False
+							for p in doc.payments:
+								if p.mode_of_payment == default_mop:
+									p.amount = paid_amt
+									found_mop = True
+									break
+							if not found_mop:
+								doc.payments[-1].mode_of_payment = default_mop
+								doc.payments[-1].amount = paid_amt
+						else:
 							doc.append("payments", {"mode_of_payment": default_mop, "amount": paid_amt, "default": 1})
+							
 						doc.paid_amount = paid_amt
 						doc.base_paid_amount = paid_amt * (doc.conversion_rate or 1)
 						doc.outstanding_amount = 0
@@ -3601,18 +3683,31 @@ def settle_delivery_invoices(invoice_names=None, current_session_id=None, payloa
 					except Exception as driver_err:
 						frappe.log_error(frappe.get_traceback(), "Failed to auto-create Delivery Personnel document")
 
-				settlement_doc = frappe.get_doc({
-					"doctype": "Driver Settlement",
-					"driver_id": driver_id_val or payload.get("driver_id", ""),
-					"driver_name": driver_name_val,
-					"session_id": current_session_id,
-					"settled_at": settled_at_val,
-					"total_amount": flt(payload.get("total_amount", 0)),
-					"delivery_amount": flt(payload.get("delivery_amount", 0)),
-					"net_amount": flt(payload.get("net_amount", 0)),
-					"invoice_count": len(invoice_rows),
-					"invoices": settlement_invoices,
-				})
+				if is_courier and frappe.db.table_exists("Delivery Company Settlement"):
+					settlement_doc = frappe.get_doc({
+						"doctype": "Delivery Company Settlement",
+						"company_id": payload.get("company_id") or courier_name,
+						"company_name": payload.get("company_name") or courier_name,
+						"session_id": current_session_id,
+						"settled_at": settled_at_val,
+						"total_amount": flt(payload.get("total_amount", 0)),
+						"delivery_amount": flt(payload.get("delivery_amount", 0)),
+						"net_amount": flt(payload.get("net_amount", 0)),
+						"invoice_ids": json.dumps([r.get("id", "") for r in invoice_rows]),
+					})
+				else:
+					settlement_doc = frappe.get_doc({
+						"doctype": "Driver Settlement",
+						"driver_id": driver_id_val or payload.get("driver_id", ""),
+						"driver_name": driver_name_val,
+						"session_id": current_session_id,
+						"settled_at": settled_at_val,
+						"total_amount": flt(payload.get("total_amount", 0)),
+						"delivery_amount": flt(payload.get("delivery_amount", 0)),
+						"net_amount": flt(payload.get("net_amount", 0)),
+						"invoice_count": len(invoice_rows),
+						"invoices": settlement_invoices,
+					})
 				if payload.get("name") or payload.get("pre_assigned_name"):
 					settlement_doc.name = payload.get("name") or payload.get("pre_assigned_name")
 					settlement_doc.flags.pre_assigned_name = settlement_doc.name
@@ -3620,6 +3715,7 @@ def settle_delivery_invoices(invoice_names=None, current_session_id=None, payloa
 				settlement_doc.submit()
 				settlement_name = settlement_doc.name
 				frappe.logger().info(f"Driver Settlement created and submitted: {settlement_name}")
+
 		except Exception as ds_err:
 			frappe.log_error(frappe.get_traceback(), "Driver Settlement DocType creation failed")
 			# Non-fatal — invoices are already settled
@@ -3636,9 +3732,18 @@ def settle_delivery_invoices(invoice_names=None, current_session_id=None, payloa
 		return {"success": False, "error": str(e)}
 
 @frappe.whitelist()
-def assign_driver_to_invoice(invoice_name, driver_name=None, status=None):
+def assign_driver_to_invoice(invoice_name, driver_name=None, status=None, delivery_type=None, delivery_company=None):
 	try:
 		fields_to_update = {}
+		if delivery_type is not None:
+			fields_to_update["custom_delivery_type"] = delivery_type
+		if delivery_company is not None:
+			fields_to_update["custom_delivery_company"] = delivery_company
+		else:
+			# If assigned to internal driver, clear delivery company and reset driver settlement flag
+			fields_to_update["custom_delivery_company"] = ""
+			fields_to_update["custom_driver_settled"] = 0
+
 		if driver_name is not None:
 			fields_to_update["custom_delivery_personnel"] = driver_name
 		if status is not None:
@@ -3659,3 +3764,8 @@ def assign_driver_to_invoice(invoice_name, driver_name=None, status=None):
 	except Exception as e:
 		frappe.log_error(frappe.get_traceback(), "Error assigning driver to invoice")
 		return {"success": False, "error": str(e)}
+
+@frappe.whitelist()
+def settle_delivery_company_invoices(invoice_names=None, current_session_id=None, payload=None):
+	"""Alias for settling delivery company invoices -> creates Delivery Company Settlement."""
+	return settle_delivery_invoices(invoice_names=invoice_names, current_session_id=current_session_id, payload=payload)
