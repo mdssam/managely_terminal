@@ -2393,7 +2393,7 @@ def _fix_multi_currency_payment_gl_entries(doc, gl_entries):
 class CustomSalesInvoice(SalesInvoice):
 	def validate(self):
 		if getattr(self, "custom_pos_customer", None) and not getattr(self, "loyalty_program", None):
-			self.loyalty_program = frappe.db.get_single_value("Sultan Settings", "default_loyalty_program")
+			self.loyalty_program = frappe.db.get_single_value("Terminal Settings", "default_loyalty_program")
 		super().validate()
 
 	def make_loyalty_point_entry(self):
@@ -3411,7 +3411,7 @@ class CustomPOSInvoice(POSInvoice):
 
 	def validate(self):
 		if getattr(self, "custom_pos_customer", None) and not getattr(self, "loyalty_program", None):
-			self.loyalty_program = frappe.db.get_single_value("Sultan Settings", "default_loyalty_program")
+			self.loyalty_program = frappe.db.get_single_value("Terminal Settings", "default_loyalty_program")
 		super().validate()
 
 	def make_loyalty_point_entry(self):
@@ -3611,7 +3611,7 @@ def custom_make_loyalty_point_entry(self):
 					"territory": "All Territories",
 					"mobile_no": pos_cust_details.mobile_no,
 					"email_id": pos_cust_details.email_id,
-					"loyalty_program": frappe.db.get_single_value("Sultan Settings", "default_loyalty_program")
+					"loyalty_program": frappe.db.get_single_value("Terminal Settings", "default_loyalty_program")
 				})
 				cust_doc.insert(ignore_permissions=True)
 				if pos_cust_details.customer_name:
@@ -3620,7 +3620,7 @@ def custom_make_loyalty_point_entry(self):
 
 		# Ensure loyalty_program is set on the invoice
 		if not self.loyalty_program:
-			self.loyalty_program = frappe.db.get_single_value("Sultan Settings", "default_loyalty_program")
+			self.loyalty_program = frappe.db.get_single_value("Terminal Settings", "default_loyalty_program")
 
 		if not self.loyalty_program:
 			return
@@ -3684,7 +3684,7 @@ def custom_validate_loyalty_points(ref_doc, points_to_redeem):
 		
 		# Ensure the customer's loyalty program is set on the invoice
 		if not ref_doc.loyalty_program:
-			ref_doc.loyalty_program = frappe.db.get_single_value("Sultan Settings", "default_loyalty_program")
+			ref_doc.loyalty_program = frappe.db.get_single_value("Terminal Settings", "default_loyalty_program")
 
 		if not ref_doc.loyalty_program:
 			return
@@ -3702,7 +3702,7 @@ def custom_validate_loyalty_points(ref_doc, points_to_redeem):
 						"territory": "All Territories",
 						"mobile_no": pos_cust_details.mobile_no,
 						"email_id": pos_cust_details.email_id,
-						"loyalty_program": frappe.db.get_single_value("Sultan Settings", "default_loyalty_program")
+						"loyalty_program": frappe.db.get_single_value("Terminal Settings", "default_loyalty_program")
 					})
 					cust_doc.insert(ignore_permissions=True)
 					frappe.db.set_value("Customer", customer_id, "customer_name", pos_cust_details.customer_name)

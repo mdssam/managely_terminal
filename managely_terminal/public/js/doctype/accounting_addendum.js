@@ -223,7 +223,7 @@
 					frm.fields_dict.taxes.grid.add_custom_button(__('Add Stamp'), function() {
 						frappe.call({
 							method: "frappe.client.get",
-							args: { doctype: "Sultan Settings" },
+							args: { doctype: "Terminal Settings" },
 							callback: function(r) {
 								if (r.message && r.message.stamps) {
 									let child_doctype = frm.doctype === "Sales Invoice" ? "Sales Taxes and Charges" : "Purchase Taxes and Charges";

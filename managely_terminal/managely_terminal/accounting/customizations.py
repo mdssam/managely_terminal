@@ -249,7 +249,7 @@ def _auto_insert_stamp_taxes(doc):
 	doc.flags.sultan_stamps_applied = True
 
 	try:
-		settings = frappe.get_single("Sultan Settings")
+		settings = frappe.get_single("Terminal Settings")
 	except Exception:
 		return
 

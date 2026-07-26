@@ -473,7 +473,7 @@ def run():
 	frappe.clear_cache(doctype="POS Profile")
 	frappe.clear_cache(doctype="Sales Invoice")
 	frappe.clear_cache(doctype="Employee")
-	frappe.clear_cache(doctype="Sultan Settings")
+	frappe.clear_cache(doctype="Terminal Settings")
 	
 	# Automate symlinking sw.js to the site's public directory under /sultan_spa/sw.js
 	setup_sultan_spa_sw_link()

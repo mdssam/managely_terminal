@@ -9,7 +9,7 @@
  "icon": "retail",
  "idx": 0,
  "is_hidden": 0,
- "label": "Sultan POS",
+ "label": "Managely POS",
  "links": [
   {
    "hidden": 0,
@@ -57,16 +57,6 @@
    "label": "Driver Settlement",
    "link_count": 0,
    "link_to": "Driver Settlement",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Driver Settlement Invoice",
-   "link_count": 0,
-   "link_to": "Driver Settlement Invoice",
    "link_type": "DocType",
    "onboard": 0,
    "type": "Link"
@@ -154,9 +144,9 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Sultan Settings",
+   "label": "Terminal Settings",
    "link_count": 0,
-   "link_to": "Sultan Settings",
+   "link_to": "Terminal Settings",
    "link_type": "DocType",
    "onboard": 0,
    "type": "Link"
@@ -215,7 +205,7 @@
  "modified": "2026-07-25 13:21:40.154649",
  "modified_by": "Administrator",
  "module": "Managely Terminal",
- "name": "Sultan POS",
+ "name": "Managely POS",
  "number_cards": [],
  "owner": "Administrator",
  "public": 1,
@@ -285,5 +275,5 @@
    "type": "DocType"
   }
  ],
- "title": "Sultan POS"
+ "title": "Managely POS"
 }
