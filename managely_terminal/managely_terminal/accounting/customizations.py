@@ -10,7 +10,7 @@ TRANSACTION_DOCTYPES = ("Sales Invoice", "Purchase Invoice", "Payment Entry", "J
 
 
 def setup_custom_fields():
-	"""Create/update sultan accounting custom fields."""
+	"""Create/update terminal accounting custom fields."""
 	si_parent = _transaction_parent_fields("Sales Invoice", "customer")
 	pi_parent = _transaction_parent_fields("Purchase Invoice", "bill_no", "bill_no")
 	pe_parent = _transaction_parent_fields("Payment Entry", "party", "paid_to_account_currency")

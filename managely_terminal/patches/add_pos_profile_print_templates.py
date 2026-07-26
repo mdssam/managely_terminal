@@ -27,7 +27,7 @@ def ensure_pos_profile_print_fields():
 				"fieldtype": "Link",
 				"options": "Print Format",
 				"insert_after": after,
-				"description": "Thermal receipt print format used by the Sultan POS SPA",
+				"description": "Thermal receipt print format used by the POS SPA",
 			}
 		).insert(ignore_permissions=True)
 

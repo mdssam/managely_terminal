@@ -11,7 +11,7 @@ function setup_pos_password_reveal(frm) {
 	const field = frm.get_field("custom_pos_password");
 	if (!field || !field.$input || !field.toggle_password) return;
 
-	const storage_key = `sultan:employee-pos-password-visible:${frm.doc.name || "new"}`;
+	const storage_key = `managely_terminal:employee-pos-password-visible:${frm.doc.name || "new"}`;
 
 	const reveal = () => {
 		field.$input.attr("type", "text");
@@ -44,7 +44,7 @@ function setup_pos_password_reveal(frm) {
 		});
 	};
 
-	field.toggle_password.off("click").on("click.sultan_pos_password", (event) => {
+	field.toggle_password.off("click").on("click.managely_terminal_pos_password", (event) => {
 		event.preventDefault();
 		event.stopImmediatePropagation();
 

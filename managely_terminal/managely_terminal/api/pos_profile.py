@@ -270,7 +270,7 @@ def is_zatca_enabled():
 
 
 def set_pos_profile_defaults(doc, method=None):
-	"""Always enforce Sultan Thermal Standard EN/AR templates on all POS Profiles."""
+	"""Always enforce Thermal Standard EN/AR templates on all POS Profiles."""
 	doc.custom_pos_print_format_en = "Sultan Thermal Standard EN"
 	doc.custom_pos_print_format_ar = "Sultan Thermal Standard AR"
 	doc.print_format = "Sultan Thermal Standard EN"

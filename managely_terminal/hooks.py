@@ -1,8 +1,8 @@
 app_name = "managely_terminal"
-app_title = "Sultan"
+app_title = "Managely Terminal"
 app_publisher = "Tati"
 app_description = "For manufacturing and pos"
-app_email = "abedtatty@gmail.com"
+app_email = "info@managely.cloud"
 app_license = "mit"
 
 # Apps
@@ -17,17 +17,17 @@ app_license = "mit"
 # ------------------
 
 # include js, css files in header of desk.html
-# app_include_css = "/assets/sultan/css/managely_terminal.css"
-# app_include_js = "/assets/sultan/js/sultan_pos_modifier.js"
+# app_include_css = "/assets/managely_terminal/css/managely_terminal.css"
+# app_include_js = "/assets/managely_terminal/js/managely_terminal_pos_modifier.js"
 
 # page_js = {"point-of-sale": "public/js/pos_extension.js"}
 
 # include js, css files in header of web template
-# web_include_css = "/assets/sultan/css/managely_terminal.css"
-# web_include_js = "/assets/sultan/js/managely_terminal.js"
+# web_include_css = "/assets/managely_terminal/css/managely_terminal.css"
+# web_include_js = "/assets/managely_terminal/js/managely_terminal.js"
 
 # include custom scss in every website theme (without file extension ".scss")
-# website_theme_scss = "sultan/public/scss/website"
+# website_theme_scss = "managely_terminal/public/scss/website"
 
 # include js, css files in header of web form
 # webform_include_js = {"doctype": "public/js/doctype.js"}
@@ -54,7 +54,7 @@ doctype_tree_js = {"Account": "public/js/doctype/account_autonumber.js"}
 # Svg Icons
 # ------------------
 # include app icons in desk
-# app_include_icons = "sultan/public/icons.svg"
+# app_include_icons = "managely_terminal/public/icons.svg"
 
 # Home Pages
 # ----------
