@@ -1,7 +1,7 @@
 frappe.ui.form.on('Delivery Company Settlement', {
-	refresh: function(frm) {
+	refresh: function (frm) {
 		if (frm.doc.docstatus === 0) {
-			frm.add_custom_button(__('Get Outstanding Invoices'), function() {
+			frm.add_custom_button(__('Get Outstanding Invoices'), function () {
 				if (!frm.doc.delivery_company) {
 					frappe.msgprint(__('Please select a Delivery Company first.'));
 					return;
@@ -11,12 +11,12 @@ frappe.ui.form.on('Delivery Company Settlement', {
 					args: {
 						delivery_company: frm.doc.delivery_company
 					},
-					callback: function(r) {
+					callback: function (r) {
 						if (r.message && r.message.length > 0) {
 							frm.clear_table('invoices');
 							let total_out = 0;
 							let total_del = 0;
-							r.message.forEach(function(row) {
+							r.message.forEach(function (row) {
 								let child = frm.add_child('invoices');
 								child.invoice_id = row.invoice_id;
 								child.customer = row.customer;
@@ -46,7 +46,7 @@ frappe.ui.form.on('Delivery Company Settlement', {
 		}
 
 		if (frm.doc.docstatus === 1) {
-			frm.add_custom_button(__('Ledger'), function() {
+			frm.add_custom_button(__('Ledger'), function () {
 				frappe.route_options = {
 					"voucher_no": frm.doc.name,
 					"company": frm.doc.company || frappe.defaults.get_user_default("company"),
@@ -59,16 +59,5 @@ frappe.ui.form.on('Delivery Company Settlement', {
 		}
 	},
 
-	delivery_company: function(frm) {
-		if (frm.doc.delivery_company) {
-			if (!frm.doc.company_name) {
-				frm.set_value('company_name', frm.doc.delivery_company);
-			}
-			frappe.db.get_value('Delivery Company', frm.doc.delivery_company, ['mode_of_payment'], function(r) {
-				if (r) {
-					if (r.mode_of_payment) frm.set_value('mode_of_payment', r.mode_of_payment);
-				}
-			});
-		}
-	}
+
 });

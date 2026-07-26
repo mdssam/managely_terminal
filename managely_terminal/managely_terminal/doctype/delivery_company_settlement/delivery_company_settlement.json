@@ -2,7 +2,7 @@
  "actions": [],
  "allow_rename": 1,
  "autoname": "format:COURIER-SETTLE-{delivery_company}-{YYYY}-{MM}-{DD}-{###}",
- "creation": "2026-07-25 00:00:00.000000",
+ "creation": "2026-07-25 00:00:00",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -21,7 +21,8 @@
   "settled_delivery_fee",
   "received_amount",
   "section_invoices",
-  "invoices"
+  "invoices",
+  "amended_from"
  ],
  "fields": [
   {
@@ -59,7 +60,8 @@
    "fieldname": "mode_of_payment",
    "fieldtype": "Link",
    "label": "Mode of Payment",
-   "options": "Mode of Payment"
+   "options": "Mode of Payment",
+   "reqd": 1
   },
   {
    "fieldname": "section_amounts",
@@ -99,18 +101,18 @@
    "fieldtype": "Column Break"
   },
   {
+   "description": "Amount credited from Delivery Company account and debited to Delivery Fee account",
    "fieldname": "settled_delivery_fee",
    "fieldtype": "Currency",
    "in_list_view": 1,
-   "label": "Deducted Delivery Charge Amount",
-   "description": "Amount credited from Delivery Company account and debited to Delivery Fee account"
+   "label": "Deducted Delivery Charge Amount"
   },
   {
+   "description": "Net amount collected into selected Payment Mode (Bank/Cash)",
    "fieldname": "received_amount",
    "fieldtype": "Currency",
    "in_list_view": 1,
-   "label": "Received Amount to Payment Mode",
-   "description": "Net amount collected into selected Payment Mode (Bank/Cash)"
+   "label": "Received Amount to Payment Mode"
   },
   {
    "fieldname": "section_invoices",
@@ -123,12 +125,22 @@
    "label": "Invoices",
    "options": "Delivery Company Settlement Invoice",
    "read_only": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Delivery Company Settlement",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "is_submittable": 1,
  "links": [],
- "modified": "2026-07-25 15:38:00.000000",
+ "modified": "2026-07-26 04:22:38.560340",
  "modified_by": "Administrator",
  "module": "Managely Terminal",
  "name": "Delivery Company Settlement",
@@ -171,7 +183,9 @@
    "share": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
+ "states": [],
  "track_changes": 1
 }
