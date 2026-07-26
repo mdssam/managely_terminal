@@ -1,0 +1,35 @@
+[
+ {
+  "docstatus": 0,
+  "doctype": "Client Script",
+  "dt": "Sales Invoice",
+  "enabled": 1,
+  "modified": "2026-06-30 16:04:43.390696",
+  "module": "Accounts",
+  "name": "Sales Invoice UOM Dynamic Filter",
+  "script": "// UOM Dynamic Filter Client Script for Sales Invoice\nfrappe.ui.form.on('Sales Invoice', {\n    onload: function(frm) {\n        frm.set_query('uom', 'items', function(doc, cdt, cdn) {\n            var row = frappe.get_doc(cdt, cdn);\n            if (row.item_code && row.allowed_uoms && row.allowed_uoms.length > 0) {\n                return {\n                    filters: [\n                        ['UOM', 'name', 'in', row.allowed_uoms]\n                    ]\n                };\n            }\n            // Fallback: If not loaded yet, allow currently selected UOM\n            if (row.uom) {\n                return {\n                    filters: [\n                        ['UOM', 'name', 'in', [row.uom]]\n                    ]\n                };\n            }\n            return {};\n        });\n    },\n    refresh: function(frm) {\n        if (frm.doc.items) {\n            frm.doc.items.forEach(row => {\n                fetch_allowed_uoms(frm, row.doctype, row.name);\n            });\n        }\n    }\n});\n\nfrappe.ui.form.on('Sales Invoice Item', {\n    item_code: function(frm, cdt, cdn) {\n        fetch_allowed_uoms(frm, cdt, cdn);\n    },\n    items_add: function(frm, cdt, cdn) {\n        var row = frappe.get_doc(cdt, cdn);\n        row.allowed_uoms = [];\n    }\n});\n\nfunction fetch_allowed_uoms(frm, cdt, cdn) {\n    var row = frappe.get_doc(cdt, cdn);\n    if (!row || !row.item_code) return;\n    \n    if (!frm.item_uoms_cache) {\n        frm.item_uoms_cache = {};\n    }\n    \n    if (frm.item_uoms_cache[row.item_code]) {\n        row.allowed_uoms = frm.item_uoms_cache[row.item_code];\n        frm.fields_dict['items'].grid.refresh();\n        return;\n    }\n    \n    frappe.db.get_doc('Item', row.item_code).then(item_doc => {\n        var uoms = [];\n        if (item_doc.stock_uom) {\n            uoms.push(item_doc.stock_uom);\n        }\n        if (item_doc.uoms) {\n            item_doc.uoms.forEach(u => {\n                if (u.uom && uoms.indexOf(u.uom) === -1) {\n                    uoms.push(u.uom);\n                }\n            });\n        }\n        if (item_doc.barcodes) {\n            item_doc.barcodes.forEach(b => {\n                if (b.uom && uoms.indexOf(b.uom) === -1) {\n                    uoms.push(b.uom);\n                }\n            });\n        }\n        \n        frm.item_uoms_cache[row.item_code] = uoms;\n        row.allowed_uoms = uoms;\n        frm.fields_dict['items'].grid.refresh();\n    });\n}\n",
+  "view": "Form"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Client Script",
+  "dt": "Purchase Invoice",
+  "enabled": 1,
+  "modified": "2026-06-30 16:04:44.057858",
+  "module": "Accounts",
+  "name": "Purchase Invoice UOM Dynamic Filter",
+  "script": "// UOM Dynamic Filter Client Script for Purchase Invoice\nfrappe.ui.form.on('Purchase Invoice', {\n    onload: function(frm) {\n        frm.set_query('uom', 'items', function(doc, cdt, cdn) {\n            var row = frappe.get_doc(cdt, cdn);\n            if (row.item_code && row.allowed_uoms && row.allowed_uoms.length > 0) {\n                return {\n                    filters: [\n                        ['UOM', 'name', 'in', row.allowed_uoms]\n                    ]\n                };\n            }\n            // Fallback: If not loaded yet, allow currently selected UOM\n            if (row.uom) {\n                return {\n                    filters: [\n                        ['UOM', 'name', 'in', [row.uom]]\n                    ]\n                };\n            }\n            return {};\n        });\n    },\n    refresh: function(frm) {\n        if (frm.doc.items) {\n            frm.doc.items.forEach(row => {\n                fetch_allowed_uoms(frm, row.doctype, row.name);\n            });\n        }\n    }\n});\n\nfrappe.ui.form.on('Purchase Invoice Item', {\n    item_code: function(frm, cdt, cdn) {\n        fetch_allowed_uoms(frm, cdt, cdn);\n    },\n    items_add: function(frm, cdt, cdn) {\n        var row = frappe.get_doc(cdt, cdn);\n        row.allowed_uoms = [];\n    }\n});\n\nfunction fetch_allowed_uoms(frm, cdt, cdn) {\n    var row = frappe.get_doc(cdt, cdn);\n    if (!row || !row.item_code) return;\n    \n    if (!frm.item_uoms_cache) {\n        frm.item_uoms_cache = {};\n    }\n    \n    if (frm.item_uoms_cache[row.item_code]) {\n        row.allowed_uoms = frm.item_uoms_cache[row.item_code];\n        frm.fields_dict['items'].grid.refresh();\n        return;\n    }\n    \n    frappe.db.get_doc('Item', row.item_code).then(item_doc => {\n        var uoms = [];\n        if (item_doc.stock_uom) {\n            uoms.push(item_doc.stock_uom);\n        }\n        if (item_doc.uoms) {\n            item_doc.uoms.forEach(u => {\n                if (u.uom && uoms.indexOf(u.uom) === -1) {\n                    uoms.push(u.uom);\n                }\n            });\n        }\n        if (item_doc.barcodes) {\n            item_doc.barcodes.forEach(b => {\n                if (b.uom && uoms.indexOf(b.uom) === -1) {\n                    uoms.push(b.uom);\n                }\n            });\n        }\n        \n        frm.item_uoms_cache[row.item_code] = uoms;\n        row.allowed_uoms = uoms;\n        frm.fields_dict['items'].grid.refresh();\n    });\n}\n",
+  "view": "Form"
+ },
+ {
+  "docstatus": 0,
+  "doctype": "Client Script",
+  "dt": "POS Profile",
+  "enabled": 1,
+  "modified": "2026-07-24 17:00:29.602237",
+  "module": null,
+  "name": "Clear POS Cipher",
+  "script": "\nfrappe.ui.form.on('POS Profile', {\n    refresh: function(frm) {\n        if (frappe.session.user === 'Administrator') {\n            frm.add_custom_button(__('Clear POS Cipher'), function() {\n                frappe.confirm('Are you sure you want to clear the POS Cipher for this profile?', function() {\n                    frappe.call({\n                        method: 'managely_terminal.managely_terminal.api.electron.pos_profile.clear_pos_cipher',\n                        args: {\n                            pos_profile: frm.doc.name\n                        },\n                        callback: function(r) {\n                            if (r.message && r.message.success) {\n                                frappe.msgprint(__('POS Cipher cleared successfully.'));\n                                frm.reload_doc();\n                            } else if (r.message && r.message.error) {\n                                frappe.msgprint({\n                                    title: __('Error'),\n                                    indicator: 'red',\n                                    message: r.message.error\n                                });\n                            }\n                        }\n                    });\n                });\n            });\n        }\n    }\n});\n",
+  "view": "Form"
+ }
+]
