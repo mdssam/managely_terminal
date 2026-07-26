@@ -61,7 +61,7 @@ frappe.ui.form.on("Multi Currency Payment", {
 		}
 		if (frm.is_new() && !frm.doc.exchange_rate) {
 			frappe.call({
-				method: "sultan.sultan.accounting.customizations.get_lbp_usd_rate",
+				method: "managely_terminal.managely_terminal.accounting.customizations.get_lbp_usd_rate",
 				callback: function(r) {
 					if (r.message && !frm.doc.exchange_rate) {
 						frm.set_value("exchange_rate", r.message);
@@ -77,7 +77,7 @@ frappe.ui.form.on("Multi Currency Payment", {
 			return;
 		}
 		frappe.call({
-			method: "sultan.sultan.doctype.multi_currency_payment.multi_currency_payment.get_outstanding_invoices",
+			method: "managely_terminal.managely_terminal.doctype.multi_currency_payment.multi_currency_payment.get_outstanding_invoices",
 			args: {
 				company: frm.doc.company,
 				party_type: frm.doc.party_type,
@@ -123,7 +123,7 @@ frappe.ui.form.on("Multi Currency Payment", {
 			return;
 		}
 		frappe.call({
-			method: "sultan.sultan.doctype.multi_currency_payment.multi_currency_payment.get_default_party_account",
+			method: "managely_terminal.managely_terminal.doctype.multi_currency_payment.multi_currency_payment.get_default_party_account",
 			args: {
 				company: frm.doc.company,
 				party_type: frm.doc.party_type,
@@ -165,7 +165,7 @@ frappe.ui.form.on("Multi Currency Payment Line", {
 
 		// Fetch the account currency from the MOP's default account for this company
 		frappe.call({
-			method: "sultan.sultan.doctype.multi_currency_payment.multi_currency_payment.get_mop_account_currency",
+			method: "managely_terminal.managely_terminal.doctype.multi_currency_payment.multi_currency_payment.get_mop_account_currency",
 			args: { company: frm.doc.company, mode_of_payment: row.mode_of_payment },
 			callback(r) {
 				const currency = r.message;
@@ -186,7 +186,7 @@ frappe.ui.form.on("Multi Currency Payment Line", {
 			_recalcBase(frm, cdt, cdn);
 		} else {
 			frappe.call({
-				method: "sultan.sultan.doctype.multi_currency_payment.multi_currency_payment.get_exchange_rate",
+				method: "managely_terminal.managely_terminal.doctype.multi_currency_payment.multi_currency_payment.get_exchange_rate",
 				args: { from_currency: row.currency, to_currency: companyCurrency },
 				callback(r) {
 					const rate = r.message || flt(frm.doc.exchange_rate) || 89500;
@@ -231,7 +231,7 @@ frappe.ui.form.on("Multi Currency Payment Reference", {
 		}
 
 		frappe.call({
-			method: "sultan.sultan.doctype.multi_currency_payment.multi_currency_payment.get_reference_details",
+			method: "managely_terminal.managely_terminal.doctype.multi_currency_payment.multi_currency_payment.get_reference_details",
 			args: {
 				reference_doctype: row.reference_doctype,
 				reference_name: row.reference_name,

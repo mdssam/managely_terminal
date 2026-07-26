@@ -24,7 +24,7 @@ frappe.ui.form.on("Account", {
 // ── Tree view: intercept "Add Child" via event delegation ─────────────────────
 // frappe.treeview_settings["Account"].onload is unreliable (it may have already
 // fired by the time this file loads). Delegating on the tree container is safer.
-$(document).on("click.sultan_acct_autonumber", ".tree-node-toolbar .btn-new-node, [data-label='Add Child']", function () {
+$(document).on("click.managely_acct_autonumber", ".tree-node-toolbar .btn-new-node, [data-label='Add Child']", function () {
 	// The new-account dialog takes a moment to render; poll cur_dialog/cur_frm.
 	_wait_for_new_account_form();
 });
@@ -70,7 +70,7 @@ function autofill_account_number(frm) {
 	if (!frm.is_new() || !frm.doc.parent_account || frm.doc.account_number) return;
 
 	frappe.call({
-		method: "sultan.sultan.accounting.customizations.get_next_child_account_number_for_parent",
+		method: "managely_terminal.managely_terminal.accounting.customizations.get_next_child_account_number_for_parent",
 		args: { parent_account: frm.doc.parent_account },
 		callback(r) {
 			if (r.message && !frm.doc.account_number) {

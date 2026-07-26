@@ -7,7 +7,7 @@ frappe.ui.form.on('Delivery Company Settlement', {
 					return;
 				}
 				frappe.call({
-					method: 'sultan.sultan.doctype.delivery_company_settlement.delivery_company_settlement.get_outstanding_invoices',
+					method: 'managely_terminal.managely_terminal.doctype.delivery_company_settlement.delivery_company_settlement.get_outstanding_invoices',
 					args: {
 						delivery_company: frm.doc.delivery_company
 					},

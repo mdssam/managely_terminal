@@ -25,13 +25,13 @@ frappe.ui.form.on("POS Closing Entry", {
 						fieldname: "preview_html",
 						options: `
 							<div class="thermal-preview-container" style="background:#eef2f5;padding:20px 0;display:flex;justify-content:center;border:1px solid #d1d5db;border-radius:6px;">
-								<iframe src="/api/method/sultan.sultan.doctype.pos_suspended_transaction.pos_suspended_transaction.download_closing_pdf?closing_name=${closing_name}&as_html=1"
+								<iframe src="/api/method/managely_terminal.managely_terminal.doctype.pos_suspended_transaction.pos_suspended_transaction.download_closing_pdf?closing_name=${closing_name}&as_html=1"
 									style="width:72mm;height:800px;background:#fff;border:none;box-shadow:0 4px 10px rgba(0,0,0,0.1);overflow:hidden;"></iframe>
 							</div>`
 					}],
 					primary_action_label: __("Download PDF"),
 					primary_action: function() {
-						window.open(`/api/method/sultan.sultan.doctype.pos_suspended_transaction.pos_suspended_transaction.download_closing_pdf?closing_name=${closing_name}`, '_blank');
+						window.open(`/api/method/managely_terminal.managely_terminal.doctype.pos_suspended_transaction.pos_suspended_transaction.download_closing_pdf?closing_name=${closing_name}`, '_blank');
 						d.hide();
 					}
 				});
@@ -44,7 +44,7 @@ frappe.ui.form.on("POS Closing Entry", {
 		setTimeout(() => {
 			if (!frm.doc.pos_opening_entry || frm.doc.docstatus !== 0) return;
 			frappe.call({
-				method: "sultan.sultan.doctype.pos_suspended_transaction.pos_suspended_transaction.get_session_reconciliation_data",
+				method: "managely_terminal.managely_terminal.doctype.pos_suspended_transaction.pos_suspended_transaction.get_session_reconciliation_data",
 				args: { pos_session: frm.doc.pos_opening_entry },
 				callback: function(r) {
 					if (!r.message) return;

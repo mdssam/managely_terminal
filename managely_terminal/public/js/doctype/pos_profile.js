@@ -15,7 +15,7 @@ frappe.ui.form.on('POS Payment Method', {
 		let row = locals[cdt][cdn];
 		if (row.mode_of_payment) {
 			frappe.call({
-				method: "sultan.sultan.api.pos_entry.get_mode_of_payment_currency",
+				method: "managely_terminal.managely_terminal.api.pos_entry.get_mode_of_payment_currency",
 				args: {
 					mode_of_payment: row.mode_of_payment,
 					company: frm.doc.company

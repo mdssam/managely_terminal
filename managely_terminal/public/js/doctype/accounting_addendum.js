@@ -178,8 +178,8 @@
 			const grid = frm.fields_dict[tableField] && frm.fields_dict[tableField].grid;
 			if (!grid || !grid.wrapper) return;
 
-			grid.wrapper.off("keydown.sultan_enter_add_row");
-			grid.wrapper.on("keydown.sultan_enter_add_row", "input, textarea, select", function (event) {
+			grid.wrapper.off("keydown.managely_enter_add_row");
+			grid.wrapper.on("keydown.managely_enter_add_row", "input, textarea, select", function (event) {
 				if (event.key !== "Enter" || event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) {
 					return;
 				}
@@ -205,7 +205,7 @@
 				// and calling frm.set_value on an already-saved doc marks it dirty immediately.
 				if (frm.is_new() && !frm.doc.custom_exchange_rate_override) {
 					frappe.call({
-						method: "sultan.sultan.accounting.customizations.get_lbp_usd_rate",
+						method: "managely_terminal.managely_terminal.accounting.customizations.get_lbp_usd_rate",
 						callback: function(r) {
 							if (r.message && !frm.doc.custom_exchange_rate_override) {
 								frm.set_value("custom_exchange_rate_override", r.message);

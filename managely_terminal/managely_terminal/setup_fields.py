@@ -372,7 +372,7 @@ def run():
 		print("custom_show_in_opening_entry field already exists.")
 
 	# ── Reorganize POS Profile custom fields ─────────────────────────────────
-	ensure_sultan_pos_profile_fields()
+	ensure_pos_profile_fields()
 
 	# ── Employee POS Login fields ─────────────────────────────────────────────
 	ensure_employee_pos_login_fields()
@@ -403,8 +403,7 @@ def run():
 
 	# ── POS Cash In/Out feature ──────────────────────────────────────────────────
 	# POS Suspended Transaction doctypes and hooks are owned by the pos_cash_in_out
-	# app. Sultan only provides the SPA integration; install pos_cash_in_out to
-	# enable the Cash I/O button.
+	# app; install pos_cash_in_out to enable the Cash I/O button.
 
 	# Doctypes and hooks for the Cash I/O feature live in the separate pos_cash_in_out
 	# app. Run its setup (bench install-app pos_cash_in_out) to enable them.
@@ -454,7 +453,7 @@ def run():
 		}).insert(ignore_permissions=True)
 		print("Created custom_allow_returns custom field on Employee.")
 
-	# Sultan Stamp Setting and Sultan Settings DocTypes are now standard
+	# Stamp Setting and Terminal Settings DocTypes are now standard
 
 # 	# Custom field for POS Invoice to avoid erpnext 15 AttributeError
 # 	pos_invoice_roundoff_cost_center = "POS Invoice-use_company_roundoff_cost_center"
@@ -475,22 +474,22 @@ def run():
 	frappe.clear_cache(doctype="Employee")
 	frappe.clear_cache(doctype="Terminal Settings")
 	
-	# Automate symlinking sw.js to the site's public directory under /sultan_spa/sw.js
-	setup_sultan_spa_sw_link()
+	# Automate symlinking sw.js to the site's public directory under /terminal_spa/sw.js
+	setup_terminal_spa_sw_link()
 	
 	frappe.db.commit()
 
 
-def setup_sultan_spa_sw_link():
+def setup_terminal_spa_sw_link():
 	import os
 	public_path = frappe.get_site_path("public")
-	sultan_spa_path = os.path.join(public_path, "sultan_spa")
+	terminal_spa_path = os.path.join(public_path, "terminal_spa")
 	
-	# Ensure the site's public/sultan_spa directory exists
-	os.makedirs(sultan_spa_path, exist_ok=True)
+	# Ensure the site's public/terminal_spa directory exists
+	os.makedirs(terminal_spa_path, exist_ok=True)
 	
-	src_sw_path = frappe.get_app_path("managely_terminal", "public", "sultan_spa", "sw.js")
-	dest_sw_path = os.path.join(sultan_spa_path, "sw.js")
+	src_sw_path = frappe.get_app_path("managely_terminal", "public", "terminal_spa", "sw.js")
+	dest_sw_path = os.path.join(terminal_spa_path, "sw.js")
 	
 	if os.path.exists(src_sw_path):
 		if os.path.exists(dest_sw_path) or os.path.islink(dest_sw_path):
@@ -514,13 +513,13 @@ def setup_sultan_spa_sw_link():
 				print(f"Failed to link/copy sw.js: {copy_err}")
 
 
-def ensure_sultan_pos_profile_fields():
-	"""Set up Sultan app config fields under a unified Tab Break on POS Profile."""
+def ensure_pos_profile_fields():
+	"""Set up app config fields under a unified Tab Break on POS Profile."""
 	# 1. Define fields to keep (excluding old multi-currency fields)
 	pos_fields = [
 		{
 			"fieldname": "custom_sultan_pos_settings_tab",
-			"label": "Sultan POS Settings",
+			"label": "POS Settings",
 			"fieldtype": "Tab Break",
 		},
 		{
