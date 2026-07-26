@@ -3666,6 +3666,7 @@ def settle_delivery_invoices(invoice_names=None, current_session_id=None, payloa
 				from frappe.utils import getdate
 				settlement_invoices = []
 				for r in invoice_rows:
+					inv_name = r.get("id") or r.get("invoice_id", "")
 					posting_date_raw = r.get("posting_date", "")
 					posting_date_cleaned = None
 					if posting_date_raw:
@@ -3673,16 +3674,48 @@ def settle_delivery_invoices(invoice_names=None, current_session_id=None, payloa
 							posting_date_cleaned = getdate(posting_date_raw).strftime("%Y-%m-%d")
 						except Exception:
 							posting_date_cleaned = str(posting_date_raw)
+
+					cust_val = r.get("customer", "")
+					real_cust_id = None
+					if frappe.db.exists("POS Invoice", inv_name):
+						real_cust_id = frappe.db.get_value("POS Invoice", inv_name, "customer") or frappe.db.get_value("POS Invoice", inv_name, "custom_pos_customer")
+					elif frappe.db.exists("Sales Invoice", inv_name):
+						real_cust_id = frappe.db.get_value("Sales Invoice", inv_name, "customer")
+					if real_cust_id:
+						cust_val = real_cust_id
 					is_cod_val = int(r.get("is_cod", 0))
 					total_amt_val = flt(r.get("total_amount", 0))
+					del_fee_val = flt(r.get("delivery_fee", 0))
+
+					if frappe.db.exists("POS Invoice", inv_name):
+						pos_inv = frappe.get_doc("POS Invoice", inv_name)
+						if not cust_val:
+							cust_val = pos_inv.custom_pos_customer or pos_inv.customer_name or pos_inv.customer or ""
+						if not total_amt_val:
+							total_amt_val = flt(pos_inv.rounded_total) or flt(pos_inv.grand_total)
+						if not del_fee_val:
+							del_fee_val = flt(pos_inv.custom_delivery_fee)
+						if not is_cod_val:
+							is_cod_val = 1 if (pos_inv.get("custom_delivery_cod") or (pos_inv.get("payment_method") and ("COD" in pos_inv.get("payment_method") or "Delivery" in pos_inv.get("payment_method")))) else 0
+					elif frappe.db.exists("Sales Invoice", inv_name):
+						sinv = frappe.get_doc("Sales Invoice", inv_name)
+						if not cust_val:
+							cust_val = sinv.customer_name or sinv.customer or ""
+						if not total_amt_val:
+							total_amt_val = flt(sinv.rounded_total) or flt(sinv.grand_total)
+						if not del_fee_val:
+							del_fee_val = flt(sinv.custom_delivery_fee)
+						if not is_cod_val:
+							is_cod_val = 1 if (sinv.get("custom_delivery_cod") or (sinv.get("payment_method") and ("COD" in sinv.get("payment_method") or "Delivery" in sinv.get("payment_method")))) else 0
+
 					settlement_invoices.append({
-						"invoice_id": r.get("id", ""),
-						"customer": r.get("customer", ""),
+						"invoice_id": inv_name,
+						"customer": cust_val,
 						"posting_date": posting_date_cleaned,
 						"total_amount": total_amt_val,
-						"delivery_fee": flt(r.get("delivery_fee", 0)),
+						"delivery_fee": del_fee_val,
 						"is_cod": is_cod_val,
-						"cod_amount": flt(r.get("cod_amount", 0)) if is_cod_val else 0.0,
+						"cod_amount": total_amt_val if is_cod_val else 0.0,
 						"prepaid_amount": total_amt_val if not is_cod_val else 0.0,
 					})
 
@@ -3728,6 +3761,7 @@ def settle_delivery_invoices(invoice_names=None, current_session_id=None, payloa
 				if payload.get("name") or payload.get("pre_assigned_name"):
 					settlement_doc.name = payload.get("name") or payload.get("pre_assigned_name")
 					settlement_doc.flags.pre_assigned_name = settlement_doc.name
+				settlement_doc.flags.ignore_links = True
 				settlement_doc.insert(ignore_permissions=True)
 				settlement_doc.submit()
 				settlement_name = settlement_doc.name
