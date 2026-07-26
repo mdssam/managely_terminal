@@ -9,7 +9,8 @@
   "email_id",
   "unified_customer",
   "company",
-  "address"
+  "address",
+  "loyalty_points"
  ],
  "fields": [
   {
@@ -49,6 +50,14 @@
    "fieldname": "address",
    "fieldtype": "Small Text",
    "label": "Address"
+  },
+  {
+   "default": "0",
+   "fieldname": "loyalty_points",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Loyalty Points",
+   "read_only": 1
   }
  ],
  "links": [],
