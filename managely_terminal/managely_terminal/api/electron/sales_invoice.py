@@ -325,10 +325,6 @@ def _build_filters_and_fields(
 		fields.append("custom_delivery_personnel")
 	if "custom_driver_settled" in all_fieldnames:
 		fields.append("custom_driver_settled")
-	if "custom_delivery_company" in all_fieldnames:
-		fields.append("custom_delivery_company")
-	if "custom_delivery_type" in all_fieldnames:
-		fields.append("custom_delivery_type")
 
 	if "custom_pos_order_type" in all_fieldnames:
 		fields.append("custom_pos_order_type")
@@ -919,7 +915,7 @@ def create_and_submit_invoice(data):
 			is_delivery_cod = False
 			doc.custom_delivery_company = delivery_comp
 			doc.custom_delivery_personnel = None
-			doc.custom_delivery_cod = 0
+			doc.custom_delivery_cod = data.get("custom_delivery_cod") or 0
 
 			company_mop = frappe.db.get_value("Delivery Company", delivery_comp, "mode_of_payment")
 			if not company_mop or not frappe.db.exists("Mode of Payment", company_mop):
@@ -968,7 +964,10 @@ def create_and_submit_invoice(data):
 				except Exception:
 					pass
 		else:
-			doc.outstanding_amount = flt(doc.grand_total) - flt(amount_paid)
+			if is_delivery_company:
+				doc.outstanding_amount = 0
+			else:
+				doc.outstanding_amount = flt(doc.grand_total) - flt(amount_paid)
 
 		# When the POS Profile has "Consolidate Invoice on Close" enabled, save as a
 		# draft and return immediately.  GL entries and stock deductions are posted
@@ -3573,6 +3572,13 @@ def settle_delivery_invoices(invoice_names=None, current_session_id=None, payloa
 			if frappe.db.exists("Delivery Company", courier_name):
 				is_courier = True
 				custom_mop = frappe.db.get_value("Delivery Company", courier_name, "mode_of_payment")
+			else:
+				driver_id_val = frappe.db.get_value("Delivery Personnel", {"delivery_personnel": courier_name}, "name")
+				if driver_id_val:
+					is_third_party = int(frappe.db.get_value("Delivery Personnel", driver_id_val, "custom_is_third_party") or 0)
+					if is_third_party:
+						is_courier = True
+						custom_mop = frappe.db.get_value("Delivery Personnel", driver_id_val, "custom_mode_of_payment")
 
 		settled = []
 		errors = []

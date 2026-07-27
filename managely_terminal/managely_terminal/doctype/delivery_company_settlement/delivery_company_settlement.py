@@ -20,10 +20,23 @@ class DeliveryCompanySettlement(Document):
 		self.delivery_amount = total_del
 		self.net_amount = total_out - total_del
 
+		# Auto-fill settled_delivery_fee only if not set by user
 		if self.get("settled_delivery_fee") is None or self.get("settled_delivery_fee") == 0:
 			self.settled_delivery_fee = total_del
+
+		# received_amount = total_amount - settled_delivery_fee
+		# This keeps the GL balanced: received_amount + settled_delivery_fee = total_amount
+		# If user changes settled_delivery_fee (e.g. company charged 40 instead of 30),
+		# received_amount auto-adjusts to reflect the correct net payout.
+		calculated_received = flt(total_out) - flt(self.settled_delivery_fee)
 		if self.get("received_amount") is None or self.get("received_amount") == 0:
-			self.received_amount = self.net_amount
+			self.received_amount = calculated_received
+		else:
+			# Re-sync only if received_amount still equals the old default (total - original_fee)
+			# so explicit user overrides are preserved
+			old_default = flt(total_out) - flt(total_del)
+			if flt(self.received_amount) == old_default:
+				self.received_amount = calculated_received
 
 	def on_submit(self):
 		self.settle_invoices()
