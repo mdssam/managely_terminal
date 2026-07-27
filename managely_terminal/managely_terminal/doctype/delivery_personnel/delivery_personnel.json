@@ -2,7 +2,7 @@
  "actions": [],
  "allow_rename": 1,
  "autoname": "field:delivery_personnel",
- "creation": "2026-07-15 14:00:00.000000",
+ "creation": "2026-07-15 14:00:00",
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
@@ -11,7 +11,8 @@
   "photo",
   "driver_license",
   "vehicle_license",
-  "national_id"
+  "national_id",
+  "loyalty_points"
  ],
  "fields": [
   {
@@ -47,11 +48,17 @@
    "fieldname": "national_id",
    "fieldtype": "Attach",
    "label": "National ID"
+  },
+  {
+   "fieldname": "loyalty_points",
+   "fieldtype": "Int",
+   "label": "Loyalty Points",
+   "read_only": 1
   }
  ],
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-07-15 14:00:00.000000",
+ "modified": "2026-07-27 16:19:25.197287",
  "modified_by": "Administrator",
  "module": "Managely Terminal",
  "name": "Delivery Personnel",
@@ -90,7 +97,9 @@
    "share": 1
   }
  ],
+ "row_format": "Dynamic",
  "sort_field": "modified",
  "sort_order": "DESC",
+ "states": [],
  "track_changes": 1
 }
