@@ -918,15 +918,12 @@ def create_and_submit_invoice(data):
 			doc.custom_delivery_cod = 0
 
 			company_mop = frappe.db.get_value("Delivery Company", delivery_comp, "mode_of_payment")
-			receivable_acc = frappe.db.get_value("Delivery Company", delivery_comp, "receivable_account")
 			if not company_mop or not frappe.db.exists("Mode of Payment", company_mop):
 				mop_name = delivery_comp
 				if not frappe.db.exists("Mode of Payment", mop_name):
 					mop_doc = frappe.new_doc("Mode of Payment")
 					mop_doc.mode_of_payment = mop_name
 					mop_doc.type = "Bank"
-					if receivable_acc:
-						mop_doc.append("accounts", {"company": doc.company, "default_account": receivable_acc})
 					mop_doc.insert(ignore_permissions=True)
 				company_mop = mop_name
 				frappe.db.set_value("Delivery Company", delivery_comp, "mode_of_payment", company_mop)
