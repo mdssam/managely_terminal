@@ -905,21 +905,28 @@ def _sultan_consolidate_invoices(closing_entry_doc):
     if not pos_opening:
         return
 
-    # Fetch all submitted, unconsolidated POS Invoices for this shift
+    # Fetch all submitted, unconsolidated POS Invoices for this shift.
+    # Exclude Delivery Company invoices — they are already fully settled and
+    # posted (GL entries created on submit). Consolidating them again would
+    # create a duplicate GL entry on the delivery company receivable account.
     raw_invoices = frappe.get_all(
         "POS Invoice",
         filters={
             "custom_pos_opening_entry": pos_opening,
             "docstatus": 1,
         },
-        fields=["name", "customer", "is_return", "return_against", "consolidated_invoice"],
+        fields=["name", "customer", "is_return", "return_against", "consolidated_invoice", "custom_delivery_company"],
     )
 
-    # Filter out already-consolidated invoices
+    # Filter out already-consolidated invoices and delivery-company invoices.
+    # Delivery company invoices (Hungerstation, Toters, etc.) are submitted
+    # immediately with full payment — their GL entries are already posted.
+    # Re-consolidating them would double the debit on the delivery company
+    # receivable account causing a duplicate استحقاق (receivable) entry.
     invoices = [
         frappe._dict(pos_invoice=r.name, customer=r.customer, is_return=r.is_return, return_against=r.return_against)
         for r in raw_invoices
-        if not r.consolidated_invoice
+        if not r.consolidated_invoice and not r.custom_delivery_company
     ]
 
     if not invoices:

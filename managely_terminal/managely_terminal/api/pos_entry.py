@@ -714,14 +714,15 @@ def _populate_sales_invoices_to_closing_entry(closing_doc, opening_entry_name):
 			order_by="posting_date, posting_time",
 		)
 
-		# Fetch all submitted POS Invoices linked to this opening entry
+		# Fetch all submitted POS Invoices linked to this opening entry.
+		# Include consolidated_invoice so we can skip consolidated ones.
 		pos_invoices = frappe.get_all(
 			"POS Invoice",
 			filters={
 				"custom_pos_opening_entry": opening_entry_name,
 				"docstatus": 1,
 			},
-			fields=["name", "customer", "posting_date", "grand_total"],
+			fields=["name", "customer", "posting_date", "grand_total", "consolidated_invoice"],
 			order_by="posting_date, posting_time",
 		)
 
@@ -738,8 +739,10 @@ def _populate_sales_invoices_to_closing_entry(closing_doc, opening_entry_name):
 				},
 			)
 
-		# Append each POS Invoice to the child table
+		# Append each POS Invoice to the child table (only if NOT consolidated)
 		for invoice in pos_invoices:
+			if invoice.consolidated_invoice:
+				continue
 			closing_doc.append(
 				"custom_sales_invoice",
 				{
