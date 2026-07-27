@@ -1,4 +1,4 @@
-﻿import json
+import json
 
 import frappe
 from erpnext.setup.utils import get_exchange_rate
@@ -202,6 +202,13 @@ def get_customer_info(customer_name: str):
 			pos_cust = frappe.db.get_value("POS Customer", {"name": customer_name}, ["name", "customer_name", "mobile_no", "email_id", "unified_customer", "address"], as_dict=True)
 
 		if pos_cust:
+			# Fetch loyalty details from POS Customer doctype
+			pos_cust_full = frappe.db.get_value(
+				"POS Customer",
+				pos_cust.name,
+				"loyalty_points",
+				as_dict=True
+			) or {}
 			return {
 				"name": pos_cust.name,
 				"customer_name": pos_cust.customer_name,
@@ -211,8 +218,9 @@ def get_customer_info(customer_name: str):
 				"email_id": pos_cust.email_id,
 				"mobile_no": pos_cust.mobile_no,
 				"is_pos_customer": True,
-				"company": pc.get("company"),
-				"unified_customer": pc.get("unified_customer"),
+				"loyalty_points": int(pos_cust_full.get("loyalty_points") or 0),
+				"company": pos_cust.get("company"),
+				"unified_customer": pos_cust.get("unified_customer"),
 				"contact_data": {
 					"first_name": pos_cust.customer_name,
 					"last_name": "",

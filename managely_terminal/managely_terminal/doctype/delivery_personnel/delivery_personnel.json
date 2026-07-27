@@ -8,8 +8,6 @@
  "field_order": [
   "delivery_personnel",
   "phone",
-  "cell_number",
-  "pos_profile",
   "photo",
   "driver_license",
   "vehicle_license",
@@ -29,18 +27,6 @@
    "fieldtype": "Data",
    "in_list_view": 1,
    "label": "Phone"
-  },
-  {
-   "fieldname": "cell_number",
-   "fieldtype": "Data",
-   "label": "Cell Number"
-  },
-  {
-   "fieldname": "pos_profile",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "label": "POS Profile",
-   "options": "POS Profile"
   },
   {
    "fieldname": "photo",

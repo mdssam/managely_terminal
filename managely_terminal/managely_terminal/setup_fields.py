@@ -149,24 +149,7 @@ def ensure_delivery_company_doctype_and_fields():
 # 				print("Added receivable_account field to Delivery Company DocType")
 
 	# 4. Custom fields for Delivery Personnel
-	delivery_personnel_fields = [
-		{
-			"dt": "Delivery Personnel",
-			"fieldname": "custom_is_third_party",
-			"label": "Is Third-Party Company",
-			"fieldtype": "Check",
-			"default": "0",
-			"insert_after": "pos_profile"
-		},
-		{
-			"dt": "Delivery Personnel",
-			"fieldname": "custom_mode_of_payment",
-			"label": "Mode of Payment",
-			"fieldtype": "Link",
-			"options": "Mode of Payment",
-			"insert_after": "custom_is_third_party"
-		}
-	]
+	delivery_personnel_fields = []
 
 	for f in delivery_personnel_fields:
 		cf_name = f"{f['dt']}-{f['fieldname']}"

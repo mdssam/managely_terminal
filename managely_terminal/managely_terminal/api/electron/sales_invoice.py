@@ -3569,13 +3569,6 @@ def settle_delivery_invoices(invoice_names=None, current_session_id=None, payloa
 			if frappe.db.exists("Delivery Company", courier_name):
 				is_courier = True
 				custom_mop = frappe.db.get_value("Delivery Company", courier_name, "mode_of_payment")
-			else:
-				driver_id_val = frappe.db.get_value("Delivery Personnel", {"delivery_personnel": courier_name}, "name")
-				if driver_id_val:
-					is_third_party = int(frappe.db.get_value("Delivery Personnel", driver_id_val, "custom_is_third_party") or 0)
-					if is_third_party:
-						is_courier = True
-						custom_mop = frappe.db.get_value("Delivery Personnel", driver_id_val, "custom_mode_of_payment")
 
 		settled = []
 		errors = []
