@@ -926,7 +926,13 @@ def _sultan_consolidate_invoices(closing_entry_doc):
     invoices = [
         frappe._dict(pos_invoice=r.name, customer=r.customer, is_return=r.is_return, return_against=r.return_against)
         for r in raw_invoices
-        if not r.consolidated_invoice and not r.custom_delivery_company
+        if not r.consolidated_invoice and (
+            not r.custom_delivery_company
+            or not frappe.db.count(
+                "GL Entry",
+                {"voucher_type": "POS Invoice", "voucher_no": r.name, "is_cancelled": 0},
+            )
+        )
     ]
 
     if not invoices:

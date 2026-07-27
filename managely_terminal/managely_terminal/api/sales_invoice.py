@@ -3433,6 +3433,24 @@ class CustomPOSInvoice(POSInvoice):
 			# enable_discount_accounting not set for POS Invoice doctype in older erpnext 15 builds
 			pass
 
+	def make_gl_entries(self, cancel=False, adv_adj=False):
+		"""
+		For delivery company orders (Toters, Hungerstation, etc.) skip immediate GL posting.
+		GL entries (receivable + revenue) will be posted once via the Consolidated Sales Invoice
+		at session close, preventing double-posting of the delivery company receivable.
+		Backward-compatible: if this invoice already has GL entries (posted before this code was
+		deployed) we fall through to the standard logic so cancellation still works correctly.
+		"""
+		if self.custom_delivery_company:
+			has_existing_gl = frappe.db.count(
+				"GL Entry",
+				{"voucher_type": "POS Invoice", "voucher_no": self.name, "is_cancelled": 0},
+			)
+			if not has_existing_gl and not cancel:
+				# No existing GL entries — skip; consolidated Sales Invoice will post them
+				return
+		super().make_gl_entries(cancel=cancel, adv_adj=adv_adj)
+
 
 
 @frappe.whitelist()
