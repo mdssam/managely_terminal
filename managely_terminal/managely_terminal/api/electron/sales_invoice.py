@@ -325,6 +325,10 @@ def _build_filters_and_fields(
 		fields.append("custom_delivery_personnel")
 	if "custom_driver_settled" in all_fieldnames:
 		fields.append("custom_driver_settled")
+	if "custom_delivery_company" in all_fieldnames:
+		fields.append("custom_delivery_company")
+	if "custom_delivery_type" in all_fieldnames:
+		fields.append("custom_delivery_type")
 
 	if "custom_pos_order_type" in all_fieldnames:
 		fields.append("custom_pos_order_type")
