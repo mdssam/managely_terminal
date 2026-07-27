@@ -366,7 +366,7 @@ def before_validate_pos_closing_entry(doc, method=None):
         if t.transaction_type in ("Cash In", "Cash Out", "Opening Difference"):
             txn_sums[mop] = txn_sums.get(mop, 0.0) + flt(t.total_amount)
         if t.transaction_type != "Closing Difference":
-            if hasattr(doc, "custom_pos_suspended_transactions"):
+            if doc.meta.get_field("custom_pos_suspended_transactions"):
                 doc.append("custom_pos_suspended_transactions", {
                     "method": t.mode_of_payment,
                     "remarks": t.description,

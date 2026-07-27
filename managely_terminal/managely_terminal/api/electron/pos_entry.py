@@ -540,7 +540,7 @@ def _calculate_payment_reconciliation(opening_entry, data):
 	sales_data = frappe.db.sql(
 		"""
 		SELECT sip.mode_of_payment,
-		       COALESCE(NULLIF(sip.custom_payment_currency, ''), si.currency) AS currency,
+		       COALESCE(NULLIF(sip.custom_payment_currency, ''), parent_inv.currency) AS currency,
 		       SUM(
 		           CASE
 		               WHEN sip.custom_payment_original_amount IS NOT NULL
@@ -549,12 +549,16 @@ def _calculate_payment_reconciliation(opening_entry, data):
 		               ELSE sip.amount
 		           END
 		       ) as total_amount,
-		       COUNT(DISTINCT si.name) as transactions
-		FROM `tabSales Invoice` si
-		JOIN `tabSales Invoice Payment` sip ON si.name = sip.parent
-		WHERE si.custom_pos_opening_entry = %s
-		  AND si.docstatus = 1
-		GROUP BY sip.mode_of_payment, COALESCE(NULLIF(sip.custom_payment_currency, ''), si.currency)
+		       COUNT(DISTINCT parent_inv.name) as transactions
+		FROM (
+			SELECT name, currency, custom_pos_opening_entry, docstatus FROM `tabSales Invoice`
+			UNION ALL
+			SELECT name, currency, custom_pos_opening_entry, docstatus FROM `tabPOS Invoice`
+		) parent_inv
+		JOIN `tabSales Invoice Payment` sip ON parent_inv.name = sip.parent
+		WHERE parent_inv.custom_pos_opening_entry = %s
+		  AND parent_inv.docstatus = 1
+		GROUP BY sip.mode_of_payment, COALESCE(NULLIF(sip.custom_payment_currency, ''), parent_inv.currency)
 		""",
 		(opening_entry_name,),
 		as_dict=True,
