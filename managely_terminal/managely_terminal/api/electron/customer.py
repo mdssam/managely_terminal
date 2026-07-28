@@ -373,7 +373,7 @@ def create_or_update_customer(customer_data):
 					"email_id": email,
 					"address": addr_str,
 					"unified_customer": unified_customer if customer_data.get("unified_customer") == "Walk-in Customer" else (customer_data.get("unified_customer") or unified_customer),
-					"company": customer_data.get("company") or pos_profile.company,
+					"company": pos_profile.company,  # Always use server-side company name to prevent LinkValidationError
 					"naming_series": "pos-cust-.####"
 				})
 				
