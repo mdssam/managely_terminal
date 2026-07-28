@@ -1688,21 +1688,30 @@ def _populate_invoice_items(doc, items, pos_profile):
 	# Resolve tax rate if custom_prices_include_vat is enabled
 	tax_rate = 0.0
 	prices_include_vat = False
+	tax_exempt_json = "{}"
 	try:
+		template_name = doc.taxes_and_charges or getattr(pos_profile, "taxes_and_charges", None)
+		if template_name:
+			tax_doc = get_tax_template(template_name)
+			if tax_doc and tax_doc.taxes:
+				exempt_dict = {}
+				for tax in tax_doc.taxes:
+					if tax.account_head:
+						exempt_dict[tax.account_head] = 0.0
+						if pos_profile and getattr(pos_profile, "custom_prices_include_vat", 0):
+							if not tax.get("custom_is_stamp"):
+								tax_rate += flt(tax.rate)
+				if exempt_dict:
+					tax_exempt_json = json.dumps(exempt_dict)
+		
 		if pos_profile and getattr(pos_profile, "custom_prices_include_vat", 0):
 			prices_include_vat = True
-			if doc.taxes_and_charges:
-				tax_doc = get_tax_template(doc.taxes_and_charges)
-				if tax_doc and tax_doc.taxes:
-					for tax in tax_doc.taxes:
-						if not tax.get("custom_is_stamp"):
-							tax_rate += flt(tax.rate)
 	except Exception:
 		pass
 
 	# Add each item to the invoice
 	for item in items:
-		item_data = _prepare_item_data(item, item_data_map, pos_profile, prices_include_vat, tax_rate)
+		item_data = _prepare_item_data(item, item_data_map, pos_profile, prices_include_vat, tax_rate, tax_exempt_json)
 		doc.append("items", item_data)
 
 
@@ -1770,7 +1779,7 @@ def _precache_item_accounts(item_codes, company):
 		_cached_item_accounts[f"{item_code}_expense"] = expense
 
 
-def _prepare_item_data(item, item_data_map, pos_profile, prices_include_vat=False, tax_rate=0.0):
+def _prepare_item_data(item, item_data_map, pos_profile, prices_include_vat=False, tax_rate=0.0, tax_exempt_json="{}"):
 	"""Prepare item data dictionary for invoice line."""
 	item_code = item.get("item_code") or item.get("id")
 
@@ -1842,6 +1851,11 @@ def _prepare_item_data(item, item_data_map, pos_profile, prices_include_vat=Fals
 	_add_uom_to_item(item_data, item)
 	_add_batch_to_item(item_data, item, item_data_map.get(item_code, {}))
 	_add_serial_to_item(item_data, item)
+
+	# Tax-exempt override: if item is flagged as tax-exempt, set item_tax_rate to 0% for template taxes
+	is_tax_exempt = item.get("custom_is_tax_exempt") or item.get("is_tax_exempt") or 0
+	if is_tax_exempt:
+		item_data["item_tax_rate"] = tax_exempt_json
 
 	return item_data
 
@@ -2498,117 +2512,7 @@ def _fix_multi_currency_payment_gl_entries(doc, gl_entries):
 					gle["credit_in_account_currency"] = orig_amount
 
 
-class CustomSalesInvoice(SalesInvoice):
-	def validate_account_currency(self, account, account_currency=None):
-		# Skip stamp tax accounts - they use LBP regardless of invoice currency
-		if _is_stamp_account(self, account):
-			return
-		# Skip multi-currency payment accounts (e.g. LBP cash accounts on USD invoices).
-		# When a payment is made in LBP on a USD invoice, the account_currency will be
-		# LBP but the invoice currency is USD - ERPNext would normally reject this.
-		# Our multi-currency GL logic already handles the correct amounts, so we allow it.
-		if account_currency and account_currency != (self.currency or frappe.db.get_default("currency") or frappe.db.get_single_value("System Settings", "default_currency") or frappe.db.get_value("Company", {}, "default_currency")):
-			account_doc_currency = frappe.db.get_value("Account", account, "account_currency")
-			if account_doc_currency and account_doc_currency != self.currency:
-				return
-		super().validate_account_currency(account, account_currency)
 
-	def get_gl_entries(self, warehouse_account=None):
-		from erpnext.accounts.general_ledger import merge_similar_entries
-
-		gl_entries = []
-
-		self.make_roundoff_gl_entry(gl_entries)
-
-		self.make_customer_gl_entry(gl_entries)
-
-		self.make_tax_gl_entries(gl_entries)
-		self.make_internal_transfer_gl_entries(gl_entries)
-
-		self.make_item_gl_entries(gl_entries)
-		self.make_precision_loss_gl_entry(gl_entries)
-		self.make_discount_gl_entries(gl_entries)
-
-		gl_entries = make_regional_gl_entries(gl_entries, self)
-
-		# merge gl entries before adding pos entries
-		gl_entries = merge_similar_entries(gl_entries)
-
-		self.make_loyalty_point_redemption_gle(gl_entries)
-		self.make_pos_gl_entries(gl_entries)
-
-		self.make_write_off_gl_entry(gl_entries)
-		self.make_gle_for_rounding_adjustment(gl_entries)
-
-		_fix_stamp_gl_entries(self, gl_entries)
-		_fix_multi_currency_payment_gl_entries(self, gl_entries)
-		return gl_entries
-
-	def make_roundoff_gl_entry(self, gl_entries):
-		if self.custom_roundoff_account and self.custom_roundoff_amount:
-			against_voucher = self.name
-			# For return invoices, reverse the GL impact (credit instead of debit)
-			if getattr(self, "is_return", 0):
-				gl_entries.append(
-					self.get_gl_dict(
-						{
-							"account": self.custom_roundoff_account,
-							"party_type": "Customer",
-							"party": self.customer,
-							"due_date": self.due_date,
-							"against": against_voucher,
-							"credit": self.custom_base_roundoff_amount,
-							"credit_in_account_currency": (
-								self.custom_base_roundoff_amount
-								if self.party_account_currency == self.company_currency
-								else self.custom_roundoff_amount
-							),
-							"against_voucher": against_voucher,
-							"against_voucher_type": self.doctype,
-							"cost_center": (
-								self.cost_center
-								if self.cost_center
-								else "Main - " + frappe.db.get_value("Company", self.company, "abbr")
-							),
-							"project": self.project,
-						},
-						self.party_account_currency,
-						item=self,
-					)
-				)
-			else:
-				gl_entries.append(
-					self.get_gl_dict(
-						{
-							"account": self.custom_roundoff_account,
-							"party_type": "Customer",
-							"party": self.customer,
-							"due_date": self.due_date,
-							"against": against_voucher,
-							"debit": self.custom_base_roundoff_amount,
-							"debit_in_account_currency": (
-								self.custom_base_roundoff_amount
-								if self.party_account_currency == self.company_currency
-								else self.custom_roundoff_amount
-							),
-							"against_voucher": against_voucher,
-							"against_voucher_type": self.doctype,
-							"cost_center": (
-								self.cost_center
-								if self.cost_center
-								else "Main - " + frappe.db.get_value("Company", self.company, "abbr")
-							),
-							"project": self.project,
-						},
-						self.party_account_currency,
-						item=self,
-					)
-				)
-
-
-@erpnext.allow_regional
-def make_regional_gl_entries(gl_entries, doc):
-	return gl_entries
 
 
 def create_payment_entry(sales_invoice, mode_of_payment, amount_paid):
@@ -3506,37 +3410,6 @@ def get_today_exchange_rates(currencies, base_currency):
 			result[currency] = flt(rate)
 
 	return result
-
-
-class CustomPOSInvoice(POSInvoice):
-	"""
-	Sultan customised POS Invoice.
-
-	Adds a ``use_company_roundoff_cost_center`` property so that the
-	standard ERPNext GL-entries generator can access it even when the
-	field is not present in the DB schema (avoids AttributeError on
-	POS Invoice GL generation in erpnext 15).
-
-	Also overrides ``make_discount_gl_entries`` to ensure
-	``enable_discount_accounting`` is always defined (avoids
-	UnboundLocalError in erpnext 15 accounts_controller.py).
-	"""
-
-	@property
-	def use_company_roundoff_cost_center(self):
-		return getattr(self, "_use_company_roundoff_cost_center", False)
-
-	@use_company_roundoff_cost_center.setter
-	def use_company_roundoff_cost_center(self, value):
-		self._use_company_roundoff_cost_center = value
-
-	def make_discount_gl_entries(self, gl_entries):
-		"""Override to guard against UnboundLocalError in erpnext 15."""
-		try:
-			super().make_discount_gl_entries(gl_entries)
-		except UnboundLocalError:
-			# enable_discount_accounting not set for POS Invoice doctype in older erpnext 15 builds
-			pass
 
 
 

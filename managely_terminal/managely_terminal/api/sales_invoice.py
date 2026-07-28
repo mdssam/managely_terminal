@@ -2390,7 +2390,46 @@ def _fix_multi_currency_payment_gl_entries(doc, gl_entries):
 					gle["credit_in_account_currency"] = orig_amount
 
 
+def apply_custom_tax_exemptions(doc):
+	import json
+	for item in doc.get("items") or []:
+		try:
+			is_exempt = frappe.db.get_value(
+				"Item Price",
+				{"item_code": item.item_code, "selling": 1, "custom_is_tax_exempt": 1},
+				"name"
+			)
+			if is_exempt:
+				exempt_dict = {}
+				for tax in doc.get("taxes") or []:
+					if tax.account_head:
+						exempt_dict[tax.account_head] = 0.0
+				if not exempt_dict and doc.taxes_and_charges:
+					from managely_terminal.managely_terminal.api.electron.sales_invoice import get_tax_template
+					tax_doc = get_tax_template(doc.taxes_and_charges)
+					if tax_doc and tax_doc.taxes:
+						for tax in tax_doc.taxes:
+							if tax.account_head:
+								exempt_dict[tax.account_head] = 0.0
+				if exempt_dict:
+					item.item_tax_rate = json.dumps(exempt_dict)
+		except Exception as e:
+			frappe.log_error(f"Error applying tax exemption for {item.item_code}: {e!s}")
+
+
 class CustomSalesInvoice(SalesInvoice):
+	def calculate_taxes_and_totals(self):
+		from erpnext.controllers.taxes_and_totals import calculate_taxes_and_totals as calc_t_t
+		orig_update = calc_t_t.update_item_tax_map
+		def custom_update(self_calc):
+			orig_update(self_calc)
+			apply_custom_tax_exemptions(self_calc.doc)
+		calc_t_t.update_item_tax_map = custom_update
+		try:
+			super().calculate_taxes_and_totals()
+		finally:
+			calc_t_t.update_item_tax_map = orig_update
+
 	def validate(self):
 		if getattr(self, "custom_pos_customer", None) and not getattr(self, "loyalty_program", None):
 			self.loyalty_program = frappe.db.get_single_value("Terminal Settings", "default_loyalty_program")
@@ -3413,6 +3452,18 @@ class CustomPOSInvoice(POSInvoice):
 		if getattr(self, "custom_pos_customer", None) and not getattr(self, "loyalty_program", None):
 			self.loyalty_program = frappe.db.get_single_value("Terminal Settings", "default_loyalty_program")
 		super().validate()
+
+	def calculate_taxes_and_totals(self):
+		from erpnext.controllers.taxes_and_totals import calculate_taxes_and_totals as calc_t_t
+		orig_update = calc_t_t.update_item_tax_map
+		def custom_update(self_calc):
+			orig_update(self_calc)
+			apply_custom_tax_exemptions(self_calc.doc)
+		calc_t_t.update_item_tax_map = custom_update
+		try:
+			super().calculate_taxes_and_totals()
+		finally:
+			calc_t_t.update_item_tax_map = orig_update
 
 	def make_loyalty_point_entry(self):
 		custom_make_loyalty_point_entry(self)
