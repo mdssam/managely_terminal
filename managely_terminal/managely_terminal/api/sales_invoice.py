@@ -3672,9 +3672,12 @@ def custom_make_loyalty_point_entry(self):
 		if not frappe.db.exists("Customer", customer_id):
 			pos_cust_details = frappe.db.get_value("POS Customer", customer_id, ["customer_name", "mobile_no", "email_id"], as_dict=True)
 			if pos_cust_details:
+				# Force name = customer_id so shadow Customer has exact same name as POS Customer.
+				# This prevents ERPNext from generating a duplicate name like "ahmed samir-2".
 				cust_doc = frappe.get_doc({
 					"doctype": "Customer",
-					"customer_name": customer_id,
+					"name": customer_id,
+					"customer_name": pos_cust_details.customer_name or customer_id,
 					"customer_type": "Individual",
 					"customer_group": "Individual",
 					"territory": "All Territories",
@@ -3682,10 +3685,11 @@ def custom_make_loyalty_point_entry(self):
 					"email_id": pos_cust_details.email_id,
 					"loyalty_program": frappe.db.get_single_value("Terminal Settings", "default_loyalty_program")
 				})
+				cust_doc.flags.ignore_permissions = True
+				cust_doc.flags.name_set = True  # Tell Frappe: do NOT auto-generate name
 				cust_doc.insert(ignore_permissions=True)
-				if pos_cust_details.customer_name:
-					frappe.db.set_value("Customer", customer_id, "customer_name", pos_cust_details.customer_name)
 				frappe.db.commit()
+				frappe.logger().info(f"[LOYALTY] Created shadow Customer '{customer_id}' for POS Customer loyalty tracking.")
 
 		# Ensure loyalty_program is set on the invoice
 		if not self.loyalty_program:
@@ -3763,9 +3767,12 @@ def custom_validate_loyalty_points(ref_doc, points_to_redeem):
 			if not frappe.db.exists("Customer", customer_id):
 				pos_cust_details = frappe.db.get_value("POS Customer", customer_id, ["customer_name", "mobile_no", "email_id"], as_dict=True)
 				if pos_cust_details:
+					# Force name = customer_id so the shadow Customer has the exact same
+					# name as the POS Customer — prevents duplicate records.
 					cust_doc = frappe.get_doc({
 						"doctype": "Customer",
-						"customer_name": customer_id,
+						"name": customer_id,
+						"customer_name": pos_cust_details.customer_name or customer_id,
 						"customer_type": "Individual",
 						"customer_group": "Individual",
 						"territory": "All Territories",
@@ -3773,9 +3780,11 @@ def custom_validate_loyalty_points(ref_doc, points_to_redeem):
 						"email_id": pos_cust_details.email_id,
 						"loyalty_program": frappe.db.get_single_value("Terminal Settings", "default_loyalty_program")
 					})
+					cust_doc.flags.ignore_permissions = True
+					cust_doc.flags.name_set = True  # Tell Frappe: do NOT auto-generate name
 					cust_doc.insert(ignore_permissions=True)
-					frappe.db.set_value("Customer", customer_id, "customer_name", pos_cust_details.customer_name)
 					frappe.db.commit()
+					frappe.logger().info(f"[LOYALTY] Created shadow Customer '{customer_id}' for loyalty redemption.")
 
 			loyalty_program_details = get_loyalty_program_details_with_points(
 				customer_id, ref_doc.loyalty_program, ref_doc.posting_date or today(), ref_doc.company
