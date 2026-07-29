@@ -206,6 +206,8 @@ def get_pos_details():
 
 	details = {
 		"name": pos.name,
+		"company": getattr(pos, "company", None),
+		"custom_branch_name": getattr(pos, "custom_branch_name", None),
 		"custom_pos_cipher": getattr(pos, "custom_pos_cipher", None),
 		"business_type": business_type,
 		"print_format": print_format,
