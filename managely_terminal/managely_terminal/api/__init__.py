@@ -18,16 +18,27 @@ def setup_custom_fields():
         {"dt": "Work Order", "fieldname": "custom_sales_order", "label": "Source Sales Order", "fieldtype": "Link", "options": "Sales Order", "insert_after": "custom_pos_invoice"},
         {"dt": "Work Order", "fieldname": "custom_sales_invoice", "label": "Source Sales Invoice", "fieldtype": "Link", "options": "Sales Invoice", "insert_after": "custom_sales_order"},
         {"dt": "POS Profile", "fieldname": "custom_hide_tax_in_cart", "label": "Hide Tax in Cart and Print", "fieldtype": "Check", "insert_after": "company"},
-        {"dt": "POS Profile", "fieldname": "custom_prices_include_vat", "label": "Prices Include VAT in Print", "fieldtype": "Check", "insert_after": "custom_hide_tax_in_cart"}
+        {"dt": "POS Profile", "fieldname": "custom_prices_include_vat", "label": "Prices Include VAT in Print", "fieldtype": "Check", "insert_after": "custom_hide_tax_in_cart"},
+        {"dt": "Item", "fieldname": "custom_is_tax_exempt", "label": "Tax Exempt (No VAT)", "fieldtype": "Check", "insert_after": "is_weight_item", "in_list_view": 1}
     ]
+    
+    # Delete old Custom Field on Item Price if it exists
+    if frappe.db.exists("Custom Field", "Item Price-custom_is_tax_exempt"):
+        frappe.delete_doc("Custom Field", "Item Price-custom_is_tax_exempt", ignore_permissions=True)
     
     count = 0
     for f in fields:
-        if not frappe.db.exists("Custom Field", {"dt": f["dt"], "fieldname": f["fieldname"]}):
+        cf_name = frappe.db.get_value("Custom Field", {"dt": f["dt"], "fieldname": f["fieldname"]})
+        if not cf_name:
             doc = frappe.new_doc("Custom Field")
             doc.update(f)
             doc.insert(ignore_permissions=True)
             count += 1
+        else:
+            cf_doc = frappe.get_doc("Custom Field", cf_name)
+            if cf_doc.description:
+                cf_doc.description = None
+                cf_doc.save(ignore_permissions=True)
             
     frappe.db.commit()
     return f"Created {count} custom fields successfully!"

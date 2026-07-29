@@ -602,7 +602,7 @@ def _fetch_batch_prices(item_codes: list, price_list: str | None, uom_map: dict)
 		results = []
 		if price_list and price_list.strip():
 			sql = f"""
-				SELECT item_code, price_list_rate, currency, uom, custom_is_tax_exempt
+				SELECT item_code, price_list_rate, currency, uom
 				FROM `tabItem Price`
 				WHERE item_code IN ({placeholders})
 				AND price_list = %s
@@ -617,7 +617,7 @@ def _fetch_batch_prices(item_codes: list, price_list: str | None, uom_map: dict)
 		if missing_codes:
 			ph_missing = ", ".join(["%s"] * len(missing_codes))
 			sql_fallback = f"""
-				SELECT item_code, price_list_rate, currency, uom, custom_is_tax_exempt
+				SELECT item_code, price_list_rate, currency, uom
 				FROM `tabItem Price`
 				WHERE item_code IN ({ph_missing})
 				AND selling = 1
@@ -649,7 +649,6 @@ def _fetch_batch_prices(item_codes: list, price_list: str | None, uom_map: dict)
 				"currency": currency_code or default_currency,
 				"currency_symbol": symbol or default_symbol,
 				"uom": row.get("uom"),
-				"custom_is_tax_exempt": int(row.get("custom_is_tax_exempt") or 0),
 			}
 
 		# For items without prices, use default values
@@ -937,7 +936,7 @@ def get_items_with_balance_and_price(
 					"is_fresh_produce": item.get("is_fresh_produce") or 0,
 					"is_stock_item": item.get("is_stock_item") or 0,
 					"is_weight_item": item.get("is_weight_item") or 0,
-					"custom_is_tax_exempt": price_info.get("custom_is_tax_exempt", 0),
+					"custom_is_tax_exempt": item.get("custom_is_tax_exempt") or 0,
 				}
 			)
 

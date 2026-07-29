@@ -2395,8 +2395,8 @@ def apply_custom_tax_exemptions(doc):
 	for item in doc.get("items") or []:
 		try:
 			is_exempt = frappe.db.get_value(
-				"Item Price",
-				{"item_code": item.item_code, "selling": 1, "custom_is_tax_exempt": 1},
+				"Item",
+				{"name": item.item_code, "custom_is_tax_exempt": 1},
 				"name"
 			)
 			if is_exempt:
