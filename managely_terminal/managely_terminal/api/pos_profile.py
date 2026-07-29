@@ -296,6 +296,58 @@ def validate_pos_profile_change(doc, method=None):
 			)
 
 
+
+def notify_pos_profile_updated(doc, method=None):
+	"""
+	After a POS Profile is saved, push a real-time sync command to all active
+	Electron terminals that are running under this profile.
+	Uses two delivery paths for reliability:
+	  1. frappe.publish_realtime (Socket.io) ? instant delivery if connected.
+	  2. terminal_cmd cache ? picked up by the 15-second heartbeat as a fallback.
+	"""
+	try:
+		profile_name = doc.name
+		active_terminals = frappe.cache().get_value("active_terminals") or {}
+
+		matching_terminals = [
+			t for t in active_terminals.values()
+			if t.get("pos_profile") == profile_name
+		]
+
+		if not matching_terminals:
+			return
+
+		cmd_payload = {"type": "sync_now", "reason": "pos_profile_updated", "profile": profile_name}
+
+		for terminal in matching_terminals:
+			terminal_id = terminal.get("terminal_id")
+			if not terminal_id:
+				continue
+
+			# Path 1: Socket.io (instant)
+			try:
+				frappe.publish_realtime(
+					event="server:sync_now",
+					message={"reason": "pos_profile_updated", "profile": profile_name},
+					room="task_progress:terminal:{}".format(terminal_id)
+				)
+			except Exception:
+				pass
+
+			# Path 2: Heartbeat cache fallback (reliable delivery within 15s)
+			frappe.cache().set_value(
+				f"terminal_cmd:{terminal_id}",
+				cmd_payload,
+				expires_in_sec=120
+			)
+
+		frappe.logger().info(
+			f"[POS Profile] Notified {len(matching_terminals)} terminal(s) to sync after profile update: {profile_name}"
+		)
+	except Exception:
+		frappe.log_error(frappe.get_traceback(), "notify_pos_profile_updated Error")
+
+
 @frappe.whitelist()
 def get_dashboard_branches(employee=None):
 	"""

@@ -202,9 +202,8 @@ doc_events = {
 		"before_insert": "managely_terminal.managely_terminal.api.pos_profile.set_pos_profile_defaults",
 		"before_save": [
 			"managely_terminal.managely_terminal.api.pos_profile.set_pos_profile_defaults",
-			"managely_terminal.managely_terminal.api.pos_profile.validate_pos_profile_change",
 		],
-		"before_rename": "managely_terminal.managely_terminal.api.pos_profile.validate_pos_profile_rename",
+		"after_save": "managely_terminal.managely_terminal.api.pos_profile.notify_pos_profile_updated",
 	},
 	"POS Suspended Transaction": {
 		"autoname": "managely_terminal.managely_terminal.api.pos_entry.autoname_pos_suspended_transaction",
