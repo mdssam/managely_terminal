@@ -1,5 +1,5 @@
 import frappe
-from managely_terminal.managely_terminal.api.thermal_receipts import create_thermal_print_formats
+from managely_terminal.managely_terminal.api.electron.thermal_receipts import create_thermal_print_formats
 from managely_terminal.managely_terminal.accounting.customizations import setup_custom_fields as setup_accounting_custom_fields
 
 
