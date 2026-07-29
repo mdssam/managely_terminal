@@ -3661,87 +3661,123 @@ def assign_driver_to_invoice(invoice_name, driver_name=None, status=None):
 # ── Custom Loyalty points support for POS Customer (B2C) ────────────────────
 
 def custom_make_loyalty_point_entry(self):
+	"""
+	Custom loyalty point entry that uses unified_customer + custom_pos_customer.
+	No shadow Customer records are created in tabCustomer.
+	- Loyalty Point Entry.customer    = unified_customer (the branch Customer — for ERPNext accounting)
+	- Loyalty Point Entry.custom_pos_customer = POS Customer name (the real individual customer)
+	The update_pos_customer_loyalty hook then updates POS Customer.loyalty_points.
+	"""
 	import frappe
-	if getattr(self, "custom_pos_customer", None):
-		from frappe.utils import flt, cint, add_days, getdate
-		from erpnext.accounts.doctype.loyalty_program.loyalty_program import get_loyalty_program_details_with_points
+	if not getattr(self, "custom_pos_customer", None):
+		# No POS Customer on this invoice — use standard ERPNext loyalty flow
+		super(self.__class__, self).make_loyalty_point_entry()
+		return
 
-		customer_id = self.custom_pos_customer
+	from frappe.utils import flt, cint, add_days, getdate
 
-		# 1. Ensure standard Customer doc exists for the custom_pos_customer (shadow customer)
-		if not frappe.db.exists("Customer", customer_id):
-			pos_cust_details = frappe.db.get_value("POS Customer", customer_id, ["customer_name", "mobile_no", "email_id"], as_dict=True)
-			if pos_cust_details:
-				# Force name = customer_id so shadow Customer has exact same name as POS Customer.
-				# This prevents ERPNext from generating a duplicate name like "ahmed samir-2".
-				cust_doc = frappe.get_doc({
-					"doctype": "Customer",
-					"name": customer_id,
-					"customer_name": pos_cust_details.customer_name or customer_id,
-					"customer_type": "Individual",
-					"customer_group": "Individual",
-					"territory": "All Territories",
-					"mobile_no": pos_cust_details.mobile_no,
-					"email_id": pos_cust_details.email_id,
-					"loyalty_program": frappe.db.get_single_value("Terminal Settings", "default_loyalty_program")
-				})
-				cust_doc.flags.ignore_permissions = True
-				cust_doc.flags.name_set = True  # Tell Frappe: do NOT auto-generate name
-				cust_doc.insert(ignore_permissions=True)
-				frappe.db.commit()
-				frappe.logger().info(f"[LOYALTY] Created shadow Customer '{customer_id}' for POS Customer loyalty tracking.")
+	pos_customer_name = self.custom_pos_customer   # e.g. "ahmed samir"
+	unified_customer  = self.customer               # e.g. "zouk branche" (the branch Customer)
 
-		# Ensure loyalty_program is set on the invoice
-		if not self.loyalty_program:
-			self.loyalty_program = frappe.db.get_single_value("Terminal Settings", "default_loyalty_program")
+	# Ensure loyalty_program is set
+	if not self.loyalty_program:
+		self.loyalty_program = frappe.db.get_single_value("Terminal Settings", "default_loyalty_program")
+	if not self.loyalty_program:
+		return
 
-		if not self.loyalty_program:
-			return
+	# ── Handle REDEMPTION (negative entry for points consumed) ───────────────
+	if getattr(self, 'redeem_loyalty_points', 0) and getattr(self, 'loyalty_points', 0) > 0:
+		redemption_account = frappe.db.get_value("Loyalty Program", self.loyalty_program, "expense_account") or ""
+		cost_center        = frappe.db.get_value("Loyalty Program", self.loyalty_program, "cost_center") or ""
 
-		# 2. Prevent duplicate entries
-		if frappe.db.exists("Loyalty Point Entry", {"invoice_type": self.doctype, "invoice": self.name}):
-			return
-
-		# 3. Calculate points using the shadow customer
-		returned_amount = self.get_returned_amount()
-		current_amount = flt(self.grand_total) - cint(self.loyalty_amount)
-		eligible_amount = current_amount - returned_amount
-
-		lp_details = get_loyalty_program_details_with_points(
-			customer_id,
-			company=self.company,
-			current_transaction_amount=current_amount,
-			loyalty_program=self.loyalty_program,
-			expiry_date=self.posting_date,
-			include_expired_entry=True,
-		)
-		if (
-			lp_details
-			and getdate(lp_details.from_date) <= getdate(self.posting_date)
-			and (not lp_details.to_date or getdate(lp_details.to_date) >= getdate(self.posting_date))
-		):
-			collection_factor = lp_details.collection_factor if lp_details.collection_factor else 1.0
-			points_earned = cint(eligible_amount / collection_factor)
-
-			doc = frappe.get_doc({
+		# Prevent duplicate redemption entry
+		if not frappe.db.exists("Loyalty Point Entry", {
+			"invoice": self.name, "invoice_type": self.doctype, "loyalty_points": ["<", 0]
+		}):
+			redemption_lpe = frappe.get_doc({
 				"doctype": "Loyalty Point Entry",
 				"company": self.company,
-				"loyalty_program": lp_details.loyalty_program,
-				"loyalty_program_tier": lp_details.tier_name,
-				"customer": customer_id,
+				"loyalty_program": self.loyalty_program,
+				"customer": unified_customer,
+				"custom_pos_customer": pos_customer_name,
 				"invoice_type": self.doctype,
 				"invoice": self.name,
-				"loyalty_points": points_earned,
-				"purchase_amount": eligible_amount,
-				"expiry_date": add_days(self.posting_date, lp_details.expiry_duration) if lp_details.expiry_duration else None,
+				"loyalty_points": -1 * cint(self.loyalty_points),
+				"purchase_amount": flt(self.loyalty_amount),
+				"redemption_account": redemption_account,
+				"redemption_cost_center": cost_center,
 				"posting_date": self.posting_date,
 			})
-			doc.flags.ignore_permissions = 1
-			doc.save()
-			frappe.logger().info(f"[LOYALTY] {points_earned} pts -> Shadow Customer '{customer_id}'")
-	else:
-		# Call standard controller method
-		super(self.__class__, self).make_loyalty_point_entry()
+			redemption_lpe.flags.ignore_permissions = 1
+			redemption_lpe.save()
+			frappe.logger().info(f"[LOYALTY] -{cint(self.loyalty_points)} pts redeemed — POS Customer '{pos_customer_name}'")
+
+	# ── Prevent duplicate earning entries ─────────────────────────────────────
+	if frappe.db.exists("Loyalty Point Entry", {
+		"invoice": self.name, "invoice_type": self.doctype, "loyalty_points": [">", 0]
+	}):
+		return
+
+	# ── Calculate EARNING points ──────────────────────────────────────────────
+	lp_doc = frappe.get_doc("Loyalty Program", self.loyalty_program)
+
+	today = getdate(self.posting_date)
+	if lp_doc.from_date and getdate(lp_doc.from_date) > today:
+		return
+	if lp_doc.to_date and getdate(lp_doc.to_date) < today:
+		return
+
+	# Determine collection factor from tier rules (based on total purchase history)
+	collection_factor = 1.0
+	tier_name = None
+	if lp_doc.collection_rules:
+		total_purchase = frappe.db.sql("""
+			SELECT COALESCE(SUM(purchase_amount), 0)
+			FROM `tabLoyalty Point Entry`
+			WHERE custom_pos_customer = %s AND loyalty_points > 0
+		""", (pos_customer_name,))[0][0] or 0.0
+
+		for rule in sorted(lp_doc.collection_rules, key=lambda r: r.min_spent or 0, reverse=True):
+			if (rule.min_spent or 0) <= float(total_purchase):
+				collection_factor = rule.collection_factor or 1.0
+				tier_name = rule.tier_name
+				break
+		else:
+			# No tier matched — use first rule
+			first = lp_doc.collection_rules[0]
+			collection_factor = first.collection_factor or 1.0
+			tier_name = first.tier_name
+
+	returned_amount = self.get_returned_amount()
+	current_amount  = flt(self.grand_total) - cint(self.loyalty_amount)
+	eligible_amount = current_amount - returned_amount
+
+	if eligible_amount <= 0:
+		return
+
+	points_earned = cint(eligible_amount / collection_factor) if collection_factor else 0
+	if points_earned <= 0:
+		return
+
+	expiry_date = add_days(self.posting_date, lp_doc.expiry_duration) if lp_doc.expiry_duration else None
+
+	earning_lpe = frappe.get_doc({
+		"doctype": "Loyalty Point Entry",
+		"company": self.company,
+		"loyalty_program": self.loyalty_program,
+		"loyalty_program_tier": tier_name,
+		"customer": unified_customer,
+		"custom_pos_customer": pos_customer_name,
+		"invoice_type": self.doctype,
+		"invoice": self.name,
+		"loyalty_points": points_earned,
+		"purchase_amount": eligible_amount,
+		"expiry_date": expiry_date,
+		"posting_date": self.posting_date,
+	})
+	earning_lpe.flags.ignore_permissions = 1
+	earning_lpe.save()
+	frappe.logger().info(f"[LOYALTY] +{points_earned} pts -> POS Customer '{pos_customer_name}'")
 
 import erpnext.accounts.doctype.loyalty_program.loyalty_program as lp_module
 import erpnext.accounts.doctype.sales_invoice.sales_invoice as si_module
@@ -3763,38 +3799,18 @@ def custom_validate_loyalty_points(ref_doc, points_to_redeem):
 			return
 
 		if points_to_redeem:
-			# Ensure standard Customer doc exists for custom_pos_customer
-			if not frappe.db.exists("Customer", customer_id):
-				pos_cust_details = frappe.db.get_value("POS Customer", customer_id, ["customer_name", "mobile_no", "email_id"], as_dict=True)
-				if pos_cust_details:
-					# Force name = customer_id so the shadow Customer has the exact same
-					# name as the POS Customer — prevents duplicate records.
-					cust_doc = frappe.get_doc({
-						"doctype": "Customer",
-						"name": customer_id,
-						"customer_name": pos_cust_details.customer_name or customer_id,
-						"customer_type": "Individual",
-						"customer_group": "Individual",
-						"territory": "All Territories",
-						"mobile_no": pos_cust_details.mobile_no,
-						"email_id": pos_cust_details.email_id,
-						"loyalty_program": frappe.db.get_single_value("Terminal Settings", "default_loyalty_program")
-					})
-					cust_doc.flags.ignore_permissions = True
-					cust_doc.flags.name_set = True  # Tell Frappe: do NOT auto-generate name
-					cust_doc.insert(ignore_permissions=True)
-					frappe.db.commit()
-					frappe.logger().info(f"[LOYALTY] Created shadow Customer '{customer_id}' for loyalty redemption.")
+			# Get available points directly from POS Customer — no shadow Customer needed
+			available_points = int(frappe.db.get_value("POS Customer", customer_id, "loyalty_points") or 0)
 
-			loyalty_program_details = get_loyalty_program_details_with_points(
-				customer_id, ref_doc.loyalty_program, ref_doc.posting_date or today(), ref_doc.company
-			)
+			if points_to_redeem > available_points:
+				frappe.throw(f"You don't have enough Loyalty Points to redeem. Available: {available_points}")
 
-			if points_to_redeem > loyalty_program_details.loyalty_points:
-				frappe.throw(f"You don't have enough Loyalty Points to redeem. Available: {loyalty_program_details.loyalty_points}")
+			# Get conversion factor from the Loyalty Program (monetary value per point)
+			conversion_factor = flt(frappe.db.get_value(
+				"Loyalty Program", ref_doc.loyalty_program, "conversion_factor"
+			) or 1.0)
 
-			loyalty_amount = flt(points_to_redeem * loyalty_program_details.conversion_factor)
-			ref_doc.loyalty_amount = loyalty_amount
+			ref_doc.loyalty_amount = flt(points_to_redeem * conversion_factor)
 	else:
 		# Call original standard validation
 		lp_module.original_validate_loyalty_points(ref_doc, points_to_redeem)

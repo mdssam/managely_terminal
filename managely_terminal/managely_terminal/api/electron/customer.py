@@ -875,30 +875,36 @@ def update_pos_customer_loyalty(doc, method=None):
 	"""
 	Hook function triggered when a Loyalty Point Entry is created, modified or deleted.
 	Synchronizes the active loyalty points in real-time to the custom POS Customer DocType.
+	Uses custom_pos_customer field to identify the specific POS Customer (not the unified branch customer).
+	No shadow Customer records in tabCustomer are needed.
 	"""
 	try:
-		if getattr(doc, "customer", None):
-			import frappe
-			# 1. Sum up all active loyalty points for this customer
-			points_query = frappe.db.sql("""
-				SELECT SUM(loyalty_points) 
-				FROM `tabLoyalty Point Entry` 
-				WHERE customer = %s 
-				  AND (expiry_date IS NULL OR expiry_date >= CURDATE())
-			""", (doc.customer,))
-			points = points_query[0][0] or 0.0
+		import frappe
 
-			# 2. Find POS Customer directly by name (since shadow Customer name matches POS Customer name)
-			pos_cust = frappe.db.get_value("POS Customer", {"name": doc.customer}, "name")
+		# Primary: use the custom_pos_customer field on the LPE (new approach)
+		pos_cust_name = getattr(doc, "custom_pos_customer", None)
 
-			if pos_cust:
-				# 3. Update the loyalty points directly in the database
-				frappe.db.set_value("POS Customer", pos_cust, "loyalty_points", points)
-				frappe.db.commit()
-				frappe.logger().info(f"Loyalty Sync: Updated POS Customer '{pos_cust}' (unified: {doc.customer}) points to {points}")
-			else:
-				frappe.logger().warning(f"Loyalty Sync: No POS Customer found for customer '{doc.customer}'")
+		# Fallback for legacy entries: check if doc.customer matches a POS Customer name
+		if not pos_cust_name and getattr(doc, "customer", None):
+			pos_cust_name = frappe.db.get_value("POS Customer", {"name": doc.customer}, "name")
+
+		if not pos_cust_name:
+			return  # Not a POS Customer loyalty entry — skip
+
+		# Sum all active loyalty points for this POS Customer via custom_pos_customer
+		points_query = frappe.db.sql("""
+			SELECT COALESCE(SUM(loyalty_points), 0)
+			FROM `tabLoyalty Point Entry`
+			WHERE custom_pos_customer = %s
+			  AND (expiry_date IS NULL OR expiry_date >= CURDATE())
+		""", (pos_cust_name,))
+		points = int(points_query[0][0] or 0)
+
+		frappe.db.set_value("POS Customer", pos_cust_name, "loyalty_points", points)
+		frappe.db.commit()
+		frappe.logger().info(f"Loyalty Sync: POS Customer '{pos_cust_name}' -> {points} pts")
+
 	except Exception as e:
 		import frappe
-		frappe.logger().error(f"Loyalty Sync Error: Failed to update POS Customer loyalty points: {e!s}")
+		frappe.logger().error(f"Loyalty Sync Error: {e!s}")
 
