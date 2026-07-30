@@ -6,7 +6,7 @@ from frappe import _
 from frappe.utils import now_datetime, today
 
 # Import for clearing cache and clearing draft invoices on close
-from managely_terminal.managely_terminal.api.cache import clear_backend_cache
+from managely_terminal.managely_terminal.api.electron.cache import clear_backend_cache
 from managely_terminal.managely_terminal.api.sales_invoice import delete_draft_invoices_for_opening_entry
 from managely_terminal.managely_terminal.utils import clear_pos_profile_cache, get_current_pos_profile
 
