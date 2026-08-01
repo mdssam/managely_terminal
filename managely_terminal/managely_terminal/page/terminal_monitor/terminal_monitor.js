@@ -650,6 +650,12 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 
 		if (log) {
 			displayLocalId = log.payload_id;
+			if (displayLocalId && displayLocalId.indexOf('{') === 0) {
+				try {
+					var p = JSON.parse(displayLocalId);
+					displayLocalId = p.id || p.name || p.pre_assigned_name || 'JSON Object';
+				} catch(e) {}
+			}
 			displayType = log.payload_type;
 
 			if (log.error_message) {
