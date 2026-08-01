@@ -52,8 +52,6 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 	var $placeholder = $('#diagnostics-panel-placeholder');
 	var $content = $('#diagnostics-panel-content');
 	var $badge = $('#selected-terminal-badge');
-	var $btn_refresh = $('#btn-refresh-terminals');
-	var $btn_reload_cache = $('#btn-reload-cache');
 	var $btn_pull = $('#btn-pull-logs');
 	var $btn_db = $('#btn-pull-db');
 	var $btn_restore = $('#btn-restore-db');
@@ -1032,10 +1030,10 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 	}
 
 	/* Refresh action */
-	$btn_refresh.on('click', load_terminals);
+	page.set_primary_action('Refresh Terminals', load_terminals, 'refresh');
 
 	/* Clear Cache & Reload App Resources */
-	$btn_reload_cache.on('click', function() {
+	page.add_inner_button('Migrate & Clear Cache', function() {
 		$('#migrate-log-modal').modal('show');
 		$('#migrate-log-spinner').show();
 		$('#migrate-log-result').hide();

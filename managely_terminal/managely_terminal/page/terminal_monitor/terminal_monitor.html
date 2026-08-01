@@ -1,19 +1,5 @@
 <div class="terminal-monitor-container p-4" style="background-color: #f8f9fa; min-height: 100vh;">
-    <!-- Header -->
-    <div class="row align-items-center mb-4">
-        <div class="col">
-            <h3 class="m-0 text-dark font-weight-bold" style="letter-spacing: -0.5px;">Terminal Monitor</h3>
-            <p class="text-muted m-0 small">Monitor online status, cashier sessions, and pull telemetry/logs remotely.</p>
-        </div>
-        <div class="col-auto d-flex gap-2">
-            <button id="btn-reload-cache" class="btn btn-outline-secondary btn-sm px-3 shadow-sm font-weight-bold mr-2" style="border-radius: 6px;">
-                <i class="fa fa-refresh mr-1"></i> Clear Cache & Reload
-            </button>
-            <button id="btn-refresh-terminals" class="btn btn-primary btn-sm px-3 shadow-sm font-weight-bold" style="border-radius: 6px;">
-                Refresh Terminals
-            </button>
-        </div>
-    </div>
+    <!-- Header removed, using standard frappe.ui.make_app_page header -->
 
     <div class="row">
         <!-- Terminals List -->
@@ -72,35 +58,39 @@
                     </div>
 
                     <!-- Filters and Pull Logs Form -->
-                    <div class="row bg-light p-3 rounded mb-4 align-items-end border border-secondary mx-0" style="border-radius: 6px;">
-                        <div class="col-md-3 px-2">
-                            <label class="font-weight-bold text-secondary small">From Date/Time</label>
-                            <input type="datetime-local" id="filter-from-date" class="form-control form-control-sm border border-secondary" style="border-radius: 4px;">
+                    <div class="bg-light p-3 rounded mb-4 border border-secondary mx-0" style="border-radius: 6px;">
+                        <div class="row align-items-end mb-3">
+                            <div class="col-md-4 px-2">
+                                <label class="font-weight-bold text-secondary small">From Date/Time</label>
+                                <input type="datetime-local" id="filter-from-date" class="form-control form-control-sm border border-secondary" style="border-radius: 4px;">
+                            </div>
+                            <div class="col-md-4 px-2">
+                                <label class="font-weight-bold text-secondary small">To Date/Time</label>
+                                <input type="datetime-local" id="filter-to-date" class="form-control form-control-sm border border-secondary" style="border-radius: 4px;">
+                            </div>
+                            <div class="col-md-4 px-2">
+                                <label class="font-weight-bold text-secondary small">Limit</label>
+                                <select id="filter-limit" class="form-control form-control-sm border border-secondary" style="border-radius: 4px;">
+                                    <option value="100">100</option>
+                                    <option value="200" selected>200</option>
+                                    <option value="500">500</option>
+                                </select>
+                            </div>
                         </div>
-                        <div class="col-md-3 px-2">
-                            <label class="font-weight-bold text-secondary small">To Date/Time</label>
-                            <input type="datetime-local" id="filter-to-date" class="form-control form-control-sm border border-secondary" style="border-radius: 4px;">
-                        </div>
-                        <div class="col-md-2 px-2">
-                            <label class="font-weight-bold text-secondary small">Limit</label>
-                            <select id="filter-limit" class="form-control form-control-sm border border-secondary" style="border-radius: 4px;">
-                                <option value="100">100</option>
-                                <option value="200" selected>200</option>
-                                <option value="500">500</option>
-                            </select>
-                        </div>
-                        <div class="col-md-2 px-2 mt-2 mt-md-0">
-                            <button id="btn-pull-logs" class="btn btn-secondary btn-sm btn-block font-weight-bold py-2 shadow-sm" style="border-radius: 4px; font-size: 0.85em;">Pull Logs</button>
-                        </div>
-                        <div class="col-md-2 px-2 mt-2 mt-md-0">
-                            <button id="btn-pull-db" class="btn btn-primary btn-sm btn-block font-weight-bold py-2 shadow-sm" style="border-radius: 4px; font-size: 0.85em; background-color: #1b85b8; border-color: #1b85b8;">Download DB</button>
-                        </div>
-                        <div class="col-md-2 px-2 mt-2 mt-md-0">
-                            <input type="file" id="db-file-input" accept=".db" style="display: none;">
-                            <button id="btn-restore-db" class="btn btn-warning btn-sm btn-block font-weight-bold py-2 shadow-sm text-white" style="border-radius: 4px; font-size: 0.85em; background-color: #f0ad4e; border-color: #f0ad4e;">Restore DB</button>
-                        </div>
-                        <div class="col-md-2 px-2 mt-2 mt-md-0">
-                            <button id="btn-relaunch-app" class="btn btn-danger btn-sm btn-block font-weight-bold py-2 shadow-sm" style="border-radius: 4px; font-size: 0.85em;">Relaunch POS</button>
+                        <div class="row align-items-end">
+                            <div class="col-md-3 px-2 mt-2 mt-md-0">
+                                <button id="btn-pull-logs" class="btn btn-default btn-sm btn-block font-weight-bold py-2">Pull Logs</button>
+                            </div>
+                            <div class="col-md-3 px-2 mt-2 mt-md-0">
+                                <button id="btn-pull-db" class="btn btn-default btn-sm btn-block font-weight-bold py-2">Download DB</button>
+                            </div>
+                            <div class="col-md-3 px-2 mt-2 mt-md-0">
+                                <input type="file" id="db-file-input" accept=".db" style="display: none;">
+                                <button id="btn-restore-db" class="btn btn-warning btn-sm btn-block font-weight-bold py-2 text-white">Restore DB</button>
+                            </div>
+                            <div class="col-md-3 px-2 mt-2 mt-md-0">
+                                <button id="btn-relaunch-app" class="btn btn-danger btn-sm btn-block font-weight-bold py-2">Relaunch POS</button>
+                            </div>
                         </div>
                     </div>
 
