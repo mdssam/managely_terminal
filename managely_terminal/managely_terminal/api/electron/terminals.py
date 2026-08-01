@@ -219,7 +219,7 @@ def migrate_and_clear_cache():
         from frappe.build import bundle
         
         # Execute full site migration (updates database schema, doctypes, fixtures & patches)
-        SiteMigration().run()
+        SiteMigration().run(site=frappe.local.site)
         
         # Build front-end JS/CSS assets
         bundle(no_minify=False)
