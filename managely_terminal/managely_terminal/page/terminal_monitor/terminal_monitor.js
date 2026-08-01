@@ -878,12 +878,12 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 
 				var row = 
 					'<tr>' +
-						'<td>#' + log.id + '</td>' +
-						'<td class="font-mono text-truncate" style="max-width: 150px;" title="' + displayLocalId + '">' + displayLocalId + '</td>' +
+						'<td class="text-muted">#' + log.id + '</td>' +
+						'<td class="text-truncate" style="max-width: 150px;" title="' + displayLocalId + '"><span class="badge badge-light border text-secondary font-mono">' + displayLocalId + '</span></td>' +
 						'<td class="font-weight-bold text-uppercase">' + log.payload_type + '</td>' +
 						'<td>' + status_badge + '</td>' +
 						'<td style="text-align: center;">' + details_btn + '</td>' +
-						'<td>' + new Date(log.sync_time).toLocaleString() + '</td>' +
+						'<td style="white-space: nowrap;" class="text-muted small">' + new Date(log.sync_time).toLocaleString() + '</td>' +
 					'</tr>';
 
 				$tbody.append(row);
@@ -926,12 +926,12 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 
 				var row = 
 					'<tr>' +
-						'<td>#' + log.id + '</td>' +
-						'<td class="font-mono text-truncate" style="max-width: 150px;" title="' + displayLocalId + '">' + displayLocalId + '</td>' +
+						'<td class="text-muted">#' + log.id + '</td>' +
+						'<td class="text-truncate" style="max-width: 150px;" title="' + displayLocalId + '"><span class="badge badge-light border text-secondary font-mono">' + displayLocalId + '</span></td>' +
 						'<td class="font-weight-bold text-uppercase">' + log.payload_type + '</td>' +
 						'<td>' + status_badge + '</td>' +
 						'<td style="text-align: center;">' + details_btn + '</td>' +
-						'<td>' + new Date(log.sync_time).toLocaleString() + '</td>' +
+						'<td style="white-space: nowrap;" class="text-muted small">' + new Date(log.sync_time).toLocaleString() + '</td>' +
 					'</tr>';
 
 				$tbody.append(row);
@@ -961,12 +961,12 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 			page_items.forEach(function(log) {
 				var row = 
 					'<tr>' +
-						'<td>#' + log.id + '</td>' +
-						'<td class="font-weight-bold">' + log.action + '</td>' +
-						'<td>' + (log.entity_type || '-') + '</td>' +
-						'<td class="text-info font-mono">' + (log.entity_id || '-') + '</td>' +
-						'<td>' + (log.details || '-') + '</td>' +
-						'<td>' + new Date(log.created_at).toLocaleString() + '</td>' +
+						'<td class="text-muted">#' + log.id + '</td>' +
+						'<td><span class="badge badge-light border text-secondary font-weight-bold" style="font-size: 0.85em;">' + log.action + '</span></td>' +
+						'<td class="text-capitalize text-secondary">' + (log.entity_type || '-') + '</td>' +
+						'<td>' + (log.entity_id ? '<span class="badge badge-info text-white font-mono">' + log.entity_id + '</span>' : '-') + '</td>' +
+						'<td class="text-truncate text-secondary" style="max-width: 250px;" title="' + (log.details || '').replace(/"/g, '&quot;') + '">' + (log.details || '-') + '</td>' +
+						'<td style="white-space: nowrap;" class="text-muted small">' + new Date(log.created_at).toLocaleString() + '</td>' +
 					'</tr>';
 
 				$tbody.append(row);
