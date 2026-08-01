@@ -30,6 +30,14 @@ def heartbeat():
         # Get active terminals list from cache
         terminals = frappe.cache().get_value("active_terminals") or {}
         
+        # Support both flat keys and nested 'telemetry' object
+        telemetry = params.get('telemetry') or {}
+        if isinstance(telemetry, str):
+            try:
+                telemetry = json.loads(telemetry)
+            except:
+                telemetry = {}
+                
         # Update terminal status details
         terminals[terminal_id] = {
             "terminal_id": terminal_id,
@@ -38,11 +46,11 @@ def heartbeat():
             "status": "Online",
             "username": username,
             "app_version": app_version,
-            "pending_invoices": params.get('pending_invoices', 0),
-            "pending_cash_transactions": params.get('pending_cash_transactions', 0),
-            "pending_sync_queue": params.get('pending_sync_queue', 0),
-            "db_size_mb": params.get('db_size_mb', 0.0),
-            "ram_usage_mb": params.get('ram_usage_mb', 0.0),
+            "pending_invoices": params.get('pending_invoices') or telemetry.get('pending_invoices', 0),
+            "pending_cash_transactions": params.get('pending_cash_transactions') or telemetry.get('pending_cash_transactions', 0),
+            "pending_sync_queue": params.get('pending_sync_queue') or telemetry.get('pending_sync_queue', 0),
+            "db_size_mb": params.get('db_size_mb') or telemetry.get('db_size_mb', 0.0),
+            "ram_usage_mb": params.get('ram_usage_mb') or telemetry.get('ram_usage_mb', 0.0),
             "last_ping": frappe.utils.now_datetime().timestamp() * 1000
         }
         
