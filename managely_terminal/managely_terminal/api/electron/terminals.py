@@ -214,22 +214,33 @@ def migrate_and_clear_cache():
     if frappe.session.user != "Administrator" and "System Manager" not in frappe.get_roles():
         frappe.throw("Not authorized", frappe.PermissionError)
     
+    import io
+    from contextlib import redirect_stdout, redirect_stderr
+    log_capture = io.StringIO()
+    
     try:
-        from frappe.migrate import SiteMigration
-        from frappe.build import bundle
-        
-        # Execute full site migration (updates database schema, doctypes, fixtures & patches)
-        SiteMigration().run(site=frappe.local.site)
-        
-        # Build front-end JS/CSS assets
-        bundle(no_minify=False)
-        
-        # Clear server cache
-        frappe.clear_cache()
-        frappe.db.commit()
-        return {"success": True, "message": "Site migration, asset build & cache clear completed successfully!"}
+        with redirect_stdout(log_capture), redirect_stderr(log_capture):
+            from frappe.migrate import SiteMigration
+            from frappe.build import bundle
+            
+            print("Starting site migration...")
+            # Execute full site migration (updates database schema, doctypes, fixtures & patches)
+            SiteMigration().run(site=frappe.local.site)
+            
+            print("\nBuilding front-end JS/CSS assets...")
+            # Build front-end JS/CSS assets
+            bundle(no_minify=False)
+            
+            print("\nClearing server cache...")
+            # Clear server cache
+            frappe.clear_cache()
+            frappe.db.commit()
+            print("Done!")
+            
+        return {"success": True, "message": "Site migration, asset build & cache clear completed successfully!", "log": log_capture.getvalue()}
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        error_log = log_capture.getvalue() + f"\nError: {str(e)}"
+        return {"success": False, "error": str(e), "log": error_log}
 
 
 @frappe.whitelist(allow_guest=True)

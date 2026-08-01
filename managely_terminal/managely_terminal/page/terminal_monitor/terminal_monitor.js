@@ -1036,28 +1036,32 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 
 	/* Clear Cache & Reload App Resources */
 	$btn_reload_cache.on('click', function() {
-		$btn_reload_cache.prop('disabled', true).html('<i class="fa fa-spinner fa-spin mr-1"></i> Clearing...');
+		$('#migrate-log-modal').modal('show');
+		$('#migrate-log-spinner').show();
+		$('#migrate-log-result').hide();
+		$('#btn-close-migrate-modal').hide();
+		
 		frappe.call({
 			method: 'managely_terminal.managely_terminal.api.electron.terminals.migrate_and_clear_cache',
 			callback: function(r) {
-				$btn_reload_cache.prop('disabled', false).html('<i class="fa fa-refresh mr-1"></i> Clear Cache & Reload');
-				if (r.message && r.message.success) {
-					frappe.show_alert({
-						message: __(r.message.message || 'Cache cleared successfully'),
-						indicator: 'green'
-					});
-					setTimeout(function() {
-						window.location.reload();
-					}, 1000);
+				$('#migrate-log-spinner').hide();
+				$('#migrate-log-result').show();
+				$('#btn-close-migrate-modal').show();
+				
+				var msg = r.message || {};
+				if (msg.success) {
+					$('#migrate-status-badge').removeClass('badge-danger').addClass('badge-success').text('Success');
+					$('#migrate-log-output').removeClass('text-danger').addClass('text-success').text(msg.log || 'Done');
 				} else {
-					frappe.msgprint({
-						title: 'Failed',
-						indicator: 'red',
-						message: r.message?.error || 'Failed to clear cache.'
-					});
+					$('#migrate-status-badge').removeClass('badge-success').addClass('badge-danger').text('Failed');
+					$('#migrate-log-output').removeClass('text-success').addClass('text-danger').text(msg.log || msg.error || 'Failed to run migration');
 				}
 			}
 		});
+	});
+
+	$('#btn-close-migrate-modal').on('click', function() {
+		window.location.reload();
 	});
 
 	/* Load on startup */
