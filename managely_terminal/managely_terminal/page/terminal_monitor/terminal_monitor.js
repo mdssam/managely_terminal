@@ -53,6 +53,7 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 	var $content = $('#diagnostics-panel-content');
 	var $badge = $('#selected-terminal-badge');
 	var $btn_refresh = $('#btn-refresh-terminals');
+	var $btn_reload_cache = $('#btn-reload-cache');
 	var $btn_pull = $('#btn-pull-logs');
 	var $btn_db = $('#btn-pull-db');
 	var $btn_restore = $('#btn-restore-db');
@@ -1032,6 +1033,32 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 
 	/* Refresh action */
 	$btn_refresh.on('click', load_terminals);
+
+	/* Clear Cache & Reload App Resources */
+	$btn_reload_cache.on('click', function() {
+		$btn_reload_cache.prop('disabled', true).html('<i class="fa fa-spinner fa-spin mr-1"></i> Clearing...');
+		frappe.call({
+			method: 'managely_terminal.managely_terminal.api.electron.terminals.migrate_and_clear_cache',
+			callback: function(r) {
+				$btn_reload_cache.prop('disabled', false).html('<i class="fa fa-refresh mr-1"></i> Clear Cache & Reload');
+				if (r.message && r.message.success) {
+					frappe.show_alert({
+						message: __(r.message.message || 'Cache cleared successfully'),
+						indicator: 'green'
+					});
+					setTimeout(function() {
+						window.location.reload();
+					}, 1000);
+				} else {
+					frappe.msgprint({
+						title: 'Failed',
+						indicator: 'red',
+						message: r.message?.error || 'Failed to clear cache.'
+					});
+				}
+			}
+		});
+	});
 
 	/* Load on startup */
 	load_terminals();

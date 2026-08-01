@@ -206,6 +206,32 @@ def force_requeue(terminal_id, payload_type, payload_id, new_payload=None):
         return {"success": False, "error": str(e)}
 
 
+@frappe.whitelist(allow_guest=False)
+def migrate_and_clear_cache():
+    """
+    Executes full site migration, builds assets, and clears cache from UI.
+    """
+    if frappe.session.user != "Administrator" and "System Manager" not in frappe.get_roles():
+        frappe.throw("Not authorized", frappe.PermissionError)
+    
+    try:
+        from frappe.migrate import SiteMigration
+        from frappe.build import bundle
+        
+        # Execute full site migration (updates database schema, doctypes, fixtures & patches)
+        SiteMigration().run()
+        
+        # Build front-end JS/CSS assets
+        bundle(no_minify=False)
+        
+        # Clear server cache
+        frappe.clear_cache()
+        frappe.db.commit()
+        return {"success": True, "message": "Site migration, asset build & cache clear completed successfully!"}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 @frappe.whitelist(allow_guest=True)
 def reload_terminal_monitor_page():
     """
