@@ -30,6 +30,141 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 	`;
 	$('<style>').prop('type', 'text/css').html(css).appendTo('head');
 
+	page.add_inner_button('Deploy POS Update', function() {
+		let d = new frappe.ui.Dialog({
+			title: 'Deploy POS Update',
+			fields: [
+				{
+					fieldname: 'html',
+					fieldtype: 'HTML',
+					options: `
+						<div class="p-4 bg-white rounded">
+							<div class="alert alert-info py-2 px-3 small font-weight-bold mb-4" style="border-radius: 6px;">
+								<i class="fa fa-info-circle mr-1"></i> Please select the <b>latest.yml</b>, the <b>.exe</b> setup file, and the <b>.blockmap</b> file.
+							</div>
+							
+							<div class="form-group mb-4">
+								<label class="text-secondary small font-weight-bold text-uppercase tracking-wider mb-2">Select Update Files</label>
+								<div class="custom-file" style="border-radius: 6px; overflow: hidden;">
+									<input type="file" id="pos_update_files" multiple accept=".yml,.exe,.blockmap" class="custom-file-input" />
+									<label class="custom-file-label" for="pos_update_files" style="padding-top: 8px;">Choose files...</label>
+								</div>
+							</div>
+							
+							<div id="upload_progress_container" style="display:none; margin-top: 25px;">
+								<div class="d-flex justify-content-between mb-1">
+									<span class="text-secondary small font-weight-bold text-uppercase" id="upload_status">Uploading...</span>
+									<span class="text-secondary small font-weight-bold" id="upload_percentage">0%</span>
+								</div>
+								<div class="progress" style="height: 8px; border-radius: 4px; background-color: #e9ecef;">
+									<div id="upload_progress_bar" class="progress-bar progress-bar-striped progress-bar-animated bg-primary" role="progressbar" style="width: 0%; transition: width 0.3s ease;"></div>
+								</div>
+							</div>
+						</div>
+					`
+				}
+			],
+			primary_action_label: 'Start Deployment',
+			primary_action: function() {
+				let input = d.get_field('html').$wrapper.find('#pos_update_files')[0];
+				if(!input.files || input.files.length === 0) {
+					frappe.msgprint('Please select files first.');
+					return;
+				}
+
+				let files = Array.from(input.files);
+				
+				let exeFile = files.find(f => f.name.endsWith('.exe'));
+				if(!exeFile) {
+					frappe.msgprint('Please select the .exe setup file.');
+					return;
+				}
+
+				d.get_primary_btn().prop('disabled', true);
+				d.get_field('html').$wrapper.find('#upload_progress_container').show();
+				let $status = d.get_field('html').$wrapper.find('#upload_status');
+				let $bar = d.get_field('html').$wrapper.find('#upload_progress_bar');
+
+				const CHUNK_SIZE = 10 * 1024 * 1024; // 10MB
+				
+				async function uploadFileChunked(file) {
+					const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+					
+					for (let i = 0; i < totalChunks; i++) {
+						const start = i * CHUNK_SIZE;
+						const end = Math.min(start + CHUNK_SIZE, file.size);
+						const chunk = file.slice(start, end);
+						const isLast = (i === totalChunks - 1);
+						
+						const percentage = Math.round((i / totalChunks) * 100);
+						$status.text('Uploading ' + file.name + ' (Chunk ' + (i + 1) + '/' + totalChunks + ')...');
+						$bar.css('width', percentage + '%');
+						d.get_field('html').$wrapper.find('#upload_percentage').text(percentage + '%');
+						
+						try {
+							await new Promise((resolve, reject) => {
+								let url = '/api/method/managely_terminal.managely_terminal.api.electron.updater.upload_update' + 
+									'?filename=' + encodeURIComponent(file.name) + 
+									'&chunk_index=' + i + 
+									'&is_last=' + (isLast ? '1' : '0');
+
+								$.ajax({
+									url: url,
+									type: 'POST',
+									data: chunk,
+									processData: false,
+									contentType: 'application/octet-stream',
+									headers: {
+										'X-Frappe-CSRF-Token': frappe.csrf_token
+									},
+									success: function(r) {
+										resolve(r);
+									},
+									error: function(err) {
+										reject(err);
+									}
+								});
+							});
+						} catch (error) {
+							throw new Error('Upload failed for chunk ' + (i + 1));
+						}
+					}
+					$bar.css('width', '100%');
+					d.get_field('html').$wrapper.find('#upload_percentage').text('100%');
+				}
+
+				async function processDeploy() {
+					try {
+						for(let file of files) {
+							await uploadFileChunked(file);
+						}
+						$status.text('Deployment Complete!');
+						frappe.show_alert({message: 'Update deployed successfully!', indicator: 'green'});
+						setTimeout(() => d.hide(), 2000);
+					} catch(e) {
+						$status.text('Error: ' + e.message);
+						$status.removeClass('text-secondary').addClass('text-danger');
+						d.get_primary_btn().prop('disabled', false);
+						frappe.msgprint('Deployment failed: ' + e.message);
+					}
+				}
+
+				processDeploy();
+			}
+		});
+		
+		d.get_field('html').$wrapper.find('#pos_update_files').on('change', function(e) {
+			let files = Array.from(e.target.files).map(f => f.name);
+			let label = d.get_field('html').$wrapper.find('.custom-file-label');
+			if (files.length > 0) {
+				label.text(files.join(', '));
+			} else {
+				label.text('Choose files...');
+			}
+		});
+
+		d.show();
+	});
 	var selected_terminal_id = null;
 	var terminals_data = [];
 	var polling_interval = null;
