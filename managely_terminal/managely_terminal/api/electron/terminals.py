@@ -215,10 +215,10 @@ def migrate_and_clear_cache():
         frappe.throw("Not authorized", frappe.PermissionError)
     
     import subprocess
-    import frappe.utils
+    from frappe.utils import get_bench_path
     
     try:
-        bench_path = frappe.utils.get_bench_path()
+        bench_path = get_bench_path()
         site_name = frappe.local.site
         
         # Run bench migrate in a subprocess
