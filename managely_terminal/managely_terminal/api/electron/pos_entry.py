@@ -199,7 +199,8 @@ def create_opening_entry():
 				},
 			)
 
-		doc.insert()
+		doc.flags.ignore_permissions = True
+		doc.insert(ignore_permissions=True)
 		doc.submit()
 
 		# Clear POS profile cache after creating opening entry to ensure fresh data
@@ -282,6 +283,7 @@ def _consolidate_draft_invoices_for_closing(opening_entry_name):
 			consolidated.base_paid_amount = flt(consolidated.base_grand_total)
 			consolidated.outstanding_amount = 0
 			consolidated.save(ignore_permissions=True)
+			consolidated.flags.ignore_permissions = True
 			consolidated.submit()
 			frappe.db.commit()
 
@@ -832,6 +834,8 @@ def _create_and_submit_closing_doc(opening_entry, data, payment_data, user):
 
 
 	# Submit and link back to opening entry
+	doc.flags.ignore_permissions = True
+	doc.insert(ignore_permissions=True)
 	doc.submit()
 	frappe.db.set_value("POS Opening Entry", opening_entry.name, "pos_closing_entry", doc.name)
 
