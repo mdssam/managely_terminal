@@ -1041,6 +1041,11 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 		$('#migrate-log-result').hide();
 		$('#btn-close-migrate-modal').hide();
 		
+		// Disable Frappe's version-update popup temporarily so it doesn't interrupt our modal
+		if (frappe.realtime) {
+			frappe.realtime.off('version-update');
+		}
+		
 		frappe.call({
 			method: 'managely_terminal.managely_terminal.api.electron.terminals.migrate_and_clear_cache',
 			callback: function(r) {

@@ -209,38 +209,36 @@ def force_requeue(terminal_id, payload_type, payload_id, new_payload=None):
 @frappe.whitelist(allow_guest=False)
 def migrate_and_clear_cache():
     """
-    Executes full site migration, builds assets, and clears cache from UI.
+    Executes full site migration via bench subprocess to avoid crashing the current gunicorn worker.
     """
     if frappe.session.user != "Administrator" and "System Manager" not in frappe.get_roles():
         frappe.throw("Not authorized", frappe.PermissionError)
     
-    import io
-    from contextlib import redirect_stdout, redirect_stderr
-    log_capture = io.StringIO()
+    import subprocess
+    import frappe.utils
     
     try:
-        with redirect_stdout(log_capture), redirect_stderr(log_capture):
-            from frappe.migrate import SiteMigration
-            from frappe.build import bundle
+        bench_path = frappe.utils.get_bench_path()
+        site_name = frappe.local.site
+        
+        # Run bench migrate in a subprocess
+        result = subprocess.run(
+            ["bench", "--site", site_name, "migrate"],
+            cwd=bench_path,
+            capture_output=True,
+            text=True
+        )
+        
+        log_output = result.stdout
+        if result.stderr:
+            log_output += "\n" + result.stderr
             
-            print("Starting site migration...")
-            # Execute full site migration (updates database schema, doctypes, fixtures & patches)
-            SiteMigration().run(site=frappe.local.site)
-            
-            print("\nBuilding front-end JS/CSS assets...")
-            # Build front-end JS/CSS assets
-            bundle(no_minify=False)
-            
-            print("\nClearing server cache...")
-            # Clear server cache
-            frappe.clear_cache()
-            frappe.db.commit()
-            print("Done!")
-            
-        return {"success": True, "message": "Site migration, asset build & cache clear completed successfully!", "log": log_capture.getvalue()}
+        if result.returncode == 0:
+            return {"success": True, "message": "Site migration completed successfully!", "log": log_output}
+        else:
+            return {"success": False, "error": "Migration command failed", "log": log_output}
     except Exception as e:
-        error_log = log_capture.getvalue() + f"\nError: {str(e)}"
-        return {"success": False, "error": str(e), "log": error_log}
+        return {"success": False, "error": str(e), "log": str(e)}
 
 
 @frappe.whitelist(allow_guest=True)
