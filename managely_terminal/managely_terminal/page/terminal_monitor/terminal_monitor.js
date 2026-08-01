@@ -1030,7 +1030,7 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 	}
 
 	/* Refresh action */
-	page.set_primary_action('Refresh Terminals', load_terminals, 'refresh');
+	page.add_inner_button('Refresh Terminals', load_terminals);
 
 	/* Clear Cache & Reload App Resources */
 	page.add_inner_button('Migrate & Clear Cache', function() {
