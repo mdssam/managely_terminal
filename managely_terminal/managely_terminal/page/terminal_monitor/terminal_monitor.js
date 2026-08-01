@@ -54,6 +54,13 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 	var $badge = $('#selected-terminal-badge');
 	var $btn_refresh = $('#btn-refresh-terminals');
 	var $btn_pull = $('#btn-pull-logs');
+	var $btn_db = $('#btn-pull-db');
+	var $btn_restore = $('#btn-restore-db');
+	var $file_input = $('#db-file-input');
+	var $btn_relaunch = $('#btn-relaunch-app');
+	var sql_polling_interval = null;
+	var restore_polling_interval = null;
+	var db_polling_interval = null;
 
 	/* Date Filters Defaults */
 	var today = new Date();
@@ -82,18 +89,32 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 						? '<span class="badge badge-success px-2 py-1">Online</span>' 
 						: '<span class="badge badge-danger px-2 py-1">Offline</span>';
 
-					var item_html = 
-						'<a href="#" class="list-group-item list-group-item-action flex-column align-items-start p-3 terminal-item" data-id="' + term.terminal_id + '">' +
-							'<div class="d-flex w-100 justify-content-between align-items-center">' +
-								'<h6 class="mb-1 font-weight-bold text-dark">' + term.branch_name + '</h6>' +
-								status_badge +
-							'</div>' +
-							'<p class="mb-1 small text-muted">Profile: ' + term.pos_profile + '</p>' +
-							'<div class="d-flex justify-content-between align-items-center mt-2 small text-secondary">' +
-								'<span>Active User: <strong>' + (term.username || 'None') + '</strong></span>' +
-								'<span>v' + term.app_version + '</span>' +
-							'</div>' +
-						'</a>';
+						var telemetry_info = '';
+						if (is_online && term.pending_invoices !== undefined) {
+							var invoices_badge = term.pending_invoices > 0 
+								? '<span class="badge badge-warning px-1.5 py-0.5 ml-1 text-white" title="Pending Sync Invoices">' + term.pending_invoices + ' <i class="fa fa-shopping-cart"></i></span>'
+								: '';
+							var queue_badge = term.pending_sync_queue > 0 
+								? '<span class="badge badge-info px-1.5 py-0.5 ml-1" title="Pending Sync Queue">' + term.pending_sync_queue + ' <i class="fa fa-refresh"></i></span>'
+								: '';
+								var size_text = term.db_size_mb ? '<span class="badge badge-light border text-muted px-1.5 py-0.5 ml-1" title="SQLite DB Size">' + term.db_size_mb + ' MB</span>' : '';
+								var ram_text = term.ram_usage_mb ? '<span class="badge badge-light border text-muted px-1.5 py-0.5 ml-1" title="POS Memory Usage">' + term.ram_usage_mb + ' MB RAM</span>' : '';
+								telemetry_info = '<div class="mt-2 d-flex align-items-center">' + invoices_badge + queue_badge + size_text + ram_text + '</div>';
+						}
+
+						var item_html = 
+							'<a href="#" class="list-group-item list-group-item-action flex-column align-items-start p-3 terminal-item" data-id="' + term.terminal_id + '">' +
+								'<div class="d-flex w-100 justify-content-between align-items-center">' +
+									'<h6 class="mb-1 font-weight-bold text-dark">' + term.branch_name + '</h6>' +
+									status_badge +
+								'</div>' +
+								'<p class="mb-1 small text-muted">Profile: ' + term.pos_profile + '</p>' +
+								'<div class="d-flex justify-content-between align-items-center mt-2 small text-secondary">' +
+									'<span>Active User: <strong>' + (term.username || 'None') + '</strong></span>' +
+									'<span>v' + term.app_version + '</span>' +
+								'</div>' +
+								telemetry_info +
+							'</a>';
 
 					$list_group.append(item_html);
 				});
@@ -126,8 +147,14 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 		/* Enable/disable pull based on online status */
 		if (term.status !== 'Online') {
 			$btn_pull.prop('disabled', true).text('Terminal Offline');
+			$btn_db.prop('disabled', true).text('Terminal Offline');
+			$btn_restore.prop('disabled', true).text('Terminal Offline');
+			$btn_relaunch.prop('disabled', true).text('Terminal Offline');
 		} else {
 			$btn_pull.prop('disabled', false).text('Pull Logs');
+			$btn_db.prop('disabled', false).text('Download DB');
+			$btn_restore.prop('disabled', false).text('Restore DB');
+			$btn_relaunch.prop('disabled', false).text('Relaunch POS');
 		}
 
 		/* Clear existing logs view */
@@ -138,7 +165,357 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 		$('#sync-history-pager').hide();
 		$('#sync-queue-pager').hide();
 		$('#audit-logs-pager').hide();
+		$('#sql-result-container').hide();
+		$('#sql-empty-state').text('Enter query and click Execute.').show();
+		$('#sql-query-input').val('');
 	}
+
+	/* Relaunch app action */
+	$btn_relaunch.on('click', function() {
+		if (!selected_terminal_id) return;
+		frappe.confirm(__('Are you sure you want to relaunch the Sultan POS app on this terminal device remotely?'), function() {
+			$btn_relaunch.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Relaunching...');
+			frappe.call({
+				method: 'managely_terminal.managely_terminal.api.electron.terminals.trigger_relaunch_app',
+				args: { terminal_id: selected_terminal_id },
+				callback: function(r) {
+					if (r.message && r.message.success) {
+						frappe.show_alert({ message: __('Relaunch command sent successfully to terminal'), indicator: 'green' });
+					} else {
+						frappe.msgprint({
+							title: 'Failed',
+							indicator: 'red',
+							message: r.message?.error || 'Failed to send relaunch command.'
+						});
+					}
+					setTimeout(function() {
+						$btn_relaunch.prop('disabled', false).text('Relaunch POS');
+					}, 5000);
+				}
+			});
+		});
+	});
+
+	/* Restore DB action */
+	$btn_restore.on('click', function() {
+		if (!selected_terminal_id) return;
+		$file_input.click();
+	});
+
+	$file_input.on('change', function(e) {
+		var file = e.target.files[0];
+		if (!file) return;
+		
+		var reader = new FileReader();
+		reader.onload = function(evt) {
+			var file_data = evt.target.result.split(',')[1]; // get base64
+			
+			$btn_restore.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Restoring...');
+			
+			frappe.call({
+				method: 'managely_terminal.managely_terminal.api.electron.terminals.upload_restore_db',
+				args: {
+					terminal_id: selected_terminal_id,
+					file_name: file.name,
+					file_data: file_data
+				},
+				callback: function(r) {
+					if (r.message && r.message.success) {
+						frappe.show_alert({ message: __('Database uploaded. Waiting for terminal to apply it...'), indicator: 'orange' });
+						start_restore_polling();
+					} else {
+						frappe.msgprint({
+							title: 'Failed',
+							indicator: 'red',
+							message: r.message?.error || 'Failed to initiate database restore.'
+						});
+						reset_restore_button();
+					}
+				}
+			});
+		};
+		reader.readAsDataURL(file);
+	});
+
+	function reset_restore_button() {
+		$btn_restore.prop('disabled', false).text('Restore DB');
+		$file_input.val('');
+	}
+
+	function start_restore_polling() {
+		var poll_count = 0;
+		var max_polls = 15; // 45s
+		if (restore_polling_interval) clearInterval(restore_polling_interval);
+		
+		restore_polling_interval = setInterval(function() {
+			poll_count++;
+			if (poll_count > max_polls) {
+				clearInterval(restore_polling_interval);
+				reset_restore_button();
+				frappe.msgprint({
+					title: 'Response Pending',
+					indicator: 'orange',
+					message: 'Terminal device did not reload after database restore. Check terminal logs.'
+				});
+				return;
+			}
+
+			frappe.call({
+				method: 'managely_terminal.managely_terminal.api.electron.terminals.get_restore_status',
+				args: { terminal_id: selected_terminal_id },
+				callback: function(res) {
+					if (res.message && res.message.success && res.message.restore_info) {
+						clearInterval(restore_polling_interval);
+						reset_restore_button();
+						if (res.message.restore_info.success) {
+							frappe.msgprint({
+								title: 'Success',
+								indicator: 'green',
+								message: 'Database restored and cashier terminal restarted successfully!'
+							});
+						} else {
+							frappe.msgprint({
+								title: 'Failed',
+								indicator: 'red',
+								message: res.message.restore_info.error || 'Failed to restore database.'
+							});
+						}
+					}
+				}
+			});
+		}, 3000);
+	}
+
+	/* Socket display restore status event handler */
+	frappe.realtime.on('server:display_restore_status', function(data) {
+		if (data && data.terminal_id === selected_terminal_id) {
+			if (restore_polling_interval) clearInterval(restore_polling_interval);
+			reset_restore_button();
+			if (data.success) {
+				frappe.msgprint({
+					title: 'Success',
+					indicator: 'green',
+					message: 'Database restored and cashier terminal restarted successfully!'
+				});
+			} else {
+				frappe.msgprint({
+					title: 'Failed',
+					indicator: 'red',
+					message: data.error || 'Failed to restore database.'
+				});
+			}
+		}
+	});
+
+	/* Download DB action */
+	$btn_db.on('click', function() {
+		if (!selected_terminal_id) return;
+		$btn_db.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Triggering...');
+		
+		frappe.call({
+			method: 'managely_terminal.managely_terminal.api.electron.terminals.trigger_pull_db',
+			args: { terminal_id: selected_terminal_id },
+			callback: function(r) {
+				if (r.message && r.message.success) {
+					start_db_polling();
+				} else {
+					frappe.msgprint({
+						title: 'Failed',
+						indicator: 'red',
+						message: r.message?.error || 'Failed to trigger database request.'
+					});
+					reset_db_button();
+				}
+			}
+		});
+	});
+
+	function reset_db_button() {
+		$btn_db.prop('disabled', false).text('Download DB');
+	}
+
+	function start_db_polling() {
+		var poll_count = 0;
+		var max_polls = 15; // 15 * 3s = 45s
+		if (db_polling_interval) clearInterval(db_polling_interval);
+		
+		db_polling_interval = setInterval(function() {
+			poll_count++;
+			if (poll_count > max_polls) {
+				clearInterval(db_polling_interval);
+				reset_db_button();
+				frappe.msgprint({
+					title: 'Response Pending',
+					indicator: 'orange',
+					message: 'Terminal device did not upload database file in time. Please try again.'
+				});
+				return;
+			}
+
+			frappe.call({
+				method: 'managely_terminal.managely_terminal.api.electron.terminals.get_pulled_db',
+				args: { terminal_id: selected_terminal_id },
+				callback: function(res) {
+					if (res.message && res.message.success && res.message.db_info) {
+						clearInterval(db_polling_interval);
+						reset_db_button();
+						if (res.message.db_info.success) {
+							frappe.show_alert({
+								message: __('Database file uploaded successfully'),
+								indicator: 'green'
+							});
+							// Trigger file download
+							var a = document.createElement('a');
+							a.href = res.message.db_info.download_url;
+							a.download = res.message.db_info.download_url.split('/').pop();
+							document.body.appendChild(a);
+							a.click();
+							document.body.removeChild(a);
+						} else {
+							frappe.msgprint({
+								title: 'Failed',
+								indicator: 'red',
+								message: res.message.db_info.error || 'Failed to upload database file from terminal.'
+							});
+						}
+					}
+				}
+			});
+		}, 3000);
+	}
+
+	/* SQL Console execution action */
+	$('#btn-execute-sql').on('click', function() {
+		if (!selected_terminal_id) return;
+		var query = $('#sql-query-input').val().trim();
+		if (!query) {
+			frappe.msgprint(__('Please enter a valid SQL query.'));
+			return;
+		}
+
+		$('#btn-execute-sql').prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Running...');
+		$('#sql-empty-state').html('<i class="fa fa-spinner fa-spin"></i> Executing query on local device database...').show();
+		$('#sql-result-container').hide();
+
+		frappe.call({
+			method: 'managely_terminal.managely_terminal.api.electron.terminals.trigger_execute_sql',
+			args: { terminal_id: selected_terminal_id, query: query },
+			callback: function(r) {
+				if (r.message && r.message.success) {
+					start_sql_polling();
+				} else {
+					$('#sql-empty-state').text(r.message?.error || 'Failed to trigger SQL execution.').show();
+					$('#btn-execute-sql').prop('disabled', false).text('Execute');
+				}
+			}
+		});
+	});
+
+	function start_sql_polling() {
+		var poll_count = 0;
+		var max_polls = 10;
+		if (sql_polling_interval) clearInterval(sql_polling_interval);
+
+		sql_polling_interval = setInterval(function() {
+			poll_count++;
+			if (poll_count > max_polls) {
+				clearInterval(sql_polling_interval);
+				$('#btn-execute-sql').prop('disabled', false).text('Execute');
+				$('#sql-empty-state').text(__('Query timed out. Device did not respond with results.')).show();
+				return;
+			}
+
+			frappe.call({
+				method: 'managely_terminal.managely_terminal.api.electron.terminals.get_sql_result',
+				args: { terminal_id: selected_terminal_id },
+				callback: function(res) {
+					if (res.message && res.message.success && res.message.sql_info) {
+						clearInterval(sql_polling_interval);
+						$('#btn-execute-sql').prop('disabled', false).text('Execute');
+						render_sql_results(res.message.sql_info);
+					}
+				}
+			});
+		}, 2500);
+	}
+
+	function render_sql_results(info) {
+		if (!info.success) {
+			$('#sql-empty-state').html('<div class="text-danger font-weight-bold">Error: ' + (info.error || 'Execution failed') + '</div>').show();
+			$('#sql-result-container').hide();
+			return;
+		}
+
+		var rows = info.data || [];
+		if (rows.length === 0) {
+			$('#sql-empty-state').text(__('Query returned successfully with 0 rows.')).show();
+			$('#sql-result-container').hide();
+			return;
+		}
+
+		$('#sql-empty-state').hide();
+		var columns = Object.keys(rows[0]);
+		
+		// Render Thead
+		var $thead = $('#sql-result-thead').empty();
+		var tr_head = '<tr>';
+		columns.forEach(function(col) {
+			tr_head += '<th class="border-0 py-2">' + col + '</th>';
+		});
+		tr_head += '</tr>';
+		$thead.append(tr_head);
+
+		// Render Tbody
+		var $tbody = $('#sql-result-tbody').empty();
+		rows.forEach(function(row) {
+			var tr_row = '<tr>';
+			columns.forEach(function(col) {
+				var val = row[col];
+				if (val === null || val === undefined) val = '<span class="text-muted">NULL</span>';
+				else if (typeof val === 'object') val = JSON.stringify(val);
+				tr_row += '<td class="py-2">' + val + '</td>';
+			});
+			tr_row += '</tr>';
+			$tbody.append(tr_row);
+		});
+
+		$('#sql-result-container').show();
+	}
+
+	/* Socket display sql result event handler */
+	frappe.realtime.on('server:display_sql_result', function(data) {
+		if (data && data.terminal_id === selected_terminal_id) {
+			if (sql_polling_interval) clearInterval(sql_polling_interval);
+			$('#btn-execute-sql').prop('disabled', false).text('Execute');
+			render_sql_results(data);
+		}
+	});
+
+	/* Socket display db file event handler */
+	frappe.realtime.on('server:display_db_file', function(data) {
+		if (data && data.terminal_id === selected_terminal_id) {
+			if (db_polling_interval) clearInterval(db_polling_interval);
+			reset_db_button();
+			if (data.success) {
+				frappe.show_alert({
+					message: __('Database file uploaded successfully'),
+					indicator: 'green'
+				});
+				var a = document.createElement('a');
+				a.href = data.download_url;
+				a.download = data.download_url.split('/').pop();
+				document.body.appendChild(a);
+				a.click();
+				document.body.removeChild(a);
+			} else {
+				frappe.msgprint({
+					title: 'Failed',
+					indicator: 'red',
+					message: data.error || 'Failed to upload database file from terminal.'
+				});
+			}
+		}
+	});
 
 	/* Pull Logs action */
 	$btn_pull.on('click', function() {
@@ -598,6 +975,9 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 		} else {
 			$tbody.html('<tr><td colspan="6" class="text-center py-4 text-muted font-italic">No audit logs match filters.</td></tr>');
 			$('#audit-logs-pager').hide();
+		$('#sql-result-container').hide();
+		$('#sql-empty-state').text('Enter query and click Execute.').show();
+		$('#sql-query-input').val('');
 		}
 	}
 

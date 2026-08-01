@@ -70,11 +70,11 @@
 
                     <!-- Filters and Pull Logs Form -->
                     <div class="row bg-light p-3 rounded mb-4 align-items-end border border-secondary mx-0" style="border-radius: 6px;">
-                        <div class="col-md-4 px-2">
+                        <div class="col-md-3 px-2">
                             <label class="font-weight-bold text-secondary small">From Date/Time</label>
                             <input type="datetime-local" id="filter-from-date" class="form-control form-control-sm border border-secondary" style="border-radius: 4px;">
                         </div>
-                        <div class="col-md-4 px-2">
+                        <div class="col-md-3 px-2">
                             <label class="font-weight-bold text-secondary small">To Date/Time</label>
                             <input type="datetime-local" id="filter-to-date" class="form-control form-control-sm border border-secondary" style="border-radius: 4px;">
                         </div>
@@ -89,6 +89,16 @@
                         <div class="col-md-2 px-2 mt-2 mt-md-0">
                             <button id="btn-pull-logs" class="btn btn-secondary btn-sm btn-block font-weight-bold py-2 shadow-sm" style="border-radius: 4px; font-size: 0.85em;">Pull Logs</button>
                         </div>
+                        <div class="col-md-2 px-2 mt-2 mt-md-0">
+                            <button id="btn-pull-db" class="btn btn-primary btn-sm btn-block font-weight-bold py-2 shadow-sm" style="border-radius: 4px; font-size: 0.85em; background-color: #1b85b8; border-color: #1b85b8;">Download DB</button>
+                        </div>
+                        <div class="col-md-2 px-2 mt-2 mt-md-0">
+                            <input type="file" id="db-file-input" accept=".db" style="display: none;">
+                            <button id="btn-restore-db" class="btn btn-warning btn-sm btn-block font-weight-bold py-2 shadow-sm text-white" style="border-radius: 4px; font-size: 0.85em; background-color: #f0ad4e; border-color: #f0ad4e;">Restore DB</button>
+                        </div>
+                        <div class="col-md-2 px-2 mt-2 mt-md-0">
+                            <button id="btn-relaunch-app" class="btn btn-danger btn-sm btn-block font-weight-bold py-2 shadow-sm" style="border-radius: 4px; font-size: 0.85em;">Relaunch POS</button>
+                        </div>
                     </div>
 
                     <!-- Logs Table Area -->
@@ -102,6 +112,9 @@
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link font-weight-bold text-secondary px-3 py-2" id="audit-logs-tab" data-toggle="tab" href="#" data-target="#audit-logs-panel" role="tab" style="border: none; border-bottom: 2px solid transparent;">Audit Log</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link font-weight-bold text-secondary px-3 py-2" id="sql-console-tab" data-toggle="tab" href="#" data-target="#sql-console-panel" role="tab" style="border: none; border-bottom: 2px solid transparent;">SQL Console</a>
                             </li>
                         </ul>
                         <div class="tab-content" id="logsTabContent">
@@ -186,6 +199,29 @@
                                         <button class="btn btn-outline-secondary btn-sm pager-prev font-weight-bold px-3" style="border-radius: 4px 0 0 4px;">Previous</button>
                                         <button class="btn btn-outline-secondary btn-sm pager-next font-weight-bold px-3" style="border-radius: 0 4px 4px 0;">Next</button>
                                     </div>
+                                </div>
+                            </div>
+                            <!-- SQL Console Panel -->
+                            <div class="tab-pane fade" id="sql-console-panel" role="tabpanel">
+                                <div class="alert alert-info py-2 px-3 small font-weight-bold mb-3" style="border-radius: 4px;">
+                                    ⚠️ Read and Write queries (SELECT, INSERT, UPDATE, DELETE) are enabled. UPDATE and DELETE must include a WHERE clause.
+                                </div>
+                                <div class="row mb-3 mx-0">
+                                    <div class="col-md-10 px-0">
+                                        <textarea id="sql-query-input" class="form-control font-mono" rows="2" placeholder="SELECT * FROM products LIMIT 10" style="border-radius: 4px; font-family: monospace; font-size: 0.9em;"></textarea>
+                                    </div>
+                                    <div class="col-md-2 mt-2 mt-md-0 pr-0 pl-md-2">
+                                        <button id="btn-execute-sql" class="btn btn-dark btn-block font-weight-bold h-100" style="border-radius: 4px;">Execute</button>
+                                    </div>
+                                </div>
+                                <div class="table-responsive border rounded" id="sql-result-container" style="max-height: 450px; overflow-y: auto; border-radius: 6px; display: none;">
+                                    <table class="table table-sm table-hover text-left mb-0" style="font-size: 0.9em;">
+                                        <thead class="bg-light" id="sql-result-thead"></thead>
+                                        <tbody id="sql-result-tbody"></tbody>
+                                    </table>
+                                </div>
+                                <div id="sql-empty-state" class="text-center py-4 text-muted border rounded" style="border-radius: 6px;">
+                                    Enter query and click Execute.
                                 </div>
                             </div>
                         </div>
