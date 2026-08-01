@@ -1,12 +1,20 @@
 <div class="terminal-monitor-container p-4" style="background-color: #f8f9fa; min-height: 100vh;">
-    <!-- Header removed, using standard frappe.ui.make_app_page header -->
+    <!-- Premium UI Styles -->
+    <style>
+        .terminal-item { transition: all 0.2s ease-in-out; border-left: 4px solid transparent; }
+        .terminal-item:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.08); border-left-color: var(--primary); z-index: 1; }
+        .stat-box { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; transition: all 0.2s ease; }
+        .stat-box:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.05); transform: translateY(-2px); border-color: #cbd5e1; }
+        .stat-icon { font-size: 20px; opacity: 0.7; }
+        .premium-card { box-shadow: 0 4px 16px rgba(0,0,0,0.04); border: 1px solid #e9ecef; }
+    </style>
 
     <div class="row">
         <!-- Terminals List -->
-        <div class="col-md-4">
-            <div class="card shadow-sm border-0 mb-4" style="border-radius: 8px; overflow: hidden;">
-                <div class="card-header bg-white py-3 border-bottom">
-                    <h6 class="m-0 text-dark font-weight-bold">Registered Terminals</h6>
+        <div class="col-md-3">
+            <div class="card premium-card mb-4" style="border-radius: 12px; overflow: hidden;">
+                <div class="card-header bg-white py-4 border-bottom">
+                    <h5 class="m-0 text-dark font-weight-bold"><i class="fa fa-server mr-2 text-primary"></i> Registered Terminals</h5>
                 </div>
                 <div class="card-body p-0">
                     <div id="terminals-list-group" class="list-group list-group-flush" style="max-height: 600px; overflow-y: auto;">
@@ -17,11 +25,11 @@
         </div>
 
         <!-- Logs & Troubleshooting Panel -->
-        <div class="col-md-8">
-            <div class="card shadow-sm border-0" style="border-radius: 8px; overflow: hidden;">
-                <div class="card-header bg-white py-3 d-flex align-items-center justify-content-between border-bottom">
-                    <h6 class="m-0 text-dark font-weight-bold">Remote Troubleshooting & Diagnostics</h6>
-                    <h6 id="selected-terminal-badge" class="m-0 text-secondary font-weight-bold" style="display: none;"></h6>
+        <div class="col-md-9">
+            <div class="card premium-card" style="border-radius: 12px; overflow: hidden;">
+                <div class="card-header bg-white py-4 d-flex align-items-center justify-content-between border-bottom">
+                    <h5 class="m-0 text-dark font-weight-bold"><i class="fa fa-wrench mr-2 text-primary"></i> Remote Troubleshooting & Diagnostics</h5>
+                    <h5 id="selected-terminal-badge" class="m-0 text-primary font-weight-bold" style="display: none;"></h5>
                 </div>
                 
                 <div id="diagnostics-panel-placeholder" class="card-body py-5 text-center text-muted">
@@ -30,35 +38,54 @@
 
                 <div id="diagnostics-panel-content" class="card-body" style="display: none; background-color: #ffffff;">
                     <!-- System Telemetry Grid -->
-                    <div id="device-insights-card" class="card border-0 mb-4" style="display: none; border-radius: 6px; background-color: #f1f3f5;">
-                        <div class="card-body py-3 px-4">
-                            <div class="d-flex justify-content-between align-items-center mb-3">
-                                <span class="font-weight-bold text-secondary small uppercase tracking-wider">Device System Telemetry</span>
-                                <span id="stat-last-updated" class="text-muted small"></span>
+                    <div id="device-insights-card" class="mb-4" style="display: none;">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <span class="font-weight-bold text-secondary text-uppercase" style="letter-spacing: 1px; font-size: 0.85em;"><i class="fa fa-heartbeat mr-1"></i> Device System Telemetry</span>
+                            <span id="stat-last-updated" class="text-muted small font-weight-bold bg-light px-2 py-1 rounded border"></span>
+                        </div>
+                        <div class="row mx-0">
+                            <div class="col-md-3 pl-0 pr-2 mb-3 mb-md-0">
+                                <div class="stat-box h-100">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div class="text-secondary small font-weight-bold mb-1">App & Platform</div>
+                                        <i class="fa fa-laptop stat-icon text-primary"></i>
+                                    </div>
+                                    <div id="stat-app-platform" class="font-weight-bold text-dark text-truncate" style="font-size: 1.15em;">-</div>
+                                </div>
                             </div>
-                            <div class="row">
-                                <div class="col-md-3 mb-2 mb-md-0 border-right">
-                                    <div class="text-muted small">App & Platform</div>
-                                    <div id="stat-app-platform" class="font-weight-bold text-dark mt-1" style="font-size: 1.05em;">-</div>
+                            <div class="col-md-3 px-2 mb-3 mb-md-0">
+                                <div class="stat-box h-100">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div class="text-secondary small font-weight-bold mb-1">Device Uptime</div>
+                                        <i class="fa fa-clock-o stat-icon text-success"></i>
+                                    </div>
+                                    <div id="stat-uptime" class="font-weight-bold text-dark text-truncate" style="font-size: 1.15em;">-</div>
                                 </div>
-                                <div class="col-md-3 mb-2 mb-md-0 border-right">
-                                    <div class="text-muted small">Device Uptime</div>
-                                    <div id="stat-uptime" class="font-weight-bold text-dark mt-1" style="font-size: 1.05em;">-</div>
+                            </div>
+                            <div class="col-md-3 px-2 mb-3 mb-md-0">
+                                <div class="stat-box h-100">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div class="text-secondary small font-weight-bold mb-1">RAM Usage</div>
+                                        <i class="fa fa-microchip stat-icon text-warning"></i>
+                                    </div>
+                                    <div id="stat-ram" class="font-weight-bold text-dark text-truncate" style="font-size: 1.15em;">-</div>
                                 </div>
-                                <div class="col-md-3 mb-2 mb-md-0 border-right">
-                                    <div class="text-muted small">RAM Usage</div>
-                                    <div id="stat-ram" class="font-weight-bold text-dark mt-1" style="font-size: 1.05em;">-</div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="text-muted small">Hardware Arch</div>
-                                    <div id="stat-arch" class="font-weight-bold text-dark mt-1" style="font-size: 1.05em;">-</div>
+                            </div>
+                            <div class="col-md-3 pr-0 pl-2">
+                                <div class="stat-box h-100">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div class="text-secondary small font-weight-bold mb-1">Hardware Arch</div>
+                                        <i class="fa fa-cogs stat-icon text-info"></i>
+                                    </div>
+                                    <div id="stat-arch" class="font-weight-bold text-dark text-truncate" style="font-size: 1.15em;">-</div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
                     <!-- Filters and Pull Logs Form -->
-                    <div class="bg-light p-3 rounded mb-4 border border-secondary mx-0" style="border-radius: 6px;">
+                    <div class="p-4 rounded mb-4 border premium-card bg-white mx-0" style="border-radius: 8px;">
+                        <h6 class="mb-3 text-secondary font-weight-bold"><i class="fa fa-filter mr-1"></i> Data Filters & Actions</h6>
                         <div class="row align-items-end mb-3">
                             <div class="col-md-4 px-2">
                                 <label class="font-weight-bold text-secondary small">From Date/Time</label>

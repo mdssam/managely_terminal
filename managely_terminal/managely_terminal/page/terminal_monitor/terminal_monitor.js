@@ -104,13 +104,13 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 						var item_html = 
 							'<a href="#" class="list-group-item list-group-item-action flex-column align-items-start p-3 terminal-item" data-id="' + term.terminal_id + '">' +
 								'<div class="d-flex w-100 justify-content-between align-items-center">' +
-									'<h6 class="mb-1 font-weight-bold text-dark">' + term.branch_name + '</h6>' +
+									'<h5 class="mb-1 font-weight-bold text-dark">' + term.branch_name + '</h5>' +
 									status_badge +
 								'</div>' +
-								'<p class="mb-1 small text-muted">Profile: ' + term.pos_profile + '</p>' +
-								'<div class="d-flex justify-content-between align-items-center mt-2 small text-secondary">' +
-									'<span>Active User: <strong>' + (term.username || 'None') + '</strong></span>' +
-									'<span>v' + term.app_version + '</span>' +
+								'<p class="mb-2 small text-muted">Profile: <span class="text-dark">' + term.pos_profile + '</span></p>' +
+								'<div class="d-flex justify-content-between align-items-center mt-2 small">' +
+									'<span class="text-secondary">Active User: <strong class="text-dark">' + (term.username || 'None') + '</strong></span>' +
+									'<span class="badge badge-light border text-secondary">v' + term.app_version + '</span>' +
 								'</div>' +
 								telemetry_info +
 							'</a>';
