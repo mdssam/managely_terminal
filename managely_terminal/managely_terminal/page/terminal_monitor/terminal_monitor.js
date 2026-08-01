@@ -89,16 +89,12 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 						: '<span class="badge badge-danger px-2 py-1">Offline</span>';
 
 						var telemetry_info = '';
-						if (is_online && term.pending_invoices !== undefined) {
-							var invoices_badge = term.pending_invoices > 0 
-								? '<span class="badge badge-warning px-1.5 py-0.5 ml-1 text-white" title="Pending Sync Invoices">' + term.pending_invoices + ' <i class="fa fa-shopping-cart"></i></span>'
-								: '';
-							var queue_badge = term.pending_sync_queue > 0 
-								? '<span class="badge badge-info px-1.5 py-0.5 ml-1" title="Pending Sync Queue">' + term.pending_sync_queue + ' <i class="fa fa-refresh"></i></span>'
-								: '';
-								var size_text = term.db_size_mb ? '<span class="badge badge-light border text-muted px-1.5 py-0.5 ml-1" title="SQLite DB Size">' + term.db_size_mb + ' MB</span>' : '';
-								var ram_text = term.ram_usage_mb ? '<span class="badge badge-light border text-muted px-1.5 py-0.5 ml-1" title="POS Memory Usage">' + term.ram_usage_mb + ' MB RAM</span>' : '';
-								telemetry_info = '<div class="mt-2 d-flex align-items-center">' + invoices_badge + queue_badge + size_text + ram_text + '</div>';
+						if (is_online) {
+							var invoices_badge = (term.pending_invoices || 0) > 0 ? '<span class="badge badge-warning text-white px-1.5 py-0.5" title="Pending Invoices">' + term.pending_invoices + ' Invoices</span>' : '<span class="badge badge-light border text-muted px-1.5 py-0.5" title="No Pending Invoices">0 Invoices</span>';
+							var queue_badge = (term.pending_sync_queue || 0) > 0 ? '<span class="badge badge-danger text-white px-1.5 py-0.5 ml-1" title="Sync Queue (Stuck)">' + term.pending_sync_queue + ' Queue</span>' : '<span class="badge badge-light border text-muted px-1.5 py-0.5 ml-1" title="Sync Queue Empty">0 Queue</span>';
+							var size_text = '<span class="badge badge-light border text-muted px-1.5 py-0.5 ml-1" title="Database Size">' + (term.db_size_mb || 0) + ' MB DB</span>';
+							var ram_text = '<span class="badge badge-light border text-muted px-1.5 py-0.5 ml-1" title="POS Memory Usage">' + (term.ram_usage_mb || 0) + ' MB RAM</span>';
+							telemetry_info = '<div class="mt-2 d-flex flex-wrap gap-1 align-items-center">' + invoices_badge + queue_badge + size_text + ram_text + '</div>';
 						}
 
 						var item_html = 
