@@ -3,6 +3,8 @@
 
 import frappe
 import json
+from frappe import _
+from frappe.utils import flt, get_timestamp, get_datetime, format_datetime, now_datetime
 
 @frappe.whitelist(allow_guest=False)
 def heartbeat():
@@ -89,7 +91,7 @@ def get_latest_pos_version():
 
 
 @frappe.whitelist(allow_guest=False)
-def check_app_update_status():
+def check_app_update_status(simulate_update=False):
     """
     Checks if there are available git updates for the managely_terminal server app.
     Accessible only to Administrator.
@@ -98,6 +100,7 @@ def check_app_update_status():
         frappe.throw("Not authorized.", frappe.PermissionError)
         
     import subprocess, os
+    from frappe.utils import cint
     try:
         app_path = frappe.get_app_path("managely_terminal")
         repo_path = os.path.dirname(app_path)
@@ -105,39 +108,69 @@ def check_app_update_status():
         import managely_terminal
         current_version = getattr(managely_terminal, "__version__", "0.0.1")
         
-        # Dynamically determine the current checked out git branch
+        # Dynamically determine the current checked out git branch with safe.directory configuration
         branch_res = subprocess.run(
-            ["git", "branch", "--show-current"],
+            ["git", "-c", "safe.directory=*", "branch", "--show-current"],
             cwd=repo_path,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            timeout=3
+            timeout=5
         )
         current_branch = branch_res.stdout.strip() or "main"
         
         try:
-            subprocess.run(["git", "fetch", "--quiet", "origin", current_branch], cwd=repo_path, timeout=5, check=False)
-        except Exception:
-            pass
+            fetch_res = subprocess.run(
+                ["git", "-c", "safe.directory=*", "fetch", "--quiet", "origin"],
+                cwd=repo_path,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=25,
+                check=False
+            )
+            if fetch_res.returncode != 0:
+                subprocess.run(
+                    ["git", "-c", "safe.directory=*", "fetch", "--quiet", "origin", f"{current_branch}:refs/remotes/origin/{current_branch}"],
+                    cwd=repo_path,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    timeout=25,
+                    check=False
+                )
+        except Exception as e:
+            frappe.log_error(f"Git fetch failed during update check: {str(e)}", "Terminal Monitor Update Check")
             
+        compare_range = f"HEAD..origin/{current_branch}"
+        if cint(simulate_update) == 1:
+            compare_range = "HEAD~1..HEAD"
+
         res = subprocess.run(
-            ["git", "rev-list", "--count", f"HEAD..origin/{current_branch}"],
+            ["git", "-c", "safe.directory=*", "rev-list", "--count", compare_range],
             cwd=repo_path,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            timeout=3
+            timeout=10
         )
         behind_count = 0
         if res.returncode == 0 and res.stdout.strip().isdigit():
             behind_count = int(res.stdout.strip())
+        else:
+            return {
+                "version": current_version,
+                "branch": current_branch,
+                "update_available": False,
+                "error": f"Git inspection failed (code {res.returncode}): {res.stderr.strip()}"
+            }
             
         return {
             "version": current_version,
             "branch": current_branch,
             "update_available": behind_count > 0,
-            "commits_behind": behind_count
+            "commits_behind": behind_count,
+            "simulated": cint(simulate_update) == 1
         }
     except Exception as e:
         return {"version": "0.0.1", "update_available": False, "error": str(e)}
@@ -155,24 +188,87 @@ def get_active_terminals():
     try:
         terminals = frappe.cache().get_value("active_terminals") or {}
         active_list = []
-        now = frappe.utils.now_datetime().timestamp()
+        now = now_datetime().timestamp()
         
         latest_ver = get_latest_pos_version()
-        for term_id, term in terminals.items():
-            # Check online status from active TTL key
+        
+        all_profiles = frappe.get_all(
+            "POS Profile",
+            fields=["name", "custom_branch_name", "custom_pos_cipher", "owner", "modified"]
+        )
+        
+        registered_ciphers = {}
+        for p in all_profiles:
+            has_cipher = bool(str(p.custom_pos_cipher or "").strip())
+            p.is_registered = has_cipher
+            if has_cipher:
+                registered_ciphers[p.custom_pos_cipher.strip()] = p
+                
+        processed_profile_names = set()
+        for term_id, term in list(terminals.items()):
+            pos_profile_name = term.get("pos_profile")
+            profile_doc = None
+            for p in all_profiles:
+                if p.name == pos_profile_name or (p.custom_pos_cipher and p.custom_pos_cipher.strip() == term_id):
+                    profile_doc = p
+                    break
+                    
             is_online = frappe.cache().get_value(f"terminal_status:{term_id}") == "Online"
             term["status"] = "Online" if is_online else "Offline"
-            
             term["latest_version"] = latest_ver
+            
             cur_ver = str(term.get("app_version", "")).strip().lstrip("vV")
             latest_clean = str(latest_ver).strip().lstrip("vV")
             term["is_outdated"] = bool(latest_clean and cur_ver and cur_ver != latest_clean)
             
-            # Clean up terminals that haven't pinged in 24 hours
-            last_ping = term.get("last_ping", 0) / 1000
-            if (now - last_ping) < 86400:
-                active_list.append(term)
+            if profile_doc:
+                term["is_registered"] = profile_doc.is_registered
+                term["branch_name"] = str(profile_doc.custom_branch_name or profile_doc.name or term.get("branch_name") or "").strip()
+                processed_profile_names.add(profile_doc.name)
+            else:
+                term["is_registered"] = bool(term_id in registered_ciphers)
                 
+            last_ping = flt(term.get("last_ping") or 0)
+            if last_ping > 0:
+                dt_obj = get_datetime(last_ping / 1000.0)
+                term["last_online"] = dt_obj.strftime("%Y-%m-%d %H:%M:%S")
+                term["last_online_user"] = dt_obj.strftime("%d-%m-%Y %H:%M:%S")
+            else:
+                term["last_online"] = _("Never Online")
+                term["last_online_user"] = _("Never Online")
+                
+            active_list.append(term)
+            
+        for p in all_profiles:
+            if p.is_registered and p.name not in processed_profile_names:
+                mod_ts = get_timestamp(p.modified) * 1000 if p.modified else 0
+                mod_dt = get_datetime(p.modified) if p.modified else None
+                dt_str = mod_dt.strftime("%Y-%m-%d %H:%M:%S") if mod_dt else _("Never Online")
+                dt_str_user = mod_dt.strftime("%d-%m-%Y %H:%M:%S") if mod_dt else _("Never Online")
+                
+                synth_term = {
+                    "terminal_id": p.custom_pos_cipher or p.name,
+                    "branch_name": str(p.custom_branch_name or p.name).strip(),
+                    "pos_profile": p.name,
+                    "status": "Offline",
+                    "username": p.owner or "",
+                    "app_version": "Unknown",
+                    "pending_invoices": 0,
+                    "pending_cash_transactions": 0,
+                    "pending_sync_queue": 0,
+                    "db_size_mb": 0.0,
+                    "ram_usage_mb": 0.0,
+                    "last_ping": mod_ts,
+                    "last_online": dt_str,
+                    "last_online_user": dt_str_user,
+                    "latest_version": latest_ver,
+                    "is_outdated": False,
+                    "is_registered": True
+                }
+                active_list.append(synth_term)
+                
+        active_list.sort(key=lambda x: (0 if x.get("status") == "Online" else 1, str(x.get("branch_name", "")).lower()))
+        
         return active_list
     except Exception as e:
         return {"success": False, "error": str(e)}

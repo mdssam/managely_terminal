@@ -1,0 +1,72 @@
+<div class="pos-closing-monitor-page p-4" style="background-color: #f8f9fa; min-height: calc(100vh - 100px); display: flex; flex-direction: column; gap: 16px;">
+	<!-- Dedicated Filter Section -->
+	<div class="monitor-filters-card" style="background: #ffffff; padding: 20px; border: 1px solid #d1d5db; border-radius: 8px; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04); flex-shrink: 0;">
+		<div class="row g-3" id="pos-monitor-filters">
+			<div class="col-md-2 col-sm-6 filter-from-date"></div>
+			<div class="col-md-2 col-sm-6 filter-to-date"></div>
+			<div class="col-md-2 col-sm-6 filter-pos-profile"></div>
+			<div class="col-md-2 col-sm-6 filter-status"></div>
+			<div class="col-md-2 col-sm-6 filter-user"></div>
+			<div class="col-md-2 col-sm-6 filter-company"></div>
+		</div>
+	</div>
+
+	<!-- Unified Full-Screen Table and Pager Container Card -->
+	<div class="monitor-table-and-pager-card" style="background: #ffffff; border: 1px solid #d1d5db; border-radius: 8px; box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05); flex: 1; display: flex; flex-direction: column; min-height: calc(100vh - 290px); overflow: hidden; position: relative;">
+		
+		<!-- Table / Datatable Wrapper Expanding to Fill All Vertical Space without Horizontal Scroll -->
+		<div id="pos-datatable-wrapper" class="polished-datatable-wrapper" style="width: 100%; flex: 1; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; background: #ffffff;"></div>
+		
+		<!-- Persistent Table Headers for Empty State -->
+		<div id="empty-table-headers" style="display: none; width: 100%; border-bottom: 2px solid #d1d5db; background: #f3f4f6; overflow: hidden; flex-shrink: 0;">
+			<table style="width: 100%; table-layout: fixed; border-collapse: collapse;">
+				<thead>
+					<tr style="height: 44px; text-align: left; font-size: 13px; font-weight: 600; color: #111827;">
+						<th style="padding: 0 8px; width: 6%; text-align: center;">Details</th>
+						<th style="padding: 0 12px; width: 18%;">Opening Session</th>
+						<th style="padding: 0 12px; width: 14%;">Branch</th>
+						<th style="padding: 0 12px; width: 14%;">Closing Entry</th>
+						<th style="padding: 0 12px; width: 12%;">Cashier</th>
+						<th style="padding: 0 12px; width: 10%;">Posting Date</th>
+						<th style="padding: 0 12px; width: 8%; text-align: center;">Status</th>
+						<th style="padding: 0 12px; width: 6%; text-align: right;">Expected</th>
+						<th style="padding: 0 12px; width: 6%; text-align: right;">Actual</th>
+						<th style="padding: 0 12px; width: 6%; text-align: right;">Difference</th>
+					</tr>
+				</thead>
+			</table>
+		</div>
+
+		<!-- Empty State Content -->
+		<div id="no-pos-sessions" class="text-center text-muted" style="display: none; flex: 1; padding: 56px 24px; background: #ffffff; flex-direction: column; justify-content: center; align-items: center;">
+			<div class="empty-state" style="max-width: 480px; width: 100%; margin: 0 auto; padding: 28px; border: 1px dashed #d1d5db; border-radius: 8px; background: #f9fafb;">
+				<div style="font-size: 16px; font-weight: 600; color: #111827; margin-bottom: 8px;">No POS Sessions Found</div>
+				<p class="text-muted" style="font-size: 13px; color: #4b5563; margin-bottom: 18px;">No sessions match the selected filter criteria. By default, From Date is set to 30 days ago and To Date is set to Today.</p>
+				<button class="btn btn-default btn-sm" id="btn-clear-date-filter" style="border: 1px solid #d1d5db; background: #ffffff; color: #1e3a8a; font-weight: 600; padding: 6px 18px; border-radius: 6px; cursor: pointer; box-shadow: 0 1px 2px rgba(0,0,0,0.05);">
+					View All Past Sessions (Clear Dates)
+				</button>
+			</div>
+		</div>
+
+		<!-- Pager Bar Permanently Docked at the Bottom Edge of the Card -->
+		<div id="pos-monitor-pager" class="sticky-pager-bar" style="border-top: 1px solid #d1d5db; background: #ffffff; padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; margin-top: auto;">
+			<div class="pager-info" style="font-size: 13px; font-weight: 500; color: #4b5563;">
+				Showing <span id="pager-start-idx" style="font-weight: 600; color: #111827;">0</span> to <span id="pager-end-idx" style="font-weight: 600; color: #111827;">0</span> of <span id="pager-total-count" style="font-weight: 600; color: #111827;">0</span> entries
+			</div>
+			<div class="pager-controls" style="display: flex; gap: 8px; align-items: center;">
+				<select id="pager-page-size" class="form-control form-control-sm" style="width: auto; display: inline-block; border-color: #d1d5db; font-size: 12px; font-weight: 500; color: #111827; margin-right: 12px; cursor: pointer;">
+					<option value="15">15 per page</option>
+					<option value="25" selected>25 per page</option>
+					<option value="50">50 per page</option>
+					<option value="100">100 per page</option>
+				</select>
+				<button class="action-btn" id="pager-btn-first" title="First Page">&laquo; First</button>
+				<button class="action-btn" id="pager-btn-prev" title="Previous Page">&lsaquo; Prev</button>
+				<span id="pager-page-display" style="padding: 0 10px; font-size: 13px; font-weight: 600; color: #111827;">Page 1 of 1</span>
+				<button class="action-btn" id="pager-btn-next" title="Next Page">Next &rsaquo;</button>
+				<button class="action-btn" id="pager-btn-last" title="Last Page">Last &raquo;</button>
+			</div>
+		</div>
+
+	</div>
+</div>

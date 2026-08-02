@@ -258,22 +258,32 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 	}
 
 	/* Load server app update status */
-	function load_server_app_status() {
+	function load_server_app_status(simulate = false) {
 		$('#app-update-badge').html('Server App: Checking...');
 		frappe.call({
 			method: 'managely_terminal.managely_terminal.api.electron.terminals.check_app_update_status',
+			args: { simulate_update: simulate ? 1 : 0 },
 			callback: function(r) {
 				var res = r.message || {};
-				if (res.update_available) {
-					$('#app-update-badge').removeClass('badge-light text-secondary').addClass('badge-danger text-white')
-						.html('Server App: Update Available');
+				if (res.error && !res.update_available) {
+					$('#app-update-badge').removeClass('badge-danger text-white badge-light text-secondary').addClass('badge-warning text-dark')
+						.attr('title', res.error)
+						.html('Server App: Check Failed');
+				} else if (res.update_available) {
+					var label = res.commits_behind ? ('Server App: Update Available (' + res.commits_behind + ' behind)') : 'Server App: Update Available';
+					$('#app-update-badge').removeClass('badge-light text-secondary badge-warning text-dark').addClass('badge-danger text-white')
+						.attr('title', 'Branch: ' + res.branch + ' | Commits behind: ' + res.commits_behind)
+						.html(label);
 				} else {
-					$('#app-update-badge').removeClass('badge-danger text-white').addClass('badge-light text-secondary')
+					$('#app-update-badge').removeClass('badge-danger text-white badge-warning text-dark').addClass('badge-light text-secondary')
+						.attr('title', 'Branch: ' + res.branch + ' | Version: ' + res.version)
 						.html('Server App: Up to date');
 				}
 			}
 		});
 	}
+	/* Expose for console simulation testing: load_server_app_status(true) */
+	window.test_update_badge_simulation = function() { load_server_app_status(true); };
 
 	/* Load registered terminals */
 	function load_terminals() {
@@ -296,35 +306,45 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 						? '<span class="badge badge-success px-2 py-1">Online</span>' 
 						: '<span class="badge badge-danger px-2 py-1">Offline</span>';
 
-						var telemetry_info = '';
+						var online_details_html = '';
+						var last_online_str = '';
+
 						if (is_online) {
 							var invoices_badge = (term.pending_invoices || 0) > 0 ? '<span class="badge badge-warning text-white px-1.5 py-0.5" title="Pending Invoices">' + term.pending_invoices + ' Invoices</span>' : '<span class="badge badge-light border text-muted px-1.5 py-0.5" title="No Pending Invoices">0 Invoices</span>';
 							var queue_badge = (term.pending_sync_queue || 0) > 0 ? '<span class="badge badge-danger text-white px-1.5 py-0.5 ml-1" title="Sync Queue (Stuck)">' + term.pending_sync_queue + ' Queue</span>' : '<span class="badge badge-light border text-muted px-1.5 py-0.5 ml-1" title="Sync Queue Empty">0 Queue</span>';
 							var size_text = '<span class="badge badge-light border text-muted px-1.5 py-0.5 ml-1" title="Database Size">' + (term.db_size_mb || 0) + ' MB DB</span>';
 							var ram_text = '<span class="badge badge-light border text-muted px-1.5 py-0.5 ml-1" title="POS Memory Usage">' + (term.ram_usage_mb || 0) + ' MB RAM</span>';
-							telemetry_info = '<div class="mt-2 d-flex flex-wrap gap-1 align-items-center">' + invoices_badge + queue_badge + size_text + ram_text + '</div>';
+							var telemetry_info = '<div class="mt-2 d-flex flex-wrap gap-1 align-items-center">' + invoices_badge + queue_badge + size_text + ram_text + '</div>';
+
+							var version_badge_html = (function() {
+								if (term.is_outdated) {
+									return '<span class="badge badge-danger text-white px-2 py-1" title="Outdated! Latest version is v' + (term.latest_version || '') + '"><i class="fa fa-exclamation-triangle mr-1"></i>v' + term.app_version + ' (Outdated - Latest: v' + term.latest_version + ')</span>';
+								} else if (term.latest_version) {
+									return '<span class="badge badge-success text-white px-2 py-1" title="Up to date"><i class="fa fa-check-circle mr-1"></i>v' + term.app_version + ' (Latest)</span>';
+								} else {
+									return '<span class="badge badge-light border text-secondary">v' + (term.app_version || '1.0.0') + '</span>';
+								}
+							})();
+
+							online_details_html = 
+								'<div class="d-flex justify-content-between align-items-center mt-2 small">' +
+									'<span class="text-secondary">Active User: <strong class="text-dark">' + (term.username || 'None') + '</strong></span>' +
+									version_badge_html +
+								'</div>' +
+								telemetry_info;
+						} else {
+							last_online_str = '<p class="mb-1 small text-muted">Last Online: <strong class="text-dark">' + (term.last_online_user || term.last_online || 'Never Online') + '</strong></p>';
 						}
 
 						var item_html = 
 							'<a href="#" class="list-group-item list-group-item-action flex-column align-items-start p-3 terminal-item" data-id="' + term.terminal_id + '">' +
 								'<div class="d-flex w-100 justify-content-between align-items-center">' +
-									'<h5 class="mb-1 font-weight-bold text-dark">' + term.branch_name + '</h5>' +
+									'<h5 class="mb-1 font-weight-bold text-dark">' + (term.branch_name || term.pos_profile || 'Unknown') + '</h5>' +
 									status_badge +
 								'</div>' +
-								'<p class="mb-2 small text-muted">Profile: <span class="text-dark">' + term.pos_profile + '</span></p>' +
-								'<div class="d-flex justify-content-between align-items-center mt-2 small">' +
-									'<span class="text-secondary">Active User: <strong class="text-dark">' + (term.username || 'None') + '</strong></span>' +
-									(function() {
-										if (term.is_outdated) {
-											return '<span class="badge badge-danger text-white px-2 py-1" title="Outdated! Latest version is v' + (term.latest_version || '') + '"><i class="fa fa-exclamation-triangle mr-1"></i>v' + term.app_version + ' (Outdated - Latest: v' + term.latest_version + ')</span>';
-										} else if (term.latest_version) {
-											return '<span class="badge badge-success text-white px-2 py-1" title="Up to date"><i class="fa fa-check-circle mr-1"></i>v' + term.app_version + ' (Latest)</span>';
-										} else {
-											return '<span class="badge badge-light border text-secondary">v' + (term.app_version || '1.0.0') + '</span>';
-										}
-									})() +
-								'</div>' +
-								telemetry_info +
+								'<p class="mb-1 small text-muted">Profile: <span class="text-dark">' + (term.pos_profile || '') + '</span></p>' +
+								last_online_str +
+								online_details_html +
 							'</a>';
 
 					$list_group.append(item_html);
@@ -348,7 +368,7 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 
 	function select_terminal(term) {
 		selected_terminal_id = (term.terminal_id || '').trim();
-		$badge.text(term.branch_name).show();
+		$badge.text(term.branch_name || term.pos_profile || term.terminal_id).show();
 		$placeholder.hide();
 		$content.show();
 

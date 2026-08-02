@@ -327,5 +327,5 @@ fixtures = [
 	"Property Setter",
 	"Custom DocPerm",
 	"Client Script",
-	{"dt": "Workspace", "filters": [["name", "in", ["Managely POS", "Accounting"]]]}
+	{"dt": "Workspace", "filters": [["name", "in", ["Accounting"]]]}
 ]
