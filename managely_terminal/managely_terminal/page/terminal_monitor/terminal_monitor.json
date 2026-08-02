@@ -11,9 +11,6 @@
   "page_name": "terminal_monitor",
   "roles": [
     {
-      "role": "System Manager"
-    },
-    {
       "role": "Administrator"
     }
   ],

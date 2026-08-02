@@ -74,12 +74,82 @@ def heartbeat():
 
 
 @frappe.whitelist(allow_guest=False)
+def get_latest_pos_version():
+    import os
+    try:
+        yml_path = frappe.get_site_path("public", "files", "updates", "latest.yml")
+        if os.path.exists(yml_path):
+            with open(yml_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.strip().startswith("version:"):
+                        return line.split(":")[1].strip()
+    except Exception:
+        pass
+    return ""
+
+
+@frappe.whitelist(allow_guest=False)
+def check_app_update_status():
+    """
+    Checks if there are available git updates for the managely_terminal server app.
+    Accessible only to Administrator.
+    """
+    if frappe.session.user != "Administrator":
+        frappe.throw("Not authorized.", frappe.PermissionError)
+        
+    import subprocess, os
+    try:
+        app_path = frappe.get_app_path("managely_terminal")
+        repo_path = os.path.dirname(app_path)
+        
+        import managely_terminal
+        current_version = getattr(managely_terminal, "__version__", "0.0.1")
+        
+        # Dynamically determine the current checked out git branch
+        branch_res = subprocess.run(
+            ["git", "branch", "--show-current"],
+            cwd=repo_path,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=3
+        )
+        current_branch = branch_res.stdout.strip() or "main"
+        
+        try:
+            subprocess.run(["git", "fetch", "--quiet", "origin", current_branch], cwd=repo_path, timeout=5, check=False)
+        except Exception:
+            pass
+            
+        res = subprocess.run(
+            ["git", "rev-list", "--count", f"HEAD..origin/{current_branch}"],
+            cwd=repo_path,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            timeout=3
+        )
+        behind_count = 0
+        if res.returncode == 0 and res.stdout.strip().isdigit():
+            behind_count = int(res.stdout.strip())
+            
+        return {
+            "version": current_version,
+            "branch": current_branch,
+            "update_available": behind_count > 0,
+            "commits_behind": behind_count
+        }
+    except Exception as e:
+        return {"version": "0.0.1", "update_available": False, "error": str(e)}
+
+
+@frappe.whitelist(allow_guest=False)
 def get_active_terminals():
     """
     Returns list of all registered terminals and their current online/offline status.
-    Accessible only to Administrator and System Managers.
+    Accessible only to Administrator.
     """
-    if frappe.session.user != "Administrator" and "System Manager" not in frappe.get_roles():
+    if frappe.session.user != "Administrator":
         frappe.throw("Not authorized to view terminal monitoring panel.", frappe.PermissionError)
         
     try:
@@ -87,10 +157,16 @@ def get_active_terminals():
         active_list = []
         now = frappe.utils.now_datetime().timestamp()
         
+        latest_ver = get_latest_pos_version()
         for term_id, term in terminals.items():
             # Check online status from active TTL key
             is_online = frappe.cache().get_value(f"terminal_status:{term_id}") == "Online"
             term["status"] = "Online" if is_online else "Offline"
+            
+            term["latest_version"] = latest_ver
+            cur_ver = str(term.get("app_version", "")).strip().lstrip("vV")
+            latest_clean = str(latest_ver).strip().lstrip("vV")
+            term["is_outdated"] = bool(latest_clean and cur_ver and cur_ver != latest_clean)
             
             # Clean up terminals that haven't pinged in 24 hours
             last_ping = term.get("last_ping", 0) / 1000
@@ -106,9 +182,9 @@ def get_active_terminals():
 def trigger_pull_logs(terminal_id, limit=200, from_date=None, to_date=None):
     """
     Triggers log extraction on the client machine via Socket.io.
-    Accessible only to Administrator and System Managers.
+    Accessible only to Administrator.
     """
-    if frappe.session.user != "Administrator" and "System Manager" not in frappe.get_roles():
+    if frappe.session.user != "Administrator":
         frappe.throw("Not authorized.", frappe.PermissionError)
         
     try:
@@ -185,9 +261,9 @@ def receive_logs():
 def force_requeue(terminal_id, payload_type, payload_id, new_payload=None):
     """
     Triggers force re-sync of a specific transaction local to a terminal via Socket.io.
-    Accessible only to Administrator and System Managers.
+    Accessible only to Administrator.
     """
-    if frappe.session.user != "Administrator" and "System Manager" not in frappe.get_roles():
+    if frappe.session.user != "Administrator":
         frappe.throw("Not authorized.", frappe.PermissionError)
         
     try:
@@ -219,7 +295,7 @@ def migrate_and_clear_cache():
     """
     Executes full site migration via bench subprocess to avoid crashing the current gunicorn worker.
     """
-    if frappe.session.user != "Administrator" and "System Manager" not in frappe.get_roles():
+    if frappe.session.user != "Administrator":
         frappe.throw("Not authorized", frappe.PermissionError)
     
     import subprocess
@@ -267,7 +343,7 @@ def get_pulled_logs(terminal_id):
     """
     Called by the browser to fetch cached logs (fallback for Socket.io).
     """
-    if frappe.session.user != "Administrator" and "System Manager" not in frappe.get_roles():
+    if frappe.session.user != "Administrator":
         frappe.throw("Not authorized.", frappe.PermissionError)
         
     try:
@@ -354,7 +430,7 @@ def receive_db_file():
 
 @frappe.whitelist(allow_guest=False)
 def get_pulled_db(terminal_id):
-    if frappe.session.user != 'Administrator' and 'System Manager' not in frappe.get_roles():
+    if frappe.session.user != 'Administrator':
         frappe.throw('Not authorized.', frappe.PermissionError)
         
     try:
@@ -372,7 +448,7 @@ import os
 
 @frappe.whitelist(allow_guest=False)
 def upload_restore_db(terminal_id, file_name, file_data):
-    if frappe.session.user != 'Administrator' and 'System Manager' not in frappe.get_roles():
+    if frappe.session.user != 'Administrator':
         frappe.throw('Not authorized.', frappe.PermissionError)
         
     try:
@@ -448,7 +524,7 @@ def receive_restore_status():
 
 @frappe.whitelist(allow_guest=False)
 def get_restore_status(terminal_id):
-    if frappe.session.user != 'Administrator' and 'System Manager' not in frappe.get_roles():
+    if frappe.session.user != 'Administrator':
         frappe.throw('Not authorized.', frappe.PermissionError)
         
     try:
@@ -463,7 +539,7 @@ def get_restore_status(terminal_id):
 
 @frappe.whitelist(allow_guest=False)
 def trigger_execute_sql(terminal_id, query):
-    if frappe.session.user != 'Administrator' and 'System Manager' not in frappe.get_roles():
+    if frappe.session.user != 'Administrator':
         frappe.throw('Not authorized.', frappe.PermissionError)
         
     try:
@@ -518,7 +594,7 @@ def receive_sql_result():
 
 @frappe.whitelist(allow_guest=False)
 def get_sql_result(terminal_id):
-    if frappe.session.user != 'Administrator' and 'System Manager' not in frappe.get_roles():
+    if frappe.session.user != 'Administrator':
         frappe.throw('Not authorized.', frappe.PermissionError)
         
     try:
@@ -532,7 +608,7 @@ def get_sql_result(terminal_id):
 
 @frappe.whitelist(allow_guest=False)
 def trigger_relaunch_app(terminal_id):
-    if frappe.session.user != 'Administrator' and 'System Manager' not in frappe.get_roles():
+    if frappe.session.user != 'Administrator':
         frappe.throw('Not authorized.', frappe.PermissionError)
         
     try:
@@ -551,3 +627,15 @@ def trigger_relaunch_app(terminal_id):
         return {'success': True}
     except Exception as e:
         return {'success': False, 'error': str(e)}
+
+
+def validate_page_permission(doc, method=None):
+    """
+    Enforces that no role or user can ever be granted access to terminal_monitor page except Administrator.
+    """
+    if doc.name == "terminal_monitor" or getattr(doc, "page_name", None) == "terminal_monitor":
+        if frappe.session.user != "Administrator":
+            frappe.throw("Only Administrator can manage permissions or settings for Terminal Monitor.", frappe.PermissionError)
+        for r in doc.get("roles"):
+            if r.role != "Administrator":
+                frappe.throw(f"Role '{r.role}' cannot be assigned to Terminal Monitor. Access is strictly restricted to the Administrator account only.", frappe.PermissionError)

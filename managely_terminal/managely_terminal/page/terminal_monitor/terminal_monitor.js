@@ -1,4 +1,14 @@
 frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
+	if (frappe.session.user !== 'Administrator') {
+		frappe.msgprint({
+			title: 'Not Permitted',
+			message: 'This page is accessible only by Administrator.',
+			indicator: 'red'
+		});
+		frappe.set_route('Workspaces');
+		return;
+	}
+
 	var page = frappe.ui.make_app_page({
 		parent: wrapper,
 		title: 'Terminal Monitor',
@@ -27,6 +37,15 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 		.terminal-monitor-container .font-mono {
 			font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 		}
+		.indicator-pill.black, .indicator-pill.dark {
+			background-color: #111827 !important;
+			color: #ffffff !important;
+			border-radius: 9999px !important;
+		}
+		.terminal-monitor-container .badge-dark {
+			background-color: #111827 !important;
+			color: #ffffff !important;
+		}
 	`;
 	$('<style>').prop('type', 'text/css').html(css).appendTo('head');
 
@@ -39,6 +58,10 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 					fieldtype: 'HTML',
 					options: `
 						<div class="p-4 bg-white rounded">
+							<div class="alert alert-secondary py-2 px-3 small font-weight-bold mb-3 d-flex justify-content-between align-items-center" style="border-radius: 6px; background-color: #f8f9fa; border: 1px solid #dee2e6;">
+								<span class="text-secondary"><i class="fa fa-cloud-upload mr-1 text-primary"></i> Current Uploaded Release on Server:</span>
+								<span id="current-deployed-ver" class="badge badge-light border font-weight-bold px-2 py-1 text-dark">Checking...</span>
+							</div>
 							<div class="alert alert-info py-2 px-3 small font-weight-bold mb-4" style="border-radius: 6px;">
 								<i class="fa fa-info-circle mr-1"></i> Please select the <b>latest.yml</b>, the <b>.exe</b> setup file, and the <b>.blockmap</b> file.
 							</div>
@@ -140,7 +163,11 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 						}
 						$status.text('Deployment Complete!');
 						frappe.show_alert({message: 'Update deployed successfully!', indicator: 'green'});
-						setTimeout(() => d.hide(), 2000);
+						setTimeout(() => {
+							d.hide();
+							if (typeof load_latest_pos_version === 'function') load_latest_pos_version();
+							if (typeof load_terminals === 'function') load_terminals();
+						}, 2000);
 					} catch(e) {
 						$status.text('Error: ' + e.message);
 						$status.removeClass('text-secondary').addClass('text-danger');
@@ -160,6 +187,19 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 				label.text(files.join(', '));
 			} else {
 				label.text('Choose files...');
+			}
+		});
+
+		frappe.call({
+			method: 'managely_terminal.managely_terminal.api.electron.terminals.get_latest_pos_version',
+			callback: function(r) {
+				let ver = r.message || '';
+				let $ver_el = d.get_field('html').$wrapper.find('#current-deployed-ver');
+				if (ver) {
+					$ver_el.removeClass('badge-light border text-dark').addClass('badge-success text-white').html('<i class="fa fa-check-circle mr-1"></i>v' + ver);
+				} else {
+					$ver_el.html('<i class="fa fa-exclamation-circle mr-1"></i>No Release Uploaded');
+				}
 			}
 		});
 
@@ -202,6 +242,39 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 	$('#filter-from-date').val(formatDateForInput(sevenDaysAgo));
 	$('#filter-to-date').val(formatDateForInput(today));
 
+	/* Load latest POS version from update path */
+	function load_latest_pos_version() {
+		frappe.call({
+			method: 'managely_terminal.managely_terminal.api.electron.terminals.get_latest_pos_version',
+			callback: function(r) {
+				var ver = r.message || '';
+				if (ver) {
+					page.set_indicator('Latest: v' + ver, 'black');
+				} else {
+					page.set_indicator('No Update Uploaded', 'gray');
+				}
+			}
+		});
+	}
+
+	/* Load server app update status */
+	function load_server_app_status() {
+		$('#app-update-badge').html('Server App: Checking...');
+		frappe.call({
+			method: 'managely_terminal.managely_terminal.api.electron.terminals.check_app_update_status',
+			callback: function(r) {
+				var res = r.message || {};
+				if (res.update_available) {
+					$('#app-update-badge').removeClass('badge-light text-secondary').addClass('badge-danger text-white')
+						.html('Server App: Update Available');
+				} else {
+					$('#app-update-badge').removeClass('badge-danger text-white').addClass('badge-light text-secondary')
+						.html('Server App: Up to date');
+				}
+			}
+		});
+	}
+
 	/* Load registered terminals */
 	function load_terminals() {
 		$list_group.html('<div class="p-4 text-center text-muted"><i class="fa fa-spinner fa-spin"></i> Fetching terminals...</div>');
@@ -241,7 +314,15 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 								'<p class="mb-2 small text-muted">Profile: <span class="text-dark">' + term.pos_profile + '</span></p>' +
 								'<div class="d-flex justify-content-between align-items-center mt-2 small">' +
 									'<span class="text-secondary">Active User: <strong class="text-dark">' + (term.username || 'None') + '</strong></span>' +
-									'<span class="badge badge-light border text-secondary">v' + term.app_version + '</span>' +
+									(function() {
+										if (term.is_outdated) {
+											return '<span class="badge badge-danger text-white px-2 py-1" title="Outdated! Latest version is v' + (term.latest_version || '') + '"><i class="fa fa-exclamation-triangle mr-1"></i>v' + term.app_version + ' (Outdated - Latest: v' + term.latest_version + ')</span>';
+										} else if (term.latest_version) {
+											return '<span class="badge badge-success text-white px-2 py-1" title="Up to date"><i class="fa fa-check-circle mr-1"></i>v' + term.app_version + ' (Latest)</span>';
+										} else {
+											return '<span class="badge badge-light border text-secondary">v' + (term.app_version || '1.0.0') + '</span>';
+										}
+									})() +
 								'</div>' +
 								telemetry_info +
 							'</a>';
@@ -1167,7 +1248,11 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 	}
 
 	/* Refresh action */
-	page.add_inner_button('Refresh Terminals', load_terminals);
+	page.add_inner_button('Refresh Terminals', function() {
+		load_latest_pos_version();
+		load_server_app_status();
+		load_terminals();
+	});
 
 	/* Clear Cache & Reload App Resources */
 	page.add_inner_button('Migrate & Clear Cache', function() {
@@ -1205,6 +1290,8 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 	});
 
 	/* Load on startup */
+	load_latest_pos_version();
+	load_server_app_status();
 	load_terminals();
 };
 

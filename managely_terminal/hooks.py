@@ -149,6 +149,9 @@ after_migrate = [
 # Hook on document methods and events
 
 doc_events = {
+	"Page": {
+		"validate": "managely_terminal.managely_terminal.api.electron.terminals.validate_page_permission",
+	},
 	"Loyalty Point Entry": {
 		"on_update": "managely_terminal.managely_terminal.api.electron.customer.update_pos_customer_loyalty",
 		"on_trash": "managely_terminal.managely_terminal.api.electron.customer.update_pos_customer_loyalty",
