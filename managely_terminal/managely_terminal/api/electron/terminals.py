@@ -131,88 +131,56 @@ def check_app_update_status(simulate_update=False):
             if current_branch == "HEAD" or not current_branch:
                 current_branch = "main"
         
-        try:
-            fetch_res = subprocess.run(
-                ["git", "-c", "safe.directory=*", "fetch", "--quiet", "--force", "origin"],
-                cwd=repo_path,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                timeout=25,
-                check=False
-            )
-            if current_branch and current_branch != "HEAD":
-                subprocess.run(
-                    ["git", "-c", "safe.directory=*", "fetch", "--quiet", "--force", "origin", f"+{current_branch}:refs/remotes/origin/{current_branch}"],
-                    cwd=repo_path,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    timeout=25,
-                    check=False
-                )
-        except Exception as e:
-            frappe.log_error(f"Git fetch failed during update check: {str(e)}", "Terminal Monitor Update Check")
-            
-        target_ref = f"origin/{current_branch}"
-        if cint(simulate_update) != 1:
-            verify_res = subprocess.run(
-                ["git", "-c", "safe.directory=*", "rev-parse", "--verify", target_ref],
-                cwd=repo_path,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                timeout=5
-            )
-            if verify_res.returncode != 0:
-                for candidate in ["origin/main", "origin/master", "origin/develop", "FETCH_HEAD"]:
-                    v_res = subprocess.run(
-                        ["git", "-c", "safe.directory=*", "rev-parse", "--verify", candidate],
-                        cwd=repo_path,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.PIPE,
-                        text=True,
-                        timeout=5
-                    )
-                    if v_res.returncode == 0:
-                        target_ref = candidate
-                        if candidate.startswith("origin/"):
-                            current_branch = candidate.replace("origin/", "")
-                        break
-                else:
-                    return {
-                        "version": current_version,
-                        "branch": current_branch,
-                        "update_available": False,
-                        "commits_behind": 0
-                    }
-
-        compare_range = "HEAD~1..HEAD" if cint(simulate_update) == 1 else f"HEAD..{target_ref}"
-
-        res = subprocess.run(
-            ["git", "-c", "safe.directory=*", "rev-list", "--count", compare_range],
+        local_res = subprocess.run(
+            ["git", "-c", "safe.directory=*", "rev-parse", "HEAD"],
             cwd=repo_path,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            timeout=10
+            timeout=5
         )
-        behind_count = 0
-        if res.returncode == 0 and res.stdout.strip().isdigit():
-            behind_count = int(res.stdout.strip())
+        local_sha = local_res.stdout.strip()
+        
+        remote_sha = ""
+        if cint(simulate_update) != 1:
+            ls_res = subprocess.run(
+                ["git", "-c", "safe.directory=*", "ls-remote", "--heads", "origin", current_branch],
+                cwd=repo_path,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=15
+            )
+            if ls_res.returncode == 0 and ls_res.stdout.strip():
+                remote_sha = ls_res.stdout.strip().split()[0]
+            
+            if not remote_sha:
+                for candidate in ["main", "master", "develop"]:
+                    c_res = subprocess.run(
+                        ["git", "-c", "safe.directory=*", "ls-remote", "--heads", "origin", candidate],
+                        cwd=repo_path,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                        timeout=10
+                    )
+                    if c_res.returncode == 0 and c_res.stdout.strip():
+                        remote_sha = c_res.stdout.strip().split()[0]
+                        current_branch = candidate
+                        break
+        
+        if cint(simulate_update) == 1:
+            update_available = True
+        elif local_sha and remote_sha and len(local_sha) >= 40 and len(remote_sha) >= 40:
+            update_available = (local_sha != remote_sha)
         else:
-            return {
-                "version": current_version,
-                "branch": current_branch,
-                "update_available": False,
-                "commits_behind": 0
-            }
+            update_available = False
             
         return {
             "version": current_version,
             "branch": current_branch,
-            "update_available": behind_count > 0,
-            "commits_behind": behind_count,
+            "update_available": update_available,
+            "commits_behind": 1 if update_available and cint(simulate_update) == 1 else 0,
             "simulated": cint(simulate_update) == 1
         }
     except Exception:
