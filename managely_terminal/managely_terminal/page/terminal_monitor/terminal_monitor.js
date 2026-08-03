@@ -49,6 +49,16 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 	`;
 	$('<style>').prop('type', 'text/css').html(css).appendTo('head');
 
+	/* Refresh action */
+	var $refresh_btn = page.add_inner_button('<i class="fa fa-refresh"></i>', function() {
+		load_latest_pos_version();
+		load_server_app_status();
+		load_terminals();
+	});
+	if ($refresh_btn) {
+		$refresh_btn.attr('title', 'Refresh Terminals');
+	}
+
 	page.add_inner_button('Deploy POS Update', function() {
 		let d = new frappe.ui.Dialog({
 			title: 'Deploy POS Update',
@@ -1269,16 +1279,6 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 	function formatDateForInput(date) {
 		var pad = function(num) { return String(num).padStart(2, '0'); };
 		return date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate()) + 'T' + pad(date.getHours()) + ':' + pad(date.getMinutes());
-	}
-
-	/* Refresh action */
-	var $refresh_btn = page.add_inner_button('<i class="fa fa-refresh"></i>', function() {
-		load_latest_pos_version();
-		load_server_app_status();
-		load_terminals();
-	});
-	if ($refresh_btn) {
-		$refresh_btn.attr('title', 'Refresh Terminals');
 	}
 
 	/* Clear Cache & Reload App Resources */
