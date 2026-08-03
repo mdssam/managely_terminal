@@ -276,16 +276,16 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 			callback: function(r) {
 				var res = r.message || {};
 				if (res.error && !res.update_available) {
-					$('#app-update-badge').removeClass('badge-info text-white badge-light text-secondary').addClass('badge-warning text-dark')
+					$('#app-update-badge').removeClass('badge-info badge-success text-white badge-light text-secondary').addClass('badge-warning text-dark')
 						.attr('title', res.error)
 						.html('Server App: Check Failed');
 				} else if (res.update_available) {
 					var label = res.commits_behind ? ('Server App: Update Available (' + res.commits_behind + ' behind)') : 'Server App: Update Available';
-					$('#app-update-badge').removeClass('badge-light text-secondary badge-warning text-dark').addClass('badge-info text-white')
+					$('#app-update-badge').removeClass('badge-light text-secondary badge-warning text-dark badge-info').addClass('badge-success text-white')
 						.attr('title', 'Branch: ' + res.branch + ' | Commits behind: ' + res.commits_behind)
 						.html(label);
 				} else {
-					$('#app-update-badge').removeClass('badge-info text-white badge-warning text-dark').addClass('badge-light text-secondary')
+					$('#app-update-badge').removeClass('badge-info badge-success text-white badge-warning text-dark').addClass('badge-light text-secondary')
 						.attr('title', 'Branch: ' + res.branch + ' | Version: ' + res.version)
 						.html('Server App: Up to date');
 				}
