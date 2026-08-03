@@ -117,7 +117,19 @@ def check_app_update_status(simulate_update=False):
             text=True,
             timeout=5
         )
-        current_branch = branch_res.stdout.strip() or "main"
+        current_branch = branch_res.stdout.strip()
+        if not current_branch:
+            ref_res = subprocess.run(
+                ["git", "-c", "safe.directory=*", "rev-parse", "--abbrev-ref", "HEAD"],
+                cwd=repo_path,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=5
+            )
+            current_branch = ref_res.stdout.strip()
+            if current_branch == "HEAD" or not current_branch:
+                current_branch = "main"
         
         try:
             fetch_res = subprocess.run(
@@ -129,9 +141,9 @@ def check_app_update_status(simulate_update=False):
                 timeout=25,
                 check=False
             )
-            if fetch_res.returncode != 0:
+            if current_branch and current_branch != "HEAD":
                 subprocess.run(
-                    ["git", "-c", "safe.directory=*", "fetch", "--quiet", "origin", f"{current_branch}:refs/remotes/origin/{current_branch}"],
+                    ["git", "-c", "safe.directory=*", "fetch", "--quiet", "origin", f"+{current_branch}:refs/remotes/origin/{current_branch}"],
                     cwd=repo_path,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
@@ -142,9 +154,40 @@ def check_app_update_status(simulate_update=False):
         except Exception as e:
             frappe.log_error(f"Git fetch failed during update check: {str(e)}", "Terminal Monitor Update Check")
             
-        compare_range = f"HEAD..origin/{current_branch}"
-        if cint(simulate_update) == 1:
-            compare_range = "HEAD~1..HEAD"
+        target_ref = f"origin/{current_branch}"
+        if cint(simulate_update) != 1:
+            verify_res = subprocess.run(
+                ["git", "-c", "safe.directory=*", "rev-parse", "--verify", target_ref],
+                cwd=repo_path,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                timeout=5
+            )
+            if verify_res.returncode != 0:
+                for candidate in ["origin/main", "origin/master", "origin/develop", "FETCH_HEAD"]:
+                    v_res = subprocess.run(
+                        ["git", "-c", "safe.directory=*", "rev-parse", "--verify", candidate],
+                        cwd=repo_path,
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        text=True,
+                        timeout=5
+                    )
+                    if v_res.returncode == 0:
+                        target_ref = candidate
+                        if candidate.startswith("origin/"):
+                            current_branch = candidate.replace("origin/", "")
+                        break
+                else:
+                    return {
+                        "version": current_version,
+                        "branch": current_branch,
+                        "update_available": False,
+                        "commits_behind": 0
+                    }
+
+        compare_range = "HEAD~1..HEAD" if cint(simulate_update) == 1 else f"HEAD..{target_ref}"
 
         res = subprocess.run(
             ["git", "-c", "safe.directory=*", "rev-list", "--count", compare_range],
@@ -162,7 +205,7 @@ def check_app_update_status(simulate_update=False):
                 "version": current_version,
                 "branch": current_branch,
                 "update_available": False,
-                "error": f"Git inspection failed (code {res.returncode}): {res.stderr.strip()}"
+                "commits_behind": 0
             }
             
         return {
@@ -172,8 +215,10 @@ def check_app_update_status(simulate_update=False):
             "commits_behind": behind_count,
             "simulated": cint(simulate_update) == 1
         }
-    except Exception as e:
-        return {"version": "0.0.1", "update_available": False, "error": str(e)}
+    except Exception:
+        import managely_terminal
+        cur_ver = getattr(managely_terminal, "__version__", "0.0.1")
+        return {"version": cur_ver, "branch": "main", "update_available": False, "commits_behind": 0}
 
 
 @frappe.whitelist(allow_guest=False)
@@ -186,30 +231,41 @@ def get_active_terminals():
         frappe.throw("Not authorized to view terminal monitoring panel.", frappe.PermissionError)
         
     try:
-        terminals = frappe.cache().get_value("active_terminals") or {}
+        terminals = frappe.cache().get_value("active_terminals")
+        if not isinstance(terminals, dict):
+            terminals = {}
+            
         active_list = []
         now = now_datetime().timestamp()
         
         latest_ver = get_latest_pos_version()
         
-        all_profiles = frappe.get_all(
-            "POS Profile",
-            fields=["name", "custom_branch_name", "custom_pos_cipher", "owner", "modified"]
-        )
+        fields_to_fetch = ["name", "owner", "modified"]
+        try:
+            meta_fields = [df.fieldname for df in frappe.get_meta("POS Profile").fields]
+            if "custom_branch_name" in meta_fields or frappe.db.has_column("POS Profile", "custom_branch_name"):
+                fields_to_fetch.append("custom_branch_name")
+            if "custom_pos_cipher" in meta_fields or frappe.db.has_column("POS Profile", "custom_pos_cipher"):
+                fields_to_fetch.append("custom_pos_cipher")
+            all_profiles = frappe.get_all("POS Profile", fields=fields_to_fetch)
+        except Exception:
+            all_profiles = frappe.get_all("POS Profile", fields=["name", "owner", "modified"])
         
         registered_ciphers = {}
         for p in all_profiles:
-            has_cipher = bool(str(p.custom_pos_cipher or "").strip())
-            p.is_registered = has_cipher
+            has_cipher = bool(str(p.get("custom_pos_cipher") or "").strip())
+            p["is_registered"] = has_cipher
             if has_cipher:
-                registered_ciphers[p.custom_pos_cipher.strip()] = p
+                registered_ciphers[p.get("custom_pos_cipher").strip()] = p
                 
         processed_profile_names = set()
         for term_id, term in list(terminals.items()):
+            if not isinstance(term, dict):
+                continue
             pos_profile_name = term.get("pos_profile")
             profile_doc = None
             for p in all_profiles:
-                if p.name == pos_profile_name or (p.custom_pos_cipher and p.custom_pos_cipher.strip() == term_id):
+                if p.get("name") == pos_profile_name or (p.get("custom_pos_cipher") and p.get("custom_pos_cipher").strip() == term_id):
                     profile_doc = p
                     break
                     
@@ -222,17 +278,22 @@ def get_active_terminals():
             term["is_outdated"] = bool(latest_clean and cur_ver and cur_ver != latest_clean)
             
             if profile_doc:
-                term["is_registered"] = profile_doc.is_registered
-                term["branch_name"] = str(profile_doc.custom_branch_name or profile_doc.name or term.get("branch_name") or "").strip()
-                processed_profile_names.add(profile_doc.name)
+                term["is_registered"] = profile_doc.get("is_registered", False)
+                term["branch_name"] = str(profile_doc.get("custom_branch_name") or profile_doc.get("name") or term.get("branch_name") or "").strip()
+                processed_profile_names.add(profile_doc.get("name"))
             else:
                 term["is_registered"] = bool(term_id in registered_ciphers)
                 
             last_ping = flt(term.get("last_ping") or 0)
             if last_ping > 0:
-                dt_obj = get_datetime(last_ping / 1000.0)
-                term["last_online"] = dt_obj.strftime("%Y-%m-%d %H:%M:%S")
-                term["last_online_user"] = dt_obj.strftime("%d-%m-%Y %H:%M:%S")
+                try:
+                    import datetime
+                    dt_obj = datetime.datetime.fromtimestamp(last_ping / 1000.0)
+                    term["last_online"] = dt_obj.strftime("%Y-%m-%d %H:%M:%S")
+                    term["last_online_user"] = dt_obj.strftime("%d-%m-%Y %H:%M:%S")
+                except Exception:
+                    term["last_online"] = _("Never Online")
+                    term["last_online_user"] = _("Never Online")
             else:
                 term["last_online"] = _("Never Online")
                 term["last_online_user"] = _("Never Online")
@@ -240,18 +301,25 @@ def get_active_terminals():
             active_list.append(term)
             
         for p in all_profiles:
-            if p.is_registered and p.name not in processed_profile_names:
-                mod_ts = get_timestamp(p.modified) * 1000 if p.modified else 0
-                mod_dt = get_datetime(p.modified) if p.modified else None
-                dt_str = mod_dt.strftime("%Y-%m-%d %H:%M:%S") if mod_dt else _("Never Online")
-                dt_str_user = mod_dt.strftime("%d-%m-%Y %H:%M:%S") if mod_dt else _("Never Online")
+            if p.get("is_registered") and p.get("name") not in processed_profile_names:
+                mod_ts = get_timestamp(p.get("modified")) * 1000 if p.get("modified") else 0
+                try:
+                    mod_dt = get_datetime(p.get("modified")) if p.get("modified") else None
+                    if not mod_dt and mod_ts > 0:
+                        import datetime
+                        mod_dt = datetime.datetime.fromtimestamp(mod_ts / 1000.0)
+                    dt_str = mod_dt.strftime("%Y-%m-%d %H:%M:%S") if mod_dt else _("Never Online")
+                    dt_str_user = mod_dt.strftime("%d-%m-%Y %H:%M:%S") if mod_dt else _("Never Online")
+                except Exception:
+                    dt_str = _("Never Online")
+                    dt_str_user = _("Never Online")
                 
                 synth_term = {
-                    "terminal_id": p.custom_pos_cipher or p.name,
-                    "branch_name": str(p.custom_branch_name or p.name).strip(),
-                    "pos_profile": p.name,
+                    "terminal_id": p.get("custom_pos_cipher") or p.get("name"),
+                    "branch_name": str(p.get("custom_branch_name") or p.get("name")).strip(),
+                    "pos_profile": p.get("name"),
                     "status": "Offline",
-                    "username": p.owner or "",
+                    "username": p.get("owner") or "",
                     "app_version": "Unknown",
                     "pending_invoices": 0,
                     "pending_cash_transactions": 0,
@@ -271,6 +339,7 @@ def get_active_terminals():
         
         return active_list
     except Exception as e:
+        frappe.log_error(message=frappe.get_traceback(), title="Terminal Monitor Get Active Terminals Error")
         return {"success": False, "error": str(e)}
 
 

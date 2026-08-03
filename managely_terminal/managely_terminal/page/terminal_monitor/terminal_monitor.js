@@ -293,7 +293,11 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 			method: 'managely_terminal.managely_terminal.api.electron.terminals.get_active_terminals',
 			callback: function(r) {
 				$list_group.empty();
-				terminals_data = r.message || [];
+				if (r.message && !Array.isArray(r.message) && r.message.error) {
+					$list_group.html('<div class="p-4 text-center text-danger"><i class="fa fa-exclamation-circle mr-1"></i>Error loading terminals: ' + r.message.error + '</div>');
+					return;
+				}
+				terminals_data = Array.isArray(r.message) ? r.message : [];
 				
 				if (terminals_data.length === 0) {
 					$list_group.html('<div class="p-4 text-center text-muted">No registered terminals found.</div>');
