@@ -266,16 +266,16 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 			callback: function(r) {
 				var res = r.message || {};
 				if (res.error && !res.update_available) {
-					$('#app-update-badge').removeClass('badge-danger text-white badge-light text-secondary').addClass('badge-warning text-dark')
+					$('#app-update-badge').removeClass('badge-info text-white badge-light text-secondary').addClass('badge-warning text-dark')
 						.attr('title', res.error)
 						.html('Server App: Check Failed');
 				} else if (res.update_available) {
 					var label = res.commits_behind ? ('Server App: Update Available (' + res.commits_behind + ' behind)') : 'Server App: Update Available';
-					$('#app-update-badge').removeClass('badge-light text-secondary badge-warning text-dark').addClass('badge-danger text-white')
+					$('#app-update-badge').removeClass('badge-light text-secondary badge-warning text-dark').addClass('badge-info text-white')
 						.attr('title', 'Branch: ' + res.branch + ' | Commits behind: ' + res.commits_behind)
 						.html(label);
 				} else {
-					$('#app-update-badge').removeClass('badge-danger text-white badge-warning text-dark').addClass('badge-light text-secondary')
+					$('#app-update-badge').removeClass('badge-info text-white badge-warning text-dark').addClass('badge-light text-secondary')
 						.attr('title', 'Branch: ' + res.branch + ' | Version: ' + res.version)
 						.html('Server App: Up to date');
 				}
@@ -322,11 +322,11 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 
 							var version_badge_html = (function() {
 								if (term.is_outdated) {
-									return '<span class="badge badge-danger text-white px-2 py-1" title="Outdated! Latest version is v' + (term.latest_version || '') + '"><i class="fa fa-exclamation-triangle mr-1"></i>v' + term.app_version + ' (Outdated - Latest: v' + term.latest_version + ')</span>';
+									return '<span class="badge border px-2 py-1" style="background-color: #fffbeb; color: #b45309; border-color: #fde68a !important;" title="An update to version v' + (term.latest_version || '') + ' is available">v' + term.app_version + ' (v' + term.latest_version + ' available)</span>';
 								} else if (term.latest_version) {
-									return '<span class="badge badge-success text-white px-2 py-1" title="Up to date"><i class="fa fa-check-circle mr-1"></i>v' + term.app_version + ' (Latest)</span>';
+									return '<span class="badge badge-light border text-secondary px-2 py-1" title="Up to date">v' + term.app_version + ' (Latest)</span>';
 								} else {
-									return '<span class="badge badge-light border text-secondary">v' + (term.app_version || '1.0.0') + '</span>';
+									return '<span class="badge badge-light border text-secondary px-2 py-1">v' + (term.app_version || '1.0.0') + '</span>';
 								}
 							})();
 
@@ -1272,11 +1272,14 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 	}
 
 	/* Refresh action */
-	page.add_inner_button('Refresh Terminals', function() {
+	var $refresh_btn = page.add_inner_button('<i class="fa fa-refresh"></i>', function() {
 		load_latest_pos_version();
 		load_server_app_status();
 		load_terminals();
 	});
+	if ($refresh_btn) {
+		$refresh_btn.attr('title', 'Refresh Terminals');
+	}
 
 	/* Clear Cache & Reload App Resources */
 	page.add_inner_button('Migrate & Clear Cache', function() {
