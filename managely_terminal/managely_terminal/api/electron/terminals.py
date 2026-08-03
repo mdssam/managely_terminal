@@ -133,7 +133,7 @@ def check_app_update_status(simulate_update=False):
         
         try:
             fetch_res = subprocess.run(
-                ["git", "-c", "safe.directory=*", "fetch", "--quiet", "origin"],
+                ["git", "-c", "safe.directory=*", "fetch", "--quiet", "--force", "origin"],
                 cwd=repo_path,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -143,7 +143,7 @@ def check_app_update_status(simulate_update=False):
             )
             if current_branch and current_branch != "HEAD":
                 subprocess.run(
-                    ["git", "-c", "safe.directory=*", "fetch", "--quiet", "origin", f"+{current_branch}:refs/remotes/origin/{current_branch}"],
+                    ["git", "-c", "safe.directory=*", "fetch", "--quiet", "--force", "origin", f"+{current_branch}:refs/remotes/origin/{current_branch}"],
                     cwd=repo_path,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
