@@ -157,6 +157,7 @@ def ensure_delivery_company_doctype_and_fields():
 def run():
 	ensure_delivery_company_doctype_and_fields()
 	setup_accounting_custom_fields()
+	ensure_custom_html_blocks()
 
 
 
@@ -480,23 +481,28 @@ def setup_terminal_spa_sw_link():
 
 def ensure_pos_profile_fields():
 	"""Set up app config fields under a unified Tab Break on POS Profile."""
-	# 1. Define fields to keep (excluding old multi-currency fields)
+	# 1. Define fields to keep and organize into Tabs/Sections
 	pos_fields = [
 		{
-			"fieldname": "custom_sultan_pos_settings_tab",
-			"label": "POS Settings",
-			"fieldtype": "Tab Break",
+			"fieldname": "custom_managely_tab",
+			"label": "Managely Terminal",
+			"fieldtype": "Tab Break"
 		},
 		{
-			"fieldname": "custom_sultan_business_section",
-			"label": "Business Configuration",
-			"fieldtype": "Section Break",
+			"fieldname": "custom_general_settings_section",
+			"label": "General Settings",
+			"fieldtype": "Section Break"
 		},
 		{
 			"fieldname": "custom_is_branch",
 			"label": "Is Branch",
 			"fieldtype": "Check",
 			"description": "Mark this POS Profile as a branch (instead of a delegate/salesman).",
+		},
+		{
+			"fieldname": "custom_branch_name",
+			"label": "Branch Name",
+			"fieldtype": "Data",
 		},
 		{
 			"fieldname": "custom_business_type",
@@ -507,17 +513,45 @@ def ensure_pos_profile_fields():
 			"translatable": 0,
 		},
 		{
-			"fieldname": "custom_default_view",
-			"label": "Default View",
-			"fieldtype": "Select",
-			"options": "\nGrid View\nList View",
-			"default": "Grid View",
-			"translatable": 0,
+			"fieldname": "custom_consolidate_invoicing",
+			"label": "Consolidate Invoice on Close",
+			"fieldtype": "Check",
+			"description": "When enabled, each order is saved as a draft. Drafts are submitted in batch when session closes.",
 		},
 		{
-			"fieldname": "custom_sultan_printing_section",
-			"label": "Receipt Printing Templates",
-			"fieldtype": "Section Break",
+			"fieldname": "custom_hide_expected_amount",
+			"label": "Hide Expected Amount",
+			"fieldtype": "Check",
+		},
+		{
+			"fieldname": "custom_pos_cipher",
+			"label": "POS Cipher",
+			"fieldtype": "Data",
+		},
+		{
+			"fieldname": "custom_general_col_break",
+			"fieldtype": "Column Break"
+		},
+		{
+			"fieldname": "custom_use_scanner_fully",
+			"label": "Use Scanner Fully",
+			"fieldtype": "Check",
+		},
+		{
+			"fieldname": "custom_autofetch_batchserial_",
+			"label": "Auto-fetch Batch/Serial ",
+			"fieldtype": "Check",
+		},
+		{
+			"fieldname": "custom_allow_zero_stock_sale",
+			"label": "Allow Selling Out of Stock Items",
+			"fieldtype": "Check",
+			"default": "0",
+		},
+		{
+			"fieldname": "custom_printing_section",
+			"label": "Printing Settings",
+			"fieldtype": "Section Break"
 		},
 		{
 			"fieldname": "custom_pos_print_format_en",
@@ -534,36 +568,30 @@ def ensure_pos_profile_fields():
 			"description": "Thermal receipt print format used by the Sultan POS SPA",
 		},
 		{
+			"fieldname": "custom_prices_include_vat",
+			"label": "Prices Include VAT in Print",
+			"fieldtype": "Check",
+		},
+		{
+			"fieldname": "custom_hide_tax_in_cart",
+			"label": "Hide Tax in Cart and Print",
+			"fieldtype": "Check",
+		},
+		{
+			"fieldname": "custom_printing_col_break",
+			"fieldtype": "Column Break"
+		},
+		{
 			"fieldname": "custom_print_currency",
 			"label": "Secondary Print Currency",
 			"fieldtype": "Link",
 			"options": "Currency",
-			"description": "Additional currency to automatically convert and display at the bottom of thermal receipts (e.g. LBP or USD)",
+			"description": "Additional currency to convert and display at the bottom of thermal receipts",
 		},
 		{
-			"fieldname": "custom_sultan_hardware_section",
-			"label": "Hardware & Scale Settings",
-			"fieldtype": "Section Break",
-		},
-		{
-			"fieldname": "custom_use_scanner_fully",
-			"label": "Use Scanner Fully",
-			"fieldtype": "Check",
-		},
-		{
-			"fieldname": "custom_scale_barcodes_start_with",
-			"label": "Barcode Start Pattern",
-			"fieldtype": "Data",
-		},
-		{
-			"fieldname": "custom_sultan_checkout_section",
-			"label": "Checkout & Session Settings",
-			"fieldtype": "Section Break",
-		},
-		{
-			"fieldname": "custom_delivery_required",
-			"label": "Delivery Required?",
-			"fieldtype": "Check",
+			"fieldname": "custom_delivery_section",
+			"label": "Delivery Settings",
+			"fieldtype": "Section Break"
 		},
 		{
 			"fieldname": "custom_delivery_charge_account",
@@ -573,48 +601,38 @@ def ensure_pos_profile_fields():
 			"description": "Account where delivery fee income will be booked"
 		},
 		{
+			"fieldname": "custom_allow_manual_delivery_fee",
+			"label": "Allow Manual Delivery Fee",
+			"fieldtype": "Check",
+			"default": "0",
+		},
+		{
+			"fieldname": "custom_delivery_col_break",
+			"fieldtype": "Column Break"
+		},
+		{
+			"fieldname": "custom_delivery_fees",
+			"label": "Preset Delivery Fees",
+			"fieldtype": "Table",
+			"options": "POS Profile Delivery Fee",
+		},
+		{
+			"fieldname": "custom_discount_writeoff_section",
+			"label": "Discounts & Write-Offs",
+			"fieldtype": "Section Break"
+		},
+		{
 			"fieldname": "custom_discount_account",
 			"label": "Discount Account",
 			"fieldtype": "Link",
 			"options": "Account",
-			"description": "Account where POS discounts will be booked (if Discount Accounting is enabled in Selling Settings)"
+			"description": "Account where POS discounts will be booked"
 		},
 		{
-			"fieldname": "custom_consolidate_invoicing",
-			"label": "Consolidate Invoice on Close",
+			"fieldname": "custom_allow_loyalty_points",
+			"label": "Allow Loyalty Points",
 			"fieldtype": "Check",
-			"description": "When enabled, each order is saved as a draft (no GL or stock impact). All drafts are submitted in batch when the session is closed.",
-		},
-		{
-			"fieldname": "custom_hide_expected_amount",
-			"label": "Hide Expected Amount",
-			"fieldtype": "Check",
-		},
-		{
-			"fieldname": "custom_sultan_notifications_section",
-			"label": "Customer Notifications",
-			"fieldtype": "Section Break",
-		},
-		{
-			"fieldname": "custom_enable_whatsapp",
-			"label": "Enable Whatsapp",
-			"fieldtype": "Check",
-		},
-		{
-			"fieldname": "custom_enable_sms",
-			"label": "Enable SMS",
-			"fieldtype": "Check",
-		},
-		{
-			"fieldname": "custom_email_template",
-			"label": "Email Template",
-			"fieldtype": "Link",
-			"options": "Email Template",
-		},
-		{
-			"fieldname": "custom_sultan_write_off_section",
-			"label": "Write-Off Settings",
-			"fieldtype": "Section Break",
+			"default": "1",
 		},
 		{
 			"fieldname": "custom_allow_write_off",
@@ -622,27 +640,14 @@ def ensure_pos_profile_fields():
 			"fieldtype": "Check",
 		},
 		{
+			"fieldname": "custom_discount_col_break",
+			"fieldtype": "Column Break"
+		},
+		{
 			"fieldname": "custom_ignore_write_off_on_partial_returns",
 			"label": "Ignore Write Off on Partial Returns",
 			"fieldtype": "Check",
 			"default": "1",
-		},
-		{
-			"fieldname": "custom_sultan_delivery_fees_section",
-			"label": "Delivery Fees Settings",
-			"fieldtype": "Section Break",
-		},
-		{
-			"fieldname": "custom_allow_manual_delivery_fee",
-			"label": "Allow Manual Delivery Fee",
-			"fieldtype": "Check",
-			"default": "0",
-		},
-		{
-			"fieldname": "custom_delivery_fees",
-			"label": "Preset Delivery Fees",
-			"fieldtype": "Table",
-			"options": "POS Profile Delivery Fee",
 		},
 	]
 
@@ -651,7 +656,8 @@ def ensure_pos_profile_fields():
 		"custom_enable_multi_currency",
 		"custom_allow_edit_exchange_rate",
 		"custom_multi_currency_rates",
-		"custom_multi_currency_section"
+		"custom_multi_currency_section",
+		"custom_scale_barcodes_start_with"
 	]
 	if frappe.db.exists("Custom Field", "POS Payment Method-custom_exchange_rate"):
 		frappe.delete_doc("Custom Field", "POS Payment Method-custom_exchange_rate", ignore_permissions=True)
@@ -663,7 +669,7 @@ def ensure_pos_profile_fields():
 			print(f"Deleted old POS Profile field: {cf_name}")
 
 	# Insert or update POS Profile custom fields
-	prev_fieldname = "applicable_user"
+	prev_fieldname = "project"
 	for f in pos_fields:
 		cf_name = f"POS Profile-{f['fieldname']}"
 		f["dt"] = "POS Profile"
@@ -729,3 +735,706 @@ def ensure_pos_profile_fields():
 
 	frappe.clear_cache(doctype="POS Profile")
 	frappe.clear_cache(doctype="POS Payment Method")
+
+
+def ensure_custom_html_blocks():
+	block_name = "POS Branch Dashboard Overview"
+	html_content = """<div class="pos-dash-wrapper">
+  <div class="pos-dash-header">
+    <div style="flex: 1;"></div>
+    <button class="btn btn-default pos-dash-refresh-btn" type="button" title="Refresh Dashboard">
+      <i class="fa fa-refresh"></i>
+    </button>
+  </div>
+  
+  <div class="executive-metric-strip">
+    <div class="metric-col">
+      <div class="metric-header">
+        <span class="metric-label">Online Branches</span>
+      </div>
+      <div class="metric-val-wrap">
+        <span class="metric-big-val" id="val-online-branches">0 / 0</span>
+      </div>
+      <div class="metric-sub" id="sub-online-branches">Active POS profiles</div>
+    </div>
+
+    <div class="metric-divider"></div>
+
+    <div class="metric-col">
+      <div class="metric-header">
+        <span class="metric-label">Open Sessions</span>
+      </div>
+      <div class="metric-val-wrap">
+        <span class="metric-big-val" id="val-open-sessions">0</span>
+      </div>
+      <div class="metric-sub">Active terminal sessions</div>
+    </div>
+
+    <div class="metric-divider"></div>
+
+    <div class="metric-col">
+      <div class="metric-header">
+        <span class="metric-label">Uncollected Delivery</span>
+      </div>
+      <div class="metric-val-wrap">
+        <span class="metric-big-val" id="val-delivery-count">0 Orders</span>
+      </div>
+      <div class="metric-sub" id="sub-delivery-amount">Total: 0.00</div>
+    </div>
+  </div>
+
+  <div class="pos-dash-charts">
+    <div class="pos-dash-chart-box">
+      <div class="chart-box-header">
+        <div class="chart-box-title">Current Cash Balances</div>
+        <div class="chart-box-badge">Cash Only</div>
+      </div>
+      <div id="pos-cash-bars" class="horizontal-bars-list"></div>
+    </div>
+    <div class="pos-dash-chart-box">
+      <div class="chart-box-header">
+        <div class="chart-box-title">Daily Sales by Branch</div>
+        <div class="chart-box-badge">Today</div>
+      </div>
+      <div id="pos-sales-bars" class="horizontal-bars-list"></div>
+    </div>
+  </div>
+
+  <div class="pos-dash-grid-two">
+    <div class="pos-dash-panel-box">
+      <div class="chart-box-header">
+        <div class="chart-box-title">Top Selling Items</div>
+        <select id="top-items-filter" class="form-control" style="width: 100px; padding: 2px 8px; height: 26px; font-size: 11px; background-color: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer;">
+          <option value="Today">Today</option>
+          <option value="This Week">This Week</option>
+          <option value="This Month">This Month</option>
+          <option value="This Year">This Year</option>
+          <option value="Last Year">Last Year</option>
+          <option value="All Time">All Time</option>
+        </select>
+      </div>
+      <div id="top-items-list" class="dash-list-wrapper"></div>
+    </div>
+    <div class="pos-dash-panel-box">
+      <div class="chart-box-header">
+        <div class="chart-box-title">Uncollected Delivery Companies</div>
+        <div class="chart-box-badge">Pending Settlement</div>
+      </div>
+      <div id="delivery-companies-list" class="dash-list-wrapper"></div>
+    </div>
+  </div>
+</div>"""
+
+	style_content = """.pos-dash-wrapper {
+  padding: 24px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.03);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: #0f172a;
+}
+
+.pos-dash-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.pos-dash-refresh-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.pos-dash-refresh-btn:hover {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.sync-icon {
+  transition: transform 0.3s ease;
+}
+
+.sync-icon.spin {
+  animation: spin-anim 1s linear infinite;
+}
+
+@keyframes spin-anim {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.executive-metric-strip {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.02);
+}
+
+@media (max-width: 768px) {
+  .executive-metric-strip {
+    flex-direction: column;
+    gap: 16px;
+    align-items: flex-start;
+  }
+  .metric-divider {
+    display: none;
+  }
+}
+
+.metric-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.metric-header {
+  display: flex;
+  align-items: center;
+}
+
+.metric-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+}
+
+.metric-val-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.metric-big-val {
+  font-size: 28px;
+  font-weight: 800;
+  color: #0f172a;
+  line-height: 1.1;
+  letter-spacing: -0.5px;
+}
+
+.metric-denom-val {
+  font-size: 18px;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.metric-unit-text {
+  font-size: 14px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.metric-sub {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 2px;
+}
+
+.metric-divider {
+  width: 1px;
+  height: 40px;
+  background: #e2e8f0;
+  margin: 0 24px;
+}
+
+.pos-dash-charts {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+@media (max-width: 900px) {
+  .pos-dash-charts {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pos-dash-grid-two {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+@media (max-width: 900px) {
+  .pos-dash-grid-two {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pos-dash-chart-box, .pos-dash-panel-box {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+}
+
+.chart-box-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.chart-box-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.chart-box-badge {
+  font-size: 11px;
+  font-weight: 600;
+  background: #f1f5f9;
+  color: #475569;
+  padding: 3px 8px;
+  border-radius: 6px;
+}
+
+.horizontal-bars-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.hbar-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.hbar-name {
+  width: 170px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #334155;
+  white-space: normal;
+  line-height: 1.3;
+}
+
+.hbar-track {
+  flex: 1;
+  height: 10px;
+  background: #f1f5f9;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.hbar-fill-navy {
+  height: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #162d98, #2563eb);
+}
+
+.hbar-fill-blue {
+  height: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #2563eb, #3b82f6);
+}
+
+.hbar-val {
+  min-width: 95px;
+  text-align: right;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.dash-list-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dash-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  background: #f8fafc;
+  border: 1px solid #f1f5f9;
+  border-radius: 8px;
+}
+
+.dash-item-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+}
+
+.dash-rank-badge {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.dash-item-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+
+.dash-item-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dash-item-sub {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.dash-item-val {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.empty-state-text {
+  font-size: 13px;
+  color: #94a3b8;
+  text-align: center;
+  padding: 20px 0;
+}
+"""
+
+	script_content = """function formatNum(v) {
+  return (v || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function buildHorizontalBars(container, labels, values, fillClass) {
+  if (!container) return;
+  container.innerHTML = "";
+
+  let maxVal = Math.max(...values, 0);
+  if (maxVal <= 0) maxVal = 1;
+
+  labels.forEach(function(label, idx) {
+    let val = values[idx] || 0;
+    let pct = Math.round((val / maxVal) * 100);
+    if (val > 0 && pct < 3) pct = 3;
+
+    let row = document.createElement("div");
+    row.className = "hbar-row";
+
+    let nameDiv = document.createElement("div");
+    nameDiv.className = "hbar-name";
+    nameDiv.textContent = label;
+
+    let trackDiv = document.createElement("div");
+    trackDiv.className = "hbar-track";
+
+    let fillDiv = document.createElement("div");
+    fillDiv.className = fillClass;
+    fillDiv.style.width = pct + "%";
+    trackDiv.appendChild(fillDiv);
+
+    let valDiv = document.createElement("div");
+    valDiv.className = "hbar-val";
+    valDiv.textContent = formatNum(val);
+
+    row.appendChild(nameDiv);
+    row.appendChild(trackDiv);
+    row.appendChild(valDiv);
+
+    container.appendChild(row);
+  });
+}
+
+function buildCashBreakdown(container, cashBreakdown) {
+  if (!container) return;
+  container.innerHTML = "";
+  
+  if (!cashBreakdown || Object.keys(cashBreakdown).length === 0) {
+     container.innerHTML = '<div class="empty-state-text">No cash collected yet</div>';
+     return;
+  }
+  
+  let maxVal = 1;
+  for (let branch in cashBreakdown) {
+     cashBreakdown[branch].forEach(item => {
+        if (item.amount > maxVal) maxVal = item.amount;
+     });
+  }
+
+  for (let branch in cashBreakdown) {
+     let isFirst = true;
+     cashBreakdown[branch].forEach(item => {
+        let val = item.amount || 0;
+        let pct = Math.round((val / maxVal) * 100);
+        if (val > 0 && pct < 3) pct = 3;
+        
+        let row = document.createElement("div");
+        row.className = "hbar-row";
+        row.style.marginBottom = "8px";
+
+        let branchDiv = document.createElement("div");
+        branchDiv.style.width = "90px";
+        branchDiv.style.fontSize = "12px";
+        branchDiv.style.fontWeight = "600";
+        branchDiv.style.color = "#1e293b";
+        branchDiv.style.whiteSpace = "nowrap";
+        branchDiv.style.overflow = "hidden";
+        branchDiv.style.textOverflow = "ellipsis";
+        branchDiv.textContent = isFirst ? branch : "";
+
+        let nameDiv = document.createElement("div");
+        nameDiv.className = "hbar-name";
+        nameDiv.style.width = "50px";
+        nameDiv.style.fontSize = "12px";
+        nameDiv.style.color = "#64748b";
+        let currMatch = item.mode.match(/\((.*?)\)/);
+        let currStr = currMatch ? " " + currMatch[1] : "";
+        let modeName = currMatch ? item.mode.replace(/\(.*?\)/, "").trim() : item.mode;
+        nameDiv.textContent = modeName; 
+
+        let trackDiv = document.createElement("div");
+        trackDiv.className = "hbar-track";
+
+        let fillDiv = document.createElement("div");
+        fillDiv.className = "hbar-fill-navy";
+        fillDiv.style.width = pct + "%";
+        trackDiv.appendChild(fillDiv);
+
+        let valDiv = document.createElement("div");
+        valDiv.className = "hbar-val";
+        valDiv.style.fontWeight = "600";
+        valDiv.textContent = formatNum(val) + currStr; 
+
+        row.appendChild(branchDiv);
+        row.appendChild(nameDiv);
+        row.appendChild(trackDiv);
+        row.appendChild(valDiv);
+
+        container.appendChild(row);
+        isFirst = false;
+     });
+  }
+}
+
+function renderTopItems(container, items) {
+  if (!container) return;
+  container.innerHTML = "";
+  if (!items || items.length === 0) {
+    container.innerHTML = '<div class="empty-state-text">No items sold yet</div>';
+    return;
+  }
+
+  items.forEach(function(item, idx) {
+    let div = document.createElement("div");
+    div.className = "dash-list-item";
+
+    let left = document.createElement("div");
+    left.className = "dash-item-left";
+
+    let rank = document.createElement("div");
+    rank.className = "dash-rank-badge";
+    rank.textContent = (idx + 1);
+
+    let info = document.createElement("div");
+    info.className = "dash-item-info";
+
+    let title = document.createElement("div");
+    title.className = "dash-item-title";
+    title.textContent = item.item_name;
+
+    let qtyBadge = document.createElement("div");
+    qtyBadge.className = "dash-item-qty-badge";
+    let qtyStr = parseFloat(item.total_qty).toString();
+    qtyBadge.textContent = qtyStr + " Units";
+
+    info.appendChild(title);
+
+    left.appendChild(rank);
+    left.appendChild(info);
+
+    div.appendChild(left);
+    div.appendChild(qtyBadge);
+
+    container.appendChild(div);
+  });
+}
+
+function renderDeliveryCompanies(container, companies) {
+  if (!container) return;
+  container.innerHTML = "";
+  if (!companies || companies.length === 0) {
+    container.innerHTML = '<div class="empty-state-text">All delivery orders collected</div>';
+    return;
+  }
+
+  companies.forEach(function(comp) {
+    let div = document.createElement("div");
+    div.className = "dash-list-item";
+
+    let left = document.createElement("div");
+    left.className = "dash-item-left";
+
+    let info = document.createElement("div");
+    info.className = "dash-item-info";
+
+    let title = document.createElement("div");
+    title.className = "dash-item-title";
+    title.textContent = comp.company;
+
+    let sub = document.createElement("div");
+    sub.className = "dash-item-sub";
+    sub.textContent = comp.count + " uncollected orders";
+
+    info.appendChild(title);
+    info.appendChild(sub);
+    left.appendChild(info);
+
+    let right = document.createElement("div");
+    right.className = "dash-item-val";
+    right.textContent = formatNum(comp.amount);
+
+    div.appendChild(left);
+    div.appendChild(right);
+
+    container.appendChild(div);
+  });
+}
+
+function renderDashboardData() {
+  let btn = root_element.querySelector(".pos-dash-refresh-btn");
+  let icon = root_element.querySelector(".fa-refresh");
+  if (icon) icon.classList.add("fa-spin");
+
+  frappe.call({
+    method: "managely_terminal.managely_terminal.api.pos_dashboard.get_pos_dashboard_data",
+    callback: function(r) {
+      if (icon) icon.classList.remove("fa-spin");
+      if (!r.message) return;
+      let data = r.message;
+
+      let elOnline = root_element.querySelector("#val-online-branches");
+      let elSubOnline = root_element.querySelector("#sub-online-branches");
+      let elSessions = root_element.querySelector("#val-open-sessions");
+      let elDelivCount = root_element.querySelector("#val-delivery-count");
+      let elDelivSub = root_element.querySelector("#sub-delivery-amount");
+
+      if (elOnline) {
+        elOnline.textContent = (data.online_branches_count || 0) + " / " + (data.total_branches_count || 0);
+      }
+      if (elSubOnline) {
+        elSubOnline.textContent = (data.online_branches_count || 0) + " online of " + (data.total_branches_count || 0) + " branches";
+      }
+      if (elSessions) {
+        elSessions.textContent = data.open_sessions_count || 0;
+      }
+
+      if (elDelivCount && data.uncollected_delivery) {
+        elDelivCount.innerHTML = (data.uncollected_delivery.total_count || 0) + ' <span style="font-size: 15px; color: #64748b; font-weight: 600;">Orders</span>';
+      }
+      if (elDelivSub && data.uncollected_delivery) {
+        elDelivSub.textContent = "Total: " + formatNum(data.uncollected_delivery.total_amount);
+      }
+
+      let cashContainer = root_element.querySelector("#pos-cash-bars");
+      if (cashContainer && data.cash_breakdown) {
+        buildCashBreakdown(cashContainer, data.cash_breakdown);
+      }
+
+      let salesContainer = root_element.querySelector("#pos-sales-bars");
+      if (salesContainer && data.daily_sales_chart) {
+        buildHorizontalBars(salesContainer, data.daily_sales_chart.labels, data.daily_sales_chart.datasets[0].values, "hbar-fill-blue");
+      }
+
+      let topItemsContainer = root_element.querySelector("#top-items-list");
+      if (topItemsContainer) {
+        renderTopItems(topItemsContainer, data.top_items);
+      }
+
+      let delivContainer = root_element.querySelector("#delivery-companies-list");
+      if (delivContainer && data.uncollected_delivery) {
+        renderDeliveryCompanies(delivContainer, data.uncollected_delivery.companies);
+      }
+    }
+  });
+}
+
+let btn = root_element.querySelector(".pos-dash-refresh-btn");
+if (btn) {
+  btn.addEventListener("click", function() {
+    renderDashboardData();
+  });
+}
+
+let filterDropdown = root_element.querySelector("#top-items-filter");
+if (filterDropdown) {
+  filterDropdown.addEventListener("change", function(e) {
+    let topItemsContainer = root_element.querySelector("#top-items-list");
+    if (!topItemsContainer) return;
+    
+    topItemsContainer.style.opacity = "0.5";
+    
+    frappe.call({
+      method: "managely_terminal.managely_terminal.api.pos_dashboard.get_filtered_top_items",
+      args: { date_filter: e.target.value },
+      callback: function(r) {
+        if (!r.exc && r.message) {
+          renderTopItems(topItemsContainer, r.message);
+          topItemsContainer.style.opacity = "1";
+        }
+      }
+    });
+  });
+}
+
+renderDashboardData();"""
+
+	if not frappe.db.exists("Custom HTML Block", block_name):
+		doc = frappe.get_doc({
+			"doctype": "Custom HTML Block",
+			"name": block_name,
+			"html": html_content,
+			"style": style_content,
+			"script": script_content,
+			"private": 0
+		})
+		doc.insert(ignore_permissions=True)
+		print(f"Created Custom HTML Block: {block_name}")
+	else:
+		doc = frappe.get_doc("Custom HTML Block", block_name)
+		doc.html = html_content
+		doc.style = style_content
+		doc.script = script_content
+		doc.save(ignore_permissions=True)
+		print(f"Updated Custom HTML Block: {block_name}")
