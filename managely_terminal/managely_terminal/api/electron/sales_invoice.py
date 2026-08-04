@@ -858,6 +858,7 @@ def create_and_submit_invoice(data):
 			business_type,
 			roundoff_amount,
 			delivery_personnel,
+			custom_change_breakdown,
 		) = parse_invoice_data(data)
 
 		# Validate required fields
@@ -878,11 +879,14 @@ def create_and_submit_invoice(data):
 			include_payments=True,
 			delivery_personnel=delivery_personnel,
 			draft_id=draft_id,
+			custom_change_breakdown=custom_change_breakdown,
 			delivery_fee=flt(data.get("deliveryFee", 0.0)),
 			pre_assigned_name=data.get("pre_assigned_name") or data.get("name"),
 			naming_series=data.get("naming_series"),
 			pos_order_type=data.get("custom_pos_order_type") or data.get("orderType"),
 			delivery_status=data.get("deliveryStatus") or data.get("custom_delivery_status"),
+			discount_amount=flt(data.get("discount_amount") or data.get("discountAmount") or data.get("couponDiscount") or data.get("discount") or 0.0),
+			additional_discount_percentage=flt(data.get("additional_discount_percentage") or data.get("discountPercentage") or 0.0),
 		)
 
 		if data.get("is_return"):
@@ -1121,6 +1125,7 @@ def create_draft_invoice(data):
 			business_type,
 			roundoff_amount,
 			delivery_personnel,
+			custom_change_breakdown,
 		) = parse_invoice_data(data)
 		doc = build_sales_invoice_doc(
 			customer,
@@ -1133,6 +1138,9 @@ def create_draft_invoice(data):
 			include_payments=True,
 			delivery_personnel=delivery_personnel,
 			draft_id=draft_id,
+			custom_change_breakdown=custom_change_breakdown,
+			discount_amount=flt(data.get("discount_amount") or data.get("discountAmount") or data.get("couponDiscount") or data.get("discount") or 0.0),
+			additional_discount_percentage=flt(data.get("additional_discount_percentage") or data.get("discountPercentage") or 0.0),
 		)
 
 		if not doc.get("payments"):
@@ -1220,6 +1228,7 @@ def parse_invoice_data(data):
 	customer_obj = data.get("customer") or {}
 	customer = customer_obj.get("id") if customer_obj else None
 	items = data.get("items", [])
+	custom_change_breakdown = data.get("custom_change_breakdown", [])
 
 	amount_paid = 0.0
 	pos_profile = get_current_pos_profile()
@@ -1279,6 +1288,7 @@ def parse_invoice_data(data):
 		business_type,
 		roundoff_amount,
 		delivery_personnel,
+		custom_change_breakdown,
 	)
 
 
@@ -1298,6 +1308,9 @@ def build_sales_invoice_doc(
 	naming_series=None,
 	pos_order_type=None,
 	delivery_status=None,
+	discount_amount=0.0,
+	additional_discount_percentage=0.0,
+	custom_change_breakdown=None,
 ):
 	"""Main function to build a POS invoice document."""
 	if draft_id and frappe.db.exists("POS Invoice", draft_id):
@@ -1331,6 +1344,16 @@ def build_sales_invoice_doc(
 	doc.customer = customer
 	doc.due_date = frappe.utils.nowdate()
 	doc.custom_delivery_date = frappe.utils.nowdate()
+
+	if custom_change_breakdown:
+		doc.set("custom_change_breakdown", [])
+		for cb in custom_change_breakdown:
+			doc.append("custom_change_breakdown", {
+				"cash_drawer": cb.get("cash_drawer") or cb.get("method"),
+				"currency": cb.get("currency"),
+				"amount": cb.get("amount"),
+				"base_amount": cb.get("base_amount")
+			})
 
 	# Set delivery details for Delivery orders vs Pickup orders
 	_is_delivery = (pos_order_type == "Delivery") or (business_type == "Delivery") or bool(delivery_personnel) or (flt(delivery_fee) > 0.0) or bool(delivery_status)
@@ -1421,6 +1444,16 @@ def build_sales_invoice_doc(
 			# Re-calculate taxes and totals to update grand_total
 			doc.run_method("calculate_taxes_and_totals")
 
+	if flt(discount_amount) > 0 or flt(additional_discount_percentage) > 0:
+		doc.apply_discount_on = "Grand Total"
+		if flt(additional_discount_percentage) > 0:
+			doc.additional_discount_percentage = flt(additional_discount_percentage)
+		if flt(discount_amount) > 0:
+			doc.discount_amount = flt(discount_amount)
+		if pos_profile and getattr(pos_profile, "custom_discount_account", None):
+			doc.additional_discount_account = pos_profile.custom_discount_account
+		doc.run_method("calculate_taxes_and_totals")
+
 	# Add payment information
 	if include_payments:
 		_add_payment_entries(doc, mode_of_payment)
@@ -1465,8 +1498,8 @@ def _set_pos_profile_fields(doc, pos_profile, customer, business_type):
 	doc.set_warehouse = pos_profile.warehouse
 	doc.cost_center = pos_profile.cost_center or frappe.get_cached_value("Company", pos_profile.company, "cost_center")
 
-	if pos_profile.get("change_amount_account"):
-		doc.account_for_change_amount = pos_profile.change_amount_account
+	if pos_profile.get("change_amount_account") or pos_profile.get("account_for_change_amount"):
+		doc.account_for_change_amount = pos_profile.get("change_amount_account") or pos_profile.get("account_for_change_amount")
 
 
 	# Resolve debit_to (Receivable Account)
@@ -1582,47 +1615,7 @@ def _autofetch_batch_fifo(item_code, warehouse, qty):
         )
 
     return batches[0].batch_no
-# def _autofetch_batch_fifo(item_code, warehouse, qty):
-# 	"""
-# 	Simple FIFO-based batch selector.
 
-# 	Strategy:
-# 	- Prefer non-expired batches for the given item.
-# 	- Order by expiry_date ASC, then creation ASC (FIFO style).
-# 	- Currently does NOT enforce per-warehouse stock; core ERPNext validations
-# 	  will still ensure there is sufficient stock when the invoice is submitted.
-# 	"""
-# 	from frappe.utils import nowdate
-
-# 	today = nowdate()
-
-# 	# Filter by item and non-expired batches; ignore disabled batches
-# 	batches = frappe.get_all(
-# 		"Batch",
-# 		filters={
-# 			"item": item_code,
-# 			"disabled": 0,
-# 			"expiry_date": [">=", today],
-# 		},
-# 		fields=["name", "expiry_date", "creation"],
-# 		order_by="expiry_date asc, creation asc",
-# 		limit_page_length=1,
-# 	)
-
-# 	if not batches:
-# 		# Fallback: try ANY active batch if no expiry_date / future-dated batches exist
-# 		batches = frappe.get_all(
-# 			"Batch",
-# 			filters={
-# 				"item": item_code,
-# 				"disabled": 0,
-# 			},
-# 			fields=["name", "creation"],
-# 			order_by="creation asc",
-# 			limit_page_length=1,
-# 		)
-
-# 	return batches[0].name if batches else None
 
 def _determine_is_pos(customer, business_type):
 	"""Determine if the invoice should be marked as POS based on business type."""
@@ -1856,6 +1849,9 @@ def _prepare_item_data(item, item_data_map, pos_profile, prices_include_vat=Fals
 	is_tax_exempt = item.get("custom_is_tax_exempt") or item.get("is_tax_exempt") or 0
 	if is_tax_exempt:
 		item_data["item_tax_rate"] = tax_exempt_json
+
+	if pos_profile and getattr(pos_profile, "custom_discount_account", None):
+		item_data["discount_account"] = pos_profile.custom_discount_account
 
 	return item_data
 
@@ -2390,7 +2386,6 @@ def custom_calculate_totals(self):
 					# For negative totals, add to reach .00 (e.g., -50.01 + 0.01 = -50)
 					self.doc.grand_total += small_amount
 					self.doc.base_grand_total = self.doc.grand_total * (self.doc.conversion_rate or 1)
-	# print("Round-off amount before adjustment:", self.doc.custom_roundoff_amount)
 
 	self.set_rounded_total()
 

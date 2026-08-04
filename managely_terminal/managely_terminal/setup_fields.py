@@ -130,23 +130,6 @@ def ensure_delivery_company_doctype_and_fields():
 		})
 		doc.insert(ignore_permissions=True)
 		print("Created DocType Delivery Company")
-	else:
-		pass
-# 		# Add receivable_account field if missing
-# 		if frappe.db.exists("DocType", "Delivery Company"):
-# 			dc_doc = frappe.get_doc("DocType", "Delivery Company")
-# 			field_names = [f.fieldname for f in dc_doc.fields]
-# 			if "receivable_account" not in field_names:
-# 				dc_doc.append("fields", {
-# 					"fieldname": "receivable_account",
-# 					"label": "Receivable Account",
-# 					"fieldtype": "Link",
-# 					"options": "Account",
-# 					"in_list_view": 1,
-# 					"insert_after": "company_name"
-# 				})
-# 				dc_doc.save(ignore_permissions=True)
-# 				print("Added receivable_account field to Delivery Company DocType")
 
 	# 4. Custom fields for Delivery Personnel
 	delivery_personnel_fields = []
@@ -436,21 +419,20 @@ def run():
 		}).insert(ignore_permissions=True)
 		print("Created custom_allow_returns custom field on Employee.")
 
-	# Stamp Setting and Terminal Settings DocTypes are now standard
+	allow_discounts_cf = "Employee-custom_allow_discounts"
+	if not frappe.db.exists("Custom Field", allow_discounts_cf):
+		frappe.get_doc({
+			"doctype": "Custom Field",
+			"dt": "Employee",
+			"fieldname": "custom_allow_discounts",
+			"label": "Allow POS Discounts",
+			"fieldtype": "Check",
+			"insert_after": "custom_allow_returns",
+			"default": "1"
+		}).insert(ignore_permissions=True)
+		print("Created custom_allow_discounts custom field on Employee.")
 
-# 	# Custom field for POS Invoice to avoid erpnext 15 AttributeError
-# 	pos_invoice_roundoff_cost_center = "POS Invoice-use_company_roundoff_cost_center"
-# 	if not frappe.db.exists("Custom Field", pos_invoice_roundoff_cost_center):
-# 		doc = frappe.get_doc({
-# 			"doctype": "Custom Field",
-# 			"dt": "POS Invoice",
-# 			"fieldname": "use_company_roundoff_cost_center",
-# 			"label": "Use Company Roundoff Cost Center",
-# 			"fieldtype": "Check",
-# 			"insert_after": "company"
-# 		})
-# 		doc.insert(ignore_permissions=True)
-# 		print("Created use_company_roundoff_cost_center custom field on POS Invoice.")
+	# Stamp Setting and Terminal Settings DocTypes are now standard
 
 	frappe.clear_cache(doctype="POS Profile")
 	frappe.clear_cache(doctype="Sales Invoice")
@@ -589,6 +571,13 @@ def ensure_pos_profile_fields():
 			"fieldtype": "Link",
 			"options": "Account",
 			"description": "Account where delivery fee income will be booked"
+		},
+		{
+			"fieldname": "custom_discount_account",
+			"label": "Discount Account",
+			"fieldtype": "Link",
+			"options": "Account",
+			"description": "Account where POS discounts will be booked (if Discount Accounting is enabled in Selling Settings)"
 		},
 		{
 			"fieldname": "custom_consolidate_invoicing",

@@ -1490,47 +1490,7 @@ def _autofetch_batch_fifo(item_code, warehouse, qty):
         )
 
     return batches[0].batch_no
-# def _autofetch_batch_fifo(item_code, warehouse, qty):
-# 	"""
-# 	Simple FIFO-based batch selector.
 
-# 	Strategy:
-# 	- Prefer non-expired batches for the given item.
-# 	- Order by expiry_date ASC, then creation ASC (FIFO style).
-# 	- Currently does NOT enforce per-warehouse stock; core ERPNext validations
-# 	  will still ensure there is sufficient stock when the invoice is submitted.
-# 	"""
-# 	from frappe.utils import nowdate
-
-# 	today = nowdate()
-
-# 	# Filter by item and non-expired batches; ignore disabled batches
-# 	batches = frappe.get_all(
-# 		"Batch",
-# 		filters={
-# 			"item": item_code,
-# 			"disabled": 0,
-# 			"expiry_date": [">=", today],
-# 		},
-# 		fields=["name", "expiry_date", "creation"],
-# 		order_by="expiry_date asc, creation asc",
-# 		limit_page_length=1,
-# 	)
-
-# 	if not batches:
-# 		# Fallback: try ANY active batch if no expiry_date / future-dated batches exist
-# 		batches = frappe.get_all(
-# 			"Batch",
-# 			filters={
-# 				"item": item_code,
-# 				"disabled": 0,
-# 			},
-# 			fields=["name", "creation"],
-# 			order_by="creation asc",
-# 			limit_page_length=1,
-# 		)
-
-# 	return batches[0].name if batches else None
 
 def _determine_is_pos(customer, business_type):
 	"""Determine if the invoice should be marked as POS based on business type."""
@@ -2268,7 +2228,6 @@ def custom_calculate_totals(self):
 					# For negative totals, add to reach .00 (e.g., -50.01 + 0.01 = -50)
 					self.doc.grand_total += small_amount
 					self.doc.base_grand_total = self.doc.grand_total * (self.doc.conversion_rate or 1)
-	# print("Round-off amount before adjustment:", self.doc.custom_roundoff_amount)
 
 	self.set_rounded_total()
 

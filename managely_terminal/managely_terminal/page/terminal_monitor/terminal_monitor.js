@@ -18,6 +18,9 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 	/* Render HTML Template directly from cache to bypass template compilation errors */
 	$(frappe.templates['terminal_monitor'] || '').appendTo(page.body);
 
+	/* Inject Server App badge into the page title area */
+	$('<span id="app-update-badge" class="badge badge-light border text-secondary px-2 py-1 ml-2" title="Server App Update Status" style="font-size: 13px;">Server App: Checking...</span>').appendTo(page.wrapper.find('.title-area'));
+
 	/* Programmatically inject page styles to prevent template parsing issues with CSS braces */
 	var css = `
 		.terminal-monitor-container .list-group-item.active {
@@ -48,16 +51,6 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 		}
 	`;
 	$('<style>').prop('type', 'text/css').html(css).appendTo('head');
-
-	/* Refresh action */
-	var $refresh_btn = page.add_inner_button('<i class="fa fa-refresh"></i>', function() {
-		load_latest_pos_version();
-		load_server_app_status();
-		load_terminals();
-	});
-	if ($refresh_btn) {
-		$refresh_btn.attr('title', 'Refresh Terminals');
-	}
 
 	page.add_inner_button('Deploy POS Update', function() {
 		let d = new frappe.ui.Dialog({
@@ -206,7 +199,7 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 				let ver = r.message || '';
 				let $ver_el = d.get_field('html').$wrapper.find('#current-deployed-ver');
 				if (ver) {
-					$ver_el.removeClass('badge-light border text-dark').addClass('badge-success text-white').html('<i class="fa fa-check-circle mr-1"></i>v' + ver);
+					$ver_el.removeClass('badge-light border text-dark').addClass('badge-dark text-white').css({'font-size': '14px', 'padding': '6px 12px'}).html('<i class="fa fa-check-circle mr-1"></i>v' + ver);
 				} else {
 					$ver_el.html('<i class="fa fa-exclamation-circle mr-1"></i>No Release Uploaded');
 				}
@@ -1311,6 +1304,16 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 			}
 		});
 	});
+
+	/* Refresh action */
+	var $refresh_btn = page.add_inner_button('<i class="fa fa-refresh"></i>', function() {
+		load_latest_pos_version();
+		load_server_app_status();
+		load_terminals();
+	});
+	if ($refresh_btn) {
+		$refresh_btn.attr('title', 'Refresh Terminals');
+	}
 
 	$('#btn-close-migrate-modal').on('click', function() {
 		window.location.reload();

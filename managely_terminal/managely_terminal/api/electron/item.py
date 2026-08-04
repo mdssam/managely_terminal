@@ -1350,7 +1350,6 @@ def _prepare_erpnext_items(cart_items, context):
 	"""Convert cart items to ERPNext pricing rule format."""
 	erpnext_items = []
 
-	# for item in cart_items:
 	for idx, item in enumerate(cart_items):
 		item_code = item.get("id") or item.get("item_code")
 		if not item_code:

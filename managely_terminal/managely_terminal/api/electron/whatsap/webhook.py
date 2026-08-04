@@ -30,11 +30,6 @@ def get():
 def post():
 	"""Post."""
 	data = frappe.local.form_dict
-	# frappe.get_doc({
-	# 	"doctype": "WhatsApp Notification Log",
-	# 	"template": "Webhook",
-	# 	"meta_data": json.dumps(data)
-	# }).insert(ignore_permissions=True)
 
 	messages = []
 	try:
