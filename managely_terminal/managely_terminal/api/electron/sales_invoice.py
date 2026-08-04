@@ -1428,7 +1428,7 @@ def build_sales_invoice_doc(
 				shipping_account = pos_profile.custom_delivery_charge_account
 
 		if not shipping_account:
-			shipping_account = "626100020 - Delivery Charge - SG"
+			shipping_account = "708000001 - Delivery Charge Income - SG"
 
 		if not frappe.db.exists("Account", shipping_account):
 			shipping_account = frappe.db.get_value("Company", doc.company, "default_income_account")
