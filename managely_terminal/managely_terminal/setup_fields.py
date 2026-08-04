@@ -91,6 +91,24 @@ def ensure_delivery_company_doctype_and_fields():
 		doc.insert(ignore_permissions=True)
 		print("Created DocType POS Profile Delivery Fee")
 
+	if not frappe.db.exists("DocType", "POS Change Breakdown"):
+		doc = frappe.get_doc({
+			"doctype": "DocType",
+			"name": "POS Change Breakdown",
+			"module": "Managely Terminal",
+			"custom": 1,
+			"istable": 1,
+			"editable_grid": 1,
+			"fields": [
+				{"fieldname": "cash_drawer", "label": "Cash Drawer / Method", "fieldtype": "Data", "in_list_view": 1},
+				{"fieldname": "currency", "label": "Currency", "fieldtype": "Link", "options": "Currency", "in_list_view": 1},
+				{"fieldname": "amount", "label": "Amount", "fieldtype": "Currency", "in_list_view": 1},
+				{"fieldname": "base_amount", "label": "Base Amount", "fieldtype": "Currency", "in_list_view": 1}
+			]
+		})
+		doc.insert(ignore_permissions=True)
+		print("Created DocType POS Change Breakdown")
+
 	# 2. Create DocType Delivery Company if it doesn't exist
 	if not frappe.db.exists("DocType", "Delivery Company"):
 		doc = frappe.get_doc({
