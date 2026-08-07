@@ -8,7 +8,7 @@ def _lookup_employee(username: str):
     employee = frappe.db.get_value(
         "Employee",
         {"custom_pos_username": username, "status": "Active"},
-        ["name", "employee_name", "custom_pos_role", "custom_allow_returns", "custom_allow_discounts"],
+        ["name", "employee_name", "custom_pos_role", "custom_allow_returns", "custom_allow_discounts", "custom_allow_item_discounts"],
         as_dict=True,
     )
     if employee:
@@ -50,6 +50,7 @@ def verify_employee_login(username: str, password: str) -> dict:
         "allowed_pos_profiles": employee.get("custom_allowed_pos_profiles") or [],
         "custom_allow_returns": employee.get("custom_allow_returns") or 0,
         "custom_allow_discounts": employee.get("custom_allow_discounts") or 0,
+        "custom_allow_item_discounts": employee.get("custom_allow_item_discounts") or 0,
     }
 
 
@@ -88,6 +89,7 @@ def employee_pos_login(username: str, password: str) -> dict:
         "allowed_pos_profiles": employee.get("custom_allowed_pos_profiles") or [],
         "custom_allow_returns": employee.get("custom_allow_returns") or 0,
         "custom_allow_discounts": employee.get("custom_allow_discounts") or 0,
+        "custom_allow_item_discounts": employee.get("custom_allow_item_discounts") or 0,
         "message": "Logged In",
         "csrf_token": csrf_token,
     }
@@ -132,7 +134,7 @@ def get_branch_employees_hashes(pos_profile: str) -> dict:
     employees = frappe.get_all(
         "Employee",
         filters={"status": "Active"},
-        fields=["name", "employee_name", "custom_pos_username", "custom_pos_role", "user_id", "custom_allow_returns", "custom_allow_discounts"]
+        fields=["name", "employee_name", "custom_pos_username", "custom_pos_role", "user_id", "custom_allow_returns", "custom_allow_discounts", "custom_allow_item_discounts"]
     )
 
     data = []
@@ -165,7 +167,8 @@ def get_branch_employees_hashes(pos_profile: str) -> dict:
                     "allowed_pos_profiles": allowed_profiles,
                     "user": emp.user_id,
                     "custom_allow_returns": emp.custom_allow_returns,
-                    "custom_allow_discounts": emp.custom_allow_discounts
+                    "custom_allow_discounts": emp.custom_allow_discounts,
+                    "custom_allow_item_discounts": emp.custom_allow_item_discounts
                 })
 
     return {"success": True, "data": data}

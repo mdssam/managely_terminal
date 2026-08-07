@@ -1,6 +1,6 @@
 {
  "charts": [],
- "content": "[{\"id\": \"sp-custom-01\", \"type\": \"custom_block\", \"data\": {\"custom_block_name\": \"POS Branch Dashboard Overview\", \"col\": 12}}, {\"id\": \"sp-header-01\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Your Shortcuts</b></span>\", \"col\": 12}}, {\"id\": \"sp-pos-inv-01\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"POS Invoice\", \"col\": 3}}, {\"id\": \"sp-pos-close-01\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"POS Closing Entry\", \"col\": 3}}, {\"id\": \"sp-pos-mon-01\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"POS Closing Monitor\", \"col\": 3}}, {\"id\": \"sp-term-mon-01\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Terminal Monitor\", \"col\": 3}}, {\"id\": \"sp-si-01\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Sales Invoice\", \"col\": 3}}, {\"id\": \"sp-wo-01\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Work Order\", \"col\": 3}}, {\"id\": \"sp-poe-01\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"POS Opening Entry\", \"col\": 3}}, {\"id\": \"sp-it-01\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Items\", \"col\": 3}}, {\"id\": \"sp-bom-01\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Bill of Materials\", \"col\": 3}}, {\"id\": \"sp-pst-01\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"POS Suspended Transaction\", \"col\": 3}}, {\"id\": \"sp-spacer-01\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"sp-header-02\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Masters & Transactions</b></span>\", \"col\": 12}}, {\"id\": \"card-spt\", \"type\": \"card\", \"data\": {\"card_name\": \"POS Transactions\", \"col\": 4}}, {\"id\": \"card-ds\", \"type\": \"card\", \"data\": {\"card_name\": \"Delivery\", \"col\": 4}}, {\"id\": \"card-sms\", \"type\": \"card\", \"data\": {\"card_name\": \"Masters & Settings\", \"col\": 4}}, {\"id\": \"card-mcp\", \"type\": \"card\", \"data\": {\"card_name\": \"Multi-Currency Payments\", \"col\": 4}}, {\"id\": \"card-lp\", \"type\": \"card\", \"data\": {\"card_name\": \"Loyalty & Pricing\", \"col\": 4}}]",
+ "content": "[{\"id\": \"sp-custom-01\", \"type\": \"custom_block\", \"data\": {\"custom_block_name\": \"POS Branch Dashboard Overview\", \"col\": 12}}, {\"id\": \"sp-header-01\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Your Shortcuts</b></span>\", \"col\": 12}}, {\"id\": \"sp-pos-inv-01\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"POS Invoice\", \"col\": 3}}, {\"id\": \"sp-pos-close-01\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"POS Closing Entry\", \"col\": 3}}, {\"id\": \"sp-pos-mon-01\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"POS Closing Monitor\", \"col\": 3}}, {\"id\": \"sp-si-01\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Sales Invoice\", \"col\": 3}}, {\"id\": \"sp-wo-01\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Work Order\", \"col\": 3}}, {\"id\": \"sp-poe-01\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"POS Opening Entry\", \"col\": 3}}, {\"id\": \"sp-it-01\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Items\", \"col\": 3}}, {\"id\": \"sp-bom-01\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"Bill of Materials\", \"col\": 3}}, {\"id\": \"sp-pst-01\", \"type\": \"shortcut\", \"data\": {\"shortcut_name\": \"POS Suspended Transaction\", \"col\": 3}}, {\"id\": \"sp-spacer-01\", \"type\": \"spacer\", \"data\": {\"col\": 12}}, {\"id\": \"sp-header-02\", \"type\": \"header\", \"data\": {\"text\": \"<span class=\\\"h4\\\"><b>Masters & Transactions</b></span>\", \"col\": 12}}, {\"id\": \"card-spt\", \"type\": \"card\", \"data\": {\"card_name\": \"POS Transactions\", \"col\": 4}}, {\"id\": \"card-ds\", \"type\": \"card\", \"data\": {\"card_name\": \"Delivery\", \"col\": 4}}, {\"id\": \"card-sms\", \"type\": \"card\", \"data\": {\"card_name\": \"Masters & Settings\", \"col\": 4}}, {\"id\": \"card-mcp\", \"type\": \"card\", \"data\": {\"card_name\": \"Multi-Currency Payments\", \"col\": 4}}, {\"id\": \"card-lp\", \"type\": \"card\", \"data\": {\"card_name\": \"Loyalty & Pricing\", \"col\": 4}}]",
  "creation": "2026-08-05 00:32:08.139820",
  "custom_blocks": [
   {
@@ -53,16 +53,6 @@
    "label": "POS Closing Monitor",
    "link_count": 0,
    "link_to": "pos_closing_monitor",
-   "link_type": "Page",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
-   "label": "Terminal Monitor",
-   "link_count": 0,
-   "link_to": "terminal_monitor",
    "link_type": "Page",
    "onboard": 0,
    "type": "Link"
@@ -170,16 +160,6 @@
   {
    "hidden": 0,
    "is_query_report": 0,
-   "label": "Scale Settings",
-   "link_count": 0,
-   "link_to": "Scale Settings",
-   "link_type": "DocType",
-   "onboard": 0,
-   "type": "Link"
-  },
-  {
-   "hidden": 0,
-   "is_query_report": 0,
    "label": "Terminal Settings",
    "link_count": 0,
    "link_to": "Terminal Settings",
@@ -277,16 +257,6 @@
    "icon": "dashboard",
    "label": "POS Closing Monitor",
    "link_to": "pos_closing_monitor",
-   "restrict_to_domain": "",
-   "type": "Page"
-  },
-  {
-   "color": "Cyan",
-   "doc_view": "",
-   "format": "Link",
-   "icon": "desktop",
-   "label": "Terminal Monitor",
-   "link_to": "terminal_monitor",
    "restrict_to_domain": "",
    "type": "Page"
   },

@@ -451,6 +451,19 @@ def run():
 		}).insert(ignore_permissions=True)
 		print("Created custom_allow_discounts custom field on Employee.")
 
+	allow_item_discounts_cf = "Employee-custom_allow_item_discounts"
+	if not frappe.db.exists("Custom Field", allow_item_discounts_cf):
+		frappe.get_doc({
+			"doctype": "Custom Field",
+			"dt": "Employee",
+			"fieldname": "custom_allow_item_discounts",
+			"label": "Allow POS Item Discounts",
+			"fieldtype": "Check",
+			"insert_after": "custom_allow_discounts",
+			"default": "1"
+		}).insert(ignore_permissions=True)
+		print("Created custom_allow_item_discounts custom field on Employee.")
+
 	# Stamp Setting and Terminal Settings DocTypes are now standard
 
 	frappe.clear_cache(doctype="POS Profile")
@@ -565,6 +578,17 @@ def ensure_pos_profile_fields():
 			"label": "Allow Selling Out of Stock Items",
 			"fieldtype": "Check",
 			"default": "0",
+		},
+		{
+			"fieldname": "custom_scales_section",
+			"label": "Scales Configuration",
+			"fieldtype": "Section Break"
+		},
+		{
+			"fieldname": "custom_scales",
+			"label": "Scales",
+			"fieldtype": "Table",
+			"options": "POS Profile Scale",
 		},
 		{
 			"fieldname": "custom_printing_section",

@@ -1,0 +1,114 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-08-07 03:21:48.015042",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "scale_name",
+  "scale_barcode_prefix",
+  "scale_type",
+  "item_code_length",
+  "weight_length",
+  "price_length",
+  "divide_weight_by",
+  "divide_price_by",
+  "default_uom"
+ ],
+ "fields": [
+  {
+   "fieldname": "scale_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "columns": 2,
+   "label": "Scale Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "scale_barcode_prefix",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "columns": 1,
+   "label": "Scale Barcode Prefix",
+   "reqd": 1
+  },
+  {
+   "default": "Weight",
+   "fieldname": "scale_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "columns": 1,
+   "label": "Scale Type",
+   "options": "Weight\nPrice",
+   "reqd": 1
+  },
+  {
+   "default": "5",
+   "fieldname": "item_code_length",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "columns": 1,
+   "label": "Item Code Length",
+   "reqd": 1
+  },
+  {
+   "default": "5",
+   "fieldname": "weight_length",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "columns": 1,
+   "label": "Weight/Price Length",
+   "reqd": 1
+  },
+  {
+   "default": "5",
+   "fieldname": "price_length",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "columns": 1,
+   "label": "Price Length (unused if Weight)"
+  },
+  {
+   "default": "1000",
+   "fieldname": "divide_weight_by",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "columns": 1,
+   "label": "Divide Weight By",
+   "reqd": 1
+  },
+  {
+   "default": "100",
+   "fieldname": "divide_price_by",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "columns": 1,
+   "label": "Divide Price By",
+   "reqd": 1
+  },
+  {
+   "fieldname": "default_uom",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "columns": 1,
+   "label": "Default UOM",
+   "options": "UOM"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2026-08-07 03:25:13.559164",
+ "modified_by": "Administrator",
+ "module": "Managely Terminal",
+ "name": "POS Profile Scale",
+ "owner": "Administrator",
+ "permissions": [],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
