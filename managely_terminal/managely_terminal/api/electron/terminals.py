@@ -495,6 +495,8 @@ import os
 
 @frappe.whitelist(allow_guest=False)
 def trigger_pull_db(terminal_id):
+    if frappe.session.user != 'Administrator':
+        frappe.throw('Only Administrator can trigger DB pull', frappe.PermissionError)
     try:
         cmd_payload = {
             'type': 'request_db_file'
@@ -522,25 +524,12 @@ def receive_db_file():
         if not terminal_id:
             return {'success': False, 'error': 'Missing terminal_id'}
             
-        rel_url = ''
         error_msg = data.get('error', '')
+        file_data = data.get('file_data') if success else None
         
-        if success and data.get('file_data'):
-            file_bytes = base64.b64decode(data.get('file_data'))
-            filename = 'db_{}.db'.format(terminal_id.replace(' ', '_'))
-            public_path = os.path.join(frappe.get_site_path('public'), 'files')
-            if not os.path.exists(public_path):
-                os.makedirs(public_path, exist_ok=True)
-                
-            full_path = os.path.join(public_path, filename)
-            with open(full_path, 'wb') as f:
-                f.write(file_bytes)
-                
-            rel_url = '/files/{}'.format(filename)
-            
         payload = {
             'success': success,
-            'download_url': rel_url,
+            'file_data': file_data,
             'error': error_msg,
             'timestamp': frappe.utils.now_datetime().timestamp()
         }
@@ -552,7 +541,7 @@ def receive_db_file():
             message={
                 'terminal_id': terminal_id,
                 'success': success,
-                'download_url': rel_url,
+                'file_data': file_data,
                 'error': error_msg
             }
         )
@@ -585,35 +574,21 @@ def upload_restore_db(terminal_id, file_name, file_data):
         frappe.throw('Not authorized.', frappe.PermissionError)
         
     try:
-        # Decode and save incoming database file temporarily
-        file_bytes = base64.b64decode(file_data)
-        
-        # Save to public/files/restore
-        filename = 'restore_{}_{}'.format(terminal_id.replace(' ', '_'), file_name)
-        public_path = os.path.join(frappe.get_site_path('public'), 'files', 'restore')
-        if not os.path.exists(public_path):
-            os.makedirs(public_path, exist_ok=True)
-            
-        full_path = os.path.join(public_path, filename)
-        with open(full_path, 'wb') as f:
-            f.write(file_bytes)
-            
-        # Get absolute or relative URL to the restore file
-        # We need site URL to let Electron download it
-        site_url = frappe.utils.get_url()
-        download_url = '{}/files/restore/{}'.format(site_url.rstrip('/'), filename)
-        
-        # Send command to terminal
+        # Do not save to disk, pass base64 file data directly to terminal via websocket
         cmd_payload = {
             'type': 'restore_db_file',
-            'download_url': download_url
+            'file_name': file_name,
+            'file_data': file_data
         }
         frappe.cache().set_value('terminal_cmd:{}'.format(terminal_id), cmd_payload, expires_in_sec=120)
         
         try:
             frappe.publish_realtime(
                 event='server:restore_db_file',
-                message={'download_url': download_url},
+                message={
+                    'file_name': file_name,
+                    'file_data': file_data
+                },
                 room='task_progress:terminal:{}'.format(terminal_id)
             )
         except Exception:

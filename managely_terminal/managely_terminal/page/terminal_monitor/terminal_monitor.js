@@ -604,8 +604,13 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 							});
 							// Trigger file download
 							var a = document.createElement('a');
-							a.href = res.message.db_info.download_url;
-							a.download = res.message.db_info.download_url.split('/').pop();
+							if (res.message.db_info.file_data) {
+								a.href = "data:application/octet-stream;base64," + res.message.db_info.file_data;
+								a.download = "db_" + selected_terminal_id.replace(/ /g, "_") + ".db";
+							} else if (res.message.db_info.download_url) {
+								a.href = res.message.db_info.download_url;
+								a.download = res.message.db_info.download_url.split('/').pop();
+							}
 							document.body.appendChild(a);
 							a.click();
 							document.body.removeChild(a);
@@ -740,8 +745,13 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 					indicator: 'green'
 				});
 				var a = document.createElement('a');
-				a.href = data.download_url;
-				a.download = data.download_url.split('/').pop();
+				if (data.file_data) {
+					a.href = "data:application/octet-stream;base64," + data.file_data;
+					a.download = "db_" + data.terminal_id.replace(/ /g, "_") + ".db";
+				} else if (data.download_url) {
+					a.href = data.download_url;
+					a.download = data.download_url.split('/').pop();
+				}
 				document.body.appendChild(a);
 				a.click();
 				document.body.removeChild(a);

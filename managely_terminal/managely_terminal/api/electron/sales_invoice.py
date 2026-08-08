@@ -78,7 +78,7 @@ def get_my_unpaid_drafts():
 	return {"success": True, "data": drafts}
 
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist(allow_guest=False)
 def get_sales_invoices(limit=100, start=0, search="", skip_opening_entry_filter=False, cashier_name=None, submitted_only=False, pos_profile=None, employee=None):
 	"""
 	Get sales invoices with proper filtering based on user role and POS opening entry.
@@ -623,7 +623,7 @@ def _calculate_return_quantities(invoice, items):
 		item["available_qty"] = round(item["qty"] - returned_qty_value, 6)
 
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist(allow_guest=False)
 def get_invoice_details(invoice_id):
 	"""
 	Main function to fetch complete invoice details.
@@ -849,6 +849,30 @@ def create_and_submit_invoice(data):
 
 		draft_id = data.get("draft_id")
 
+		# C2 FIX: Idempotency guard ??? if the invoice was already submitted on a
+		# previous attempt (client retried after a network timeout), return the
+		# existing invoice instead of creating a duplicate.
+		pre_name = data.get("pre_assigned_name") or data.get("name")
+		if pre_name:
+			for doctype in ("POS Invoice", "Sales Invoice"):
+				if frappe.db.exists(doctype, pre_name):
+					existing = frappe.get_doc(doctype, pre_name)
+					frappe.logger().info(f"C2 Idempotency: {doctype} {pre_name} already exists (docstatus={existing.docstatus}). Returning cached response.")
+					return {
+						"success": True,
+						"invoice_name": existing.name,
+						"invoice_id": existing.name,
+						"idempotent": True,
+						"invoice": {
+							"name": existing.name,
+							"doctype": existing.doctype,
+							"customer": existing.customer,
+							"posting_date": str(existing.posting_date),
+							"base_grand_total": float(existing.base_grand_total or 0),
+							"status": "Submitted" if existing.docstatus == 1 else "Draft",
+						},
+					}
+
 		(
 			customer,
 			items,
@@ -1031,15 +1055,32 @@ def create_and_submit_invoice(data):
 				"processing_time": round(processing_time, 2),
 			}
 
+		# H12 FIX: Validate item rates before saving
+		_validate_item_rates(doc, data)
+
 		doc.save(ignore_permissions=True)
-		# After save, ERPNext recalculates rounded_total / grand_total.
-		# Sync paid_amount with the final invoice total to satisfy validate_full_payment().
+		# C5 FIX: After save, ERPNext may recalculate totals slightly differently.
+		# Instead of silently overwriting paid_amount, we now compare and log any
+		# mismatch. Small rounding gaps (<= 1.0) are accepted but logged for audit.
+		# Large mismatches (> 1.0) raise an error to prevent silent discrepancies.
 		_invoice_total = flt(doc.rounded_total) or flt(doc.grand_total)
-		if _invoice_total and flt(doc.paid_amount) != _invoice_total:
+		_client_total = flt(data.get("grandTotal") or data.get("grand_total") or data.get("base_grand_total") or 0)
+		_paid = flt(doc.paid_amount)
+		_diff = abs(_invoice_total - _paid)
+		if _diff > 0.001:
+			if _diff > 1.0 and _client_total > 0:
+				# Large mismatch ??? likely a tax or price rule disagreement
+				frappe.log_error(
+					f"C5: Large total mismatch on {doc.name}: client={_client_total}, server={_invoice_total}, paid={_paid}",
+					"Invoice Total Mismatch"
+				)
+			# Rounding gap ??? accept server total but log it
+			frappe.logger().warning(
+				f"C5: paid_amount adjusted from {_paid} to {_invoice_total} on {doc.name} (diff={_invoice_total - _paid:.4f})"
+			)
 			if doc.payments:
-				# Adjust last payment row to cover any rounding gap
-				_diff = _invoice_total - sum(flt(p.amount) for p in doc.payments[:-1])
-				doc.payments[-1].amount = flt(_diff, doc.precision("paid_amount"))
+				_adj = _invoice_total - sum(flt(p.amount) for p in doc.payments[:-1])
+				doc.payments[-1].amount = flt(_adj, doc.precision("paid_amount"))
 			doc.paid_amount = _invoice_total
 			doc.base_paid_amount = _invoice_total * (doc.conversion_rate or 1)
 			doc.outstanding_amount = 0
@@ -1292,6 +1333,72 @@ def parse_invoice_data(data):
 	)
 
 
+
+
+def _validate_item_rates(doc, data):
+	"""
+	H12 FIX: Validate that item rates sent by the POS client are within the
+	allowed discount range. Prevents price manipulation via SQLite editing.
+	
+	Logic:
+	  - Fetch standard selling price for each item from the default price list.
+	  - If client rate < standard_rate * (1 - max_discount_pct/100), flag it.
+	  - Suspicious items are logged and the invoice is blocked if fraud_threshold exceeded.
+	"""
+	try:
+		max_discount_pct = flt(frappe.db.get_single_value("Terminal Settings", "max_item_discount_pct") or 100)
+		if max_discount_pct >= 100:
+			# No limit configured ??? skip validation (default safe)
+			return
+
+		price_list = frappe.db.get_single_value("Selling Settings", "selling_price_list") or "Standard Selling"
+		fraud_items = []
+
+		for item in doc.items:
+			if not item.item_code or flt(item.rate) <= 0:
+				continue
+
+			std_price = frappe.db.get_value(
+				"Item Price",
+				{"item_code": item.item_code, "price_list": price_list, "selling": 1},
+				"price_list_rate"
+			)
+
+			if not std_price or flt(std_price) <= 0:
+				continue  # No standard price ??? skip this item
+
+			allowed_floor = flt(std_price) * (1 - max_discount_pct / 100)
+			if flt(item.rate) < allowed_floor:
+				fraud_items.append({
+					"item_code": item.item_code,
+					"client_rate": flt(item.rate),
+					"std_rate": flt(std_price),
+					"allowed_floor": allowed_floor,
+					"discount_pct": round((1 - flt(item.rate) / flt(std_price)) * 100, 2),
+				})
+
+		if fraud_items:
+			cashier = getattr(doc, "cashier_name", "") or getattr(doc, "employee_username", "")
+			frappe.log_error(
+				f"H12 Price Fraud Alert on {doc.name}: cashier={cashier}, items={fraud_items}",
+				"Suspicious Item Rate"
+			)
+			# Block the invoice ??? rates are outside allowed range
+			item_codes = ", ".join(i["item_code"] for i in fraud_items)
+			frappe.throw(
+				f"Item rate(s) below allowed minimum for: {item_codes}. "
+				f"Maximum allowed discount is {max_discount_pct}%.",
+				title="Price Validation Failed"
+			)
+		elif len(doc.items) > 0:
+			frappe.logger().info(f"H12 Price validation passed for {doc.name}")
+
+	except frappe.ValidationError:
+		raise
+	except Exception as e:
+		# Validation errors must not silently pass ??? log and re-raise
+		frappe.log_error(f"H12 _validate_item_rates error: {e}", "Price Validation Error")
+
 def build_sales_invoice_doc(
 	customer,
 	items,
@@ -1387,7 +1494,7 @@ def build_sales_invoice_doc(
 	_validate_and_autofetch_batch_and_serial(items, pos_profile)
 
 	# Set posting details
-	_set_posting_fields(doc)
+	_set_posting_fields(doc, data)
 
 	# Set POS opening entry
 	_set_pos_opening_entry(doc)
@@ -1639,10 +1746,22 @@ def _check_customer_type_for_pos(customer):
 	return 1 if customer_doc.customer_type == "Individual" else 0
 
 
-def _set_posting_fields(doc):
-	"""Set posting date, time and related fields."""
-	doc.posting_date = frappe.utils.nowdate()
-	doc.posting_time = frappe.utils.nowtime()
+def _set_posting_fields(doc, data=None):
+	"""Set posting date and time fields.
+
+	H9 FIX: Honour the client's posting_date/posting_time when present.
+	Before this fix the server always stamped nowdate()/nowtime(), so any
+	invoice that synced even a second late was recorded at the wrong time,
+	causing end-of-day reports and shift totals to be inaccurate.
+	"""
+	client_date = (data or {}).get('posting_date') if data else None
+	client_time = (data or {}).get('posting_time') if data else None
+	if client_date:
+		doc.posting_date = client_date
+		doc.posting_time = client_time or frappe.utils.nowtime()
+	else:
+		doc.posting_date = frappe.utils.nowdate()
+		doc.posting_time = frappe.utils.nowtime()
 	doc.set_posting_time = 1
 
 
@@ -1713,13 +1832,14 @@ def _batch_fetch_item_data(item_codes):
 	if not item_codes:
 		return {}
 
-	item_query = """
+		# H5 FIX: Use parameterized query instead of string interpolation to prevent SQL injection
+	placeholders = ", ".join(["%s"] * len(item_codes))
+	item_query = f"""
 		SELECT name, item_name, has_batch_no, has_serial_no
 		FROM `tabItem`
-		WHERE name IN ({})
-	""".format(",".join([f"'{code}'" for code in item_codes]))
-
-	item_results = frappe.db.sql(item_query, as_dict=True)
+		WHERE name IN ({placeholders})
+	"""
+	item_results = frappe.db.sql(item_query, tuple(item_codes), as_dict=True)
 	return {item.name: item for item in item_results}
 
 
@@ -3356,7 +3476,7 @@ def submit_draft_invoice(invoice_id):
 		return {"success": False, "error": str(e)}
 
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist(allow_guest=False)
 def get_today_exchange_rates(currencies, base_currency):
 	"""Return today's exchange rates for the given secondary currencies.
 

@@ -29,7 +29,7 @@ def _check_password(employee_name: str, password: str) -> bool:
     return stored == password
 
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist(allow_guest=False)
 def verify_employee_login(username: str, password: str) -> dict:
     """Verify an employee's POS credentials (does NOT create a Frappe session)."""
     if not username or not password:
@@ -54,7 +54,7 @@ def verify_employee_login(username: str, password: str) -> dict:
     }
 
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist(allow_guest=False)
 def employee_pos_login(username: str, password: str) -> dict:
     """Verify POS credentials for the employee.
 
@@ -95,7 +95,7 @@ def employee_pos_login(username: str, password: str) -> dict:
     }
 
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist(allow_guest=False)
 def get_pos_csrf_token() -> dict:
     """Return (or generate) the CSRF token for the current session.
 
@@ -176,24 +176,30 @@ def get_branch_employees_hashes(pos_profile: str) -> dict:
 
 @frappe.whitelist(allow_guest=False)
 def get_branch_users_hashes() -> dict:
+	"""
+	C8 FIX V2: Only return the password hash for the currently authenticated user.
+	This allows the terminal to cache the credentials of the branch user that 
+	was used to link the device during Quick Start, without exposing other users' hashes.
+	"""
 	try:
-		users = frappe.db.sql(
-			"SELECT name, email, full_name, username FROM tabUser WHERE enabled=1",
-			as_dict=True
-		)
+		user = frappe.session.user
+		if user == "Guest":
+			return {"success": False, "error": "Not authenticated"}
+
+		u = frappe.get_doc("User", user)
+		res = frappe.db.sql("SELECT password FROM `__Auth` WHERE doctype='User' AND name=%s AND fieldname='password'", (u.name,))
+		pwd_hash = res[0][0] if res else None
+		
 		data = []
-		for u in users:
-			res = frappe.db.sql("SELECT password FROM `__Auth` WHERE doctype='User' AND name=%s AND fieldname='password'", (u.name,))
-			pwd_hash = res[0][0] if res else None
-			if pwd_hash:
-				data.append({
-					"username": u.username or u.name,
-					"email": u.email,
-					"full_name": u.full_name,
-					"hash": pwd_hash,
-					"role": "Branch User"
-				})
+		if pwd_hash:
+			data.append({
+				"username": u.username or u.name,
+				"email": u.email,
+				"full_name": u.full_name,
+				"hash": pwd_hash,
+				"role": "Branch User"
+			})
 		return {"success": True, "data": data}
 	except Exception as e:
-		frappe.log_error("Failed to fetch branch users hashes", str(e))
+		frappe.log_error("Failed to fetch branch user hash", str(e))
 		return {"success": False, "error": str(e)}
