@@ -4,7 +4,7 @@ from frappe import _
 from managely_terminal.managely_terminal.utils import get_current_pos_profile
 
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist()
 def get_sales_tax_categories():
 	"""
 	H10 FIX: Return ALL tax rows per template, not just the first one.

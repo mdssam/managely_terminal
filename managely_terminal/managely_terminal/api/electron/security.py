@@ -1,6 +1,6 @@
 import frappe
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def log_security_incidents(incidents):
 	"""
 	Dummy handler for bulk logging security incidents from the POS client.

@@ -29,7 +29,7 @@ def _check_password(employee_name: str, password: str) -> bool:
     return stored == password
 
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist()
 def verify_employee_login(username: str, password: str) -> dict:
     """Verify an employee's POS credentials (does NOT create a Frappe session)."""
     if not username or not password:
@@ -54,7 +54,7 @@ def verify_employee_login(username: str, password: str) -> dict:
     }
 
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist()
 def employee_pos_login(username: str, password: str) -> dict:
     """Verify POS credentials for the employee.
 
@@ -95,7 +95,7 @@ def employee_pos_login(username: str, password: str) -> dict:
     }
 
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist()
 def get_pos_csrf_token() -> dict:
     """Return (or generate) the CSRF token for the current session.
 
@@ -113,7 +113,7 @@ def get_pos_csrf_token() -> dict:
     return {"csrf_token": token}
 
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist()
 def get_employee_pos_password(employee: str) -> str:
     if not employee:
         return ""
@@ -125,7 +125,7 @@ def get_employee_pos_password(employee: str) -> str:
         return frappe.db.get_value("Employee", employee, "custom_pos_password") or ""
 
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist()
 def get_branch_employees_hashes(pos_profile: str) -> dict:
     if not pos_profile:
         return {"success": False, "error": _("POS Profile is required.")}
@@ -174,7 +174,7 @@ def get_branch_employees_hashes(pos_profile: str) -> dict:
     return {"success": True, "data": data}
 
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist()
 def get_branch_users_hashes() -> dict:
 	"""
 	C8 FIX V2: Only return the password hash for the currently authenticated user.

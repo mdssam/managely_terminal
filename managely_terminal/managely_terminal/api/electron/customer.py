@@ -13,7 +13,7 @@ from erpnext.setup.utils import get_exchange_rate
 from frappe import _
 from managely_terminal.managely_terminal.utils import get_current_pos_profile
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def get_customers(limit: int = 100, start: int = 0, search: str = "", include_all: int = 0):
 	"""
 	Fetch customers:
@@ -125,7 +125,7 @@ def get_customers(limit: int = 100, start: int = 0, search: str = "", include_al
 		return {"success": False, "error": str(e), "data": [], "total_count": 0}
 
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def get_customer_addresses(customer: str):
 	"""Get all addresses for a specific customer"""
 	try:
@@ -186,7 +186,7 @@ def get_currency_exchange_rate(from_currency: str, to_currency: str, transaction
 		return {"success": False, "error": str(e)}
 
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def get_customer_info(customer_name: str):
 	"""Fetch comprehensive customer document by customer name or ID."""
 	try:
@@ -194,7 +194,6 @@ def get_customer_info(customer_name: str):
 		import urllib.parse
 
 		customer_name = urllib.parse.unquote(customer_name)
-		print("CUSTOMER WETU", customer_name)
 
 		# Try POS Customer first
 		pos_cust = frappe.db.get_value("POS Customer", {"customer_name": customer_name}, ["name", "customer_name", "mobile_no", "email_id", "unified_customer", "address"], as_dict=True)
@@ -501,7 +500,7 @@ def get_or_create_customer(name, email, phone, country, name_arabic="", data=Non
 		raise e
 
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def get_customer_groups():
 	"""Fetch customer groups based on POS profile configuration."""
 	try:
@@ -541,7 +540,7 @@ def get_customer_groups():
 		return {"success": False, "error": str(e)}
 
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def get_territories():
 	"""Fetch all territories for dropdown selection."""
 	try:
@@ -710,7 +709,7 @@ def update_customer(customer_id, customer_data):
 		return {"success": False, "error": str(e)}
 
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def get_customer_statistics(customer_id):
 	"""Get customer statistics including total orders and total spent"""
 	try:
@@ -776,7 +775,7 @@ def get_customer_statistics(customer_id):
 		return {"success": False, "error": str(e)}
 
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def get_global_totals():
 	"""Return global totals for customers and invoices for dashboard cards."""
 	try:
@@ -805,7 +804,7 @@ def get_global_totals():
 		}
 
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist()
 def check_customer_permission(customer_name):
 	"""Check if user has permission to access a specific customer"""
 	try:

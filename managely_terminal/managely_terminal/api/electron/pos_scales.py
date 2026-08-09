@@ -1,6 +1,6 @@
 import frappe
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def get_scales(pos_profile):
     if not pos_profile:
         return frappe.throw("POS Profile is required")

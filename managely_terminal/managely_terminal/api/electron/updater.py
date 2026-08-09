@@ -2,7 +2,7 @@
 import frappe
 import os
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist()
 def upload_update(filename, chunk_index, is_last):
     """
     Accepts raw binary chunks via POST body.

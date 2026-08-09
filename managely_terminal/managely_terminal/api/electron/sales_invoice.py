@@ -78,7 +78,7 @@ def get_my_unpaid_drafts():
 	return {"success": True, "data": drafts}
 
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist()
 def get_sales_invoices(limit=100, start=0, search="", skip_opening_entry_filter=False, cashier_name=None, submitted_only=False, pos_profile=None, employee=None):
 	"""
 	Get sales invoices with proper filtering based on user role and POS opening entry.
@@ -399,12 +399,13 @@ def _batch_fetch_cashier_names(user_ids):
 	if not user_ids:
 		return {}
 
-	cashier_query = """
+	placeholders = ",".join(["%s"] * len(user_ids))
+	cashier_query = f"""
 		SELECT name, full_name
 		FROM `tabUser`
-		WHERE name IN ({})
-	""".format(",".join([f"'{uid}'" for uid in user_ids]))
-	cashier_results = frappe.db.sql(cashier_query, as_dict=True)
+		WHERE name IN ({placeholders})
+	"""
+	cashier_results = frappe.db.sql(cashier_query, tuple(user_ids), as_dict=True)
 	return {user.name: user.full_name or user.name for user in cashier_results}
 
 
@@ -463,12 +464,13 @@ def _batch_fetch_payment_methods(invoice_names):
 	if not invoice_names:
 		return {}
 
-	payment_query = """
+	placeholders = ",".join(["%s"] * len(invoice_names))
+	payment_query = f"""
 		SELECT parent, mode_of_payment, amount, custom_payment_original_amount, custom_payment_currency
 		FROM `tabSales Invoice Payment`
-		WHERE parent IN ({})
-	""".format(",".join([f"'{name}'" for name in invoice_names]))
-	payment_results = frappe.db.sql(payment_query, as_dict=True)
+		WHERE parent IN ({placeholders})
+	"""
+	payment_results = frappe.db.sql(payment_query, tuple(invoice_names), as_dict=True)
 
 	# Group by parent invoice
 	payment_methods_map = {}
@@ -601,19 +603,20 @@ def _calculate_return_quantities(invoice, items):
 	if not item_codes:
 		return
 
-	returns_query = """
+	placeholders = ",".join(["%s"] * len(item_codes))
+	returns_query = f"""
 		SELECT sii.item_code, COALESCE(SUM(ABS(sii.qty)), 0) as total_returned_qty
 		FROM `tabSales Invoice` si
 		JOIN `tabSales Invoice Item` sii ON si.name = sii.parent
 		WHERE si.is_return = 1
 		  AND si.return_against = %s
-		  AND sii.item_code IN ({})
+		  AND sii.item_code IN ({placeholders})
 		  AND si.docstatus = 1
 		  AND si.customer = %s
 		GROUP BY sii.item_code
-	""".format(",".join([f"'{code}'" for code in item_codes]))
+	"""
 
-	returns_data = frappe.db.sql(returns_query, (invoice.name, invoice.customer), as_dict=True)
+	returns_data = frappe.db.sql(returns_query, (invoice.name, *item_codes, invoice.customer), as_dict=True)
 	returned_qty_map = {row.item_code: row.total_returned_qty for row in returns_data}
 
 	# Update items with return data
@@ -623,7 +626,7 @@ def _calculate_return_quantities(invoice, items):
 		item["available_qty"] = round(item["qty"] - returned_qty_value, 6)
 
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist()
 def get_invoice_details(invoice_id):
 	"""
 	Main function to fetch complete invoice details.
@@ -714,32 +717,33 @@ def _get_invoice_items_with_returns(invoice_id, customer, doctype="Sales Invoice
 	returned_qty_map = {}
 
 	if item_codes:
+		placeholders = ",".join(["%s"] * len(item_codes))
 		# Check returns in Sales Invoice
-		si_returns_query = """
+		si_returns_query = f"""
 			SELECT sii.item_code, COALESCE(SUM(ABS(sii.qty)), 0) as total_returned_qty
 			FROM `tabSales Invoice` si
 			JOIN `tabSales Invoice Item` sii ON si.name = sii.parent
 			WHERE si.is_return = 1
 			  AND si.return_against = %s
-			  AND sii.item_code IN ({})
+			  AND sii.item_code IN ({placeholders})
 			  AND si.docstatus = 1
 			GROUP BY sii.item_code
-		""".format(",".join([f"'{code}'" for code in item_codes]))
+		"""
 
 		# Check returns in POS Invoice
-		pos_returns_query = """
+		pos_returns_query = f"""
 			SELECT pii.item_code, COALESCE(SUM(ABS(pii.qty)), 0) as total_returned_qty
 			FROM `tabPOS Invoice` pi
 			JOIN `tabPOS Invoice Item` pii ON pi.name = pii.parent
 			WHERE pi.is_return = 1
 			  AND pi.return_against = %s
-			  AND pii.item_code IN ({})
+			  AND pii.item_code IN ({placeholders})
 			  AND pi.docstatus = 1
 			GROUP BY pii.item_code
-		""".format(",".join([f"'{code}'" for code in item_codes]))
+		"""
 
-		si_returns_data = frappe.db.sql(si_returns_query, (invoice_id,), as_dict=True)
-		pos_returns_data = frappe.db.sql(pos_returns_query, (invoice_id,), as_dict=True)
+		si_returns_data = frappe.db.sql(si_returns_query, (invoice_id, *item_codes), as_dict=True)
+		pos_returns_data = frappe.db.sql(pos_returns_query, (invoice_id, *item_codes), as_dict=True)
 
 		for row in si_returns_data:
 			returned_qty_map[row.item_code] = returned_qty_map.get(row.item_code, 0) + row.total_returned_qty
@@ -882,7 +886,6 @@ def create_and_submit_invoice(data):
 			business_type,
 			roundoff_amount,
 			delivery_personnel,
-			custom_change_breakdown,
 		) = parse_invoice_data(data)
 
 		# Validate required fields
@@ -903,14 +906,9 @@ def create_and_submit_invoice(data):
 			include_payments=True,
 			delivery_personnel=delivery_personnel,
 			draft_id=draft_id,
-			custom_change_breakdown=custom_change_breakdown,
 			delivery_fee=flt(data.get("deliveryFee", 0.0)),
 			pre_assigned_name=data.get("pre_assigned_name") or data.get("name"),
 			naming_series=data.get("naming_series"),
-			pos_order_type=data.get("custom_pos_order_type") or data.get("orderType"),
-			delivery_status=data.get("deliveryStatus") or data.get("custom_delivery_status"),
-			discount_amount=flt(data.get("discount_amount") or data.get("discountAmount") or data.get("couponDiscount") or data.get("discount") or 0.0),
-			additional_discount_percentage=flt(data.get("additional_discount_percentage") or data.get("discountPercentage") or 0.0),
 		)
 
 		if data.get("is_return"):
@@ -919,59 +917,29 @@ def create_and_submit_invoice(data):
 			doc.is_pos = 1
 
 		# Sultan custom fields
-		req_order_type = data.get("custom_pos_order_type") or data.get("orderType")
-		if not req_order_type:
-			req_order_type = "Delivery" if (float(data.get("deliveryFee", 0.0)) > 0 or data.get("deliveryPersonnel") or data.get("deliveryStatus")) else "Pickup"
-		doc.custom_pos_order_type = req_order_type
-		if req_order_type == "Delivery" and not doc.custom_delivery_status:
-			doc.custom_delivery_status = data.get("deliveryStatus") or data.get("custom_delivery_status") or "Pending"
+		doc.custom_pos_order_type = data.get("custom_pos_order_type") or ("Delivery" if float(data.get("deliveryFee", 0.0)) > 0 or data.get("deliveryPersonnel") else "Pickup")
 		doc.cashier_name = data.get("cashier_name") or ""
 		doc.employee_username = data.get("employee_username") or ""
 		doc.custom_driver_settled = data.get("custom_driver_settled") or 0
 		doc.custom_delivery_prepaid = data.get("custom_delivery_prepaid") or 0
+
+		if data.get("redeem_loyalty_points"):
+			doc.redeem_loyalty_points = int(data.get("redeem_loyalty_points"))
+			doc.loyalty_program = data.get("loyalty_program")
+			doc.loyalty_points = int(data.get("loyalty_points") or 0)
+			doc.loyalty_amount = flt(data.get("loyalty_amount") or 0.0)
 		if not getattr(doc, "custom_pos_opening_entry", None):
 			doc.custom_pos_opening_entry = data.get("custom_pos_opening_entry") or data.get("pos_session")
 
 		doc.base_paid_amount = amount_paid
 		doc.paid_amount = amount_paid
 		
-		# Check if assigned to a Delivery Company
-		delivery_comp = data.get("custom_delivery_company") or data.get("deliveryCompany") or getattr(doc, "custom_delivery_company", None)
-		is_delivery_company = bool(delivery_comp) and bool(frappe.db.exists("Delivery Company", delivery_comp))
-
-		if is_delivery_company:
-			is_delivery_cod = False
-			doc.custom_delivery_company = delivery_comp
-			doc.custom_delivery_personnel = None
-			doc.custom_delivery_cod = data.get("custom_delivery_cod") or 0
-
-			company_mop = frappe.db.get_value("Delivery Company", delivery_comp, "mode_of_payment")
-			if not company_mop or not frappe.db.exists("Mode of Payment", company_mop):
-				mop_name = delivery_comp
-				if not frappe.db.exists("Mode of Payment", mop_name):
-					mop_doc = frappe.new_doc("Mode of Payment")
-					mop_doc.mode_of_payment = mop_name
-					mop_doc.type = "Bank"
-					mop_doc.insert(ignore_permissions=True)
-				company_mop = mop_name
-				frappe.db.set_value("Delivery Company", delivery_comp, "mode_of_payment", company_mop)
-
-			inv_total = flt(doc.rounded_total) or flt(doc.grand_total)
-			doc.set("payments", [])
-			doc.append("payments", {
-				"mode_of_payment": company_mop,
-				"amount": inv_total,
-				"default": 1
-			})
-			doc.paid_amount = inv_total
-			doc.base_paid_amount = inv_total * (doc.conversion_rate or 1)
-			doc.outstanding_amount = 0
+		# If it is a COD delivery order, it is unpaid until driver settles
+		custom_delivery_cod = data.get("custom_delivery_cod")
+		if custom_delivery_cod is not None:
+			is_delivery_cod = int(custom_delivery_cod) == 1
 		else:
-			custom_delivery_cod = data.get("custom_delivery_cod")
-			if custom_delivery_cod is not None:
-				is_delivery_cod = int(custom_delivery_cod) == 1
-			else:
-				is_delivery_cod = (data.get("deliveryPersonnel") and data.get("paymentMethods") is None) or (data.get("deliveryStatus") == "Pending")
+			is_delivery_cod = (data.get("deliveryPersonnel") and data.get("paymentMethods") is None) or (data.get("deliveryStatus") == "Pending")
 		if is_delivery_cod:
 			doc.custom_delivery_cod = 1
 			doc.outstanding_amount = doc.grand_total
@@ -992,10 +960,7 @@ def create_and_submit_invoice(data):
 				except Exception:
 					pass
 		else:
-			if is_delivery_company:
-				doc.outstanding_amount = 0
-			else:
-				doc.outstanding_amount = flt(doc.grand_total) - flt(amount_paid)
+			doc.outstanding_amount = flt(doc.grand_total) - flt(amount_paid)
 
 		# When the POS Profile has "Consolidate Invoice on Close" enabled, save as a
 		# draft and return immediately.  GL entries and stock deductions are posted
@@ -1087,11 +1052,6 @@ def create_and_submit_invoice(data):
 			doc.db_update()
 		try:
 			doc.submit()
-			if hasattr(doc, "make_gl_entries"):
-				try:
-					doc.make_gl_entries()
-				except Exception as gl_err:
-					frappe.logger().error(f"make_gl_entries error on {doc.name}: {gl_err}")
 		except Exception as submit_err:
 			frappe.db.rollback()  # ← undo the save + partial submit atomically
 			frappe.log_error(frappe.get_traceback(), "Submit Invoice Error (e.g. negative stock)")
@@ -1166,7 +1126,6 @@ def create_draft_invoice(data):
 			business_type,
 			roundoff_amount,
 			delivery_personnel,
-			custom_change_breakdown,
 		) = parse_invoice_data(data)
 		doc = build_sales_invoice_doc(
 			customer,
@@ -1179,9 +1138,6 @@ def create_draft_invoice(data):
 			include_payments=True,
 			delivery_personnel=delivery_personnel,
 			draft_id=draft_id,
-			custom_change_breakdown=custom_change_breakdown,
-			discount_amount=flt(data.get("discount_amount") or data.get("discountAmount") or data.get("couponDiscount") or data.get("discount") or 0.0),
-			additional_discount_percentage=flt(data.get("additional_discount_percentage") or data.get("discountPercentage") or 0.0),
 		)
 
 		if not doc.get("payments"):
@@ -1269,29 +1225,14 @@ def parse_invoice_data(data):
 	customer_obj = data.get("customer") or {}
 	customer = customer_obj.get("id") if customer_obj else None
 	items = data.get("items", [])
-	custom_change_breakdown = data.get("custom_change_breakdown", [])
 
 	amount_paid = 0.0
 	pos_profile = get_current_pos_profile()
 	sales_and_tax_charges = pos_profile.taxes_and_charges
 
-	# Offline-synced invoices carry a temporary OFFLINE_CUST- or CUST- id. Resolve it to a
+	# Offline-synced invoices carry a temporary OFFLINE_CUST- id. Resolve it to a
 	# real ERPNext customer before building the invoice document.
-	if customer and isinstance(customer, str) and (customer.startswith("CUST-") or customer.startswith("OFFLINE_CUST-")):
-		phone = customer_obj.get("phone") or customer_obj.get("mobile_no")
-		cust_name = customer_obj.get("name") or customer_obj.get("customer_name")
-		pos_cust_name = None
-		if phone:
-			pos_cust_name = frappe.db.get_value("POS Customer", {"mobile_no": phone}, "name")
-		if not pos_cust_name and cust_name:
-			pos_cust_name = frappe.db.get_value("POS Customer", {"customer_name": cust_name}, "name")
-		if pos_cust_name:
-			customer = pos_cust_name
-		else:
-			resolved = _resolve_offline_customer(customer_obj, pos_profile)
-			if resolved:
-				customer = resolved
-	elif not customer or (isinstance(customer, str) and customer.startswith("OFFLINE_CUST-")):
+	if not customer or (isinstance(customer, str) and customer.startswith("OFFLINE_CUST-")):
 		resolved = _resolve_offline_customer(customer_obj, pos_profile)
 		if resolved:
 			customer = resolved
@@ -1329,7 +1270,6 @@ def parse_invoice_data(data):
 		business_type,
 		roundoff_amount,
 		delivery_personnel,
-		custom_change_breakdown,
 	)
 
 
@@ -1413,11 +1353,6 @@ def build_sales_invoice_doc(
 	delivery_fee=0.0,
 	pre_assigned_name=None,
 	naming_series=None,
-	pos_order_type=None,
-	delivery_status=None,
-	discount_amount=0.0,
-	additional_discount_percentage=0.0,
-	custom_change_breakdown=None,
 ):
 	"""Main function to build a POS invoice document."""
 	if draft_id and frappe.db.exists("POS Invoice", draft_id):
@@ -1431,13 +1366,11 @@ def build_sales_invoice_doc(
 		doc = frappe.new_doc("POS Invoice")
 		if pre_assigned_name:
 			doc.name = pre_assigned_name
-			doc.flags.pre_assigned_name = pre_assigned_name
 			doc.flags.ignore_naming_series = True
 		elif naming_series:
 			doc.naming_series = naming_series
 		
 	doc.is_pos = 1
-	doc.ignore_pricing_rule = 1
 
 	# Resolve POS Customer (B2C/Cash consolidation)
 	pos_customer_record = frappe.db.get_value("POS Customer", {"customer_name": customer}, ["name", "unified_customer"], as_dict=True)
@@ -1452,39 +1385,12 @@ def build_sales_invoice_doc(
 	doc.due_date = frappe.utils.nowdate()
 	doc.custom_delivery_date = frappe.utils.nowdate()
 
-	if custom_change_breakdown:
-		doc.set("custom_change_breakdown", [])
-		for cb in custom_change_breakdown:
-			doc.append("custom_change_breakdown", {
-				"cash_drawer": cb.get("cash_drawer") or cb.get("method"),
-				"currency": cb.get("currency"),
-				"amount": cb.get("amount"),
-				"base_amount": cb.get("base_amount")
-			})
-
-	# Set delivery details for Delivery orders vs Pickup orders
-	_is_delivery = (pos_order_type == "Delivery") or (business_type == "Delivery") or bool(delivery_personnel) or (flt(delivery_fee) > 0.0) or bool(delivery_status)
-	_is_pickup = (pos_order_type == "Pickup") or (business_type == "Pickup" and not (bool(delivery_personnel) or flt(delivery_fee) > 0.0 or bool(delivery_status)))
-
-	if _is_delivery and not _is_pickup:
+	# Set delivery details if provided or has delivery fee
+	if delivery_personnel or flt(delivery_fee) > 0.0:
 		if delivery_personnel:
-			if frappe.db.exists("Delivery Company", delivery_personnel):
-				doc.custom_delivery_company = delivery_personnel
-				doc.custom_delivery_personnel = None
-			elif frappe.db.exists("Delivery Personnel", delivery_personnel):
-				doc.custom_delivery_personnel = delivery_personnel
-			else:
-				dp_name = frappe.db.get_value("Delivery Personnel", {"delivery_personnel": delivery_personnel}, "name")
-				if dp_name:
-					doc.custom_delivery_personnel = dp_name
-				else:
-					doc.custom_delivery_personnel = None
-		doc.custom_delivery_status = delivery_status or "Pending"
+			doc.custom_delivery_personnel = delivery_personnel
+		doc.custom_delivery_status = "Pending"
 		doc.custom_delivery_fee = flt(delivery_fee)
-		doc.custom_pos_order_type = "Delivery"
-	else:
-		doc.custom_delivery_status = None
-		doc.custom_pos_order_type = "Pickup"
 
 	# Configure POS profile and company settings
 	pos_profile = _get_active_pos_profile()
@@ -1514,29 +1420,12 @@ def build_sales_invoice_doc(
 	# Inject Delivery Fee into taxes to add it to grand_total
 	if flt(delivery_fee) > 0.0:
 		shipping_account = None
-		delivery_comp = getattr(doc, "custom_delivery_company", None)
-
-		# For delivery companies: credit delivery fee to the company's MOP account
-		# This creates a net receivable = (order total - delivery fee) from the company
-		if delivery_comp and frappe.db.exists("Delivery Company", delivery_comp):
-			company_mop = frappe.db.get_value("Delivery Company", delivery_comp, "mode_of_payment")
-			if company_mop:
-				mop_account = frappe.db.get_value(
-					"Mode of Payment Account",
-					{"parent": company_mop, "company": doc.company},
-					"default_account"
-				)
-				if mop_account:
-					shipping_account = mop_account
-
-		# For internal drivers / fallback: use the POS Profile's delivery charge account
+		if pos_profile and getattr(pos_profile, "custom_delivery_charge_account", None):
+			shipping_account = pos_profile.custom_delivery_charge_account
+		
 		if not shipping_account:
-			if pos_profile and getattr(pos_profile, "custom_delivery_charge_account", None):
-				shipping_account = pos_profile.custom_delivery_charge_account
-
-		if not shipping_account:
-			shipping_account = "708000001 - Delivery Charge Income - SG"
-
+			shipping_account = "626100020 - Delivery Charge - SG"
+			
 		if not frappe.db.exists("Account", shipping_account):
 			shipping_account = frappe.db.get_value("Company", doc.company, "default_income_account")
 		if shipping_account:
@@ -1550,16 +1439,6 @@ def build_sales_invoice_doc(
 			})
 			# Re-calculate taxes and totals to update grand_total
 			doc.run_method("calculate_taxes_and_totals")
-
-	if flt(discount_amount) > 0 or flt(additional_discount_percentage) > 0:
-		doc.apply_discount_on = "Grand Total"
-		if flt(additional_discount_percentage) > 0:
-			doc.additional_discount_percentage = flt(additional_discount_percentage)
-		if flt(discount_amount) > 0:
-			doc.discount_amount = flt(discount_amount)
-		if pos_profile and getattr(pos_profile, "custom_discount_account", None):
-			doc.additional_discount_account = pos_profile.custom_discount_account
-		doc.run_method("calculate_taxes_and_totals")
 
 	# Add payment information
 	if include_payments:
@@ -1605,8 +1484,8 @@ def _set_pos_profile_fields(doc, pos_profile, customer, business_type):
 	doc.set_warehouse = pos_profile.warehouse
 	doc.cost_center = pos_profile.cost_center or frappe.get_cached_value("Company", pos_profile.company, "cost_center")
 
-	if pos_profile.get("change_amount_account") or pos_profile.get("account_for_change_amount"):
-		doc.account_for_change_amount = pos_profile.get("change_amount_account") or pos_profile.get("account_for_change_amount")
+	if pos_profile.get("change_amount_account"):
+		doc.account_for_change_amount = pos_profile.change_amount_account
 
 
 	# Resolve debit_to (Receivable Account)
@@ -1638,7 +1517,7 @@ def _validate_and_autofetch_batch_and_serial(items, pos_profile):
 	if not items:
 		return
 
-	item_codes = [item.get("item_code") or item.get("id") for item in items if item.get("item_code") or item.get("id")]
+	item_codes = [item.get("id") or item.get("item_code") for item in items if item.get("id") or item.get("item_code")]
 	if not item_codes:
 		return
 
@@ -1646,7 +1525,7 @@ def _validate_and_autofetch_batch_and_serial(items, pos_profile):
 	auto_fetch_enabled = int(getattr(pos_profile, "custom_autofetch_batchserial_", 0) or 0)
 
 	for item in items:
-		item_code = item.get("item_code") or item.get("id")
+		item_code = item.get("id") or item.get("item_code")
 		if not item_code:
 			continue
 
@@ -1791,7 +1670,7 @@ def _set_taxes_and_charges(doc, sales_and_tax_charges, pos_profile):
 
 def _populate_invoice_items(doc, items, pos_profile):
 	"""Add all items to the invoice."""
-	item_codes = [item.get("item_code") or item.get("id") for item in items]
+	item_codes = [item.get("id") or item.get("item_code") for item in items]
 
 	# Batch fetch item data and pre-cache accounts
 	item_data_map = _batch_fetch_item_data(item_codes)
@@ -1800,30 +1679,21 @@ def _populate_invoice_items(doc, items, pos_profile):
 	# Resolve tax rate if custom_prices_include_vat is enabled
 	tax_rate = 0.0
 	prices_include_vat = False
-	tax_exempt_json = "{}"
 	try:
-		template_name = doc.taxes_and_charges or getattr(pos_profile, "taxes_and_charges", None)
-		if template_name:
-			tax_doc = get_tax_template(template_name)
-			if tax_doc and tax_doc.taxes:
-				exempt_dict = {}
-				for tax in tax_doc.taxes:
-					if tax.account_head:
-						exempt_dict[tax.account_head] = 0.0
-						if pos_profile and getattr(pos_profile, "custom_prices_include_vat", 0):
-							if not tax.get("custom_is_stamp"):
-								tax_rate += flt(tax.rate)
-				if exempt_dict:
-					tax_exempt_json = json.dumps(exempt_dict)
-		
 		if pos_profile and getattr(pos_profile, "custom_prices_include_vat", 0):
 			prices_include_vat = True
+			if doc.taxes_and_charges:
+				tax_doc = get_tax_template(doc.taxes_and_charges)
+				if tax_doc and tax_doc.taxes:
+					for tax in tax_doc.taxes:
+						if not tax.get("custom_is_stamp"):
+							tax_rate += flt(tax.rate)
 	except Exception:
 		pass
 
 	# Add each item to the invoice
 	for item in items:
-		item_data = _prepare_item_data(item, item_data_map, pos_profile, prices_include_vat, tax_rate, tax_exempt_json)
+		item_data = _prepare_item_data(item, item_data_map, pos_profile, prices_include_vat, tax_rate)
 		doc.append("items", item_data)
 
 
@@ -1832,13 +1702,13 @@ def _batch_fetch_item_data(item_codes):
 	if not item_codes:
 		return {}
 
-		# H5 FIX: Use parameterized query instead of string interpolation to prevent SQL injection
-	placeholders = ", ".join(["%s"] * len(item_codes))
+	placeholders = ",".join(["%s"] * len(item_codes))
 	item_query = f"""
 		SELECT name, item_name, has_batch_no, has_serial_no
 		FROM `tabItem`
 		WHERE name IN ({placeholders})
 	"""
+
 	item_results = frappe.db.sql(item_query, tuple(item_codes), as_dict=True)
 	return {item.name: item for item in item_results}
 
@@ -1892,43 +1762,28 @@ def _precache_item_accounts(item_codes, company):
 		_cached_item_accounts[f"{item_code}_expense"] = expense
 
 
-def _prepare_item_data(item, item_data_map, pos_profile, prices_include_vat=False, tax_rate=0.0, tax_exempt_json="{}"):
+def _prepare_item_data(item, item_data_map, pos_profile, prices_include_vat=False, tax_rate=0.0):
 	"""Prepare item data dictionary for invoice line."""
-	item_code = item.get("item_code") or item.get("id")
+	item_code = item.get("id") or item.get("item_code")
 
 	# Get accounts and validate
 	income_account = get_income_accounts(item_code)
 	expense_account = get_expense_accounts(item_code)
 	_validate_item_accounts(item_code, income_account, expense_account)
 
-	final_rate = flt(item.get("rate") if item.get("rate") is not None else (item.get("price") or 0.0))
-	original_price = flt(item.get("price_list_rate") or item.get("price") or 0.0)
+	discounted_price = item.get("discountedPrice")
+	original_price   = item.get("price")
 
-	# If price_list_rate was not provided by the frontend, fetch it from the ERPNext price list
-	if not original_price:
-		try:
-			original_price = flt(frappe.db.get_value(
-				"Item Price",
-				{"item_code": item_code, "selling": 1},
-				"price_list_rate",
-				order_by="creation desc",
-			) or 0.0)
-		except Exception:
-			original_price = 0.0
-
-	# Determine if pricing rule should be ignored
-	if final_rate == 0.0 and original_price > 0.0:
-		# This is a free/promotional item ??? preserve the 0 rate
+	if discounted_price is not None and flt(discounted_price) != flt(original_price):
+        # Discount was applied in the POS UI — send the final rate directly.
+        # Also tell ERPNext to ignore its own pricing rules for this line so
+        # they don't recalculate and override our explicit rate.
+		final_rate = flt(discounted_price)
 		ignore_pricing_rule = 1
-		discount_percentage = 100.0
-		discount_amount = original_price
 	else:
-		if original_price and final_rate != original_price:
-			ignore_pricing_rule = 1
-		else:
-			ignore_pricing_rule = 0
-		discount_percentage = flt(item.get("discountPercentage") or item.get("discount_percentage") or 0.0)
-		discount_amount = flt(item.get("discountAmount") or item.get("discount_amount") or 0.0)
+        # No POS discount — let ERPNext use the price list rate as-is.
+		final_rate = flt(original_price)
+		ignore_pricing_rule = 0	
 
 	# Do not divide final_rate or original_price manually.
 	# We set the tax template rows as inclusive (included=1) so ERPNext handles the division internally.
@@ -1946,13 +1801,12 @@ def _prepare_item_data(item, item_data_map, pos_profile, prices_include_vat=Fals
 		"qty": item.get("quantity") or item.get("qty"),
 		"rate": final_rate,
         "price_list_rate": flt(original_price),   # keep original for reference
-        "is_free_item": 1 if final_rate == 0.0 else 0,
-        "ignore_pricing_rule": 1,
+        "ignore_pricing_rule": ignore_pricing_rule,
 		# "rate": item.get("price"),
 		# "rate": item.get("original_price") or item.get("price"),
 		# "rate": item.get("discountedPrice") or item.get("price"),
-		"discount_percentage": flt(discount_percentage),
-    	"discount_amount": flt(discount_amount),
+		"discount_percentage": flt(item.get("discountPercentage", 0)),
+    	"discount_amount": flt(item.get("discountAmount", 0)),
 		"income_account": income_account,
 		"expense_account": expense_account,
 		"warehouse": pos_profile.warehouse,
@@ -1964,14 +1818,6 @@ def _prepare_item_data(item, item_data_map, pos_profile, prices_include_vat=Fals
 	_add_uom_to_item(item_data, item)
 	_add_batch_to_item(item_data, item, item_data_map.get(item_code, {}))
 	_add_serial_to_item(item_data, item)
-
-	# Tax-exempt override: if item is flagged as tax-exempt, set item_tax_rate to 0% for template taxes
-	is_tax_exempt = item.get("custom_is_tax_exempt") or item.get("is_tax_exempt") or 0
-	if is_tax_exempt:
-		item_data["item_tax_rate"] = tax_exempt_json
-
-	if pos_profile and getattr(pos_profile, "custom_discount_account", None):
-		item_data["discount_account"] = pos_profile.custom_discount_account
 
 	return item_data
 
@@ -2627,7 +2473,164 @@ def _fix_multi_currency_payment_gl_entries(doc, gl_entries):
 					gle["credit_in_account_currency"] = orig_amount
 
 
+def apply_custom_tax_exemptions(doc):
+	import json
+	for item in doc.get("items") or []:
+		try:
+			is_exempt = frappe.db.get_value(
+				"Item",
+				{"name": item.item_code, "custom_is_tax_exempt": 1},
+				"name"
+			)
+			if is_exempt:
+				exempt_dict = {}
+				for tax in doc.get("taxes") or []:
+					if tax.account_head:
+						exempt_dict[tax.account_head] = 0.0
+				if not exempt_dict and doc.taxes_and_charges:
+					from managely_terminal.managely_terminal.api.electron.sales_invoice import get_tax_template
+					tax_doc = get_tax_template(doc.taxes_and_charges)
+					if tax_doc and tax_doc.taxes:
+						for tax in tax_doc.taxes:
+							if tax.account_head:
+								exempt_dict[tax.account_head] = 0.0
+				if exempt_dict:
+					item.item_tax_rate = json.dumps(exempt_dict)
+		except Exception as e:
+			frappe.log_error(f"Error applying tax exemption for {item.item_code}: {e!s}")
 
+
+class CustomSalesInvoice(SalesInvoice):
+	def calculate_taxes_and_totals(self):
+		from erpnext.controllers.taxes_and_totals import calculate_taxes_and_totals as calc_t_t
+		orig_update = calc_t_t.update_item_tax_map
+		def custom_update(self_calc):
+			orig_update(self_calc)
+			apply_custom_tax_exemptions(self_calc.doc)
+		calc_t_t.update_item_tax_map = custom_update
+		try:
+			super().calculate_taxes_and_totals()
+		finally:
+			calc_t_t.update_item_tax_map = orig_update
+
+	def validate(self):
+		if getattr(self, "custom_pos_customer", None) and not getattr(self, "loyalty_program", None):
+			self.loyalty_program = frappe.db.get_single_value("Terminal Settings", "default_loyalty_program")
+		super().validate()
+
+	def make_loyalty_point_entry(self):
+		custom_make_loyalty_point_entry(self)
+
+	def validate_account_currency(self, account, account_currency=None):
+		# Skip stamp tax accounts - they use LBP regardless of invoice currency
+		if _is_stamp_account(self, account):
+			return
+		# Skip multi-currency payment accounts (e.g. LBP cash accounts on USD invoices).
+		# When a payment is made in LBP on a USD invoice, the account_currency will be
+		# LBP but the invoice currency is USD - ERPNext would normally reject this.
+		# Our multi-currency GL logic already handles the correct amounts, so we allow it.
+		if account_currency and account_currency != (self.currency or frappe.db.get_default("currency") or frappe.db.get_single_value("System Settings", "default_currency") or frappe.db.get_value("Company", {}, "default_currency")):
+			account_doc_currency = frappe.db.get_value("Account", account, "account_currency")
+			if account_doc_currency and account_doc_currency != self.currency:
+				return
+		super().validate_account_currency(account, account_currency)
+
+	def get_gl_entries(self, warehouse_account=None):
+		from erpnext.accounts.general_ledger import merge_similar_entries
+
+		gl_entries = []
+
+		self.make_roundoff_gl_entry(gl_entries)
+
+		self.make_customer_gl_entry(gl_entries)
+
+		self.make_tax_gl_entries(gl_entries)
+		self.make_internal_transfer_gl_entries(gl_entries)
+
+		self.make_item_gl_entries(gl_entries)
+		self.make_precision_loss_gl_entry(gl_entries)
+		self.make_discount_gl_entries(gl_entries)
+
+		gl_entries = make_regional_gl_entries(gl_entries, self)
+
+		# merge gl entries before adding pos entries
+		gl_entries = merge_similar_entries(gl_entries)
+
+		self.make_loyalty_point_redemption_gle(gl_entries)
+		self.make_pos_gl_entries(gl_entries)
+
+		self.make_write_off_gl_entry(gl_entries)
+		self.make_gle_for_rounding_adjustment(gl_entries)
+
+		_fix_stamp_gl_entries(self, gl_entries)
+		_fix_multi_currency_payment_gl_entries(self, gl_entries)
+		return gl_entries
+
+	def make_roundoff_gl_entry(self, gl_entries):
+		if self.custom_roundoff_account and self.custom_roundoff_amount:
+			against_voucher = self.name
+			# For return invoices, reverse the GL impact (credit instead of debit)
+			if getattr(self, "is_return", 0):
+				gl_entries.append(
+					self.get_gl_dict(
+						{
+							"account": self.custom_roundoff_account,
+							"party_type": "Customer",
+							"party": self.customer,
+							"due_date": self.due_date,
+							"against": against_voucher,
+							"credit": self.custom_base_roundoff_amount,
+							"credit_in_account_currency": (
+								self.custom_base_roundoff_amount
+								if self.party_account_currency == self.company_currency
+								else self.custom_roundoff_amount
+							),
+							"against_voucher": against_voucher,
+							"against_voucher_type": self.doctype,
+							"cost_center": (
+								self.cost_center
+								if self.cost_center
+								else "Main - " + frappe.db.get_value("Company", self.company, "abbr")
+							),
+							"project": self.project,
+						},
+						self.party_account_currency,
+						item=self,
+					)
+				)
+			else:
+				gl_entries.append(
+					self.get_gl_dict(
+						{
+							"account": self.custom_roundoff_account,
+							"party_type": "Customer",
+							"party": self.customer,
+							"due_date": self.due_date,
+							"against": against_voucher,
+							"debit": self.custom_base_roundoff_amount,
+							"debit_in_account_currency": (
+								self.custom_base_roundoff_amount
+								if self.party_account_currency == self.company_currency
+								else self.custom_roundoff_amount
+							),
+							"against_voucher": against_voucher,
+							"against_voucher_type": self.doctype,
+							"cost_center": (
+								self.cost_center
+								if self.cost_center
+								else "Main - " + frappe.db.get_value("Company", self.company, "abbr")
+							),
+							"project": self.project,
+						},
+						self.party_account_currency,
+						item=self,
+					)
+				)
+
+
+@erpnext.allow_regional
+def make_regional_gl_entries(gl_entries, doc):
+	return gl_entries
 
 
 def create_payment_entry(sales_invoice, mode_of_payment, amount_paid):
@@ -3031,26 +3034,22 @@ def get_customer_invoices_for_return(customer, start_date=None, end_date=None, s
 			_invoice_item_pairs = [(item.parent, item.item_code) for item in all_items]
 
 			if item_codes:
-				# Create a more efficient query to get all returned quantities
-				returns_query = """
-					SELECT
-						rsi.return_against as original_invoice,
-						sii.item_code,
-						COALESCE(SUM(ABS(sii.qty)), 0) as total_returned_qty
+				placeholders_names = ",".join(["%s"] * len(invoice_names))
+				placeholders_items = ",".join(["%s"] * len(item_codes))
+				returns_query = f"""
+					SELECT rsi.return_against AS original_invoice, sii.item_code, ABS(SUM(sii.qty)) AS total_returned_qty
 					FROM `tabSales Invoice` rsi
 					JOIN `tabSales Invoice Item` sii ON rsi.name = sii.parent
 					WHERE rsi.is_return = 1
-					  AND rsi.return_against IN ({})
-					  AND sii.item_code IN ({})
+					  AND rsi.return_against IN ({placeholders_names})
+					  AND sii.item_code IN ({placeholders_items})
 					  AND rsi.docstatus = 1
 					  AND rsi.customer = %s
 					GROUP BY rsi.return_against, sii.item_code
-				""".format(
-					",".join([f"'{name}'" for name in invoice_names]),
-					",".join([f"'{code}'" for code in item_codes]),
-				)
+				"""
 
-				returns_data = frappe.db.sql(returns_query, (customer,), as_dict=True)
+				params = (*invoice_names, *item_codes, customer)
+				returns_data = frappe.db.sql(returns_query, params, as_dict=True)
 				returned_qty_map = {
 					(row.original_invoice, row.item_code): row.total_returned_qty for row in returns_data
 				}
@@ -3476,7 +3475,7 @@ def submit_draft_invoice(invoice_id):
 		return {"success": False, "error": str(e)}
 
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist()
 def get_today_exchange_rates(currencies, base_currency):
 	"""Return today's exchange rates for the given secondary currencies.
 
@@ -3508,70 +3507,98 @@ def get_today_exchange_rates(currencies, base_currency):
 				"exchange_rate",
 				order_by="date desc",
 			)
-		if not rate:
-			rate = frappe.db.get_value(
-				"Currency Exchange",
-				{"from_currency": base_currency, "to_currency": currency, "date": today},
-				"exchange_rate",
-			)
-		if not rate:
-			rate = frappe.db.get_value(
-				"Currency Exchange",
-				{"from_currency": base_currency, "to_currency": currency},
-				"exchange_rate",
-				order_by="date desc",
-			)
 		if rate:
 			result[currency] = flt(rate)
 
 	return result
 
 
+class CustomPOSInvoice(POSInvoice):
+	"""
+	Sultan customised POS Invoice.
+
+	Adds a ``use_company_roundoff_cost_center`` property so that the
+	standard ERPNext GL-entries generator can access it even when the
+	field is not present in the DB schema (avoids AttributeError on
+	POS Invoice GL generation in erpnext 15).
+
+	Also overrides ``make_discount_gl_entries`` to ensure
+	``enable_discount_accounting`` is always defined (avoids
+	UnboundLocalError in erpnext 15 accounts_controller.py).
+	"""
+
+	def validate(self):
+		if getattr(self, "custom_pos_customer", None) and not getattr(self, "loyalty_program", None):
+			self.loyalty_program = frappe.db.get_single_value("Terminal Settings", "default_loyalty_program")
+		super().validate()
+
+	def calculate_taxes_and_totals(self):
+		from erpnext.controllers.taxes_and_totals import calculate_taxes_and_totals as calc_t_t
+		orig_update = calc_t_t.update_item_tax_map
+		def custom_update(self_calc):
+			orig_update(self_calc)
+			apply_custom_tax_exemptions(self_calc.doc)
+		calc_t_t.update_item_tax_map = custom_update
+		try:
+			super().calculate_taxes_and_totals()
+		finally:
+			calc_t_t.update_item_tax_map = orig_update
+
+	def make_loyalty_point_entry(self):
+		custom_make_loyalty_point_entry(self)
+
+	@property
+	def use_company_roundoff_cost_center(self):
+		return getattr(self, "_use_company_roundoff_cost_center", False)
+
+	@use_company_roundoff_cost_center.setter
+	def use_company_roundoff_cost_center(self, value):
+		self._use_company_roundoff_cost_center = value
+
+	def make_discount_gl_entries(self, gl_entries):
+		"""Override to guard against UnboundLocalError in erpnext 15."""
+		try:
+			super().make_discount_gl_entries(gl_entries)
+		except UnboundLocalError:
+			# enable_discount_accounting not set for POS Invoice doctype in older erpnext 15 builds
+			pass
+
+	def make_gl_entries(self, cancel=False, adv_adj=False):
+		"""
+		For delivery company orders (Toters, Hungerstation, etc.) skip immediate GL posting.
+		GL entries (receivable + revenue) will be posted once via the Consolidated Sales Invoice
+		at session close, preventing double-posting of the delivery company receivable.
+		Backward-compatible: if this invoice already has GL entries (posted before this code was
+		deployed) we fall through to the standard logic so cancellation still works correctly.
+		"""
+		if self.custom_delivery_company:
+			has_existing_gl = frappe.db.count(
+				"GL Entry",
+				{"voucher_type": "POS Invoice", "voucher_no": self.name, "is_cancelled": 0},
+			)
+			if not has_existing_gl and not cancel:
+				# No existing GL entries — skip; consolidated Sales Invoice will post them
+				return
+		super().make_gl_entries(cancel=cancel, adv_adj=adv_adj)
+
+
 
 @frappe.whitelist()
-def settle_delivery_invoices(invoice_names=None, current_session_id=None, payload=None):
+def settle_delivery_invoices(invoice_names, current_session_id, payload=None):
 	"""
-	Settle COD delivery invoices and create a submitted Driver Settlement DocType.
-	Accepts either legacy format (invoice_names list) or new rich payload dict.
+	Settle COD delivery invoices:
+	- If POS Invoice is Draft (docstatus=0), add full payment and submit it.
+	- Mark custom_delivery_status = Settled and move to current session.
+	- Create and submit a Driver Settlement document if payload is provided.
 	"""
 	try:
-		# Support both old (invoice_names) and new (payload) call formats
-		if payload:
-			if isinstance(payload, str):
-				payload = json.loads(payload)
-			invoice_rows = payload.get("invoices", [])
-			if isinstance(invoice_rows, str):
-				invoice_rows = json.loads(invoice_rows)
-			invoice_names_list = [r["id"] for r in invoice_rows]
-			current_session_id = payload.get("session_id", current_session_id)
-		else:
-			if isinstance(invoice_names, str):
-				invoice_names = json.loads(invoice_names)
-			invoice_names_list = invoice_names or []
-			payload = {}
-			invoice_rows = [{"id": n} for n in invoice_names_list]
-
-		# Check if it is a third-party courier company or a third-party driver
-		courier_name = payload.get("driver_name") or payload.get("driver_id") or ""
-		is_courier = False
-		custom_mop = None
-
-		if courier_name:
-			if frappe.db.exists("Delivery Company", courier_name):
-				is_courier = True
-				custom_mop = frappe.db.get_value("Delivery Company", courier_name, "mode_of_payment")
-			else:
-				driver_id_val = frappe.db.get_value("Delivery Personnel", {"delivery_personnel": courier_name}, "name")
-				if driver_id_val:
-					is_third_party = int(frappe.db.get_value("Delivery Personnel", driver_id_val, "custom_is_third_party") or 0)
-					if is_third_party:
-						is_courier = True
-						custom_mop = frappe.db.get_value("Delivery Personnel", driver_id_val, "custom_mode_of_payment")
+		if isinstance(invoice_names, str):
+			invoice_names = json.loads(invoice_names)
 
 		settled = []
 		errors = []
 
-		for name in invoice_names_list:
+		for name in invoice_names:
 			try:
 				if frappe.db.exists("POS Invoice", name):
 					doc = frappe.get_doc("POS Invoice", name)
@@ -3582,10 +3609,10 @@ def settle_delivery_invoices(invoice_names=None, current_session_id=None, payloa
 						invoice_total = flt(doc.rounded_total) or flt(doc.grand_total)
 						write_off = flt(doc.write_off_amount)
 						paid_amt = invoice_total - write_off
-						
-						# Resolve Mode of Payment
-						if is_courier and custom_mop:
-							default_mop = custom_mop
+						if doc.payments:
+							for p in doc.payments:
+								p.amount = 0
+							doc.payments[-1].amount = paid_amt
 						else:
 							default_mop = "Cash"
 							try:
@@ -3599,23 +3626,7 @@ def settle_delivery_invoices(invoice_names=None, current_session_id=None, payloa
 										default_mop = pos_profile_doc.payments[0].mode_of_payment
 							except Exception:
 								pass
-						
-						if doc.payments:
-							for p in doc.payments:
-								p.amount = 0
-							# Set correct Mode of Payment and amount
-							found_mop = False
-							for p in doc.payments:
-								if p.mode_of_payment == default_mop:
-									p.amount = paid_amt
-									found_mop = True
-									break
-							if not found_mop:
-								doc.payments[-1].mode_of_payment = default_mop
-								doc.payments[-1].amount = paid_amt
-						else:
 							doc.append("payments", {"mode_of_payment": default_mop, "amount": paid_amt, "default": 1})
-							
 						doc.paid_amount = paid_amt
 						doc.base_paid_amount = paid_amt * (doc.conversion_rate or 1)
 						doc.outstanding_amount = 0
@@ -3640,149 +3651,70 @@ def settle_delivery_invoices(invoice_names=None, current_session_id=None, payloa
 				frappe.log_error(frappe.get_traceback(), f"Error settling invoice {name}")
 				errors.append({"name": name, "error": str(inv_err)})
 
-		# ── Create & submit Driver Settlement DocType ──────────────────
+		# Create Driver Settlement DocType if payload is present and we have at least one successfully settled invoice
 		settlement_name = None
-		try:
-			if frappe.db.table_exists("Driver Settlement"):
-				from frappe.utils import now_datetime
-				from frappe.utils import get_datetime, now_datetime
-				if payload.get("settled_at"):
-					dt = get_datetime(payload.get("settled_at"))
-					settled_at_val = dt.replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S")
-				else:
-					settled_at_val = str(now_datetime())
-				from frappe.utils import getdate
-				settlement_invoices = []
-				for r in invoice_rows:
-					inv_name = r.get("id") or r.get("invoice_id", "")
-					posting_date_raw = r.get("posting_date", "")
-					posting_date_cleaned = None
-					if posting_date_raw:
-						try:
-							posting_date_cleaned = getdate(posting_date_raw).strftime("%Y-%m-%d")
-						except Exception:
-							posting_date_cleaned = str(posting_date_raw)
+		if payload and settled:
+			try:
+				if isinstance(payload, str):
+					payload = json.loads(payload)
+				
+				# Format settled_at from ISO format (e.g., '2026-07-11T01:16:29.400Z') to DB Datetime format
+				settled_at_raw = payload.get("settled_at")
+				settled_at_cleaned = None
+				if settled_at_raw:
+					settled_at_cleaned = str(settled_at_raw).replace("T", " ").replace("Z", "")
+					if "." in settled_at_cleaned:
+						settled_at_cleaned = settled_at_cleaned.split(".")[0]
 
-					cust_val = r.get("customer", "")
-					real_cust_id = None
-					if frappe.db.exists("POS Invoice", inv_name):
-						real_cust_id = frappe.db.get_value("POS Invoice", inv_name, "customer") or frappe.db.get_value("POS Invoice", inv_name, "custom_pos_customer")
-					elif frappe.db.exists("Sales Invoice", inv_name):
-						real_cust_id = frappe.db.get_value("Sales Invoice", inv_name, "customer")
-					if real_cust_id:
-						cust_val = real_cust_id
-					is_cod_val = int(r.get("is_cod", 0))
-					total_amt_val = flt(r.get("total_amount", 0))
-					del_fee_val = flt(r.get("delivery_fee", 0))
-
-					if frappe.db.exists("POS Invoice", inv_name):
-						pos_inv = frappe.get_doc("POS Invoice", inv_name)
-						if not cust_val:
-							cust_val = pos_inv.custom_pos_customer or pos_inv.customer_name or pos_inv.customer or ""
-						if not total_amt_val:
-							total_amt_val = flt(pos_inv.rounded_total) or flt(pos_inv.grand_total)
-						if not del_fee_val:
-							del_fee_val = flt(pos_inv.custom_delivery_fee)
-						if not is_cod_val:
-							is_cod_val = 1 if (pos_inv.get("custom_delivery_cod") or (pos_inv.get("payment_method") and ("COD" in pos_inv.get("payment_method") or "Delivery" in pos_inv.get("payment_method")))) else 0
-					elif frappe.db.exists("Sales Invoice", inv_name):
-						sinv = frappe.get_doc("Sales Invoice", inv_name)
-						if not cust_val:
-							cust_val = sinv.customer_name or sinv.customer or ""
-						if not total_amt_val:
-							total_amt_val = flt(sinv.rounded_total) or flt(sinv.grand_total)
-						if not del_fee_val:
-							del_fee_val = flt(sinv.custom_delivery_fee)
-						if not is_cod_val:
-							is_cod_val = 1 if (sinv.get("custom_delivery_cod") or (sinv.get("payment_method") and ("COD" in sinv.get("payment_method") or "Delivery" in sinv.get("payment_method")))) else 0
-
-					settlement_invoices.append({
-						"invoice_id": inv_name,
-						"customer": cust_val,
-						"posting_date": posting_date_cleaned,
-						"total_amount": total_amt_val,
-						"delivery_fee": del_fee_val,
-						"is_cod": is_cod_val,
-						"cod_amount": total_amt_val if is_cod_val else 0.0,
-						"prepaid_amount": total_amt_val if not is_cod_val else 0.0,
-					})
-
-				# Resolve or create standard Delivery Personnel document
-				driver_name_val = payload.get("driver_name") or payload.get("driver_id") or ""
-				driver_id_val = frappe.db.get_value("Delivery Personnel", {"delivery_personnel": driver_name_val}, "name")
-				if not driver_id_val and driver_name_val:
-					try:
-						driver_doc = frappe.get_doc({
-							"doctype": "Delivery Personnel",
-							"delivery_personnel": driver_name_val
+				settlement_doc = frappe.get_doc({
+					"doctype": "Driver Settlement",
+					"driver_id": payload.get("driver_id"),
+					"driver_name": payload.get("driver_name"),
+					"session_id": payload.get("session_id"),
+					"settled_at": settled_at_cleaned,
+					"total_amount": flt(payload.get("total_amount")),
+					"delivery_amount": flt(payload.get("delivery_amount")),
+					"net_amount": flt(payload.get("net_amount")),
+					"invoice_count": len(payload.get("invoices", [])),
+					"invoices": []
+				})
+				
+				for inv in payload.get("invoices", []):
+					# Only add to Driver Settlement if it was successfully settled/processed
+					if inv.get("id") in settled:
+						is_cod_val = int(inv.get("is_cod") or 0)
+						total_amt_val = flt(inv.get("total_amount") or 0)
+						settlement_doc.append("invoices", {
+							"invoice_id": inv.get("id"),
+							"customer": inv.get("customer"),
+							"posting_date": inv.get("posting_date"),
+							"is_cod": is_cod_val,
+							"delivery_fee": flt(inv.get("delivery_fee") or 0),
+							"total_amount": total_amt_val,
+							"cod_amount": flt(inv.get("cod_amount") or 0) if is_cod_val else 0.0,
+							"prepaid_amount": total_amt_val if not is_cod_val else 0.0
 						})
-						driver_doc.insert(ignore_permissions=True)
-						driver_id_val = driver_doc.name
-					except Exception as driver_err:
-						frappe.log_error(frappe.get_traceback(), "Failed to auto-create Delivery Personnel document")
-
-				if is_courier and frappe.db.table_exists("Delivery Company Settlement"):
-					settlement_doc = frappe.get_doc({
-						"doctype": "Delivery Company Settlement",
-						"company_id": payload.get("company_id") or courier_name,
-						"company_name": payload.get("company_name") or courier_name,
-						"session_id": current_session_id,
-						"settled_at": settled_at_val,
-						"total_amount": flt(payload.get("total_amount", 0)),
-						"delivery_amount": flt(payload.get("delivery_amount", 0)),
-						"net_amount": flt(payload.get("net_amount", 0)),
-						"invoice_ids": json.dumps([r.get("id", "") for r in invoice_rows]),
-					})
-				else:
-					settlement_doc = frappe.get_doc({
-						"doctype": "Driver Settlement",
-						"driver_id": driver_id_val or payload.get("driver_id", ""),
-						"driver_name": driver_name_val,
-						"session_id": current_session_id,
-						"settled_at": settled_at_val,
-						"total_amount": flt(payload.get("total_amount", 0)),
-						"delivery_amount": flt(payload.get("delivery_amount", 0)),
-						"net_amount": flt(payload.get("net_amount", 0)),
-						"invoice_count": len(invoice_rows),
-						"invoices": settlement_invoices,
-					})
+				
 				if payload.get("name") or payload.get("pre_assigned_name"):
 					settlement_doc.name = payload.get("name") or payload.get("pre_assigned_name")
-					settlement_doc.flags.pre_assigned_name = settlement_doc.name
-				settlement_doc.flags.ignore_links = True
 				settlement_doc.insert(ignore_permissions=True)
 				settlement_doc.submit()
 				settlement_name = settlement_doc.name
-				frappe.logger().info(f"Driver Settlement created and submitted: {settlement_name}")
-
-		except Exception as ds_err:
-			frappe.log_error(frappe.get_traceback(), "Driver Settlement DocType creation failed")
-			# Non-fatal — invoices are already settled
+			except Exception as ds_err:
+				frappe.log_error(frappe.get_traceback(), "Error creating Driver Settlement DocType")
+				errors.append({"name": "Driver Settlement", "error": f"Failed to create/submit Driver Settlement: {str(ds_err)}"})
 
 		frappe.db.commit()
-		return {
-			"success": True,
-			"settled": settled,
-			"errors": errors,
-			"settlement_name": settlement_name,
-		}
+		return {"success": True, "settled": settled, "settlement_name": settlement_name, "errors": errors}
 	except Exception as e:
 		frappe.log_error(frappe.get_traceback(), "Error settling delivery invoices")
 		return {"success": False, "error": str(e)}
 
+
 @frappe.whitelist()
-def assign_driver_to_invoice(invoice_name, driver_name=None, status=None, delivery_type=None, delivery_company=None):
+def assign_driver_to_invoice(invoice_name, driver_name=None, status=None):
 	try:
 		fields_to_update = {}
-		if delivery_type is not None:
-			fields_to_update["custom_delivery_type"] = delivery_type
-		if delivery_company is not None:
-			fields_to_update["custom_delivery_company"] = delivery_company
-		else:
-			# If assigned to internal driver, clear delivery company and reset driver settlement flag
-			fields_to_update["custom_delivery_company"] = ""
-			fields_to_update["custom_driver_settled"] = 0
-
 		if driver_name is not None:
 			fields_to_update["custom_delivery_personnel"] = driver_name
 		if status is not None:
@@ -3804,7 +3736,168 @@ def assign_driver_to_invoice(invoice_name, driver_name=None, status=None, delive
 		frappe.log_error(frappe.get_traceback(), "Error assigning driver to invoice")
 		return {"success": False, "error": str(e)}
 
-@frappe.whitelist()
-def settle_delivery_company_invoices(invoice_names=None, current_session_id=None, payload=None):
-	"""Alias for settling delivery company invoices -> creates Delivery Company Settlement."""
-	return settle_delivery_invoices(invoice_names=invoice_names, current_session_id=current_session_id, payload=payload)
+
+# ── Custom Loyalty points support for POS Customer (B2C) ────────────────────
+
+def custom_make_loyalty_point_entry(self):
+	"""
+	Custom loyalty point entry that uses unified_customer + custom_pos_customer.
+	No shadow Customer records are created in tabCustomer.
+	- Loyalty Point Entry.customer    = unified_customer (the branch Customer — for ERPNext accounting)
+	- Loyalty Point Entry.custom_pos_customer = POS Customer name (the real individual customer)
+	The update_pos_customer_loyalty hook then updates POS Customer.loyalty_points.
+	"""
+	import frappe
+	if not getattr(self, "custom_pos_customer", None):
+		# No POS Customer on this invoice — use standard ERPNext loyalty flow
+		super(self.__class__, self).make_loyalty_point_entry()
+		return
+
+	from frappe.utils import flt, cint, add_days, getdate
+
+	pos_customer_name = self.custom_pos_customer   # e.g. "ahmed samir"
+	unified_customer  = self.customer               # e.g. "zouk branche" (the branch Customer)
+
+	# Ensure loyalty_program is set
+	if not self.loyalty_program:
+		self.loyalty_program = frappe.db.get_single_value("Terminal Settings", "default_loyalty_program")
+	if not self.loyalty_program:
+		return
+
+	# ── Handle REDEMPTION (negative entry for points consumed) ───────────────
+	if getattr(self, 'redeem_loyalty_points', 0) and getattr(self, 'loyalty_points', 0) > 0:
+		redemption_account = frappe.db.get_value("Loyalty Program", self.loyalty_program, "expense_account") or ""
+		cost_center        = frappe.db.get_value("Loyalty Program", self.loyalty_program, "cost_center") or ""
+
+		# Prevent duplicate redemption entry
+		if not frappe.db.exists("Loyalty Point Entry", {
+			"invoice": self.name, "invoice_type": self.doctype, "loyalty_points": ["<", 0]
+		}):
+			redemption_lpe = frappe.get_doc({
+				"doctype": "Loyalty Point Entry",
+				"company": self.company,
+				"loyalty_program": self.loyalty_program,
+				"customer": unified_customer,
+				"custom_pos_customer": pos_customer_name,
+				"invoice_type": self.doctype,
+				"invoice": self.name,
+				"loyalty_points": -1 * cint(self.loyalty_points),
+				"purchase_amount": flt(self.loyalty_amount),
+				"redemption_account": redemption_account,
+				"redemption_cost_center": cost_center,
+				"posting_date": self.posting_date,
+			})
+			redemption_lpe.flags.ignore_permissions = 1
+			redemption_lpe.save()
+			frappe.logger().info(f"[LOYALTY] -{cint(self.loyalty_points)} pts redeemed — POS Customer '{pos_customer_name}'")
+
+	# ── Prevent duplicate earning entries ─────────────────────────────────────
+	if frappe.db.exists("Loyalty Point Entry", {
+		"invoice": self.name, "invoice_type": self.doctype, "loyalty_points": [">", 0]
+	}):
+		return
+
+	# ── Calculate EARNING points ──────────────────────────────────────────────
+	lp_doc = frappe.get_doc("Loyalty Program", self.loyalty_program)
+
+	today = getdate(self.posting_date)
+	if lp_doc.from_date and getdate(lp_doc.from_date) > today:
+		return
+	if lp_doc.to_date and getdate(lp_doc.to_date) < today:
+		return
+
+	# Determine collection factor from tier rules (based on total purchase history)
+	collection_factor = 1.0
+	tier_name = None
+	if lp_doc.collection_rules:
+		total_purchase = frappe.db.sql("""
+			SELECT COALESCE(SUM(purchase_amount), 0)
+			FROM `tabLoyalty Point Entry`
+			WHERE custom_pos_customer = %s AND loyalty_points > 0
+		""", (pos_customer_name,))[0][0] or 0.0
+
+		for rule in sorted(lp_doc.collection_rules, key=lambda r: r.min_spent or 0, reverse=True):
+			if (rule.min_spent or 0) <= float(total_purchase):
+				collection_factor = rule.collection_factor or 1.0
+				tier_name = rule.tier_name
+				break
+		else:
+			# No tier matched — use first rule
+			first = lp_doc.collection_rules[0]
+			collection_factor = first.collection_factor or 1.0
+			tier_name = first.tier_name
+
+	returned_amount = self.get_returned_amount()
+	current_amount  = flt(self.grand_total) - cint(self.loyalty_amount)
+	eligible_amount = current_amount - returned_amount
+
+	if eligible_amount <= 0:
+		return
+
+	points_earned = cint(eligible_amount / collection_factor) if collection_factor else 0
+	if points_earned <= 0:
+		return
+
+	expiry_date = add_days(self.posting_date, lp_doc.expiry_duration) if lp_doc.expiry_duration else None
+
+	earning_lpe = frappe.get_doc({
+		"doctype": "Loyalty Point Entry",
+		"company": self.company,
+		"loyalty_program": self.loyalty_program,
+		"loyalty_program_tier": tier_name,
+		"customer": unified_customer,
+		"custom_pos_customer": pos_customer_name,
+		"invoice_type": self.doctype,
+		"invoice": self.name,
+		"loyalty_points": points_earned,
+		"purchase_amount": eligible_amount,
+		"expiry_date": expiry_date,
+		"posting_date": self.posting_date,
+	})
+	earning_lpe.flags.ignore_permissions = 1
+	earning_lpe.save()
+	frappe.logger().info(f"[LOYALTY] +{points_earned} pts -> POS Customer '{pos_customer_name}'")
+
+import erpnext.accounts.doctype.loyalty_program.loyalty_program as lp_module
+import erpnext.accounts.doctype.sales_invoice.sales_invoice as si_module
+
+def custom_validate_loyalty_points(ref_doc, points_to_redeem):
+	# If this is a Sultan POS invoice and has custom_pos_customer
+	if getattr(ref_doc, "custom_pos_customer", None):
+		import frappe
+		from frappe.utils import flt, today
+		from erpnext.accounts.doctype.loyalty_program.loyalty_program import get_loyalty_program_details_with_points
+
+		customer_id = ref_doc.custom_pos_customer
+		
+		# Ensure the customer's loyalty program is set on the invoice
+		if not ref_doc.loyalty_program:
+			ref_doc.loyalty_program = frappe.db.get_single_value("Terminal Settings", "default_loyalty_program")
+
+		if not ref_doc.loyalty_program:
+			return
+
+		if points_to_redeem:
+			# Get available points directly from POS Customer — no shadow Customer needed
+			available_points = int(frappe.db.get_value("POS Customer", customer_id, "loyalty_points") or 0)
+
+			if points_to_redeem > available_points:
+				frappe.throw(f"You don't have enough Loyalty Points to redeem. Available: {available_points}")
+
+			# Get conversion factor from the Loyalty Program (monetary value per point)
+			conversion_factor = flt(frappe.db.get_value(
+				"Loyalty Program", ref_doc.loyalty_program, "conversion_factor"
+			) or 1.0)
+
+			ref_doc.loyalty_amount = flt(points_to_redeem * conversion_factor)
+	else:
+		# Call original standard validation
+		lp_module.original_validate_loyalty_points(ref_doc, points_to_redeem)
+
+# Keep original references
+if not hasattr(lp_module, "original_validate_loyalty_points"):
+	lp_module.original_validate_loyalty_points = lp_module.validate_loyalty_points
+
+# Apply monkey patches
+lp_module.validate_loyalty_points = custom_validate_loyalty_points
+si_module.validate_loyalty_points = custom_validate_loyalty_points

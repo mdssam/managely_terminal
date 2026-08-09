@@ -6,7 +6,7 @@ import json
 from frappe import _
 from frappe.utils import flt, get_timestamp, get_datetime, format_datetime, now_datetime
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist()
 def heartbeat():
     """
     Called by the Electron terminal client every 15 seconds to update its online status.
@@ -75,7 +75,7 @@ def heartbeat():
 
 
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist()
 def get_latest_pos_version():
     import os
     try:
@@ -90,7 +90,7 @@ def get_latest_pos_version():
     return ""
 
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist()
 def check_app_update_status(simulate_update=False):
     """
     Checks if there are available git updates for the managely_terminal server app.
@@ -189,7 +189,7 @@ def check_app_update_status(simulate_update=False):
         return {"version": cur_ver, "branch": "main", "update_available": False, "commits_behind": 0}
 
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist()
 def get_active_terminals():
     """
     Returns list of all registered terminals and their current online/offline status.
@@ -311,7 +311,7 @@ def get_active_terminals():
         return {"success": False, "error": str(e)}
 
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist()
 def trigger_pull_logs(terminal_id, limit=200, from_date=None, to_date=None):
     """
     Triggers log extraction on the client machine via Socket.io.
@@ -350,7 +350,7 @@ def trigger_pull_logs(terminal_id, limit=200, from_date=None, to_date=None):
         return {"success": False, "error": str(e)}
 
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist()
 def receive_logs():
     """
     Callback endpoint called by the Electron client to submit the pulled logs.
@@ -390,7 +390,7 @@ def receive_logs():
         return {"success": False, "error": str(e)}
 
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist()
 def force_requeue(terminal_id, payload_type, payload_id, new_payload=None):
     """
     Triggers force re-sync of a specific transaction local to a terminal via Socket.io.
@@ -423,7 +423,7 @@ def force_requeue(terminal_id, payload_type, payload_id, new_payload=None):
         return {"success": False, "error": str(e)}
 
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist()
 def migrate_and_clear_cache():
     """
     Executes full site migration via bench subprocess to avoid crashing the current gunicorn worker.
@@ -458,7 +458,7 @@ def migrate_and_clear_cache():
         return {"success": False, "error": str(e), "log": str(e)}
 
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def reload_terminal_monitor_page():
     """
     Utility endpoint to force reload the terminal_monitor page record from disk to database.
@@ -471,7 +471,7 @@ def reload_terminal_monitor_page():
         return {"success": False, "error": str(e)}
 
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist()
 def get_pulled_logs(terminal_id):
     """
     Called by the browser to fetch cached logs (fallback for Socket.io).
@@ -493,7 +493,7 @@ import json
 import base64
 import os
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist()
 def trigger_pull_db(terminal_id):
     if frappe.session.user != 'Administrator':
         frappe.throw('Only Administrator can trigger DB pull', frappe.PermissionError)
@@ -514,7 +514,7 @@ def trigger_pull_db(terminal_id):
     except Exception as e:
         return {'success': False, 'error': str(e)}
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist()
 def receive_db_file():
     try:
         data = json.loads(frappe.request.get_data())
@@ -550,7 +550,7 @@ def receive_db_file():
         frappe.log_error(message=frappe.get_traceback(), title='Terminal Receive DB File Error')
         return {'success': False, 'error': str(e)}
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist()
 def get_pulled_db(terminal_id):
     if frappe.session.user != 'Administrator':
         frappe.throw('Not authorized.', frappe.PermissionError)
@@ -568,7 +568,7 @@ import json
 import base64
 import os
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist()
 def upload_restore_db(terminal_id, file_name, file_data):
     if frappe.session.user != 'Administrator':
         frappe.throw('Not authorized.', frappe.PermissionError)
@@ -598,7 +598,7 @@ def upload_restore_db(terminal_id, file_name, file_data):
     except Exception as e:
         return {'success': False, 'error': str(e)}
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist()
 def receive_restore_status():
     try:
         data = json.loads(frappe.request.get_data())
@@ -630,7 +630,7 @@ def receive_restore_status():
         frappe.log_error(message=frappe.get_traceback(), title='Terminal Restore DB File Error')
         return {'success': False, 'error': str(e)}
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist()
 def get_restore_status(terminal_id):
     if frappe.session.user != 'Administrator':
         frappe.throw('Not authorized.', frappe.PermissionError)
@@ -645,7 +645,7 @@ def get_restore_status(terminal_id):
         return {'success': False, 'error': str(e)}
 
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist()
 def trigger_execute_sql(terminal_id, query):
     if frappe.session.user != 'Administrator':
         frappe.throw('Not authorized.', frappe.PermissionError)
@@ -668,7 +668,7 @@ def trigger_execute_sql(terminal_id, query):
     except Exception as e:
         return {'success': False, 'error': str(e)}
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist()
 def receive_sql_result():
     try:
         data = json.loads(frappe.request.get_data())
@@ -700,7 +700,7 @@ def receive_sql_result():
     except Exception as e:
         return {'success': False, 'error': str(e)}
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist()
 def get_sql_result(terminal_id):
     if frappe.session.user != 'Administrator':
         frappe.throw('Not authorized.', frappe.PermissionError)
@@ -714,7 +714,7 @@ def get_sql_result(terminal_id):
     except Exception as e:
         return {'success': False, 'error': str(e)}
 
-@frappe.whitelist(allow_guest=False)
+@frappe.whitelist()
 def trigger_relaunch_app(terminal_id):
     if frappe.session.user != 'Administrator':
         frappe.throw('Not authorized.', frappe.PermissionError)

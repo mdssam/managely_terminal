@@ -30,7 +30,7 @@ def get_user_roles():
 		return {"success": False, "error": str(e)}
 
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def get_current_user_info():
 	"""
 	Get comprehensive current user information including roles and POS profile.

@@ -1,7 +1,7 @@
 import frappe
 import os
 
-@frappe.whitelist(allow_guest=True)
+@frappe.whitelist()
 def get_service_worker():
     path = frappe.get_app_path("managely_terminal", "public", "sultan_spa", "sw.js")
     try:
