@@ -920,3 +920,15 @@ def update_pos_customer_loyalty(doc, method=None):
 		import frappe
 		frappe.logger().error(f"Loyalty Sync Error: {e!s}")
 
+import frappe
+
+
+@frappe.whitelist()
+def sync_customer(customer_data):
+	"""
+	Alias endpoint for Electron sync engine.
+	Called by syncMachine.ts when payload_type = 'customer'.
+	Delegates to create_or_update_customer which handles upsert logic.
+	"""
+	from managely_terminal.managely_terminal.api.electron.customer import create_or_update_customer
+	return create_or_update_customer(customer_data)
