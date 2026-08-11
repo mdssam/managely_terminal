@@ -909,6 +909,7 @@ def create_and_submit_invoice(data):
 			delivery_fee=flt(data.get("deliveryFee", 0.0)),
 			pre_assigned_name=data.get("pre_assigned_name") or data.get("name"),
 			naming_series=data.get("naming_series"),
+			data=data,
 		)
 
 		if data.get("is_return"):
@@ -935,11 +936,13 @@ def create_and_submit_invoice(data):
 		doc.paid_amount = amount_paid
 		
 		# If it is a COD delivery order, it is unpaid until driver settles
-		custom_delivery_cod = data.get("custom_delivery_cod")
-		if custom_delivery_cod is not None:
-			is_delivery_cod = int(custom_delivery_cod) == 1
-		else:
-			is_delivery_cod = (data.get("deliveryPersonnel") and data.get("paymentMethods") is None) or (data.get("deliveryStatus") == "Pending")
+		# Pickup & Delivery Company orders are Paid/Submitted immediately.
+		# Only Delivery Personnel (driver) orders stay Draft until Driver Settlement.
+		has_driver = bool(data.get("deliveryPersonnel") or data.get("delivery_personnel"))
+		is_company = bool(data.get("custom_delivery_company") or data.get("delivery_company") or data.get("deliveryCompany"))
+		is_driver_settled = bool(data.get("custom_driver_settled"))
+
+		is_delivery_cod = has_driver and (not is_company) and (not is_driver_settled)
 		if is_delivery_cod:
 			doc.custom_delivery_cod = 1
 			doc.outstanding_amount = doc.grand_total
@@ -1286,7 +1289,10 @@ def _validate_item_rates(doc, data):
 	  - Suspicious items are logged and the invoice is blocked if fraud_threshold exceeded.
 	"""
 	try:
-		max_discount_pct = flt(frappe.db.get_single_value("Terminal Settings", "max_item_discount_pct") or 100)
+		try:
+			max_discount_pct = flt(frappe.db.get_single_value("Terminal Settings", "max_item_discount_pct") or 100)
+		except Exception:
+			max_discount_pct = 100
 		if max_discount_pct >= 100:
 			# No limit configured ??? skip validation (default safe)
 			return
@@ -1424,9 +1430,6 @@ def build_sales_invoice_doc(
 			shipping_account = pos_profile.custom_delivery_charge_account
 		
 		if not shipping_account:
-			shipping_account = "626100020 - Delivery Charge - SG"
-			
-		if not frappe.db.exists("Account", shipping_account):
 			shipping_account = frappe.db.get_value("Company", doc.company, "default_income_account")
 		if shipping_account:
 			doc.append("taxes", {
@@ -1517,7 +1520,7 @@ def _validate_and_autofetch_batch_and_serial(items, pos_profile):
 	if not items:
 		return
 
-	item_codes = [item.get("id") or item.get("item_code") for item in items if item.get("id") or item.get("item_code")]
+	item_codes = [item.get("item_code") or item.get("id") for item in items if item.get("item_code") or item.get("id")]
 	if not item_codes:
 		return
 
@@ -1525,7 +1528,7 @@ def _validate_and_autofetch_batch_and_serial(items, pos_profile):
 	auto_fetch_enabled = int(getattr(pos_profile, "custom_autofetch_batchserial_", 0) or 0)
 
 	for item in items:
-		item_code = item.get("id") or item.get("item_code")
+		item_code = item.get("item_code") or item.get("id")
 		if not item_code:
 			continue
 
@@ -1670,7 +1673,7 @@ def _set_taxes_and_charges(doc, sales_and_tax_charges, pos_profile):
 
 def _populate_invoice_items(doc, items, pos_profile):
 	"""Add all items to the invoice."""
-	item_codes = [item.get("id") or item.get("item_code") for item in items]
+	item_codes = [item.get("item_code") or item.get("id") for item in items]
 
 	# Batch fetch item data and pre-cache accounts
 	item_data_map = _batch_fetch_item_data(item_codes)
@@ -1764,7 +1767,7 @@ def _precache_item_accounts(item_codes, company):
 
 def _prepare_item_data(item, item_data_map, pos_profile, prices_include_vat=False, tax_rate=0.0):
 	"""Prepare item data dictionary for invoice line."""
-	item_code = item.get("id") or item.get("item_code")
+	item_code = item.get("item_code") or item.get("id")
 
 	# Get accounts and validate
 	income_account = get_income_accounts(item_code)
@@ -1772,22 +1775,25 @@ def _prepare_item_data(item, item_data_map, pos_profile, prices_include_vat=Fals
 	_validate_item_accounts(item_code, income_account, expense_account)
 
 	discounted_price = item.get("discountedPrice")
-	original_price   = item.get("price")
+	original_price   = item.get("price") or item.get("original_price")
+	item_rate        = item.get("rate")
+	is_free          = item.get("is_free_item") or item.get("is_free") or (item_rate is not None and flt(item_rate) == 0)
 
-	if discounted_price is not None and flt(discounted_price) != flt(original_price):
-        # Discount was applied in the POS UI — send the final rate directly.
-        # Also tell ERPNext to ignore its own pricing rules for this line so
-        # they don't recalculate and override our explicit rate.
+	if is_free:
+		final_rate = 0.0
+		ignore_pricing_rule = 1
+	elif item_rate is not None and flt(item_rate) != flt(original_price):
+		final_rate = flt(item_rate)
+		ignore_pricing_rule = 1
+	elif discounted_price is not None and flt(discounted_price) != flt(original_price):
 		final_rate = flt(discounted_price)
 		ignore_pricing_rule = 1
 	else:
-        # No POS discount — let ERPNext use the price list rate as-is.
-		final_rate = flt(original_price)
-		ignore_pricing_rule = 0	
+		final_rate = flt(item_rate if item_rate is not None else original_price)
+		ignore_pricing_rule = 0
 
 	# Do not divide final_rate or original_price manually.
-	# We set the tax template rows as inclusive (included=1) so ERPNext handles the division internally.
-		original_price = flt(original_price)
+	original_price = flt(original_price)
 
 	# Fetch item name
 	db_item = item_data_map.get(item_code, {}) or {}

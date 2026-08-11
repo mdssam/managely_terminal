@@ -859,21 +859,28 @@ def create_and_submit_invoice(data):
 		pre_name = data.get("pre_assigned_name") or data.get("name")
 		if pre_name:
 			for doctype in ("POS Invoice", "Sales Invoice"):
-				if frappe.db.exists(doctype, pre_name):
-					existing = frappe.get_doc(doctype, pre_name)
+				existing_name = frappe.db.exists(doctype, {"pos_ref": pre_name, "owner": frappe.session.user})
+				if existing_name:
+					existing = frappe.get_doc(doctype, existing_name)
 					frappe.logger().info(f"C2 Idempotency: {doctype} {pre_name} already exists (docstatus={existing.docstatus}). Returning cached response.")
 					return {
 						"success": True,
 						"invoice_name": existing.name,
 						"invoice_id": existing.name,
 						"idempotent": True,
+						"payment_entry": None,
 						"invoice": {
 							"name": existing.name,
 							"doctype": existing.doctype,
 							"customer": existing.customer,
+							"customer_name": existing.customer_name,
 							"posting_date": str(existing.posting_date),
 							"base_grand_total": float(existing.base_grand_total or 0),
+							"currency": existing.currency,
 							"status": "Submitted" if existing.docstatus == 1 else "Draft",
+							"is_pos": existing.is_pos,
+							"company": existing.company,
+							"docstatus": existing.docstatus,
 						},
 					}
 
@@ -909,6 +916,7 @@ def create_and_submit_invoice(data):
 			delivery_fee=flt(data.get("deliveryFee", 0.0)),
 			pre_assigned_name=data.get("pre_assigned_name") or data.get("name"),
 			naming_series=data.get("naming_series"),
+			data=data,
 		)
 
 		if data.get("is_return"):
@@ -921,6 +929,7 @@ def create_and_submit_invoice(data):
 		doc.cashier_name = data.get("cashier_name") or ""
 		doc.employee_username = data.get("employee_username") or ""
 		doc.custom_driver_settled = data.get("custom_driver_settled") or 0
+		doc.custom_shift_order = str(data.get("custom_shift_order", ""))[:140] if data.get("custom_shift_order") else None
 		doc.custom_delivery_prepaid = data.get("custom_delivery_prepaid") or 0
 
 		if data.get("redeem_loyalty_points"):
@@ -935,11 +944,13 @@ def create_and_submit_invoice(data):
 		doc.paid_amount = amount_paid
 		
 		# If it is a COD delivery order, it is unpaid until driver settles
-		custom_delivery_cod = data.get("custom_delivery_cod")
-		if custom_delivery_cod is not None:
-			is_delivery_cod = int(custom_delivery_cod) == 1
-		else:
-			is_delivery_cod = (data.get("deliveryPersonnel") and data.get("paymentMethods") is None) or (data.get("deliveryStatus") == "Pending")
+		# Pickup & Delivery Company orders are Paid/Submitted immediately.
+		# Only Delivery Personnel (driver) orders stay Draft until Driver Settlement.
+		has_driver = bool(data.get("deliveryPersonnel") or data.get("delivery_personnel"))
+		is_company = bool(data.get("custom_delivery_company") or data.get("delivery_company") or data.get("deliveryCompany"))
+		is_driver_settled = bool(data.get("custom_driver_settled"))
+
+		is_delivery_cod = has_driver and (not is_company) and (not is_driver_settled)
 		if is_delivery_cod:
 			doc.custom_delivery_cod = 1
 			doc.outstanding_amount = doc.grand_total
@@ -1024,24 +1035,17 @@ def create_and_submit_invoice(data):
 		_validate_item_rates(doc, data)
 
 		doc.save(ignore_permissions=True)
-		# C5 FIX: After save, ERPNext may recalculate totals slightly differently.
-		# Instead of silently overwriting paid_amount, we now compare and log any
-		# mismatch. Small rounding gaps (<= 1.0) are accepted but logged for audit.
-		# Large mismatches (> 1.0) raise an error to prevent silent discrepancies.
+		# C5 FIX: After save, ERPNext recalculates grand_total server-side
+		# (pricing rules, free items, taxes). Always sync paid_amount to
+		# server grand_total so the invoice can be submitted without errors.
 		_invoice_total = flt(doc.rounded_total) or flt(doc.grand_total)
 		_client_total = flt(data.get("grandTotal") or data.get("grand_total") or data.get("base_grand_total") or 0)
 		_paid = flt(doc.paid_amount)
 		_diff = abs(_invoice_total - _paid)
 		if _diff > 0.001:
-			if _diff > 1.0 and _client_total > 0:
-				# Large mismatch ??? likely a tax or price rule disagreement
-				frappe.log_error(
-					f"C5: Large total mismatch on {doc.name}: client={_client_total}, server={_invoice_total}, paid={_paid}",
-					"Invoice Total Mismatch"
-				)
-			# Rounding gap ??? accept server total but log it
+			# Always accept server total — log for audit only
 			frappe.logger().warning(
-				f"C5: paid_amount adjusted from {_paid} to {_invoice_total} on {doc.name} (diff={_invoice_total - _paid:.4f})"
+				f"C5: paid_amount adjusted from {_paid} to {_invoice_total} on {doc.name} (diff={_invoice_total - _paid:.4f}, client_total={_client_total})"
 			)
 			if doc.payments:
 				_adj = _invoice_total - sum(flt(p.amount) for p in doc.payments[:-1])
@@ -1117,6 +1121,26 @@ def create_draft_invoice(data):
 		draft_id = data.get("draft_id")
 		frappe.log_error(message=f"Received draft_id: {draft_id}. Exists: {frappe.db.exists('POS Invoice', draft_id) if draft_id else False}", title="create_draft_invoice debug")
 
+		pre_name = data.get("pre_assigned_name") or data.get("name")
+		if pre_name:
+			for doctype in ("POS Invoice", "Sales Invoice"):
+				existing_name = frappe.db.exists(doctype, {"pos_ref": pre_name, "owner": frappe.session.user})
+				if existing_name:
+					existing = frappe.get_doc(doctype, existing_name)
+					frappe.logger().info(f"C2 Idempotency: {doctype} {pre_name} already exists (docstatus={existing.docstatus}). Returning cached response.")
+					return {
+						"success": True,
+						"invoice_name": existing.name,
+						"invoice_id": existing.name,
+						"idempotent": True,
+						"invoice": {
+							"name": existing.name,
+							"status": getattr(existing, "status", ""),
+							"docstatus": existing.docstatus,
+							"grand_total": existing.grand_total,
+						}
+					}
+
 		(
 			customer,
 			items,
@@ -1138,6 +1162,7 @@ def create_draft_invoice(data):
 			include_payments=True,
 			delivery_personnel=delivery_personnel,
 			draft_id=draft_id,
+			pre_assigned_name=pre_name,
 		)
 
 		if not doc.get("payments"):
@@ -1157,6 +1182,9 @@ def create_draft_invoice(data):
 					"amount": 0,
 					"default": 1
 				})
+
+		# H12 FIX: Validate item rates before saving
+		_validate_item_rates(doc, data)
 
 		if doc.name:
 			frappe.log_error(message=f"Saving existing document. name: {doc.name}", title="create_draft_invoice debug doc.name")
@@ -1286,7 +1314,10 @@ def _validate_item_rates(doc, data):
 	  - Suspicious items are logged and the invoice is blocked if fraud_threshold exceeded.
 	"""
 	try:
-		max_discount_pct = flt(frappe.db.get_single_value("Terminal Settings", "max_item_discount_pct") or 100)
+		try:
+			max_discount_pct = flt(frappe.db.get_single_value("Terminal Settings", "max_item_discount_pct") or 100)
+		except Exception:
+			max_discount_pct = 100
 		if max_discount_pct >= 100:
 			# No limit configured ??? skip validation (default safe)
 			return
@@ -1353,6 +1384,7 @@ def build_sales_invoice_doc(
 	delivery_fee=0.0,
 	pre_assigned_name=None,
 	naming_series=None,
+	data=None,
 ):
 	"""Main function to build a POS invoice document."""
 	if draft_id and frappe.db.exists("POS Invoice", draft_id):
@@ -1365,9 +1397,8 @@ def build_sales_invoice_doc(
 	else:
 		doc = frappe.new_doc("POS Invoice")
 		if pre_assigned_name:
-			doc.name = pre_assigned_name
-			doc.flags.ignore_naming_series = True
-		elif naming_series:
+			doc.pos_ref = pre_assigned_name
+		if naming_series:
 			doc.naming_series = naming_series
 		
 	doc.is_pos = 1
@@ -1424,9 +1455,6 @@ def build_sales_invoice_doc(
 			shipping_account = pos_profile.custom_delivery_charge_account
 		
 		if not shipping_account:
-			shipping_account = "626100020 - Delivery Charge - SG"
-			
-		if not frappe.db.exists("Account", shipping_account):
 			shipping_account = frappe.db.get_value("Company", doc.company, "default_income_account")
 		if shipping_account:
 			doc.append("taxes", {
@@ -1517,7 +1545,7 @@ def _validate_and_autofetch_batch_and_serial(items, pos_profile):
 	if not items:
 		return
 
-	item_codes = [item.get("id") or item.get("item_code") for item in items if item.get("id") or item.get("item_code")]
+	item_codes = [item.get("item_code") or item.get("id") for item in items if item.get("item_code") or item.get("id")]
 	if not item_codes:
 		return
 
@@ -1525,7 +1553,7 @@ def _validate_and_autofetch_batch_and_serial(items, pos_profile):
 	auto_fetch_enabled = int(getattr(pos_profile, "custom_autofetch_batchserial_", 0) or 0)
 
 	for item in items:
-		item_code = item.get("id") or item.get("item_code")
+		item_code = item.get("item_code") or item.get("id")
 		if not item_code:
 			continue
 
@@ -1670,7 +1698,7 @@ def _set_taxes_and_charges(doc, sales_and_tax_charges, pos_profile):
 
 def _populate_invoice_items(doc, items, pos_profile):
 	"""Add all items to the invoice."""
-	item_codes = [item.get("id") or item.get("item_code") for item in items]
+	item_codes = [item.get("item_code") or item.get("id") for item in items]
 
 	# Batch fetch item data and pre-cache accounts
 	item_data_map = _batch_fetch_item_data(item_codes)
@@ -1764,7 +1792,7 @@ def _precache_item_accounts(item_codes, company):
 
 def _prepare_item_data(item, item_data_map, pos_profile, prices_include_vat=False, tax_rate=0.0):
 	"""Prepare item data dictionary for invoice line."""
-	item_code = item.get("id") or item.get("item_code")
+	item_code = item.get("item_code") or item.get("id")
 
 	# Get accounts and validate
 	income_account = get_income_accounts(item_code)
@@ -1772,22 +1800,25 @@ def _prepare_item_data(item, item_data_map, pos_profile, prices_include_vat=Fals
 	_validate_item_accounts(item_code, income_account, expense_account)
 
 	discounted_price = item.get("discountedPrice")
-	original_price   = item.get("price")
+	original_price   = item.get("price") or item.get("original_price")
+	item_rate        = item.get("rate")
+	is_free          = item.get("is_free_item") or item.get("is_free") or (item_rate is not None and flt(item_rate) == 0)
 
-	if discounted_price is not None and flt(discounted_price) != flt(original_price):
-        # Discount was applied in the POS UI — send the final rate directly.
-        # Also tell ERPNext to ignore its own pricing rules for this line so
-        # they don't recalculate and override our explicit rate.
+	if is_free:
+		final_rate = 0.0
+		ignore_pricing_rule = 1
+	elif item_rate is not None and flt(item_rate) != flt(original_price):
+		final_rate = flt(item_rate)
+		ignore_pricing_rule = 1
+	elif discounted_price is not None and flt(discounted_price) != flt(original_price):
 		final_rate = flt(discounted_price)
 		ignore_pricing_rule = 1
 	else:
-        # No POS discount — let ERPNext use the price list rate as-is.
-		final_rate = flt(original_price)
-		ignore_pricing_rule = 0	
+		final_rate = flt(item_rate if item_rate is not None else original_price)
+		ignore_pricing_rule = 0
 
 	# Do not divide final_rate or original_price manually.
-	# We set the tax template rows as inclusive (included=1) so ERPNext handles the division internally.
-		original_price = flt(original_price)
+	original_price = flt(original_price)
 
 	# Fetch item name
 	db_item = item_data_map.get(item_code, {}) or {}
@@ -1979,18 +2010,17 @@ def _add_payment_entries(doc, mode_of_payment):
 		original_amount = amount
 		original_currency = pay_currency or doc.currency
 		if pay_currency and pay_currency != doc.currency and exchange_rate > 0:
-			if pay_currency == "LBP" and doc.currency == "USD":
+			company_currency = frappe.db.get_value("Company", doc.company, "default_currency")
+			if pay_currency == company_currency:
 				if exchange_rate > 1.0:
 					amount = amount / exchange_rate
 				else:
 					amount = amount * exchange_rate
-			elif pay_currency == "USD" and doc.currency == "LBP":
-				if exchange_rate > 1.0:
-					amount = amount * exchange_rate
-				else:
-					amount = amount / exchange_rate
 			else:
-				amount = amount * exchange_rate
+				if exchange_rate > 1.0:
+					amount = amount * exchange_rate
+				else:
+					amount = amount / exchange_rate
 			# Auto-save today's rate so ERPNext resolves it for all subsequent transactions
 			_upsert_currency_exchange(pay_currency, doc.currency, exchange_rate, nowdate())
 
@@ -2397,7 +2427,7 @@ def _is_stamp_account(doc, account):
 
 
 def _fix_stamp_gl_entries(doc, gl_entries):
-	"""Overwrite GL amounts for stamp tax accounts with the exact LBP value."""
+	"""Overwrite GL amounts for stamp tax accounts with the exact local value."""
 	if not doc.get("taxes"):
 		return
 
@@ -2409,43 +2439,36 @@ def _fix_stamp_gl_entries(doc, gl_entries):
 	if not stamp_map:
 		return
 
-	company_currency = frappe.db.get_value("Company", doc.company, "default_currency") or "LBP"
-	exchange_rate = flt(getattr(doc, "custom_exchange_rate_override", None)) or 89500
+	company_currency = frappe.db.get_value("Company", doc.company, "default_currency") or frappe.defaults.get_user_default("currency")
 
 	for gle in gl_entries:
-		lbp_amount = stamp_map.get(gle.get("account"))
-		if not lbp_amount:
+		stamp_amount = stamp_map.get(gle.get("account"))
+		if not stamp_amount:
 			continue
 
-		if company_currency == "LBP":
-			# Debit and credit are already in LBP; just force the exact integer
+		tax_account_currency = frappe.db.get_value("Account", gle.get("account"), "account_currency") or company_currency
+
+		if company_currency == tax_account_currency:
+			# Debit and credit are already in account currency; just force the exact integer
 			if gle.get("credit") or gle.get("credit_in_account_currency"):
-				gle["credit"] = lbp_amount
-				gle["credit_in_account_currency"] = lbp_amount
+				gle["credit"] = stamp_amount
+				gle["credit_in_account_currency"] = stamp_amount
 			else:
-				gle["debit"] = lbp_amount
-				gle["debit_in_account_currency"] = lbp_amount
+				gle["debit"] = stamp_amount
+				gle["debit_in_account_currency"] = stamp_amount
 		else:
-			# Non-LBP company (e.g. EGP, USD).
-			# ERPNext already computed gle["credit"] correctly in company currency
-			# (it uses base_tax_amount which equals tax_amount * conversion_rate).
-			# We must NOT overwrite that — doing so caused "Debit and Credit not equal"
-			# because it substituted the USD amount (4.85) for the EGP amount (728.21).
-			# We only need to fix credit_in_account_currency (which ERPNext wrongly sets
-			# to the invoice-currency amount) and set the LBP exchange rate so Frappe's
-			# GL validator passes: credit_in_account_currency * exchange_rate == credit.
 			existing_credit = flt(gle.get("credit") or 0)
 			existing_debit  = flt(gle.get("debit") or 0)
-			base_amount = existing_credit or existing_debit  # already in company currency
-			gle_rate = flt(base_amount / lbp_amount) if lbp_amount else 0
+			base_amount = existing_credit or existing_debit
+			gle_rate = flt(base_amount / stamp_amount) if stamp_amount else 0
 
 			if existing_credit or gle.get("credit_in_account_currency"):
-				gle["credit_in_account_currency"] = lbp_amount
-				gle["account_currency"] = "LBP"
+				gle["credit_in_account_currency"] = stamp_amount
+				gle["account_currency"] = tax_account_currency
 				gle["exchange_rate"] = gle_rate
 			else:
-				gle["debit_in_account_currency"] = lbp_amount
-				gle["account_currency"] = "LBP"
+				gle["debit_in_account_currency"] = stamp_amount
+				gle["account_currency"] = tax_account_currency
 				gle["exchange_rate"] = gle_rate
 
 
@@ -2522,12 +2545,12 @@ class CustomSalesInvoice(SalesInvoice):
 		custom_make_loyalty_point_entry(self)
 
 	def validate_account_currency(self, account, account_currency=None):
-		# Skip stamp tax accounts - they use LBP regardless of invoice currency
+		# Skip stamp tax accounts - they use their own account currency regardless of invoice currency
 		if _is_stamp_account(self, account):
 			return
-		# Skip multi-currency payment accounts (e.g. LBP cash accounts on USD invoices).
-		# When a payment is made in LBP on a USD invoice, the account_currency will be
-		# LBP but the invoice currency is USD - ERPNext would normally reject this.
+		# Skip multi-currency payment accounts (e.g. local cash accounts on foreign invoices).
+		# When a payment is made in local currency on a foreign invoice, the account_currency will be
+		# local but the invoice currency is foreign - ERPNext would normally reject this.
 		# Our multi-currency GL logic already handles the correct amounts, so we allow it.
 		if account_currency and account_currency != (self.currency or frappe.db.get_default("currency") or frappe.db.get_single_value("System Settings", "default_currency") or frappe.db.get_value("Company", {}, "default_currency")):
 			account_doc_currency = frappe.db.get_value("Account", account, "account_currency")
@@ -3122,13 +3145,28 @@ def get_customer_invoices_for_return(customer, start_date=None, end_date=None, s
 @frappe.whitelist()
 def create_partial_return(
 	invoice_name, return_items, payment_method=None, return_amount=None, expected_return_amount=None,
-	return_currency=None, return_original_amount=None, payments=None
+	return_currency=None, return_original_amount=None, payments=None, payload_id=None, custom_shift_order=None
 ):
 	"""Create a partial return for selected items from an invoice with custom payment method"""
 
 	try:
 		if isinstance(return_items, str):
 			return_items = json.loads(return_items)
+
+		# Idempotency Guard
+		if payload_id:
+			existing_return = frappe.db.exists("Sales Invoice", {"pos_ref": payload_id, "owner": frappe.session.user})
+			if not existing_return:
+				existing_return = frappe.db.exists("POS Invoice", {"pos_ref": payload_id, "owner": frappe.session.user})
+			
+			if existing_return:
+				frappe.logger().info(f"Idempotency: Return {existing_return} already processed for payload {payload_id}.")
+				return {
+					"success": True,
+					"message": f"Return {existing_return} already processed for this payload.",
+					"return_invoice": existing_return,
+					"idempotent": True
+				}
 
 		doctype = "POS Invoice" if frappe.db.exists("POS Invoice", invoice_name) else "Sales Invoice"
 		original_invoice = frappe.get_doc(doctype, invoice_name)
@@ -3163,11 +3201,16 @@ def create_partial_return(
 		return_doc.is_return = 1
 		return_doc.posting_date = frappe.utils.nowdate()
 		return_doc.custom_delivery_date = frappe.utils.nowdate()
+		if custom_shift_order:
+			return_doc.custom_shift_order = str(custom_shift_order)[:140]
 
 		# Set the current POS opening entry
 		current_opening_entry = get_current_pos_opening_entry()
 		if current_opening_entry:
 			return_doc.custom_pos_opening_entry = current_opening_entry
+			
+		if payload_id:
+			return_doc.pos_ref = payload_id
 
 		# Ensure no original round-off leaks into partial return
 		return_doc.custom_roundoff_amount = 0
@@ -3451,12 +3494,20 @@ def submit_draft_invoice(invoice_id):
 	This converts a draft invoice to submitted status.
 	"""
 	try:
-		invoice_doc = frappe.get_doc("Sales Invoice", invoice_id)
+		doctype = "POS Invoice" if frappe.db.exists("POS Invoice", invoice_id) else "Sales Invoice"
+		invoice_doc = frappe.get_doc(doctype, invoice_id)
 
 		if invoice_doc.status != "Draft":
+			if invoice_doc.status in ["Submitted", "Paid", "Consolidated"]:
+				return {
+					"success": True,
+					"message": f"Draft invoice {invoice_id} is already submitted.",
+					"invoice_name": invoice_doc.name,
+					"invoice": invoice_doc,
+				}
 			return {
 				"success": False,
-				"error": f"Cannot submit invoice {invoice_id}. Only Draft invoices can be submitted. Current status: {invoice_doc.status}",
+				"error": f"Cannot submit invoice {invoice_id}. Current status: {invoice_doc.status}",
 			}
 
 		invoice_doc.submit()
@@ -3595,6 +3646,16 @@ def settle_delivery_invoices(invoice_names, current_session_id, payload=None):
 		if isinstance(invoice_names, str):
 			invoice_names = json.loads(invoice_names)
 
+		# Idempotency Guard for Driver Settlement
+		settlement_name = payload.get("name") or payload.get("pre_assigned_name") if payload else None
+		if settlement_name and frappe.db.exists("Driver Settlement", {"pos_ref": settlement_name, "owner": frappe.session.user}):
+			existing_settlement_name = frappe.db.exists("Driver Settlement", {"pos_ref": settlement_name, "owner": frappe.session.user})
+			existing_doc = frappe.get_doc("Driver Settlement", existing_settlement_name)
+			if existing_doc.docstatus == 1:
+				frappe.logger().info(f"Idempotency: Driver Settlement {settlement_name} already submitted. Returning cached.")
+				settled_invoices = [row.invoice_id for row in existing_doc.invoices] if hasattr(existing_doc, "invoices") else []
+				return {"success": True, "settled": settled_invoices, "settlement_name": settlement_name, "errors": [], "idempotent": True}
+
 		settled = []
 		errors = []
 
@@ -3696,7 +3757,7 @@ def settle_delivery_invoices(invoice_names, current_session_id, payload=None):
 						})
 				
 				if payload.get("name") or payload.get("pre_assigned_name"):
-					settlement_doc.name = payload.get("name") or payload.get("pre_assigned_name")
+					settlement_doc.pos_ref = payload.get("name") or payload.get("pre_assigned_name")
 				settlement_doc.insert(ignore_permissions=True)
 				settlement_doc.submit()
 				settlement_name = settlement_doc.name

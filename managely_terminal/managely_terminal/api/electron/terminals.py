@@ -502,6 +502,7 @@ def trigger_pull_db(terminal_id):
             'type': 'request_db_file'
         }
         frappe.cache().set_value('terminal_cmd:{}'.format(terminal_id), cmd_payload, expires_in_sec=120)
+        frappe.cache().set_value('terminal_auth_db:{}'.format(terminal_id), True, expires_in_sec=180)
         try:
             frappe.publish_realtime(
                 event='server:request_db_file',
@@ -523,6 +524,10 @@ def receive_db_file():
         
         if not terminal_id:
             return {'success': False, 'error': 'Missing terminal_id'}
+            
+        if not frappe.cache().get_value('terminal_auth_db:{}'.format(terminal_id)):
+            return {'success': False, 'error': 'Unauthorized: No active DB pull request found'}
+        frappe.cache().delete_value('terminal_auth_db:{}'.format(terminal_id))
             
         error_msg = data.get('error', '')
         file_data = data.get('file_data') if success else None
@@ -581,6 +586,7 @@ def upload_restore_db(terminal_id, file_name, file_data):
             'file_data': file_data
         }
         frappe.cache().set_value('terminal_cmd:{}'.format(terminal_id), cmd_payload, expires_in_sec=120)
+        frappe.cache().set_value('terminal_auth_restore:{}'.format(terminal_id), True, expires_in_sec=180)
         
         try:
             frappe.publish_realtime(
@@ -608,6 +614,10 @@ def receive_restore_status():
         
         if not terminal_id:
             return {'success': False, 'error': 'Missing terminal_id'}
+            
+        if not frappe.cache().get_value('terminal_auth_restore:{}'.format(terminal_id)):
+            return {'success': False, 'error': 'Unauthorized'}
+        frappe.cache().delete_value('terminal_auth_restore:{}'.format(terminal_id))
             
         payload = {
             'success': success,
@@ -656,6 +666,7 @@ def trigger_execute_sql(terminal_id, query):
             'query': query
         }
         frappe.cache().set_value('terminal_cmd:{}'.format(terminal_id), cmd_payload, expires_in_sec=120)
+        frappe.cache().set_value('terminal_auth_sql:{}'.format(terminal_id), True, expires_in_sec=180)
         try:
             frappe.publish_realtime(
                 event='server:execute_sql',
@@ -677,6 +688,10 @@ def receive_sql_result():
         
         if not terminal_id:
             return {'success': False, 'error': 'Missing terminal_id'}
+            
+        if not frappe.cache().get_value('terminal_auth_sql:{}'.format(terminal_id)):
+            return {'success': False, 'error': 'Unauthorized'}
+        frappe.cache().delete_value('terminal_auth_sql:{}'.format(terminal_id))
             
         payload = {
             'success': success,

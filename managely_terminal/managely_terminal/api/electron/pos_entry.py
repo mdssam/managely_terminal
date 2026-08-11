@@ -123,6 +123,20 @@ def create_opening_entry():
 		if isinstance(data, str):
 			data = json.loads(data)
 
+		# Idempotency Guard — prevents duplicate opening entries on retry
+		pre_name = data.get("name") or data.get("pre_assigned_name")
+		if pre_name:
+			existing_name = frappe.db.exists("POS Opening Entry", {"pos_ref": pre_name, "user": frappe.session.user})
+			if existing_name:
+				existing = frappe.get_doc("POS Opening Entry", existing_name)
+				frappe.logger().info(f"Idempotency: POS Opening Entry {pre_name} already exists. Returning cached.")
+				return {
+					"success": True,
+					"message": "POS Opening Entry already exists.",
+					"name": existing.name,
+					"doc": existing
+				}
+
 		user = frappe.session.user
 
 		selected_pos_profile = data.get("pos_profile")
@@ -164,10 +178,8 @@ def create_opening_entry():
 
 		# Create the POS Opening Entry
 		doc = frappe.new_doc("POS Opening Entry")
-		if data.get("pre_assigned_name"):
-			doc.name = data.get("pre_assigned_name")
-			doc.flags.pre_assigned_name = data.get("pre_assigned_name")
-			doc.flags.ignore_naming_series = True
+		if data.get("pre_assigned_name") or data.get("name"):
+			doc.pos_ref = data.get("pre_assigned_name") or data.get("name")
 
 		doc.user = user
 		doc.company = company
@@ -201,7 +213,11 @@ def create_opening_entry():
 
 		doc.flags.ignore_permissions = True
 		doc.insert(ignore_permissions=True)
-		doc.submit()
+		frappe.flags.ignore_permissions = True
+		try:
+			doc.submit()
+		finally:
+			frappe.flags.ignore_permissions = False
 
 		# Clear POS profile cache after creating opening entry to ensure fresh data
 		try:
@@ -412,6 +428,21 @@ def create_closing_entry():
 	"""
 	try:
 		data = _parse_request_data()
+		
+		# Idempotency Guard — prevents duplicate closing entries on retry
+		pre_name = data.get("name") or data.get("pre_assigned_name")
+		if pre_name:
+			existing_name = frappe.db.exists("POS Closing Entry", {"pos_ref": pre_name, "user": frappe.session.user})
+			if existing_name:
+				existing = frappe.get_doc("POS Closing Entry", existing_name)
+				if existing.docstatus == 1:
+					frappe.logger().info(f"Idempotency: POS Closing Entry {pre_name} already submitted. Returning cached.")
+					return {
+						"success": True,
+						"message": "POS session closed successfully.",
+						"name": existing.name
+					}
+
 		user = frappe.session.user
 		frappe.logger().info(f"POS Closing Entry Data Received: {data}")
 
@@ -777,10 +808,8 @@ def _populate_sales_invoices_to_closing_entry(closing_doc, opening_entry_name):
 def _create_and_submit_closing_doc(opening_entry, data, payment_data, user):
 	"""Create, populate, and submit the POS Closing Entry document."""
 	doc = frappe.new_doc("POS Closing Entry")
-	if data.get("pre_assigned_name"):
-		doc.name = data.get("pre_assigned_name")
-		doc.flags.pre_assigned_name = data.get("pre_assigned_name")
-		doc.flags.ignore_naming_series = True
+	if data.get("pre_assigned_name") or data.get("name"):
+		doc.pos_ref = data.get("pre_assigned_name") or data.get("name")
 
 	doc.user = user
 	doc.company = opening_entry.company
@@ -833,11 +862,19 @@ def _create_and_submit_closing_doc(opening_entry, data, payment_data, user):
 	# Sultan uses its own custom reconciliation system via custom_sales_invoice.
 
 
-	# Submit and link back to opening entry
+	# Submit and link back to opening entry.
+	# frappe.flags.ignore_permissions bypasses ERPNext's internal permission checks
+	# inside on_submit (consolidate_pos_invoices → update_opening_entry → opening_entry.save()),
+	# which would otherwise fail for cashier users who lack Submit on POS Opening Entry.
+	# The API itself is already protected by Token authentication (@frappe.whitelist()).
 	doc.flags.ignore_permissions = True
 	doc.insert(ignore_permissions=True)
-	doc.submit()
-	frappe.db.set_value("POS Opening Entry", opening_entry.name, "pos_closing_entry", doc.name)
+	frappe.flags.ignore_permissions = True
+	try:
+		doc.submit()
+	finally:
+		frappe.flags.ignore_permissions = False
+	frappe.db.set_value("POS Opening Entry", opening_entry.name, "pos_closing_entry", doc.name, ignore_permissions=True)
 
 	# If POS Profile has "Clear draft invoices" enabled, delete all drafts for this session
 	_clear_draft_invoices_on_close_if_enabled(opening_entry)

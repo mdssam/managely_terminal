@@ -91,7 +91,6 @@ doctype_tree_js = {"Account": "public/js/doctype/account_autonumber.js"}
 # after_install = "managely_terminal.install.after_install"
 
 after_migrate = [
-    "managely_terminal.managely_terminal.api.setup_custom_fields",
     "managely_terminal.managely_terminal.accounting.customizations.setup_custom_fields",
     "managely_terminal.managely_terminal.setup_fields.run",
 ]

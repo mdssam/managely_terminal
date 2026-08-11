@@ -2,46 +2,7 @@ import frappe
 from frappe import _
 from frappe.utils import flt, getdate, add_days
 
-@frappe.whitelist()
-def setup_custom_fields():
-    """
-    Bootstraps all required custom fields in ERPNext for Sultan customizations.
-    Run via console or bench: bench execute managely_terminal.managely_terminal.api.setup_custom_fields
-    """
-    fields = [
-        {"dt": "Item", "fieldname": "is_fresh_produce", "label": "Is Fresh Produce", "fieldtype": "Check", "insert_after": "allow_negative_stock"},
-        {"dt": "Item", "fieldname": "supports_weight_price", "label": "Supports Weight Price", "fieldtype": "Check", "insert_after": "is_fresh_produce"},
-        {"dt": "Item", "fieldname": "is_weight_item", "label": "Is Weight Item", "fieldtype": "Check", "insert_after": "is_fresh_produce"},
-        {"dt": "POS Invoice Item", "fieldname": "custom_ingredients", "label": "Custom Ingredients", "fieldtype": "Small Text", "insert_after": "item_code"},
-        {"dt": "Sales Order Item", "fieldname": "custom_ingredients", "label": "Custom Ingredients", "fieldtype": "Small Text", "insert_after": "item_code"},
-        {"dt": "Work Order", "fieldname": "custom_pos_invoice", "label": "Source POS Invoice", "fieldtype": "Link", "options": "POS Invoice", "insert_after": "sales_order"},
-        {"dt": "Work Order", "fieldname": "custom_sales_order", "label": "Source Sales Order", "fieldtype": "Link", "options": "Sales Order", "insert_after": "custom_pos_invoice"},
-        {"dt": "Work Order", "fieldname": "custom_sales_invoice", "label": "Source Sales Invoice", "fieldtype": "Link", "options": "Sales Invoice", "insert_after": "custom_sales_order"},
-        {"dt": "POS Profile", "fieldname": "custom_hide_tax_in_cart", "label": "Hide Tax in Cart and Print", "fieldtype": "Check", "insert_after": "company"},
-        {"dt": "POS Profile", "fieldname": "custom_prices_include_vat", "label": "Prices Include VAT in Print", "fieldtype": "Check", "insert_after": "custom_hide_tax_in_cart"},
-        {"dt": "Item", "fieldname": "custom_is_tax_exempt", "label": "Tax Exempt (No VAT)", "fieldtype": "Check", "insert_after": "is_weight_item", "in_list_view": 1}
-    ]
-    
-    # Delete old Custom Field on Item Price if it exists
-    if frappe.db.exists("Custom Field", "Item Price-custom_is_tax_exempt"):
-        frappe.delete_doc("Custom Field", "Item Price-custom_is_tax_exempt", ignore_permissions=True)
-    
-    count = 0
-    for f in fields:
-        cf_name = frappe.db.get_value("Custom Field", {"dt": f["dt"], "fieldname": f["fieldname"]})
-        if not cf_name:
-            doc = frappe.new_doc("Custom Field")
-            doc.update(f)
-            doc.insert(ignore_permissions=True)
-            count += 1
-        else:
-            cf_doc = frappe.get_doc("Custom Field", cf_name)
-            if cf_doc.description:
-                cf_doc.description = None
-                cf_doc.save(ignore_permissions=True)
-            
-    frappe.db.commit()
-    return f"Created {count} custom fields successfully!"
+
 
 @frappe.whitelist()
 def generate_production_order(doc, method=None):

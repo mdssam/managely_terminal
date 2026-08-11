@@ -126,9 +126,7 @@ class DeliveryCompanySettlement(Document):
 			payment_account = frappe.db.get_value("Company", company, "default_bank_account") or frappe.db.get_value("Company", company, "default_cash_account")
 
 		# Resolve Delivery Fee Account
-		delivery_charge_account = "626100020 - Delivery Charge - SG"
-		if not frappe.db.exists("Account", delivery_charge_account):
-			delivery_charge_account = frappe.db.get_value("Company", company, "default_income_account")
+		delivery_charge_account = frappe.db.get_value("Company", company, "default_income_account")
 
 		gl_map = []
 

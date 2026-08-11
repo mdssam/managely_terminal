@@ -24,8 +24,8 @@ def get_customers(limit: int = 100, start: int = 0, search: str = "", include_al
 		pos_profile = get_current_pos_profile()
 		business_type = getattr(pos_profile, "custom_business_type", "B2C")
 		default_customer = getattr(pos_profile, "customer", None) or getattr(pos_profile, "name", None) or "Walk-in Customer" 
-		company = getattr(pos_profile, "company", None) or frappe.defaults.get_user_default("Company") or "Sultan Global"
-		company_currency = frappe.db.get_value("Company", company, "default_currency") or "USD"
+		company = getattr(pos_profile, "company", None) or frappe.defaults.get_user_default("Company") or frappe.db.get_single_value("Global Defaults", "default_company")
+		company_currency = frappe.db.get_value("Company", company, "default_currency") if company else frappe.defaults.get_user_default("currency")
 		result = []
 
 		# 1. Standard Customer DocType: ONLY get default_customer for this POS Profile
@@ -332,7 +332,7 @@ def create_or_update_customer(customer_data):
 		else:
 			address_dict = address
 
-		country = address_dict.get("country", "Saudi Arabia")
+		country = address_dict.get("country", frappe.db.get_single_value("Global Defaults", "country"))
 		name_arabic = customer_data.get("name_arabic", "")
 
 		if not customer_name:
@@ -349,7 +349,13 @@ def create_or_update_customer(customer_data):
 
 			existing_pos_cust = frappe.db.get_value("POS Customer", {"customer_name": customer_name})
 			if existing_pos_cust:
-				frappe.throw(_("A customer with the name '{0}' already exists.").format(customer_name))
+				return {
+					"success": True,
+					"customer_name": existing_pos_cust,
+					"contact_name": None,
+					"address_name": None,
+					"idempotent": True
+				}
 			else:
 				addr_str = ""
 				if isinstance(address, str):
@@ -406,8 +412,15 @@ def create_or_update_customer(customer_data):
 
 		# For Companies → create both Contact and Address
 		if cust_type == "company":
-			if frappe.db.exists("Customer", {"customer_name": customer_name}):
-				frappe.throw(_("A company customer with the name '{0}' already exists.").format(customer_name))
+			existing_company_cust = frappe.db.get_value("Customer", {"customer_name": customer_name})
+			if existing_company_cust:
+				return {
+					"success": True,
+					"customer_name": existing_company_cust,
+					"contact_name": None,
+					"address_name": None,
+					"idempotent": True
+				}
 			# Create or update Customer
 			customer_doc = get_or_create_customer(
 				customer_name, email, phone, country, name_arabic, customer_data
@@ -638,7 +651,7 @@ def update_customer(customer_id, customer_data):
 		phone = customer_data.get("phone")
 		customer_name = customer_data.get("name", customer.customer_name)
 		address_data = customer_data.get("address", {})
-		country = address_data.get("country", "Saudi Arabia")
+		country = address_data.get("country", frappe.db.get_single_value("Global Defaults", "country"))
 
 		# Update customer fields
 		for key, value in customer_data.items():

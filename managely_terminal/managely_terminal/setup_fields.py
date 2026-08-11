@@ -69,6 +69,62 @@ def ensure_employee_pos_login_fields():
 
 
 
+def ensure_misc_custom_fields():
+	fields = [
+		{"dt": "Item", "fieldname": "is_fresh_produce", "label": "Is Fresh Produce", "fieldtype": "Check", "insert_after": "allow_negative_stock"},
+		{"dt": "Item", "fieldname": "supports_weight_price", "label": "Supports Weight Price", "fieldtype": "Check", "insert_after": "is_fresh_produce"},
+		{"dt": "Item", "fieldname": "is_weight_item", "label": "Is Weight Item", "fieldtype": "Check", "insert_after": "is_fresh_produce"},
+		{"dt": "POS Invoice Item", "fieldname": "custom_ingredients", "label": "Custom Ingredients", "fieldtype": "Small Text", "insert_after": "item_code"},
+		{"dt": "Sales Order Item", "fieldname": "custom_ingredients", "label": "Custom Ingredients", "fieldtype": "Small Text", "insert_after": "item_code"},
+		{"dt": "Work Order", "fieldname": "custom_pos_invoice", "label": "Source POS Invoice", "fieldtype": "Link", "options": "POS Invoice", "insert_after": "sales_order"},
+		{"dt": "Work Order", "fieldname": "custom_sales_order", "label": "Source Sales Order", "fieldtype": "Link", "options": "Sales Order", "insert_after": "custom_pos_invoice"},
+		{"dt": "Work Order", "fieldname": "custom_sales_invoice", "label": "Source Sales Invoice", "fieldtype": "Link", "options": "Sales Invoice", "insert_after": "custom_sales_order"},
+		{"dt": "Item", "fieldname": "custom_is_tax_exempt", "label": "Tax Exempt (No VAT)", "fieldtype": "Check", "insert_after": "is_weight_item", "in_list_view": 1},
+		{"dt": "POS Invoice", "fieldname": "custom_shift_order", "label": "Shift Order No", "fieldtype": "Data", "read_only": 1, "insert_after": "pos_profile"},
+		{"dt": "Sales Invoice", "fieldname": "custom_shift_order", "label": "Shift Order No", "fieldtype": "Data", "read_only": 1, "insert_after": "pos_profile"}
+	]
+
+	pos_ref_doctypes = [
+		"Sales Invoice",
+		"POS Invoice", 
+		"POS Opening Entry", 
+		"POS Closing Entry", 
+		"Driver Settlement", 
+		"Delivery Company Settlement",
+		"Work Order",
+		"POS Suspended Transaction"
+	]
+	
+	for dt in pos_ref_doctypes:
+		if frappe.db.exists("DocType", dt):
+			fields.append({
+				"dt": dt,
+				"fieldname": "pos_ref",
+				"label": "POS Reference",
+				"fieldtype": "Data",
+				"read_only": 1
+			})
+
+	if frappe.db.exists("Custom Field", "Item Price-custom_is_tax_exempt"):
+		frappe.delete_doc("Custom Field", "Item Price-custom_is_tax_exempt", ignore_permissions=True)
+	
+	for f in fields:
+		cf_name = frappe.db.get_value("Custom Field", {"dt": f["dt"], "fieldname": f["fieldname"]})
+		if not cf_name:
+			doc = frappe.new_doc("Custom Field")
+			doc.update(f)
+			try:
+				doc.insert(ignore_permissions=True)
+				print(f"Created custom field {f['dt']}-{f['fieldname']}")
+			except Exception as e:
+				print(f"FAILED to insert custom field {f['dt']}-{f['fieldname']}: {str(e)}")
+		else:
+			cf_doc = frappe.get_doc("Custom Field", cf_name)
+			if cf_doc.description:
+				cf_doc.description = None
+				cf_doc.save(ignore_permissions=True)
+
+
 def ensure_delivery_company_doctype_and_fields():
 	# 1. Create Child DocType POS Profile Delivery Fee if it doesn't exist
 	if not frappe.db.exists("DocType", "POS Profile Delivery Fee"):
@@ -173,6 +229,7 @@ def ensure_delivery_company_doctype_and_fields():
 
 
 def run():
+	ensure_misc_custom_fields()
 	ensure_delivery_company_doctype_and_fields()
 	setup_accounting_custom_fields()
 	ensure_custom_html_blocks()
@@ -690,6 +747,27 @@ def ensure_pos_profile_fields():
 			"label": "Ignore Write Off on Partial Returns",
 			"fieldtype": "Check",
 			"default": "1",
+		},
+		{
+			"fieldname": "custom_shift_settings_section",
+			"label": "Shift Settings",
+			"fieldtype": "Section Break"
+		},
+		{
+			"fieldname": "custom_enable_shift_sequence",
+			"label": "Enable Shift Sequence",
+			"fieldtype": "Check"
+		},
+		{
+			"fieldname": "custom_shift_sequence_prefix",
+			"label": "Shift Sequence Prefix",
+			"fieldtype": "Data"
+		},
+		{
+			"fieldname": "custom_shift_sequence_start",
+			"label": "Shift Sequence Start",
+			"fieldtype": "Int",
+			"default": "1"
 		},
 	]
 
