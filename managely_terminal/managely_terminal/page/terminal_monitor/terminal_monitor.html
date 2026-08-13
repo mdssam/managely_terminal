@@ -121,6 +121,11 @@
                                 <button id="btn-relaunch-app" class="btn btn-default btn-sm btn-block font-weight-bold py-2">Relaunch POS</button>
                             </div>
                         </div>
+                        <div class="row align-items-end mt-3">
+                            <div class="col-md-12 px-2 text-right">
+                                <button id="btn-force-unlock" class="btn btn-danger btn-sm font-weight-bold py-1 px-3" style="opacity: 0.9; display: none;"><i class="fa fa-unlock-alt mr-1"></i> Force Unlock Terminal</button>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Logs Table Area -->
@@ -134,6 +139,9 @@
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link font-weight-bold text-secondary px-3 py-2" id="audit-logs-tab" data-toggle="tab" href="#" data-target="#audit-logs-panel" role="tab" style="border: none; border-bottom: 2px solid transparent;">Audit Log</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link font-weight-bold text-secondary px-3 py-2" id="activity-log-tab" data-toggle="tab" href="#" data-target="#activity-log-panel" role="tab" style="border: none; border-bottom: 2px solid transparent;">Activity Log</a>
                             </li>
                             <li class="nav-item">
                                 <a class="nav-link font-weight-bold text-secondary px-3 py-2" id="sql-console-tab" data-toggle="tab" href="#" data-target="#sql-console-panel" role="tab" style="border: none; border-bottom: 2px solid transparent;">SQL Console</a>
@@ -223,6 +231,27 @@
                                     </div>
                                 </div>
                             </div>
+
+                            <!-- Activity Log -->
+                            <div class="tab-pane fade" id="activity-log-panel" role="tabpanel">
+                                <div class="table-responsive border rounded" style="max-height: 450px; overflow-y: auto; border-radius: 6px;">
+                                    <table class="table table-sm table-hover text-left mb-0" style="font-size: 0.9em;">
+                                        <thead class="bg-light">
+                                            <tr>
+                                                <th class="border-0 py-2" style="width: 150px;">Time</th>
+                                                <th class="border-0 py-2" style="width: 120px;">Event</th>
+                                                <th class="border-0 py-2" style="width: 80px;">Dir</th>
+                                                <th class="border-0 py-2" style="width: 100px;">User</th>
+                                                <th class="border-0 py-2">Description</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="activity-log-tbody">
+                                            <tr><td colspan="5" class="text-center py-4 text-muted">Select a terminal to view activity logs.</td></tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
                             <!-- SQL Console Panel -->
                             <div class="tab-pane fade" id="sql-console-panel" role="tabpanel">
                                 <div class="alert alert-info py-2 px-3 small font-weight-bold mb-3" style="border-radius: 4px;">

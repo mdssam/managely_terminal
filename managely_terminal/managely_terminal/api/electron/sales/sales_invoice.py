@@ -924,7 +924,7 @@ def create_and_submit_invoice(data):
 			doc.return_against = data.get("return_against")
 			doc.is_pos = 1
 
-		# Sultan custom fields
+		# Managely custom fields
 		doc.custom_pos_order_type = data.get("custom_pos_order_type") or ("Delivery" if float(data.get("deliveryFee", 0.0)) > 0 or data.get("deliveryPersonnel") else "Pickup")
 		doc.cashier_name = data.get("cashier_name") or ""
 		doc.employee_username = data.get("employee_username") or ""
@@ -950,7 +950,9 @@ def create_and_submit_invoice(data):
 		is_company = bool(data.get("custom_delivery_company") or data.get("delivery_company") or data.get("deliveryCompany"))
 		is_driver_settled = bool(data.get("custom_driver_settled"))
 
-		is_delivery_cod = has_driver and (not is_company) and (not is_driver_settled)
+		# Also treat as COD if payload explicitly sets custom_delivery_cod=1 (even if deliveryPersonnel is null)
+		explicit_cod = bool(int(data.get("custom_delivery_cod") or 0))
+		is_delivery_cod = (has_driver or explicit_cod) and (not is_company) and (not is_driver_settled)
 		if is_delivery_cod:
 			doc.custom_delivery_cod = 1
 			doc.outstanding_amount = doc.grand_total
@@ -1031,8 +1033,6 @@ def create_and_submit_invoice(data):
 				"processing_time": round(processing_time, 2),
 			}
 
-		# H12 FIX: Validate item rates before saving
-		_validate_item_rates(doc, data)
 
 		doc.save(ignore_permissions=True)
 		# C5 FIX: After save, ERPNext recalculates grand_total server-side
@@ -1183,8 +1183,6 @@ def create_draft_invoice(data):
 					"default": 1
 				})
 
-		# H12 FIX: Validate item rates before saving
-		_validate_item_rates(doc, data)
 
 		if doc.name:
 			frappe.log_error(message=f"Saving existing document. name: {doc.name}", title="create_draft_invoice debug doc.name")
@@ -1260,7 +1258,7 @@ def parse_invoice_data(data):
 
 	# Offline-synced invoices carry a temporary OFFLINE_CUST- id. Resolve it to a
 	# real ERPNext customer before building the invoice document.
-	if not customer or (isinstance(customer, str) and customer.startswith("OFFLINE_CUST-")):
+	if not customer or (isinstance(customer, str) and customer.startswith("OFFLINE_CUST-") or customer.startswith("LOCAL_CUST_")):
 		resolved = _resolve_offline_customer(customer_obj, pos_profile)
 		if resolved:
 			customer = resolved
@@ -1303,72 +1301,7 @@ def parse_invoice_data(data):
 
 
 
-def _validate_item_rates(doc, data):
-	"""
-	H12 FIX: Validate that item rates sent by the POS client are within the
-	allowed discount range. Prevents price manipulation via SQLite editing.
-	
-	Logic:
-	  - Fetch standard selling price for each item from the default price list.
-	  - If client rate < standard_rate * (1 - max_discount_pct/100), flag it.
-	  - Suspicious items are logged and the invoice is blocked if fraud_threshold exceeded.
-	"""
-	try:
-		try:
-			max_discount_pct = flt(frappe.db.get_single_value("Terminal Settings", "max_item_discount_pct") or 100)
-		except Exception:
-			max_discount_pct = 100
-		if max_discount_pct >= 100:
-			# No limit configured ??? skip validation (default safe)
-			return
 
-		price_list = frappe.db.get_single_value("Selling Settings", "selling_price_list") or "Standard Selling"
-		fraud_items = []
-
-		for item in doc.items:
-			if not item.item_code or flt(item.rate) <= 0:
-				continue
-
-			std_price = frappe.db.get_value(
-				"Item Price",
-				{"item_code": item.item_code, "price_list": price_list, "selling": 1},
-				"price_list_rate"
-			)
-
-			if not std_price or flt(std_price) <= 0:
-				continue  # No standard price ??? skip this item
-
-			allowed_floor = flt(std_price) * (1 - max_discount_pct / 100)
-			if flt(item.rate) < allowed_floor:
-				fraud_items.append({
-					"item_code": item.item_code,
-					"client_rate": flt(item.rate),
-					"std_rate": flt(std_price),
-					"allowed_floor": allowed_floor,
-					"discount_pct": round((1 - flt(item.rate) / flt(std_price)) * 100, 2),
-				})
-
-		if fraud_items:
-			cashier = getattr(doc, "cashier_name", "") or getattr(doc, "employee_username", "")
-			frappe.log_error(
-				f"H12 Price Fraud Alert on {doc.name}: cashier={cashier}, items={fraud_items}",
-				"Suspicious Item Rate"
-			)
-			# Block the invoice ??? rates are outside allowed range
-			item_codes = ", ".join(i["item_code"] for i in fraud_items)
-			frappe.throw(
-				f"Item rate(s) below allowed minimum for: {item_codes}. "
-				f"Maximum allowed discount is {max_discount_pct}%.",
-				title="Price Validation Failed"
-			)
-		elif len(doc.items) > 0:
-			frappe.logger().info(f"H12 Price validation passed for {doc.name}")
-
-	except frappe.ValidationError:
-		raise
-	except Exception as e:
-		# Validation errors must not silently pass ??? log and re-raise
-		frappe.log_error(f"H12 _validate_item_rates error: {e}", "Price Validation Error")
 
 def build_sales_invoice_doc(
 	customer,
@@ -1402,15 +1335,23 @@ def build_sales_invoice_doc(
 			doc.naming_series = naming_series
 		
 	doc.is_pos = 1
+	doc.ignore_pricing_rule = 1
 
 	# Resolve POS Customer (B2C/Cash consolidation)
 	pos_customer_record = frappe.db.get_value("POS Customer", {"customer_name": customer}, ["name", "unified_customer"], as_dict=True)
 	if not pos_customer_record:
 		pos_customer_record = frappe.db.get_value("POS Customer", {"name": customer}, ["name", "unified_customer"], as_dict=True)
 
+	pos_profile = _get_active_pos_profile()
+	default_branch_customer = getattr(pos_profile, "customer", None) or "Walk-in Customer"
+
 	if pos_customer_record:
 		doc.custom_pos_customer = pos_customer_record.name
-		customer = pos_customer_record.unified_customer
+		customer = pos_customer_record.unified_customer or default_branch_customer
+	else:
+		if not frappe.db.exists("Customer", customer):
+			doc.custom_pos_customer = customer
+			customer = default_branch_customer
 
 	doc.customer = customer
 	doc.due_date = frappe.utils.nowdate()
@@ -1832,6 +1773,7 @@ def _prepare_item_data(item, item_data_map, pos_profile, prices_include_vat=Fals
 		"qty": item.get("quantity") or item.get("qty"),
 		"rate": final_rate,
         "price_list_rate": flt(original_price),   # keep original for reference
+        "is_free_item": 1 if is_free else 0,
         "ignore_pricing_rule": ignore_pricing_rule,
 		# "rate": item.get("price"),
 		# "rate": item.get("original_price") or item.get("price"),
@@ -2511,7 +2453,7 @@ def apply_custom_tax_exemptions(doc):
 					if tax.account_head:
 						exempt_dict[tax.account_head] = 0.0
 				if not exempt_dict and doc.taxes_and_charges:
-					from managely_terminal.managely_terminal.api.electron.sales_invoice import get_tax_template
+					from managely_terminal.managely_terminal.api.electron.sales.sales_invoice import get_tax_template
 					tax_doc = get_tax_template(doc.taxes_and_charges)
 					if tax_doc and tax_doc.taxes:
 						for tax in tax_doc.taxes:
@@ -3566,7 +3508,7 @@ def get_today_exchange_rates(currencies, base_currency):
 
 class CustomPOSInvoice(POSInvoice):
 	"""
-	Sultan customised POS Invoice.
+	Managely customised POS Invoice.
 
 	Adds a ``use_company_roundoff_cost_center`` property so that the
 	standard ERPNext GL-entries generator can access it even when the
@@ -3923,7 +3865,7 @@ import erpnext.accounts.doctype.loyalty_program.loyalty_program as lp_module
 import erpnext.accounts.doctype.sales_invoice.sales_invoice as si_module
 
 def custom_validate_loyalty_points(ref_doc, points_to_redeem):
-	# If this is a Sultan POS invoice and has custom_pos_customer
+	# If this is a Managely POS invoice and has custom_pos_customer
 	if getattr(ref_doc, "custom_pos_customer", None):
 		import frappe
 		from frappe.utils import flt, today

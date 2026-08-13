@@ -129,7 +129,7 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 						
 						try {
 							await new Promise((resolve, reject) => {
-								let url = '/api/method/managely_terminal.managely_terminal.api.electron.updater.upload_update' + 
+								let url = '/api/method/managely_terminal.managely_terminal.api.electron.core.updater.upload_update' + 
 									'?filename=' + encodeURIComponent(file.name) + 
 									'&chunk_index=' + i + 
 									'&is_last=' + (isLast ? '1' : '0');
@@ -194,7 +194,7 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 		});
 
 		frappe.call({
-			method: 'managely_terminal.managely_terminal.api.electron.terminals.get_latest_pos_version',
+			method: 'managely_terminal.managely_terminal.api.electron.core.terminals.get_latest_pos_version',
 			callback: function(r) {
 				let ver = r.message || '';
 				let $ver_el = d.get_field('html').$wrapper.find('#current-deployed-ver');
@@ -235,6 +235,7 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 	var $btn_restore = $('#btn-restore-db');
 	var $file_input = $('#db-file-input');
 	var $btn_relaunch = $('#btn-relaunch-app');
+	var $btn_force_unlock = $('#btn-force-unlock');
 	var sql_polling_interval = null;
 	var restore_polling_interval = null;
 	var db_polling_interval = null;
@@ -248,7 +249,7 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 	/* Load latest POS version from update path */
 	function load_latest_pos_version() {
 		frappe.call({
-			method: 'managely_terminal.managely_terminal.api.electron.terminals.get_latest_pos_version',
+			method: 'managely_terminal.managely_terminal.api.electron.core.terminals.get_latest_pos_version',
 			callback: function(r) {
 				var ver = r.message || '';
 				if (ver) {
@@ -264,7 +265,7 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 	function load_server_app_status(simulate = false) {
 		$('#app-update-badge').html('Server App: Checking...');
 		frappe.call({
-			method: 'managely_terminal.managely_terminal.api.electron.terminals.check_app_update_status',
+			method: 'managely_terminal.managely_terminal.api.electron.core.terminals.check_app_update_status',
 			args: { simulate_update: simulate ? 1 : 0 },
 			callback: function(r) {
 				var res = r.message || {};
@@ -293,7 +294,7 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 		$list_group.html('<div class="p-4 text-center text-muted"><i class="fa fa-spinner fa-spin"></i> Fetching terminals...</div>');
 		
 		frappe.call({
-			method: 'managely_terminal.managely_terminal.api.electron.terminals.get_active_terminals',
+			method: 'managely_terminal.managely_terminal.api.electron.core.terminals.get_active_terminals',
 			callback: function(r) {
 				$list_group.empty();
 				if (r.message && !Array.isArray(r.message) && r.message.error) {
@@ -388,17 +389,26 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 			$btn_db.prop('disabled', true).text('Terminal Offline');
 			$btn_restore.prop('disabled', true).text('Terminal Offline');
 			$btn_relaunch.prop('disabled', true).text('Terminal Offline');
+			$btn_force_unlock.hide();
 		} else {
 			$btn_pull.prop('disabled', false).text('Pull Logs');
 			$btn_db.prop('disabled', false).text('Download DB');
 			$btn_restore.prop('disabled', false).text('Restore DB');
 			$btn_relaunch.prop('disabled', false).text('Relaunch POS');
+			
+			if (term.is_locked) {
+				$btn_force_unlock.show();
+				$btn_force_unlock.prop('disabled', false);
+			} else {
+				$btn_force_unlock.hide();
+			}
 		}
 
 		/* Clear existing logs view */
 		$('#sync-history-tbody').html('<tr><td colspan="7" class="text-center py-4 text-muted">Select pull logs to retrieve data.</td></tr>');
 		$('#sync-queue-tbody').html('<tr><td colspan="7" class="text-center py-4 text-muted">Select pull logs to retrieve data.</td></tr>');
 		$('#audit-logs-tbody').html('<tr><td colspan="6" class="text-center py-4 text-muted">Select pull logs to retrieve data.</td></tr>');
+		$('#activity-log-tbody').html('<tr><td colspan="5" class="text-center py-4 text-muted"><i class="fa fa-spinner fa-spin"></i> Loading...</td></tr>');
 
 		$('#sync-history-pager').hide();
 		$('#sync-queue-pager').hide();
@@ -406,6 +416,54 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 		$('#sql-result-container').hide();
 		$('#sql-empty-state').text('Enter query and click Execute.').show();
 		$('#sql-query-input').val('');
+		
+		load_activity_log(term.terminal_id);
+	}
+	
+	function format_datetime_clean(dtStr) {
+		if (!dtStr) return '-';
+		var clean = String(dtStr).split('.')[0];
+		if (window.frappe && frappe.datetime && frappe.datetime.str_to_user) {
+			try {
+				return frappe.datetime.str_to_user(clean);
+			} catch (e) {}
+		}
+		return clean;
+	}
+
+	function load_activity_log(terminal_id) {
+		frappe.call({
+			method: 'frappe.client.get_list',
+			args: {
+				doctype: 'Terminal Activity Log',
+				filters: { terminal_id: terminal_id },
+				fields: ['creation', 'event_type', 'direction', 'user', 'description'],
+				limit_page_length: 50,
+				order_by: 'creation desc'
+			},
+			callback: function(r) {
+				var $tbody = $('#activity-log-tbody');
+				$tbody.empty();
+				if (r.message && r.message.length > 0) {
+					r.message.forEach(function(row) {
+						var dir_badge = row.direction === 'IN' ? '<span class="badge badge-info">IN</span>' :
+										row.direction === 'OUT' ? '<span class="badge badge-warning">OUT</span>' :
+										'<span class="badge badge-secondary">SYS</span>';
+						
+						var formatted_time = format_datetime_clean(row.creation);
+						var tr = $('<tr>')
+							.append($('<td>').text(formatted_time).css('white-space', 'nowrap'))
+							.append($('<td>').html('<strong>' + row.event_type + '</strong>'))
+							.append($('<td>').html(dir_badge))
+							.append($('<td>').text(row.user || ''))
+							.append($('<td>').text(row.description || ''));
+						$tbody.append(tr);
+					});
+				} else {
+					$tbody.html('<tr><td colspan="5" class="text-center py-4 text-muted">No activity logs found for this terminal.</td></tr>');
+				}
+			}
+		});
 	}
 
 	/* Relaunch app action */
@@ -414,7 +472,7 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 		frappe.confirm(__('Are you sure you want to relaunch the Sultan POS app on this terminal device remotely?'), function() {
 			$btn_relaunch.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Relaunching...');
 			frappe.call({
-				method: 'managely_terminal.managely_terminal.api.electron.terminals.trigger_relaunch_app',
+				method: 'managely_terminal.managely_terminal.api.electron.core.terminals.trigger_relaunch_app',
 				args: { terminal_id: selected_terminal_id },
 				callback: function(r) {
 					if (r.message && r.message.success) {
@@ -434,6 +492,85 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 		});
 	});
 
+	/* Force Unlock Hardware action */
+	$btn_force_unlock.on('click', function() {
+		if (!selected_terminal_id) return;
+		var term = terminals_data.find(function(t) { return t.terminal_id === selected_terminal_id; });
+		if (!term) return;
+
+		var old_cipher_val = term.last_known_cipher || term.custom_pos_cipher || '';
+		var target_device_id_val = term.target_device_id || '';
+
+		let d = new frappe.ui.Dialog({
+			title: 'Force Unlock Hardware Bind',
+			fields: [
+				{
+					fieldname: 'help_html',
+					fieldtype: 'HTML',
+					options: '<div class="alert alert-danger font-weight-bold small"><i class="fa fa-exclamation-triangle mr-1"></i> Use this ONLY if the POS terminal is locked due to hardware change.</div>'
+				},
+				{
+					label: 'Old Hardware ID (Cipher)',
+					fieldname: 'old_cipher',
+					fieldtype: 'Data',
+					read_only: 1,
+					reqd: 1,
+					default: old_cipher_val,
+					description: 'Old hardware ID registered in POS Profile.'
+				},
+				{
+					label: 'Target Hardware ID (New Device)',
+					fieldname: 'target_device_id',
+					fieldtype: 'Data',
+					read_only: 1,
+					reqd: 1,
+					default: target_device_id_val,
+					description: 'Hardware ID of the new device reported by the locked terminal.'
+				}
+			],
+			primary_action_label: 'Send Unlock Command',
+			primary_action: function(values) {
+				var final_old_cipher = (values && values.old_cipher) ? values.old_cipher : old_cipher_val;
+				var final_target_id = (values && values.target_device_id) ? values.target_device_id : target_device_id_val;
+
+				frappe.confirm('Are you absolutely sure you want to force unlock and re-key the database for terminal: <b>' + selected_terminal_id + '</b>?', () => {
+					d.get_primary_btn().prop('disabled', true);
+					frappe.call({
+						method: 'managely_terminal.managely_terminal.api.electron.core.terminals.trigger_force_unlock_db',
+						args: {
+							terminal_id: selected_terminal_id,
+							old_cipher: final_old_cipher,
+							target_device_id: final_target_id
+						},
+						callback: function(r) {
+							d.get_primary_btn().prop('disabled', false);
+							if (r.message && r.message.success) {
+								frappe.show_alert({ message: __('⏳ Unlock command sent! Waiting for terminal response...'), indicator: 'orange' }, 10);
+								d.hide();
+								load_activity_log(selected_terminal_id);
+
+								if (unlock_timeout_timer) clearTimeout(unlock_timeout_timer);
+								unlock_timeout_timer = setTimeout(function() {
+									frappe.show_alert({
+										message: __('⚠️ Unlock command queued on server, but terminal has not responded yet (Terminal may be offline).'),
+										indicator: 'yellow'
+									}, 8);
+								}, 15000);
+							} else {
+								frappe.msgprint({
+									title: 'Failed',
+									indicator: 'red',
+									message: r.message ? r.message.error : 'Unknown error'
+								});
+							}
+						}
+					});
+				});
+			}
+		});
+		d.show();
+	});
+
 	/* Restore DB action */
 	$btn_restore.on('click', function() {
 		if (!selected_terminal_id) return;
@@ -451,7 +588,7 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 			$btn_restore.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Restoring...');
 			
 			frappe.call({
-				method: 'managely_terminal.managely_terminal.api.electron.terminals.upload_restore_db',
+				method: 'managely_terminal.managely_terminal.api.electron.core.terminals.upload_restore_db',
 				args: {
 					terminal_id: selected_terminal_id,
 					file_name: file.name,
@@ -499,7 +636,7 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 			}
 
 			frappe.call({
-				method: 'managely_terminal.managely_terminal.api.electron.terminals.get_restore_status',
+				method: 'managely_terminal.managely_terminal.api.electron.core.terminals.get_restore_status',
 				args: { terminal_id: selected_terminal_id },
 				callback: function(res) {
 					if (res.message && res.message.success && res.message.restore_info) {
@@ -551,7 +688,7 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 		$btn_db.prop('disabled', true).html('<i class="fa fa-spinner fa-spin"></i> Triggering...');
 		
 		frappe.call({
-			method: 'managely_terminal.managely_terminal.api.electron.terminals.trigger_pull_db',
+			method: 'managely_terminal.managely_terminal.api.electron.core.terminals.trigger_pull_db',
 			args: { terminal_id: selected_terminal_id },
 			callback: function(r) {
 				if (r.message && r.message.success) {
@@ -591,7 +728,7 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 			}
 
 			frappe.call({
-				method: 'managely_terminal.managely_terminal.api.electron.terminals.get_pulled_db',
+				method: 'managely_terminal.managely_terminal.api.electron.core.terminals.get_pulled_db',
 				args: { terminal_id: selected_terminal_id },
 				callback: function(res) {
 					if (res.message && res.message.success && res.message.db_info) {
@@ -641,7 +778,7 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 		$('#sql-result-container').hide();
 
 		frappe.call({
-			method: 'managely_terminal.managely_terminal.api.electron.terminals.trigger_execute_sql',
+			method: 'managely_terminal.managely_terminal.api.electron.core.terminals.trigger_execute_sql',
 			args: { terminal_id: selected_terminal_id, query: query },
 			callback: function(r) {
 				if (r.message && r.message.success) {
@@ -669,7 +806,7 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 			}
 
 			frappe.call({
-				method: 'managely_terminal.managely_terminal.api.electron.terminals.get_sql_result',
+				method: 'managely_terminal.managely_terminal.api.electron.core.terminals.get_sql_result',
 				args: { terminal_id: selected_terminal_id },
 				callback: function(res) {
 					if (res.message && res.message.success && res.message.sql_info) {
@@ -734,6 +871,34 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 		}
 	});
 
+	var unlock_timeout_timer = null;
+
+	/* Socket display unlock result event handler */
+	frappe.realtime.on('server:display_unlock_result', function(data) {
+		if (data && data.terminal_id === selected_terminal_id) {
+			if (unlock_timeout_timer) {
+				clearTimeout(unlock_timeout_timer);
+				unlock_timeout_timer = null;
+			}
+			if (data.success) {
+				frappe.msgprint({
+					title: __('✅ Unlock Successful'),
+					indicator: 'green',
+					message: '<b>' + __('Terminal Unlocked & Re-keyed Successfully!') + '</b><br>' + (data.message || __('Database re-keyed and terminal is restarting.'))
+				});
+				load_terminals();
+				load_activity_log(selected_terminal_id);
+			} else {
+				frappe.msgprint({
+					title: __('❌ Unlock Failed (Invalid Cipher)'),
+					indicator: 'red',
+					message: '<b>' + __('Terminal Received Command But UNLOCK FAILED!') + '</b><br>' + __('Reason: ') + (data.error || __('Invalid Cipher / Key Mismatch'))
+				});
+				load_activity_log(selected_terminal_id);
+			}
+		}
+	});
+
 	/* Socket display db file event handler */
 	frappe.realtime.on('server:display_db_file', function(data) {
 		if (data && data.terminal_id === selected_terminal_id) {
@@ -776,7 +941,7 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 		var limit = $('#filter-limit').val();
 
 		frappe.call({
-			method: 'managely_terminal.managely_terminal.api.electron.terminals.trigger_pull_logs',
+			method: 'managely_terminal.managely_terminal.api.electron.core.terminals.trigger_pull_logs',
 			args: {
 				terminal_id: selected_terminal_id,
 				limit: limit,
@@ -823,7 +988,7 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 			}
 
 			frappe.call({
-				method: 'managely_terminal.managely_terminal.api.electron.terminals.get_pulled_logs',
+				method: 'managely_terminal.managely_terminal.api.electron.core.terminals.get_pulled_logs',
 				args: { terminal_id: selected_terminal_id },
 				callback: function(res) {
 					if (res.message && res.message.success && res.message.logs) {
@@ -987,7 +1152,7 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 				function() {
 					$('#log-details-modal').modal('hide');
 					frappe.call({
-						method: 'managely_terminal.managely_terminal.api.electron.terminals.force_requeue',
+						method: 'managely_terminal.managely_terminal.api.electron.core.terminals.force_requeue',
 						args: {
 							terminal_id: selected_terminal_id,
 							payload_type: displayType,
@@ -1043,7 +1208,7 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 			`Are you sure you want to force re-queue ${type} (ID: ${cleanId})? This will instruct the terminal to override and re-add this transaction as Pending in its sync queue.`,
 			function() {
 				frappe.call({
-					method: 'managely_terminal.managely_terminal.api.electron.terminals.force_requeue',
+					method: 'managely_terminal.managely_terminal.api.electron.core.terminals.force_requeue',
 					args: {
 						terminal_id: selected_terminal_id,
 						payload_type: type,
@@ -1297,7 +1462,7 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 		}
 		
 		frappe.call({
-			method: 'managely_terminal.managely_terminal.api.electron.terminals.migrate_and_clear_cache',
+			method: 'managely_terminal.managely_terminal.api.electron.core.terminals.migrate_and_clear_cache',
 			callback: function(r) {
 				$('#migrate-log-spinner').hide();
 				$('#migrate-log-result').show();

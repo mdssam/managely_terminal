@@ -1,7 +1,7 @@
 import frappe
 from erpnext.accounts.doctype.purchase_invoice.purchase_invoice import PurchaseInvoice
 
-from managely_terminal.managely_terminal.api.sales_invoice import _fix_stamp_gl_entries, _is_stamp_account
+from managely_terminal.managely_terminal.api.erpnext_sales_invoice import _fix_stamp_gl_entries, _is_stamp_account
 
 
 class CustomPurchaseInvoice(PurchaseInvoice):

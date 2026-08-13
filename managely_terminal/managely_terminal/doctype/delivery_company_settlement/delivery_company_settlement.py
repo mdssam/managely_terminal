@@ -96,7 +96,9 @@ class DeliveryCompanySettlement(Document):
 		if not total_amt or total_amt <= 0:
 			return
 
-		company = self.get("company") or frappe.defaults.get_user_default("company") or "Sultan Global"
+		company = self.get("company") or frappe.defaults.get_user_default("company")
+		if not company:
+			frappe.throw("Company is required for Settlement")
 		posting_date = self.get("posting_date") or frappe.utils.nowdate()
 		delivery_company = self.get("delivery_company")
 		mode_of_payment = self.get("mode_of_payment")

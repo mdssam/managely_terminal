@@ -8,7 +8,7 @@ _cached_company_data = {}
 def get_current_pos_profile():
 	"""Get the active POS Profile with identity-only caching keyed by user and opening entry."""
 	user = frappe.session.user
-	from managely_terminal.managely_terminal.api.sales_invoice import get_current_pos_opening_entry
+	from managely_terminal.managely_terminal.api.erpnext_sales_invoice import get_current_pos_opening_entry
 	current_opening_entry = get_current_pos_opening_entry()
 	cache_key = f"{user}|{current_opening_entry or 'none'}"
 

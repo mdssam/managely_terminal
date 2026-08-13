@@ -1,5 +1,5 @@
 import frappe
-from managely_terminal.managely_terminal.api.electron.thermal_receipts import create_thermal_print_formats
+from managely_terminal.managely_terminal.api.electron.pos.thermal_receipts import create_thermal_print_formats
 from managely_terminal.managely_terminal.accounting.customizations import setup_custom_fields as setup_accounting_custom_fields
 
 
@@ -1458,7 +1458,7 @@ function renderDashboardData() {
   if (icon) icon.classList.add("fa-spin");
 
   frappe.call({
-    method: "managely_terminal.managely_terminal.api.pos_dashboard.get_pos_dashboard_data",
+    method: "managely_terminal.managely_terminal.api.erpnext_pos_dashboard.get_pos_dashboard_data",
     callback: function(r) {
       if (icon) icon.classList.remove("fa-spin");
       if (!r.message) return;
@@ -1526,7 +1526,7 @@ if (filterDropdown) {
     topItemsContainer.style.opacity = "0.5";
     
     frappe.call({
-      method: "managely_terminal.managely_terminal.api.pos_dashboard.get_filtered_top_items",
+      method: "managely_terminal.managely_terminal.api.erpnext_pos_dashboard.get_filtered_top_items",
       args: { date_filter: e.target.value },
       callback: function(r) {
         if (!r.exc && r.message) {

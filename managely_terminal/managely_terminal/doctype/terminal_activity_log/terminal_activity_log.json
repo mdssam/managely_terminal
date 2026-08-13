@@ -1,0 +1,124 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "format:TAL-{YYYY}-{MM}-{DD}-{####}",
+ "creation": "2026-08-11 15:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "terminal_id",
+  "branch_name",
+  "event_type",
+  "direction",
+  "description",
+  "details_section",
+  "details",
+  "user",
+  "hardware_id",
+  "app_version"
+ ],
+ "fields": [
+  {
+   "fieldname": "terminal_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Terminal ID",
+   "reqd": 1,
+   "search_index": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "branch_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Branch",
+   "search_index": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "event_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Event Type",
+   "options": "Online\nOffline\nRelaunch\nForce Unlock\nUpdate Deployed\nDB Download\nDB Restore\nLogs Pulled\nSQL Executed\nHardware Changed\nMigrate & Clear Cache\nForce Unlock Request\nForce Unlock Success\nForce Unlock Failed\nForce Unlock Result",
+   "reqd": 1,
+   "search_index": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "direction",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Direction",
+   "options": "IN\nOUT\nSYSTEM",
+   "reqd": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Small Text",
+   "in_list_view": 1,
+   "label": "Description",
+   "reqd": 1,
+   "read_only": 1
+  },
+  {
+   "fieldname": "details_section",
+   "fieldtype": "Section Break",
+   "label": "Additional Details"
+  },
+  {
+   "fieldname": "details",
+   "fieldtype": "Code",
+   "label": "Details (JSON)",
+   "options": "JSON",
+   "read_only": 1
+  },
+  {
+   "fieldname": "user",
+   "fieldtype": "Data",
+   "label": "Triggered By User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "hardware_id",
+   "fieldtype": "Data",
+   "label": "Hardware ID",
+   "read_only": 1
+  },
+  {
+   "fieldname": "app_version",
+   "fieldtype": "Data",
+   "label": "App Version",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 0,
+ "links": [],
+ "modified": "2026-08-13 06:57:00.000000",
+ "modified_by": "Administrator",
+ "module": "Managely Terminal",
+ "name": "Terminal Activity Log",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Administrator",
+   "share": 1,
+   "create": 0,
+   "write": 0,
+   "delete": 0
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "track_changes": 0
+}

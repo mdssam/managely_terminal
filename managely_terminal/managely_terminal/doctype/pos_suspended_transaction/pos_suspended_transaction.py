@@ -148,7 +148,7 @@ class POSSuspendedTransaction(Document):
         cash_currency = self.currency or frappe.db.get_value("Account", self.pos_cash_account, "account_currency") or company_currency
         rate_cash = flt(self.exchange_rate)
         if not rate_cash:
-            from managely_terminal.managely_terminal.api.cash_transaction import get_exchange_rate_for_cash_io
+            from managely_terminal.managely_terminal.api.erpnext_cash_transaction import get_exchange_rate_for_cash_io
             rate_cash = get_exchange_rate_for_cash_io(pos_profile, cash_currency, company_currency)
 
         gl_rate_cash = 1.0 / rate_cash if rate_cash > 1.0 else (rate_cash or 1.0)
@@ -256,7 +256,7 @@ def create_cash_transaction_from_pos(pos_session, amount, mode_of_payment,
         ).format(pos_profile, company))
     offset_currency = frappe.db.get_value("Account", account, "account_currency") or company_currency
 
-    from managely_terminal.managely_terminal.api.cash_transaction import get_exchange_rate_for_cash_io
+    from managely_terminal.managely_terminal.api.erpnext_cash_transaction import get_exchange_rate_for_cash_io
     rate_cash = get_exchange_rate_for_cash_io(pos_profile, cash_currency, company_currency)
     rate_offset = get_exchange_rate_for_cash_io(pos_profile, offset_currency, company_currency)
 
@@ -464,7 +464,7 @@ def on_pos_closing_entry_submit(doc, method=None):
             frappe.db.get_value("Account", cash_account, "account_currency")
             or company_currency
         )
-        from managely_terminal.managely_terminal.api.cash_transaction import get_exchange_rate_for_cash_io
+        from managely_terminal.managely_terminal.api.erpnext_cash_transaction import get_exchange_rate_for_cash_io
         rate_cash = get_exchange_rate_for_cash_io(doc.pos_profile, cash_currency, company_currency)
 
         base_difference = flt(row.difference) * rate_cash
@@ -513,11 +513,11 @@ def on_pos_closing_entry_submit(doc, method=None):
         doc.name,
     )
 
-    # --- Sultan: Consolidate POS Invoices into a single Sales Invoice at shift close ---
+    # --- Managely: Consolidate POS Invoices into a single Sales Invoice at shift close ---
     try:
-        _sultan_consolidate_invoices(doc)
+        _consolidate_invoices(doc)
     except Exception:
-        frappe.log_error(frappe.get_traceback(), f"[Sultan] POS Invoice consolidation failed for {doc.name}")
+        frappe.log_error(frappe.get_traceback(), f"[Managely] POS Invoice consolidation failed for {doc.name}")
 
 
 @frappe.whitelist()
@@ -887,12 +887,12 @@ def on_pos_closing_entry_cancel(doc, method=None):
     )
 
 
-def _sultan_consolidate_invoices(closing_entry_doc):
+def _consolidate_invoices(closing_entry_doc):
     """
     Consolidate all POS Invoices of this shift into a single Sales Invoice
     using ERPNext's standard POS Invoice Merge Log mechanism.
 
-    Sultan does not populate pos_transactions on the closing entry to avoid
+    Managely does not populate pos_transactions on the closing entry to avoid
     owner/user validation errors. Instead we collect the invoices here and
     pass them directly to consolidate_pos_invoices.
     """
@@ -936,10 +936,10 @@ def _sultan_consolidate_invoices(closing_entry_doc):
     ]
 
     if not invoices:
-        frappe.logger().info(f"[Sultan] No unconsolidated POS Invoices for shift {pos_opening}")
+        frappe.logger().info(f"[Managely] No unconsolidated POS Invoices for shift {pos_opening}")
         return
 
-    frappe.logger().info(f"[Sultan] Consolidating {len(invoices)} POS Invoices for shift {pos_opening}")
+    frappe.logger().info(f"[Managely] Consolidating {len(invoices)} POS Invoices for shift {pos_opening}")
     consolidate_pos_invoices(pos_invoices=invoices, closing_entry=closing_entry_doc)
-    frappe.logger().info(f"[Sultan] Consolidation complete for shift {pos_opening}")
+    frappe.logger().info(f"[Managely] Consolidation complete for shift {pos_opening}")
 

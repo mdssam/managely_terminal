@@ -4,7 +4,7 @@ from erpnext.stock.doctype.batch.batch import get_batch_qty
 from erpnext.stock.utils import get_stock_balance
 from frappe import _
 
-from managely_terminal.managely_terminal.api.electron.sales_invoice import get_current_pos_opening_entry
+from managely_terminal.managely_terminal.api.electron.sales.sales_invoice import get_current_pos_opening_entry
 from managely_terminal.managely_terminal.utils import get_current_pos_profile
 
 
@@ -376,8 +376,8 @@ def get_item_by_barcode(barcode: str):
 
 @frappe.whitelist()
 def get_item_by_identifier(code: str):
-	"""Resolve an item by barcode, batch number, serial number, or Sultan barcode format.
-	Sultan barcode format: ITEM_CODE|BATCH_NO|EXPIRY_DATE|WEIGHT
+	"""Resolve an item by barcode, batch number, serial number, or Managely barcode format.
+	Managely barcode format: ITEM_CODE|BATCH_NO|EXPIRY_DATE|WEIGHT
 	Returns same structure as get_item_by_barcode."""
 	try:
 		if not code:
@@ -387,7 +387,7 @@ def get_item_by_identifier(code: str):
 		warehouse = pos_doc.warehouse
 		price_list = pos_doc.selling_price_list
 
-		# Sultan barcode format: ITEM_CODE|BATCH_NO|EXPIRY_DATE|WEIGHT
+		# Managely barcode format: ITEM_CODE|BATCH_NO|EXPIRY_DATE|WEIGHT
 		if "|" in code:
 			parts = code.split("|")
 			item_code = parts[0].strip()

@@ -1,14 +1,14 @@
 """
-Cash I/O bridge for the Sultan SPA.
+Cash I/O bridge for the Managely SPA.
 
-Creates Sultan POS Cash Transaction documents (CASH-IO-XXXX series) with an
+Creates Managely POS Cash Transaction documents (CASH-IO-XXXX series) with an
 accompanying Journal Entry for proper GL recording.
 """
 import frappe
 from frappe import _
 from frappe.utils import flt, nowdate, nowtime
 
-from managely_terminal.managely_terminal.api.sales_invoice import get_current_pos_opening_entry
+from managely_terminal.managely_terminal.api.erpnext_sales_invoice import get_current_pos_opening_entry
 
 _SYNTHETIC_PROFILE = "System Default"
 
@@ -133,13 +133,13 @@ def create_cash_transaction(transaction_type, amount, description="",
         return {"success": False, "error": str(e)}
 
 
-def _create_sultan_cash_transaction(pos_session, amount, mode_of_payment,
+def _create_cash_transaction(pos_session, amount, mode_of_payment,
                                     description, transaction_type, employee=None):
-    """Insert and submit a Sultan POS Cash Transaction + Journal Entry.
+    """Insert and submit a Managely POS Cash Transaction + Journal Entry.
 
     This is the single authoritative function for all 4 transaction types
     (Cash In, Cash Out, Opening Difference, Closing Difference). All records
-    land in Sultan POS Cash Transaction (CASH-IO-XXXX).
+    land in Managely POS Cash Transaction (CASH-IO-XXXX).
     """
     company = frappe.db.get_value("POS Opening Entry", pos_session, "company")
     pos_profile = frappe.db.get_value("POS Opening Entry", pos_session, "pos_profile")
@@ -245,8 +245,8 @@ def _create_sultan_cash_transaction(pos_session, amount, mode_of_payment,
     je.insert(ignore_permissions=True)
     je.submit()
 
-    # 2. Create and submit Sultan POS Cash Transaction linked to the JE
-    doc = frappe.new_doc("Sultan POS Cash Transaction")
+    # 2. Create and submit Managely POS Cash Transaction linked to the JE
+    doc = frappe.new_doc("Managely POS Cash Transaction")
     pre_assigned = data.get("pre_assigned_name") or data.get("name") if isinstance(data, dict) else None
     if pre_assigned:
         doc.name = pre_assigned

@@ -1,5 +1,5 @@
 """
-Create three 80mm thermal receipt print formats and one A4 Sales Invoice print format for Sultan POS.
+Create three 80mm thermal receipt print formats and one A4 Sales Invoice print format for Managely POS.
 Called from setup_fields.run() or directly via bench execute.
 """
 
@@ -281,7 +281,7 @@ th      { font-weight: 700; border-bottom: 1.5px solid #111; font-size: 10px; co
 }
 </style>"""
 
-# ── Template 1: Sultan Thermal Standard ─────────────────────────────────────
+# ── Template 1: Managely Thermal Standard ─────────────────────────────────────
 _STANDARD_HTML = """__CSS__
 
 <div class="logo-container">
@@ -409,7 +409,7 @@ _STANDARD_HTML = """__CSS__
   <div class="bold" style="margin-top:2px">شكراً لزيارتكم</div>
 </div>"""
 
-# ── Template 2: Sultan Thermal Standard EN ──────────────────────────────────
+# ── Template 2: Managely Thermal Standard EN ──────────────────────────────────
 _STANDARD_EN_HTML = """__CSS__
 
 <div class="logo-container">
@@ -499,7 +499,7 @@ _STANDARD_EN_HTML = """__CSS__
 {% if doc.custom_qr_code %}<div class="center" style="margin:6px 0"><img src="{{ doc.custom_qr_code }}" style="width:32mm;height:32mm" /></div><div class="divider"></div>{% endif %}
 <div class="center footer-msg"><div>Thank you for your visit!</div></div>"""
 
-# ── Template 3: Sultan Thermal Standard AR ──────────────────────────────────
+# ── Template 3: Managely Thermal Standard AR ──────────────────────────────────
 _STANDARD_AR_HTML = """__CSS__
 <style>body, html { direction: rtl; } .en { direction:ltr; unicode-bidi:embed; } td, th { text-align:right; } .r { text-align:left; } .c { text-align:center; }</style>
 
@@ -590,7 +590,7 @@ _STANDARD_AR_HTML = """__CSS__
 {% if doc.custom_qr_code %}<div class="center" style="margin:6px 0"><img src="{{ doc.custom_qr_code }}" style="width:32mm;height:32mm" /></div><div class="divider"></div>{% endif %}
 <div class="center footer-msg"><div>شكراً لزيارتكم</div></div>"""
 
-# ── Template 4: Sultan Thermal Compact ──────────────────────────────────────
+# ── Template 4: Managely Thermal Compact ──────────────────────────────────────
 _COMPACT_HTML = """__CSS__
 
 <div class="logo-container">
@@ -639,7 +639,7 @@ _COMPACT_HTML = """__CSS__
 <div class="divider"></div>
 <div class="center small">Thank you / شكراً!</div>"""
 
-# ── Template 5: Sultan Thermal Bilingual (Arabic + English) ─────────────────
+# ── Template 5: Managely Thermal Bilingual (Arabic + English) ─────────────────
 _BILINGUAL_HTML = """__CSS__
 <style>.ar{direction:rtl;text-align:right}.split{display:flex;justify-content:space-between}</style>
 
@@ -1212,37 +1212,37 @@ _SALES_INVOICE_AR_HTML = """
 
 FORMATS = [
     {
-        "name": "Sultan Thermal Standard",
+        "name": "Managely Thermal Standard",
         "html": _STANDARD_HTML.replace("__CSS__", _BASE_CSS),
         "description": "80mm standard receipt with header, item table, VAT breakdown, and QR code",
     },
     {
-        "name": "Sultan Thermal Standard EN",
+        "name": "Managely Thermal Standard EN",
         "html": _STANDARD_EN_HTML.replace("__CSS__", _BASE_CSS),
-        "description": "80mm standard English receipt for Sultan POS",
+        "description": "80mm standard English receipt for Managely POS",
     },
     {
-        "name": "Sultan Thermal Standard AR",
+        "name": "Managely Thermal Standard AR",
         "html": _STANDARD_AR_HTML.replace("__CSS__", _BASE_CSS),
-        "description": "80mm standard Arabic receipt for Sultan POS",
+        "description": "80mm standard Arabic receipt for Managely POS",
     },
     {
-        "name": "Sultan Thermal Compact",
+        "name": "Managely Thermal Compact",
         "html": _COMPACT_HTML.replace("__CSS__", _BASE_CSS),
         "description": "80mm compact receipt — minimal header, items and total only",
     },
     {
-        "name": "Sultan Thermal Bilingual",
+        "name": "Managely Thermal Bilingual",
         "html": _BILINGUAL_HTML.replace("__CSS__", _BASE_CSS),
         "description": "80mm bilingual (Arabic/English) receipt with QR code",
     },
     {
-        "name": "Sultan Sales Invoice EN",
+        "name": "Managely Sales Invoice EN",
         "html": _SALES_INVOICE_EN_HTML,
         "description": "Premium fully English A4 print format with company logos",
     },
     {
-        "name": "Sultan Sales Invoice AR",
+        "name": "Managely Sales Invoice AR",
         "html": _SALES_INVOICE_AR_HTML,
         "description": "Premium fully Arabic A4 print format with company logos",
     },
@@ -1275,9 +1275,9 @@ def create_thermal_print_formats():
             print(f"Updated print format: {fmt['name']}")
 
     # Enforce correct monolingual templates on all existing POS Profiles
-    frappe.db.sql("UPDATE `tabPOS Profile` SET custom_pos_print_format_en='Sultan Thermal Standard EN', custom_pos_print_format_ar='Sultan Thermal Standard AR', print_format='Sultan Thermal Standard EN'")
+    frappe.db.sql("UPDATE `tabPOS Profile` SET custom_pos_print_format_en='Managely Thermal Standard EN', custom_pos_print_format_ar='Managely Thermal Standard AR', print_format='Managely Thermal Standard EN'")
     
     # Set default print format for Sales Invoice DocType
-    frappe.db.set_value("DocType", "Sales Invoice", "default_print_format", "Sultan Sales Invoice EN")
+    frappe.db.set_value("DocType", "Sales Invoice", "default_print_format", "Managely Sales Invoice EN")
     
     frappe.db.commit()

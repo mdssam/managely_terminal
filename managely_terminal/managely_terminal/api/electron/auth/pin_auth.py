@@ -49,3 +49,7 @@ def has_pos_pin() -> dict:
     user = frappe.session.user
     stored = frappe.db.get_value("User", user, "custom_pos_pin_hash")
     return {"has_pin": bool(stored)}
+
+
+# Backward compatibility alias
+verify_pin = verify_pos_pin

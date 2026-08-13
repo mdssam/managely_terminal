@@ -1,7 +1,7 @@
 import frappe
 from frappe import _
 
-from managely_terminal.managely_terminal.api.electron.sales_invoice import get_current_pos_opening_entry
+from managely_terminal.managely_terminal.api.electron.sales.sales_invoice import get_current_pos_opening_entry
 from managely_terminal.managely_terminal.utils import get_current_pos_profile
 
 

@@ -322,7 +322,7 @@ def create_or_update_customer(customer_data):
 		if isinstance(customer_data, str):
 			customer_data = frappe.parse_json(customer_data)
 		# Extract main fields
-		customer_name = customer_data.get("name")
+		customer_name = customer_data.get("customer_name") or customer_data.get("name")
 		email = customer_data.get("email")
 		phone = customer_data.get("phone")
 		cust_type = customer_data.get("customer_type", customer_data.get("type", "individual")).lower()
@@ -930,5 +930,5 @@ def sync_customer(customer_data):
 	Called by syncMachine.ts when payload_type = 'customer'.
 	Delegates to create_or_update_customer which handles upsert logic.
 	"""
-	from managely_terminal.managely_terminal.api.electron.customer import create_or_update_customer
+	from managely_terminal.managely_terminal.api.electron.sales.customer import create_or_update_customer
 	return create_or_update_customer(customer_data)

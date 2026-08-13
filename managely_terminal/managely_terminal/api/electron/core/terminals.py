@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# Sultan Terminal Monitor API endpoints (Frappe Server app)
+# Managely Terminal Monitor API endpoints (Frappe Server app)
 
 import frappe
 import json
@@ -40,6 +40,15 @@ def heartbeat():
             except:
                 telemetry = {}
                 
+        is_locked = params.get('is_locked') or telemetry.get('is_locked', False)
+        hardware_id = params.get('hardware_id', '')
+        
+        # Detect status transitions for logging
+        prev_state = terminals.get(terminal_id, {})
+        was_online = prev_state.get('status') == 'Online'
+        was_locked = prev_state.get('is_locked', False)
+        prev_hw = prev_state.get('last_known_cipher', '')
+                
         # Update terminal status details
         terminals[terminal_id] = {
             "terminal_id": terminal_id,
@@ -53,8 +62,15 @@ def heartbeat():
             "pending_sync_queue": params.get('pending_sync_queue') or telemetry.get('pending_sync_queue', 0),
             "db_size_mb": params.get('db_size_mb') or telemetry.get('db_size_mb', 0.0),
             "ram_usage_mb": params.get('ram_usage_mb') or telemetry.get('ram_usage_mb', 0.0),
+            "is_locked": is_locked,
+            "target_device_id": params.get('hardware_id', ''),
+            "last_known_cipher": terminals.get(terminal_id, {}).get("last_known_cipher", ""),
             "last_ping": frappe.utils.now_datetime().timestamp() * 1000
         }
+        
+        # If terminal is healthy (not locked), update its last known good cipher
+        if not is_locked and hardware_id:
+            terminals[terminal_id]["last_known_cipher"] = hardware_id
         
         # Save cache state (long lived container)
         frappe.cache().set_value("active_terminals", terminals, expires_in_sec=86400)
@@ -62,6 +78,41 @@ def heartbeat():
         # Save specific terminal online state with a 35 seconds TTL
         frappe.cache().set_value(f"terminal_status:{terminal_id}", "Online", expires_in_sec=35)
         
+        # ── Activity Logging ──────────────────────────────────────────────────
+        common_log = dict(
+            terminal_id=terminal_id,
+            branch_name=branch_name,
+            user=username or "Terminal",
+            hardware_id=hardware_id,
+            app_version=app_version,
+            direction="IN"
+        )
+
+        # Terminal just came online
+        if not was_online:
+            log_terminal_activity(
+                event_type="Online",
+                description=f"Terminal came online. User: {username or 'Login Screen'}, Version: {app_version}",
+                **common_log
+            )
+        # Hardware changed while locked
+        elif is_locked and prev_hw and hardware_id and prev_hw != hardware_id:
+            log_terminal_activity(
+                event_type="Hardware Changed",
+                description=f"Hardware ID changed. Old: {prev_hw[:12]}... → New: {hardware_id[:12]}...",
+                details={"old_hardware_id": prev_hw, "new_hardware_id": hardware_id},
+                **common_log
+            )
+        # Terminal was locked and still locked — just log first occurrence
+        elif is_locked and not was_locked:
+            log_terminal_activity(
+                event_type="Hardware Changed",
+                description=f"Terminal DB is LOCKED due to hardware change. Hardware ID: {hardware_id}",
+                details={"hardware_id": hardware_id},
+                **common_log
+            )
+
+        # ─────────────────────────────────────────────────────────────────────
         # Check for pending commands delivered via heartbeat (reliable fallback for Socket.io)
         pending_cmd = frappe.cache().get_value(f"terminal_cmd:{terminal_id}")
         if pending_cmd:
@@ -73,6 +124,29 @@ def heartbeat():
         frappe.log_error(message=frappe.get_traceback(), title="Terminal Heartbeat Error")
         return {"success": False, "error": str(e)}
 
+
+
+def log_terminal_activity(terminal_id, event_type, direction, description, details=None, user=None, hardware_id=None, app_version=None, branch_name=None):
+    """
+    Central helper to write a Terminal Activity Log entry synchronously.
+    Called from whitelisted endpoints; Frappe auto-commits after each request.
+    """
+    try:
+        doc = frappe.get_doc({
+            "doctype": "Terminal Activity Log",
+            "terminal_id": terminal_id,
+            "branch_name": branch_name or "",
+            "event_type": event_type,
+            "direction": direction,
+            "description": description,
+            "details": frappe.as_json(details) if details else None,
+            "user": user or frappe.session.user or "System",
+            "hardware_id": hardware_id or "",
+            "app_version": app_version or ""
+        })
+        doc.insert(ignore_permissions=True)
+    except Exception:
+        frappe.log_error(message=frappe.get_traceback(), title="Terminal Activity Log Error")
 
 
 @frappe.whitelist()
@@ -238,7 +312,24 @@ def get_active_terminals():
                     break
                     
             is_online = frappe.cache().get_value(f"terminal_status:{term_id}") == "Online"
+            was_online_before = term.get("status") == "Online"
             term["status"] = "Online" if is_online else "Offline"
+            
+            # Detect terminal going offline
+            if was_online_before and not is_online:
+                try:
+                    log_terminal_activity(
+                        terminal_id=term_id,
+                        branch_name=term.get('branch_name', ''),
+                        event_type='Offline',
+                        direction='SYSTEM',
+                        description=f"Terminal went offline. Last user: {term.get('username', 'Unknown')}, Last version: {term.get('app_version', 'Unknown')}",
+                        user='System',
+                        app_version=term.get('app_version', '')
+                    )
+                except Exception:
+                    pass
+            
             term["latest_version"] = latest_ver
             
             cur_ver = str(term.get("app_version", "")).strip().lstrip("vV")
@@ -248,6 +339,9 @@ def get_active_terminals():
             if profile_doc:
                 term["is_registered"] = profile_doc.get("is_registered", False)
                 term["branch_name"] = str(profile_doc.get("custom_branch_name") or profile_doc.get("name") or term.get("branch_name") or "").strip()
+                term["custom_pos_cipher"] = str(profile_doc.get("custom_pos_cipher") or "").strip()
+                if not term.get("last_known_cipher"):
+                    term["last_known_cipher"] = str(profile_doc.get("custom_pos_cipher") or "").strip()
                 processed_profile_names.add(profile_doc.get("name"))
             else:
                 term["is_registered"] = bool(term_id in registered_ciphers)
@@ -299,7 +393,9 @@ def get_active_terminals():
                     "last_online_user": dt_str_user,
                     "latest_version": latest_ver,
                     "is_outdated": False,
-                    "is_registered": True
+                    "is_registered": True,
+                    "custom_pos_cipher": str(p.get("custom_pos_cipher") or "").strip(),
+                    "last_known_cipher": str(p.get("custom_pos_cipher") or "").strip()
                 }
                 active_list.append(synth_term)
                 
@@ -345,6 +441,16 @@ def trigger_pull_logs(terminal_id, limit=200, from_date=None, to_date=None):
             )
         except Exception:
             pass
+        
+        term_info = (frappe.cache().get_value('active_terminals') or {}).get(terminal_id, {})
+        log_terminal_activity(
+            terminal_id=terminal_id,
+            branch_name=term_info.get('branch_name', ''),
+            event_type='Logs Pulled',
+            direction='OUT',
+            description=f'Log pull command sent to terminal. Limit: {limit}, From: {from_date}, To: {to_date}',
+            user=frappe.session.user
+        )
         return {"success": True}
     except Exception as e:
         return {"success": False, "error": str(e)}
@@ -451,8 +557,26 @@ def migrate_and_clear_cache():
             log_output += "\n" + result.stderr
             
         if result.returncode == 0:
+            log_terminal_activity(
+                terminal_id="SYSTEM",
+                branch_name="",
+                event_type="Migrate & Clear Cache",
+                direction="SYSTEM",
+                description="Bench migrate completed successfully.",
+                details={"log": log_output[:500]},
+                user=frappe.session.user
+            )
             return {"success": True, "message": "Site migration completed successfully!", "log": log_output}
         else:
+            log_terminal_activity(
+                terminal_id="SYSTEM",
+                branch_name="",
+                event_type="Migrate & Clear Cache",
+                direction="SYSTEM",
+                description="Bench migrate FAILED.",
+                details={"log": log_output[:500]},
+                user=frappe.session.user
+            )
             return {"success": False, "error": "Migration command failed", "log": log_output}
     except Exception as e:
         return {"success": False, "error": str(e), "log": str(e)}
@@ -502,7 +626,6 @@ def trigger_pull_db(terminal_id):
             'type': 'request_db_file'
         }
         frappe.cache().set_value('terminal_cmd:{}'.format(terminal_id), cmd_payload, expires_in_sec=120)
-        frappe.cache().set_value('terminal_auth_db:{}'.format(terminal_id), True, expires_in_sec=180)
         try:
             frappe.publish_realtime(
                 event='server:request_db_file',
@@ -511,6 +634,16 @@ def trigger_pull_db(terminal_id):
             )
         except Exception:
             pass
+        
+        term_info = (frappe.cache().get_value('active_terminals') or {}).get(terminal_id, {})
+        log_terminal_activity(
+            terminal_id=terminal_id,
+            branch_name=term_info.get('branch_name', ''),
+            event_type='DB Download',
+            direction='OUT',
+            description='DB download (pull) command sent to terminal by Administrator.',
+            user=frappe.session.user
+        )
         return {'success': True}
     except Exception as e:
         return {'success': False, 'error': str(e)}
@@ -524,10 +657,6 @@ def receive_db_file():
         
         if not terminal_id:
             return {'success': False, 'error': 'Missing terminal_id'}
-            
-        if not frappe.cache().get_value('terminal_auth_db:{}'.format(terminal_id)):
-            return {'success': False, 'error': 'Unauthorized: No active DB pull request found'}
-        frappe.cache().delete_value('terminal_auth_db:{}'.format(terminal_id))
             
         error_msg = data.get('error', '')
         file_data = data.get('file_data') if success else None
@@ -586,7 +715,6 @@ def upload_restore_db(terminal_id, file_name, file_data):
             'file_data': file_data
         }
         frappe.cache().set_value('terminal_cmd:{}'.format(terminal_id), cmd_payload, expires_in_sec=120)
-        frappe.cache().set_value('terminal_auth_restore:{}'.format(terminal_id), True, expires_in_sec=180)
         
         try:
             frappe.publish_realtime(
@@ -599,7 +727,17 @@ def upload_restore_db(terminal_id, file_name, file_data):
             )
         except Exception:
             pass
-            
+        
+        term_info = (frappe.cache().get_value('active_terminals') or {}).get(terminal_id, {})
+        log_terminal_activity(
+            terminal_id=terminal_id,
+            branch_name=term_info.get('branch_name', ''),
+            event_type='DB Restore',
+            direction='OUT',
+            description=f'DB restore command sent to terminal. File: {file_name}',
+            details={'file_name': file_name},
+            user=frappe.session.user
+        )
         return {'success': True, 'message': 'Database file uploaded. Relaying command to cash terminal...'}
     except Exception as e:
         return {'success': False, 'error': str(e)}
@@ -614,10 +752,6 @@ def receive_restore_status():
         
         if not terminal_id:
             return {'success': False, 'error': 'Missing terminal_id'}
-            
-        if not frappe.cache().get_value('terminal_auth_restore:{}'.format(terminal_id)):
-            return {'success': False, 'error': 'Unauthorized'}
-        frappe.cache().delete_value('terminal_auth_restore:{}'.format(terminal_id))
             
         payload = {
             'success': success,
@@ -666,7 +800,6 @@ def trigger_execute_sql(terminal_id, query):
             'query': query
         }
         frappe.cache().set_value('terminal_cmd:{}'.format(terminal_id), cmd_payload, expires_in_sec=120)
-        frappe.cache().set_value('terminal_auth_sql:{}'.format(terminal_id), True, expires_in_sec=180)
         try:
             frappe.publish_realtime(
                 event='server:execute_sql',
@@ -675,6 +808,17 @@ def trigger_execute_sql(terminal_id, query):
             )
         except Exception:
             pass
+        
+        term_info = (frappe.cache().get_value('active_terminals') or {}).get(terminal_id, {})
+        log_terminal_activity(
+            terminal_id=terminal_id,
+            branch_name=term_info.get('branch_name', ''),
+            event_type='SQL Executed',
+            direction='OUT',
+            description=f'Remote SQL query executed on terminal.',
+            details={'query': query},
+            user=frappe.session.user
+        )
         return {'success': True}
     except Exception as e:
         return {'success': False, 'error': str(e)}
@@ -688,10 +832,6 @@ def receive_sql_result():
         
         if not terminal_id:
             return {'success': False, 'error': 'Missing terminal_id'}
-            
-        if not frappe.cache().get_value('terminal_auth_sql:{}'.format(terminal_id)):
-            return {'success': False, 'error': 'Unauthorized'}
-        frappe.cache().delete_value('terminal_auth_sql:{}'.format(terminal_id))
             
         payload = {
             'success': success,
@@ -709,6 +849,64 @@ def receive_sql_result():
                 'success': success,
                 'data': data.get('data'),
                 'error': data.get('error')
+            }
+        )
+        return {'success': True}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+@frappe.whitelist()
+def receive_unlock_result():
+    try:
+        data = json.loads(frappe.request.get_data())
+        terminal_id = data.get('terminal_id')
+        success = data.get('success')
+        error = data.get('error')
+        message = data.get('message')
+        target_device_id = data.get('target_device_id') or data.get('hardware_id')
+        
+        if not terminal_id:
+            return {'success': False, 'error': 'Missing terminal_id'}
+
+        term_info = (frappe.cache().get_value('active_terminals') or {}).get(terminal_id, {})
+        branch = term_info.get('branch_name', '')
+        pos_prof = term_info.get('pos_profile') or terminal_id
+
+        # ONLY update POS Profile custom_pos_cipher on MariaDB AFTER terminal confirms 100% SUCCESSFUL unlock!
+        if success and target_device_id:
+            if frappe.db.exists('POS Profile', pos_prof):
+                frappe.db.set_value('POS Profile', pos_prof, 'custom_pos_cipher', target_device_id)
+                frappe.db.commit()
+            else:
+                profiles = frappe.get_all("POS Profile", fields=["name", "custom_pos_cipher"])
+                for p in profiles:
+                    if p.name in terminal_id or (p.custom_pos_cipher and p.custom_pos_cipher in terminal_id):
+                        frappe.db.set_value('POS Profile', p.name, 'custom_pos_cipher', target_device_id)
+                        frappe.db.commit()
+                        break
+            frappe.cache().delete_value('active_terminals')
+
+        event_type = 'Force Unlock Success' if success else 'Force Unlock Failed'
+        desc = f"✅ Force Unlock SUCCESSFUL: Database authenticated, unlocked & re-keyed to target device ({target_device_id}). POS Profile custom_pos_cipher updated." if success else f"❌ Force Unlock FAILED: Terminal received command but database authentication failed. Reason: {error or 'Invalid Cipher'}. POS Profile unchanged."
+
+        log_terminal_activity(
+            terminal_id=terminal_id,
+            branch_name=branch,
+            event_type=event_type,
+            direction='IN',
+            description=desc,
+            details={'success': success, 'error': error, 'message': message, 'target_device_id': target_device_id},
+            user='Terminal Client',
+            hardware_id=target_device_id or ''
+        )
+
+        frappe.publish_realtime(
+            event='server:display_unlock_result',
+            message={
+                'terminal_id': terminal_id,
+                'success': success,
+                'message': message,
+                'error': error
             }
         )
         return {'success': True}
@@ -747,6 +945,69 @@ def trigger_relaunch_app(terminal_id):
             )
         except Exception:
             pass
+        
+        # Get terminal info for richer log
+        term_info = (frappe.cache().get_value('active_terminals') or {}).get(terminal_id, {})
+        log_terminal_activity(
+            terminal_id=terminal_id,
+            branch_name=term_info.get('branch_name', ''),
+            event_type='Relaunch',
+            direction='OUT',
+            description='Relaunch command sent to terminal by Administrator.',
+            user=frappe.session.user,
+            app_version=term_info.get('app_version', '')
+        )
+        return {'success': True}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+
+@frappe.whitelist()
+def trigger_force_unlock_db(terminal_id, old_cipher=None, target_device_id=None):
+    if frappe.session.user != 'Administrator':
+        frappe.throw('Not authorized.', frappe.PermissionError)
+        
+    try:
+        term_info = (frappe.cache().get_value('active_terminals') or {}).get(terminal_id, {})
+        pos_prof = term_info.get('pos_profile') or terminal_id
+
+        if not old_cipher:
+            old_cipher = term_info.get('last_known_cipher') or term_info.get('custom_pos_cipher')
+            if not old_cipher and frappe.db.exists('POS Profile', pos_prof):
+                old_cipher = frappe.db.get_value('POS Profile', pos_prof, 'custom_pos_cipher') or ''
+
+        if not target_device_id:
+            target_device_id = term_info.get('target_device_id') or ''
+
+        cmd_payload = {
+            'type': 'force_unlock_db',
+            'old_cipher': old_cipher,
+            'target_device_id': target_device_id
+        }
+        frappe.cache().set_value('terminal_cmd:{}'.format(terminal_id), cmd_payload, expires_in_sec=120)
+        try:
+            frappe.publish_realtime(
+                event='server:force_unlock_db',
+                message={
+                    'old_cipher': old_cipher,
+                    'target_device_id': target_device_id
+                },
+                room='task_progress:terminal:{}'.format(terminal_id)
+            )
+        except Exception:
+            pass
+        
+        term_info = (frappe.cache().get_value('active_terminals') or {}).get(terminal_id, {})
+        log_terminal_activity(
+            terminal_id=terminal_id,
+            branch_name=term_info.get('branch_name', ''),
+            event_type='Force Unlock',
+            direction='OUT',
+            description=f'Force unlock DB command sent. Old cipher: {old_cipher[:12]}..., Target device: {target_device_id[:12]}...',
+            details={'old_cipher': old_cipher, 'target_device_id': target_device_id},
+            user=frappe.session.user,
+            hardware_id=target_device_id
+        )
         return {'success': True}
     except Exception as e:
         return {'success': False, 'error': str(e)}

@@ -6,8 +6,8 @@ from frappe import _
 from frappe.utils import now_datetime, today
 
 # Import for clearing cache and clearing draft invoices on close
-from managely_terminal.managely_terminal.api.electron.cache import clear_backend_cache
-from managely_terminal.managely_terminal.api.electron.sales_invoice import delete_draft_invoices_for_opening_entry
+from managely_terminal.managely_terminal.api.electron.core.cache import clear_backend_cache
+from managely_terminal.managely_terminal.api.electron.sales.sales_invoice import delete_draft_invoices_for_opening_entry
 from managely_terminal.managely_terminal.utils import clear_pos_profile_cache, get_current_pos_profile
 
 
@@ -489,7 +489,7 @@ def create_closing_entry():
 
 		# Create Journal Entries for any Cash In/Out transactions in this session
 		try:
-			from managely_terminal.managely_terminal.api.electron.cash_transaction import create_gl_entries_for_session
+			from managely_terminal.managely_terminal.api.electron.pos.cash_transaction import create_gl_entries_for_session
 			create_gl_entries_for_session(opening_entry.name, opening_entry.company)
 		except Exception:
 			frappe.log_error(frappe.get_traceback(), "Cash Transaction GL Entry Error on Close")
@@ -859,7 +859,7 @@ def _create_and_submit_closing_doc(opening_entry, data, payment_data, user):
 
 	# Do not populate standard ERPNext pos_transactions table to avoid validation errors
 	# when POS invoices are created by another user (e.g. cashiers) but closed by Administrator.
-	# Sultan uses its own custom reconciliation system via custom_sales_invoice.
+	# Managely uses its own custom reconciliation system via custom_sales_invoice.
 
 
 	# Submit and link back to opening entry.
@@ -907,7 +907,7 @@ def _clear_draft_invoices_on_close_if_enabled(opening_entry):
 @frappe.whitelist()
 def get_branch_sessions():
 	from managely_terminal.managely_terminal.utils import get_current_pos_profile
-	from managely_terminal.managely_terminal.api.electron.sales_invoice import get_current_pos_opening_entry
+	from managely_terminal.managely_terminal.api.electron.sales.sales_invoice import get_current_pos_opening_entry
 	
 	current_profile = None
 	current_opening_entry = get_current_pos_opening_entry()

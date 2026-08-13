@@ -51,7 +51,7 @@ def generate_production_order(doc, method=None):
         # Get active BOM for the item
         bom_no = frappe.db.get_value("BOM", {"item": item.item_code, "is_active": 1, "docstatus": 1})
         if not bom_no:
-            frappe.log_error(f"No active BOM found for item {item.item_code}", "Sultan Manufacturing")
+            frappe.log_error(f"No active BOM found for item {item.item_code}", "Managely Manufacturing")
             continue
             
         # Create a new Work Order
@@ -98,7 +98,7 @@ def generate_production_order(doc, method=None):
                 indicator="green"
             )
         except Exception as e:
-            frappe.log_error(f"Failed to submit Work Order for {item.item_code}: {str(e)}", "Sultan Manufacturing")
+            frappe.log_error(f"Failed to submit Work Order for {item.item_code}: {str(e)}", "Managely Manufacturing")
 
 
 def complete_work_order_manufacture(work_order_name):
@@ -194,7 +194,7 @@ def apply_custom_ingredients(wo, custom_ingredients_data):
 
 
 @frappe.whitelist()
-def parse_sultan_barcode(barcode):
+def parse_barcode(barcode):
     """
     Parses complex barcodes containing batch, expiry, and weight.
     Supports:
@@ -303,7 +303,7 @@ def check_batch_expiry():
         }).insert(ignore_permissions=True)
         
         # Also create an error log record for audit persistence
-        frappe.log_error(message=subject, title="Sultan Batch Expiry Alert")
+        frappe.log_error(message=subject, title="Managely Batch Expiry Alert")
 
     frappe.db.commit()
 

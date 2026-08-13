@@ -149,14 +149,14 @@ after_migrate = [
 
 doc_events = {
 	"Page": {
-		"validate": "managely_terminal.managely_terminal.api.electron.terminals.validate_page_permission",
+		"validate": "managely_terminal.managely_terminal.api.electron.core.terminals.validate_page_permission",
 	},
 	"Loyalty Point Entry": {
-		"on_update": "managely_terminal.managely_terminal.api.electron.customer.update_pos_customer_loyalty",
-		"on_trash": "managely_terminal.managely_terminal.api.electron.customer.update_pos_customer_loyalty",
+		"on_update": "managely_terminal.managely_terminal.api.electron.sales.customer.update_pos_customer_loyalty",
+		"on_trash": "managely_terminal.managely_terminal.api.electron.sales.customer.update_pos_customer_loyalty",
 	},
 	"POS Invoice": {
-		"autoname": "managely_terminal.managely_terminal.api.pos_entry.autoname_pos_invoice",
+		"autoname": "managely_terminal.managely_terminal.api.erpnext_pos_entry.autoname_pos_invoice",
 		"validate": "managely_terminal.managely_terminal.api.fix_invoice_items_valuation",
 		"before_submit": "managely_terminal.managely_terminal.api.generate_production_order",
 	},
@@ -191,36 +191,36 @@ doc_events = {
 		"before_insert": "managely_terminal.managely_terminal.accounting.customizations.autonumber_child_account",
 	},
 	"POS Opening Entry": {
-		"autoname": "managely_terminal.managely_terminal.api.pos_entry.autoname_pos_opening_entry",
+		"autoname": "managely_terminal.managely_terminal.api.erpnext_pos_entry.autoname_pos_opening_entry",
 		"on_submit": "managely_terminal.managely_terminal.doctype.pos_suspended_transaction.pos_suspended_transaction.on_pos_opening_entry_submit",
 	},
 	"POS Closing Entry": {
-		"autoname": "managely_terminal.managely_terminal.api.pos_entry.autoname_pos_closing_entry",
+		"autoname": "managely_terminal.managely_terminal.api.erpnext_pos_entry.autoname_pos_closing_entry",
 		"before_validate": "managely_terminal.managely_terminal.doctype.pos_suspended_transaction.pos_suspended_transaction.before_validate_pos_closing_entry",
 		"on_submit": "managely_terminal.managely_terminal.doctype.pos_suspended_transaction.pos_suspended_transaction.on_pos_closing_entry_submit",
 		"on_cancel": "managely_terminal.managely_terminal.doctype.pos_suspended_transaction.pos_suspended_transaction.on_pos_closing_entry_cancel",
 	},
 	"POS Profile": {
-		"before_insert": "managely_terminal.managely_terminal.api.pos_profile.set_pos_profile_defaults",
+		"before_insert": "managely_terminal.managely_terminal.api.erpnext_pos_profile.set_pos_profile_defaults",
 		"before_save": [
-			"managely_terminal.managely_terminal.api.pos_profile.set_pos_profile_defaults",
+			"managely_terminal.managely_terminal.api.erpnext_pos_profile.set_pos_profile_defaults",
 		],
-		"after_save": "managely_terminal.managely_terminal.api.pos_profile.notify_pos_profile_updated",
+		"after_save": "managely_terminal.managely_terminal.api.erpnext_pos_profile.notify_pos_profile_updated",
 	},
 	"POS Suspended Transaction": {
-		"autoname": "managely_terminal.managely_terminal.api.pos_entry.autoname_pos_suspended_transaction",
+		"autoname": "managely_terminal.managely_terminal.api.erpnext_pos_entry.autoname_pos_suspended_transaction",
 	},
 	"Work Order": {
-		"autoname": "managely_terminal.managely_terminal.api.pos_entry.autoname_work_order",
+		"autoname": "managely_terminal.managely_terminal.api.erpnext_pos_entry.autoname_work_order",
 	},
 }
 
 # DocType Class Overrides
 # -----------------------
 override_doctype_class = {
-	"Sales Invoice": "managely_terminal.managely_terminal.api.sales_invoice.CustomSalesInvoice",
-	"POS Invoice": "managely_terminal.managely_terminal.api.sales_invoice.CustomPOSInvoice",
-	"Purchase Invoice": "managely_terminal.managely_terminal.api.purchase_invoice.CustomPurchaseInvoice",
+	"Sales Invoice": "managely_terminal.managely_terminal.api.erpnext_sales_invoice.CustomSalesInvoice",
+	"POS Invoice": "managely_terminal.managely_terminal.api.erpnext_sales_invoice.CustomPOSInvoice",
+	"Purchase Invoice": "managely_terminal.managely_terminal.api.erpnext_purchase_invoice.CustomPurchaseInvoice",
 }
 
 # Dashboard Links
@@ -312,9 +312,9 @@ scheduler_events = {
 # Automatically update python controller files with type annotations for this app.
 # export_python_type_annotations = True
 
-# default_log_clearing_doctypes = {
-# 	"Logging DocType Name": 30  # days to retain logs
-# }
+default_log_clearing_doctypes = {
+	"Terminal Activity Log": 30  # days to retain logs
+}
 
 # Translation
 # ------------

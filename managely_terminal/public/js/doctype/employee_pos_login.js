@@ -32,7 +32,7 @@ function setup_pos_password_reveal(frm) {
 		}
 
 		frappe.call({
-			method: "managely_terminal.managely_terminal.api.electron.employee_auth.get_employee_pos_password",
+			method: "managely_terminal.managely_terminal.api.electron.auth.employee_auth.get_employee_pos_password",
 			args: { employee: frm.doc.name },
 			callback(r) {
 				if (r.message !== undefined) {
