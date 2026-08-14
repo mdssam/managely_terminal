@@ -170,11 +170,29 @@ def create_opening_entry():
 			},
 		)
 		if existing:
-			frappe.throw(
-				_(
-					"You already have an open POS Opening Entry for profile '{0}'. Please close the existing entry before creating a new one."
-				).format(pos_profile)
-			)
+			# FIX 4: If incoming session is historical (from offline queue with a different pre_name),
+			# do not throw an error that blocks the queue; return the existing open session as success.
+			# Scenario: A historical session arrived after a newer session was opened on the server.
+			# The strict FIFO queue must not halt due to historical session sequence.
+			if pre_name:
+				existing_doc = frappe.get_doc("POS Opening Entry", existing)
+				frappe.logger().info(
+					f"[Queue-Heal] Historical session {pre_name} arrived while {existing} is open. "
+					f"Returning existing open entry gracefully to unblock FIFO queue."
+				)
+				return {
+					"success": True,
+					"message": f"Session conflict resolved: returning existing open entry {existing}.",
+					"name": existing_doc.name,
+					"pos_ref": existing_doc.pos_ref or existing_doc.name,
+					"queue_healed": True,
+				}
+			else:
+				frappe.throw(
+					_(
+						"You already have an open POS Opening Entry for profile '{0}'. Please close the existing entry before creating a new one."
+					).format(pos_profile)
+				)
 
 		# Create the POS Opening Entry
 		doc = frappe.new_doc("POS Opening Entry")

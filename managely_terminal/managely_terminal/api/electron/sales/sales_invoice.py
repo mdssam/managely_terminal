@@ -901,6 +901,34 @@ def create_and_submit_invoice(data):
 		if not items or len(items) == 0:
 			frappe.throw("At least one item is required")
 
+		# FIX 2c: Self-Healing — If the session in the payload does not exist on the server,
+		# create it automatically to prevent LinkValidationError and ensure invoice and Cash Transactions acceptance.
+		# This resolves cases where invoices arrive before their opening entries in the offline queue (historical FIFO).
+		incoming_session = data.get("custom_pos_opening_entry") or data.get("pos_session")
+		if incoming_session and not frappe.db.exists("POS Opening Entry", incoming_session):
+			try:
+				_pos_profile_obj = _get_active_pos_profile()
+				_heal_company = frappe.defaults.get_user_default("Company") or getattr(_pos_profile_obj, "company", None)
+				poe = frappe.new_doc("POS Opening Entry")
+				poe.pos_ref = incoming_session
+				poe.user = frappe.session.user
+				poe.company = _heal_company
+				poe.pos_profile = _pos_profile_obj.name
+				poe.posting_date = data.get("posting_date") or frappe.utils.today()
+				poe.period_start_date = data.get("period_start_date") or data.get("posting_date") or frappe.utils.now_datetime()
+				poe.set_posting_time = 1
+				_def_mop = None
+				if getattr(_pos_profile_obj, "payments", None):
+					_def_mop = _pos_profile_obj.payments[0].mode_of_payment
+				poe.append("balance_details", {"mode_of_payment": _def_mop or "Cash", "opening_amount": 0.0})
+				poe.flags.ignore_permissions = True
+				poe.insert(ignore_permissions=True)
+				poe.submit()
+				frappe.db.commit()
+				frappe.logger().info(f"[Self-Healing] Created missing POS Opening Entry: {incoming_session}")
+			except Exception as _heal_err:
+				frappe.logger().warning(f"[Self-Healing] Failed to create POS Opening Entry {incoming_session}: {_heal_err}")
+
 		# Build invoice document
 		doc = build_sales_invoice_doc(
 			customer,
@@ -937,6 +965,7 @@ def create_and_submit_invoice(data):
 			doc.loyalty_program = data.get("loyalty_program")
 			doc.loyalty_points = int(data.get("loyalty_points") or 0)
 			doc.loyalty_amount = flt(data.get("loyalty_amount") or 0.0)
+		# FIX 2a (Fallback): If custom_pos_opening_entry is still not set (rare edge case), retry from payload
 		if not getattr(doc, "custom_pos_opening_entry", None):
 			doc.custom_pos_opening_entry = data.get("custom_pos_opening_entry") or data.get("pos_session")
 
@@ -1345,12 +1374,47 @@ def build_sales_invoice_doc(
 	pos_profile = _get_active_pos_profile()
 	default_branch_customer = getattr(pos_profile, "customer", None) or "Walk-in Customer"
 
-	if pos_customer_record:
+	# FIX 2b: Walk-in / empty / .. -> Do not assign to Link field; keep as None
+	_is_walk_in = not customer or str(customer).strip() in ("", "..", "Walk-in Customer", "None", "walk-in", "Walk-In")
+
+	if _is_walk_in:
+		doc.custom_pos_customer = None
+		customer = default_branch_customer
+	elif pos_customer_record:
 		doc.custom_pos_customer = pos_customer_record.name
 		customer = pos_customer_record.unified_customer or default_branch_customer
 	else:
-		if not frappe.db.exists("Customer", customer):
-			doc.custom_pos_customer = customer
+		# Customer exists by name but is not registered in POS Customer:
+		# Case 1 — If identified by an existing ERPNext Customer ID, keep custom_pos_customer as None
+		if frappe.db.exists("Customer", customer):
+			doc.custom_pos_customer = None
+			# customer remains as is — valid ERPNext Customer ID
+		else:
+			# Case 2 — New ad-hoc customer not in ERP or POS Customer:
+			# Automatically register in POS Customer to prevent LinkValidationError
+			try:
+				_cust_obj = data.get("customer") if isinstance(data, dict) and data else {}
+				if isinstance(_cust_obj, str):
+					try: _cust_obj = json.loads(_cust_obj)
+					except: _cust_obj = {}
+				_c_name = (_cust_obj.get("name") or _cust_obj.get("customer_name") or str(customer))[:140]
+				_c_phone = (_cust_obj.get("phone") or _cust_obj.get("mobile_no") or "")[:20]
+				_c_email = (_cust_obj.get("email") or "")[:140]
+				new_pc = frappe.new_doc("POS Customer")
+				new_pc.customer_name = _c_name
+				if _c_phone:
+					new_pc.mobile_no = _c_phone
+				if _c_email:
+					new_pc.email_id = _c_email
+				new_pc.unified_customer = default_branch_customer
+				new_pc.flags.ignore_permissions = True
+				new_pc.insert(ignore_permissions=True)
+				frappe.db.commit()
+				doc.custom_pos_customer = new_pc.name
+				frappe.logger().info(f"[Auto-Register] Created POS Customer: {new_pc.name} for '{_c_name}'")
+			except Exception as _pc_err:
+				frappe.logger().warning(f"[Auto-Register] Failed to create POS Customer for '{customer}': {_pc_err}")
+				doc.custom_pos_customer = None
 			customer = default_branch_customer
 
 	doc.customer = customer
@@ -1374,8 +1438,13 @@ def build_sales_invoice_doc(
 	# Set posting details
 	_set_posting_fields(doc, data)
 
-	# Set POS opening entry
-	_set_pos_opening_entry(doc)
+	# FIX 2a: Prioritize historical session from payload over current active server session.
+	# This prevents _set_pos_opening_entry from overwriting the invoice's historical session.
+	if data and (data.get("custom_pos_opening_entry") or data.get("pos_session")):
+		doc.custom_pos_opening_entry = data.get("custom_pos_opening_entry") or data.get("pos_session")
+	else:
+		# No session in payload — fallback to active server session
+		_set_pos_opening_entry(doc)
 
 	# Handle round-off
 	_set_roundoff_fields(doc, roundoff_amount)
