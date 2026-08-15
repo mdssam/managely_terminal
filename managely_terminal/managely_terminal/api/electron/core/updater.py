@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import frappe
 import os
+import shutil
 
 @frappe.whitelist()
 def upload_update(filename, chunk_index, is_last):
@@ -29,18 +30,31 @@ def upload_update(filename, chunk_index, is_last):
     if int(chunk_index) == 0:
         mode = 'wb'
         ext = os.path.splitext(filename)[1]
-        # Delete old files of the same extension to save space
-        for f in os.listdir(updates_dir):
-            if f.endswith(ext) and f != filename:
-                try:
-                    os.remove(os.path.join(updates_dir, f))
-                except Exception:
-                    pass
+        # Only delete old .exe and .blockmap files. NEVER delete .yml files because latest.yml and latest-ia32.yml must co-exist!
+        if ext in ('.exe', '.blockmap'):
+            for f in os.listdir(updates_dir):
+                if f.endswith(ext) and f != filename:
+                    try:
+                        os.remove(os.path.join(updates_dir, f))
+                    except Exception:
+                        pass
     else:
         mode = 'ab'
     
     with open(file_path, mode) as f:
         f.write(chunk_data)
+
+    # When upload of a .yml finishes, ensure both latest.yml and latest-ia32.yml exist
+    if is_last in ["true", "1", 1, True] and filename.endswith('.yml'):
+        try:
+            latest_path = os.path.join(updates_dir, 'latest.yml')
+            latest_ia32_path = os.path.join(updates_dir, 'latest-ia32.yml')
+            if filename == 'latest.yml' and not os.path.exists(latest_ia32_path):
+                shutil.copyfile(latest_path, latest_ia32_path)
+            elif filename == 'latest-ia32.yml' and not os.path.exists(latest_path):
+                shutil.copyfile(latest_ia32_path, latest_path)
+        except Exception:
+            pass
 
     return {
         "success": True,
