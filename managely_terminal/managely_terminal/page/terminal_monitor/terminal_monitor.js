@@ -500,72 +500,92 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 
 		var old_cipher_val = term.last_known_cipher || term.custom_pos_cipher || '';
 		var target_device_id_val = term.target_device_id || '';
+		var new_derived_cipher = term.derived_cipher || '';
 
 		let d = new frappe.ui.Dialog({
-			title: 'Force Unlock Hardware Bind',
+			title: __('Force Unlock & Re-key Terminal Database'),
 			fields: [
 				{
 					fieldname: 'help_html',
 					fieldtype: 'HTML',
-					options: '<div class="alert alert-danger font-weight-bold small"><i class="fa fa-exclamation-triangle mr-1"></i> Use this ONLY if the POS terminal is locked due to hardware change.</div>'
+					options: `
+						<div class="alert alert-warning small mb-3">
+							<i class="fa fa-exclamation-triangle mr-1"></i>
+							<b>Hardware Re-keying Protocol:</b> Use this when a POS terminal is locked due to hardware replacement.<br/>
+							The terminal database will authenticate using the <b>Old Cipher</b>, re-key to the <b>New Database Cipher (32-char)</b>, and automatically update the POS Profile's <code>custom_pos_cipher</code>.
+						</div>
+					`
 				},
 				{
-					label: 'Old Hardware ID (Cipher)',
+					label: __('Old Database Cipher (Current POS Profile Key)'),
 					fieldname: 'old_cipher',
 					fieldtype: 'Data',
 					read_only: 1,
 					reqd: 1,
 					default: old_cipher_val,
-					description: 'Old hardware ID registered in POS Profile.'
+					description: __('Previous 32-character encryption key registered in POS Profile.')
 				},
 				{
-					label: 'Target Hardware ID (New Device)',
+					label: __('Target Hardware ID (Device HWID)'),
 					fieldname: 'target_device_id',
 					fieldtype: 'Data',
 					read_only: 1,
 					reqd: 1,
 					default: target_device_id_val,
-					description: 'Hardware ID of the new device reported by the locked terminal.'
+					description: __('Raw 64-character hardware identifier reported by the terminal.')
+				},
+				{
+					label: __('New Database Cipher (Derived 32-char POS Profile Key)'),
+					fieldname: 'new_derived_cipher',
+					fieldtype: 'Data',
+					read_only: 1,
+					default: new_derived_cipher,
+					description: __('Derived 32-character key that will be stored in custom_pos_cipher upon successful unlock.')
 				}
 			],
-			primary_action_label: 'Send Unlock Command',
+			primary_action_label: __('Send Unlock & Re-Key Command'),
 			primary_action: function(values) {
 				var final_old_cipher = (values && values.old_cipher) ? values.old_cipher : old_cipher_val;
 				var final_target_id = (values && values.target_device_id) ? values.target_device_id : target_device_id_val;
 
-				frappe.confirm('Are you absolutely sure you want to force unlock and re-key the database for terminal: <b>' + selected_terminal_id + '</b>?', () => {
-					d.get_primary_btn().prop('disabled', true);
-					frappe.call({
-						method: 'managely_terminal.managely_terminal.api.electron.core.terminals.trigger_force_unlock_db',
-						args: {
-							terminal_id: selected_terminal_id,
-							old_cipher: final_old_cipher,
-							target_device_id: final_target_id
-						},
-						callback: function(r) {
-							d.get_primary_btn().prop('disabled', false);
-							if (r.message && r.message.success) {
-								frappe.show_alert({ message: __('⏳ Unlock command sent! Waiting for terminal response...'), indicator: 'orange' }, 10);
-								d.hide();
-								load_activity_log(selected_terminal_id);
+				frappe.confirm(
+					`Are you absolutely sure you want to force unlock and re-key the database for terminal: <b>${selected_terminal_id}</b>?<br/><br/>
+					<small class="text-muted">Target HWID: <code>${final_target_id.substring(0, 16)}...</code><br/>
+					New DB Cipher: <code>${new_derived_cipher}</code></small>`,
+					() => {
+						d.get_primary_btn().prop('disabled', true);
+						frappe.call({
+							method: 'managely_terminal.managely_terminal.api.electron.core.terminals.trigger_force_unlock_db',
+							args: {
+								terminal_id: selected_terminal_id,
+								old_cipher: final_old_cipher,
+								target_device_id: final_target_id
+							},
+							callback: function(r) {
+								d.get_primary_btn().prop('disabled', false);
+								if (r.message && r.message.success) {
+									frappe.show_alert({ message: __('⏳ Unlock command sent! Waiting for terminal response...'), indicator: 'orange' }, 10);
+									d.hide();
+									load_activity_log(selected_terminal_id);
 
-								if (unlock_timeout_timer) clearTimeout(unlock_timeout_timer);
-								unlock_timeout_timer = setTimeout(function() {
-									frappe.show_alert({
-										message: __('⚠️ Unlock command queued on server, but terminal has not responded yet (Terminal may be offline).'),
-										indicator: 'yellow'
-									}, 8);
-								}, 15000);
-							} else {
-								frappe.msgprint({
-									title: 'Failed',
-									indicator: 'red',
-									message: r.message ? r.message.error : 'Unknown error'
-								});
+									if (unlock_timeout_timer) clearTimeout(unlock_timeout_timer);
+									unlock_timeout_timer = setTimeout(function() {
+										frappe.show_alert({
+											message: __('⚠️ Unlock command queued on server, but terminal has not responded yet (Terminal may be offline).'),
+											indicator: 'yellow'
+										}, 8);
+									}, 15000);
+								} else {
+									frappe.msgprint({
+										title: __('Unlock Failed'),
+										indicator: 'red',
+										message: r.message ? r.message.error : __('Unknown error')
+									});
+								}
 							}
-						}
-					});
-				});
+						});
+					}
+				);
 			}
 		});
 		d.show();
@@ -1238,7 +1258,8 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 
 	function cache_and_render(data) {
 		logs_cache.sync_history = data.sync_history || [];
-		logs_cache.sync_queue = data.sync_queue || [];
+		// Sync Queue must reflect the exact FIFO execution order (oldest to newest)
+		logs_cache.sync_queue = (data.sync_queue || []).slice().sort(function(a, b) { return (a.id || 0) - (b.id || 0); });
 		logs_cache.audit_logs = data.audit_logs || [];
 
 		pages_state.sync_history = 1;
