@@ -1168,7 +1168,7 @@ def trigger_terminal_sync(terminal_id):
         log_terminal_activity(
             terminal_id=terminal_id,
             branch_name=term_info.get('branch_name', ''),
-            event_type='Sync Trigger',
+            event_type='Logs Pulled',
             direction='OUT',
             description='Remote instant sync command dispatched to terminal.',
             details={'action': 'trigger_sync'},
