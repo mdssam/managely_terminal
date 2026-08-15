@@ -200,6 +200,28 @@ doc_events = {
 		"on_submit": "managely_terminal.managely_terminal.doctype.pos_suspended_transaction.pos_suspended_transaction.on_pos_closing_entry_submit",
 		"on_cancel": "managely_terminal.managely_terminal.doctype.pos_suspended_transaction.pos_suspended_transaction.on_pos_closing_entry_cancel",
 	},
+	"Item": {
+		"on_update": "managely_terminal.managely_terminal.api.erpnext_pos_profile.notify_master_data_updated",
+		"on_trash": "managely_terminal.managely_terminal.api.erpnext_pos_profile.notify_master_data_updated",
+	},
+	"Item Price": {
+		"on_update": "managely_terminal.managely_terminal.api.erpnext_pos_profile.notify_master_data_updated",
+		"on_trash": "managely_terminal.managely_terminal.api.erpnext_pos_profile.notify_master_data_updated",
+	},
+	"Employee": {
+		"on_update": "managely_terminal.managely_terminal.api.erpnext_pos_profile.notify_master_data_updated",
+		"on_trash": "managely_terminal.managely_terminal.api.erpnext_pos_profile.notify_master_data_updated",
+	},
+	"Pricing Rule": {
+		"on_update": "managely_terminal.managely_terminal.api.erpnext_pos_profile.notify_master_data_updated",
+		"on_trash": "managely_terminal.managely_terminal.api.erpnext_pos_profile.notify_master_data_updated",
+	},
+	"Customer": {
+		"on_update": "managely_terminal.managely_terminal.api.erpnext_pos_profile.notify_master_data_updated",
+	},
+	"Mode of Payment": {
+		"on_update": "managely_terminal.managely_terminal.api.erpnext_pos_profile.notify_master_data_updated",
+	},
 	"POS Profile": {
 		"before_insert": "managely_terminal.managely_terminal.api.erpnext_pos_profile.set_pos_profile_defaults",
 		"before_save": [

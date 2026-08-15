@@ -126,15 +126,16 @@ def create_opening_entry():
 		# Idempotency Guard — prevents duplicate opening entries on retry
 		pre_name = data.get("name") or data.get("pre_assigned_name")
 		if pre_name:
-			existing_name = frappe.db.exists("POS Opening Entry", {"pos_ref": pre_name, "user": frappe.session.user})
+			existing_name = frappe.db.exists("POS Opening Entry", {"pos_ref": pre_name}) or (pre_name if frappe.db.exists("POS Opening Entry", pre_name) else None)
 			if existing_name:
 				existing = frappe.get_doc("POS Opening Entry", existing_name)
-				frappe.logger().info(f"Idempotency: POS Opening Entry {pre_name} already exists. Returning cached.")
+				frappe.logger().info(f"Idempotency: POS Opening Entry {pre_name} already exists (docstatus={existing.docstatus}). Returning cached.")
+				frappe.clear_messages()
 				return {
 					"success": True,
 					"message": "POS Opening Entry already exists.",
 					"name": existing.name,
-					"doc": existing
+					"pos_ref": existing.pos_ref or existing.name
 				}
 
 		user = frappe.session.user
@@ -204,28 +205,57 @@ def create_opening_entry():
 		doc.pos_profile = pos_profile
 
 		if data.get("posting_date"):
-			doc.posting_date = data.get("posting_date")
+			doc.posting_date = frappe.utils.getdate(str(data.get("posting_date")).split("T")[0])
 		else:
 			doc.posting_date = today()
 
 		doc.set_posting_time = 1
 
 		if data.get("period_start_date"):
-			doc.period_start_date = data.get("period_start_date")
+			psd = str(data.get("period_start_date")).replace("Z", "").replace("T", " ")
+			try:
+				doc.period_start_date = frappe.utils.get_datetime(psd.split(".")[0])
+			except Exception:
+				doc.period_start_date = now_datetime()
 		else:
 			doc.period_start_date = now_datetime()
 
 		if employee:
-			doc.custom_employee = employee
+			if frappe.db.exists("Employee", employee):
+				doc.custom_employee = employee
+			else:
+				try:
+					new_emp = frappe.new_doc("Employee")
+					new_emp.name = employee
+					new_emp.first_name = (employee_name or employee)[:140]
+					new_emp.company = company
+					new_emp.flags.ignore_permissions = True
+					new_emp.insert(ignore_permissions=True)
+					doc.custom_employee = new_emp.name
+				except Exception:
+					doc.custom_employee = None
+
 		if employee_name:
 			doc.custom_employee_name = employee_name
 
 		for row in balance_details:
+			mop_name = row.get("mode_of_payment") or "Cash"
+			if not frappe.db.exists("Mode of Payment", mop_name):
+				try:
+					comp_cash = frappe.db.get_value("Company", company, "default_cash_account") or frappe.db.get_value("Account", {"company": company, "account_type": "Cash", "is_group": 0}, "name")
+					new_mop = frappe.new_doc("Mode of Payment")
+					new_mop.mode_of_payment = mop_name
+					new_mop.type = "Cash"
+					if comp_cash:
+						new_mop.append("accounts", {"company": company, "default_account": comp_cash})
+					new_mop.insert(ignore_permissions=True)
+				except Exception:
+					mop_name = "Cash"
 			doc.append(
 				"balance_details",
 				{
-					"mode_of_payment": row.get("mode_of_payment"),
-					"opening_amount": row.get("opening_amount"),
+					"mode_of_payment": mop_name,
+					"opening_amount": row.get("opening_amount", 0),
 				},
 			)
 
@@ -467,8 +497,21 @@ def create_closing_entry():
 		pos_opening_entry_name = data.get("pos_opening_entry")
 		if pos_opening_entry_name and frappe.db.exists("POS Opening Entry", pos_opening_entry_name):
 			opening_entry = frappe.get_doc("POS Opening Entry", pos_opening_entry_name)
+		elif pos_opening_entry_name and frappe.db.exists("POS Opening Entry", {"pos_ref": pos_opening_entry_name}):
+			opening_entry = frappe.get_doc("POS Opening Entry", {"pos_ref": pos_opening_entry_name})
 		else:
 			opening_entry = _get_open_pos_entry(user)
+
+		# Idempotency: If the opening entry is ALREADY Closed, return success immediately to unblock queue!
+		if getattr(opening_entry, "status", None) == "Closed" or getattr(opening_entry, "pos_closing_entry", None):
+			existing_closing = frappe.db.get_value("POS Closing Entry", {"pos_opening_entry": opening_entry.name, "docstatus": 1}, "name")
+			frappe.logger().info(f"Idempotency: Session {opening_entry.name} is already Closed. Returning success.")
+			frappe.clear_messages()
+			return {
+				"success": True,
+				"name": existing_closing or opening_entry.name,
+				"message": _("POS session already closed.")
+			}
 
 		# Prevent closing if there are draft invoices
 		draft_pos_invoices = frappe.get_all(

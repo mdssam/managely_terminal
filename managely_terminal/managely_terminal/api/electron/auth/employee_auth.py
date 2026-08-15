@@ -5,12 +5,23 @@ from frappe.utils.password import get_decrypted_password
 
 def _lookup_employee(username: str):
     """Return employee dict for the given POS username, or None."""
+    u = (username or '').strip()
     employee = frappe.db.get_value(
         "Employee",
-        {"custom_pos_username": username, "status": "Active"},
+        {"custom_pos_username": u, "status": "Active"},
         ["name", "employee_name", "custom_pos_role", "custom_allow_returns", "custom_allow_discounts", "custom_allow_item_discounts"],
         as_dict=True,
     )
+    if not employee:
+        emp_list = frappe.db.sql("""
+            SELECT name, employee_name, custom_pos_role, custom_allow_returns, custom_allow_discounts, custom_allow_item_discounts
+            FROM 	abEmployee
+            WHERE (TRIM(LOWER(custom_pos_username)) = %s OR LOWER(name) = %s OR TRIM(LOWER(employee_name)) = %s) AND status = 'Active'
+            LIMIT 1
+        """, (u.lower(), u.lower(), u.lower()), as_dict=True)
+        if emp_list:
+            employee = emp_list[0]
+
     if employee:
         profiles = frappe.get_all(
             "Allowed POS Profile",
@@ -55,11 +66,23 @@ def verify_employee_login(username: str, password: str) -> dict:
 
 
 @frappe.whitelist()
-def employee_pos_login(username: str, password: str) -> dict:
+def employee_pos_login(username=None, password=None) -> dict:
     """Verify POS credentials for the employee.
 
     Keeps the active browser session user. Throws an error if the session has expired (Guest).
     """
+    data = frappe.local.form_dict or {}
+    if not username and frappe.request and frappe.request.data:
+        try:
+            import json
+            parsed = json.loads(frappe.request.data.decode('utf-8'))
+            if isinstance(parsed, dict):
+                data.update(parsed)
+        except Exception:
+            pass
+    username = username or data.get('username')
+    password = password or data.get('password')
+
     if not username or not password:
         return {"success": False, "error": _("Username and password are required.")}
 

@@ -341,6 +341,54 @@ def notify_pos_profile_updated(doc, method=None):
 	except Exception:
 		frappe.log_error(frappe.get_traceback(), "notify_pos_profile_updated Error")
 
+def notify_master_data_updated(doc, method=None):
+	"""
+	When any master data (Item, Item Price, Employee, Pricing Rule, Customer, Mode of Payment)
+	is created, updated, or deleted, push a real-time sync command to all active Electron terminals.
+	"""
+	try:
+		doctype = doc.doctype
+		active_terminals = frappe.cache().get_value("active_terminals") or {}
+		if not active_terminals:
+			return
+
+		reason = f"{doctype.lower().replace(' ', '_')}_updated"
+		cmd_payload = {"type": "sync_now", "reason": reason, "doctype": doctype, "docname": doc.name}
+
+		term_list = list(active_terminals.values()) if isinstance(active_terminals, dict) else active_terminals
+		for terminal in term_list:
+			if isinstance(terminal, dict):
+				terminal_id = terminal.get("terminal_id")
+			else:
+				terminal_id = str(terminal)
+
+			if not terminal_id:
+				continue
+
+			# Path 1: Socket.io (instant real-time push)
+			try:
+				frappe.publish_realtime(
+					event="server:sync_now",
+					message={"reason": reason, "doctype": doctype, "docname": doc.name},
+					room=f"task_progress:terminal:{terminal_id}"
+				)
+			except Exception:
+				pass
+
+			# Path 2: Heartbeat cache queue fallback
+			frappe.cache().set_value(
+				f"terminal_cmd:{terminal_id}",
+				cmd_payload,
+				expires_in_sec=120
+			)
+
+		frappe.logger().info(
+			f"[Master Data Sync] Notified {len(term_list)} terminal(s) for {doctype} update: {doc.name}"
+		)
+	except Exception:
+		frappe.log_error(frappe.get_traceback(), "notify_master_data_updated Error")
+
+
 
 @frappe.whitelist()
 def get_dashboard_branches(employee=None):

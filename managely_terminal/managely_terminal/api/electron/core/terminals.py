@@ -76,7 +76,7 @@ def heartbeat():
         frappe.cache().set_value("active_terminals", terminals, expires_in_sec=86400)
         
         # Save specific terminal online state with a 35 seconds TTL
-        frappe.cache().set_value(f"terminal_status:{terminal_id}", "Online", expires_in_sec=35)
+        frappe.cache().set_value(f"terminal_status:{terminal_id}", "Online", expires_in_sec=25)
         
         # ── Activity Logging ──────────────────────────────────────────────────
         common_log = dict(
@@ -114,10 +114,19 @@ def heartbeat():
 
         # ─────────────────────────────────────────────────────────────────────
         # Check for pending commands delivered via heartbeat (reliable fallback for Socket.io)
-        pending_cmd = frappe.cache().get_value(f"terminal_cmd:{terminal_id}")
-        if pending_cmd:
-            frappe.cache().delete_value(f"terminal_cmd:{terminal_id}")
-            return {"success": True, "site_name": frappe.local.site, "command": pending_cmd}
+        candidate_cmd_keys = [
+            f"terminal_cmd:{terminal_id}",
+            f"terminal_cmd:{pos_profile}" if pos_profile else None,
+            f"terminal_cmd:{branch_name}" if branch_name else None,
+            f"terminal_cmd:{branch_name}-{pos_profile}" if branch_name and pos_profile else None,
+            f"terminal_cmd:{hardware_id}" if hardware_id else None
+        ]
+        pending_cmd = None
+        for ck in filter(None, candidate_cmd_keys):
+            pending_cmd = frappe.cache().get_value(ck)
+            if pending_cmd:
+                frappe.cache().delete_value(ck)
+                return {"success": True, "site_name": frappe.local.site, "command": pending_cmd}
         
         return {"success": True, "site_name": frappe.local.site}
     except Exception as e:
@@ -311,7 +320,11 @@ def get_active_terminals():
                     profile_doc = p
                     break
                     
-            is_online = frappe.cache().get_value(f"terminal_status:{term_id}") == "Online"
+            now_ms = now * 1000
+            last_ping_ms = flt(term.get("last_ping") or 0)
+            is_cache_online = frappe.cache().get_value(f"terminal_status:{term_id}") == "Online"
+            # Must have sent a heartbeat within the last 25 seconds (since interval is 10s)
+            is_online = is_cache_online and ((now_ms - last_ping_ms) < 25000)
             was_online_before = term.get("status") == "Online"
             term["status"] = "Online" if is_online else "Offline"
             
@@ -864,24 +877,45 @@ def receive_unlock_result():
         error = data.get('error')
         message = data.get('message')
         target_device_id = data.get('target_device_id') or data.get('hardware_id')
+        new_cipher = data.get('new_cipher')
         
         if not terminal_id:
             return {'success': False, 'error': 'Missing terminal_id'}
 
+        import hashlib
+        SALT = 'sultan-pos-sqlcipher-salt-2026-secure'
+        if not new_cipher and target_device_id:
+            if len(target_device_id) > 32:
+                new_cipher = hashlib.sha256((target_device_id + SALT).encode('utf-8')).hexdigest()[:32]
+            else:
+                new_cipher = target_device_id
+
         term_info = (frappe.cache().get_value('active_terminals') or {}).get(terminal_id, {})
         branch = term_info.get('branch_name', '')
-        pos_prof = term_info.get('pos_profile') or terminal_id
+        pos_prof = data.get('pos_profile') or term_info.get('pos_profile') or terminal_id
 
         # ONLY update POS Profile custom_pos_cipher on MariaDB AFTER terminal confirms 100% SUCCESSFUL unlock!
-        if success and target_device_id:
-            if frappe.db.exists('POS Profile', pos_prof):
-                frappe.db.set_value('POS Profile', pos_prof, 'custom_pos_cipher', target_device_id)
+        # DIRECTLY REPLACE with new_cipher so the profile is strictly locked to the new authorized hardware
+        if success and new_cipher:
+            resolved_prof = None
+            if pos_prof and frappe.db.exists('POS Profile', pos_prof):
+                resolved_prof = pos_prof
+            else:
+                parts = terminal_id.split('-')
+                candidates = [parts[-1].strip(), parts[0].strip(), terminal_id]
+                for c in candidates:
+                    if frappe.db.exists('POS Profile', c):
+                        resolved_prof = c
+                        break
+
+            if resolved_prof:
+                frappe.db.set_value('POS Profile', resolved_prof, 'custom_pos_cipher', new_cipher)
                 frappe.db.commit()
             else:
                 profiles = frappe.get_all("POS Profile", fields=["name", "custom_pos_cipher"])
                 for p in profiles:
                     if p.name in terminal_id or (p.custom_pos_cipher and p.custom_pos_cipher in terminal_id):
-                        frappe.db.set_value('POS Profile', p.name, 'custom_pos_cipher', target_device_id)
+                        frappe.db.set_value('POS Profile', p.name, 'custom_pos_cipher', new_cipher)
                         frappe.db.commit()
                         break
             frappe.cache().delete_value('active_terminals')
@@ -963,13 +997,13 @@ def trigger_relaunch_app(terminal_id):
 
 
 @frappe.whitelist()
-def trigger_force_unlock_db(terminal_id, old_cipher=None, target_device_id=None):
+def trigger_force_unlock_db(terminal_id, old_cipher=None, target_device_id=None, pos_profile=None):
     if frappe.session.user != 'Administrator':
         frappe.throw('Not authorized.', frappe.PermissionError)
         
     try:
         term_info = (frappe.cache().get_value('active_terminals') or {}).get(terminal_id, {})
-        pos_prof = term_info.get('pos_profile') or terminal_id
+        pos_prof = pos_profile or term_info.get('pos_profile') or terminal_id
 
         if not old_cipher:
             old_cipher = term_info.get('last_known_cipher') or term_info.get('custom_pos_cipher')
@@ -982,20 +1016,31 @@ def trigger_force_unlock_db(terminal_id, old_cipher=None, target_device_id=None)
         cmd_payload = {
             'type': 'force_unlock_db',
             'old_cipher': old_cipher,
-            'target_device_id': target_device_id
+            'target_device_id': target_device_id,
+            'pos_profile': pos_prof
         }
-        frappe.cache().set_value('terminal_cmd:{}'.format(terminal_id), cmd_payload, expires_in_sec=120)
-        try:
-            frappe.publish_realtime(
-                event='server:force_unlock_db',
-                message={
-                    'old_cipher': old_cipher,
-                    'target_device_id': target_device_id
-                },
-                room='task_progress:terminal:{}'.format(terminal_id)
-            )
-        except Exception:
-            pass
+        target_keys = set(filter(None, [
+            terminal_id,
+            pos_prof,
+            term_info.get('branch_name', ''),
+            f"{term_info.get('branch_name', '')}-{pos_prof}" if term_info.get('branch_name') and pos_prof else None,
+            term_info.get('target_device_id', ''),
+            old_cipher
+        ]))
+        for tk in target_keys:
+            frappe.cache().set_value('terminal_cmd:{}'.format(tk), cmd_payload, expires_in_sec=180)
+            try:
+                frappe.publish_realtime(
+                    event='server:force_unlock_db',
+                    message={
+                        'old_cipher': old_cipher,
+                        'target_device_id': target_device_id,
+                        'pos_profile': pos_prof
+                    },
+                    room='task_progress:terminal:{}'.format(tk)
+                )
+            except Exception:
+                pass
         
         term_info = (frappe.cache().get_value('active_terminals') or {}).get(terminal_id, {})
         log_terminal_activity(

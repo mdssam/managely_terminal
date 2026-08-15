@@ -290,7 +290,7 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 	window.test_update_badge_simulation = function() { load_server_app_status(true); };
 
 	/* Load registered terminals */
-	function load_terminals() {
+	function load_terminals(silent) {
 		$list_group.html('<div class="p-4 text-center text-muted"><i class="fa fa-spinner fa-spin"></i> Fetching terminals...</div>');
 		
 		frappe.call({
@@ -1494,9 +1494,16 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 		window.location.reload();
 	});
 
-	/* Load on startup */
+	/* Load on startup & start real-time live refresh loop every 8 seconds */
 	load_latest_pos_version();
 	load_server_app_status();
-	load_terminals();
+	load_terminals(false);
+
+	if (window._terminal_monitor_auto_refresh) {
+		clearInterval(window._terminal_monitor_auto_refresh);
+	}
+	window._terminal_monitor_auto_refresh = setInterval(function() {
+		load_terminals(true);
+	}, 8000);
 };
 
