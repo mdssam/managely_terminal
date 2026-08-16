@@ -90,10 +90,10 @@ def heartbeat():
         # Save cache state (long lived container)
         frappe.cache().set_value("active_terminals", terminals, expires_in_sec=86400)
         
-        # Save specific terminal online state with a 35 seconds TTL
-        frappe.cache().set_value(f"terminal_status:{terminal_id}", "Online", expires_in_sec=25)
+        # Save specific terminal online state with a 75 seconds TTL (jitter resistance)
+        frappe.cache().set_value(f"terminal_status:{terminal_id}", "Online", expires_in_sec=75)
         
-        # ── Activity Logging ──────────────────────────────────────────────────
+        # ── Activity Logging (State Transition Debounced) ─────────────────────
         common_log = dict(
             terminal_id=terminal_id,
             branch_name=branch_name,
@@ -103,8 +103,11 @@ def heartbeat():
             direction="IN"
         )
 
-        # Terminal just came online
-        if not was_online:
+        last_logged_status = frappe.cache().get_value(f"terminal_logged_status:{terminal_id}")
+
+        # Terminal just transitioned from Offline/None to Online
+        if last_logged_status != "Online":
+            frappe.cache().set_value(f"terminal_logged_status:{terminal_id}", "Online", expires_in_sec=86400)
             log_terminal_activity(
                 event_type="Online",
                 description=f"Terminal came online. User: {username or 'Login Screen'}, Version: {app_version}",
@@ -338,13 +341,14 @@ def get_active_terminals():
             now_ms = now * 1000
             last_ping_ms = flt(term.get("last_ping") or 0)
             is_cache_online = frappe.cache().get_value(f"terminal_status:{term_id}") == "Online"
-            # Must have sent a heartbeat within the last 25 seconds (since interval is 10s)
-            is_online = is_cache_online and ((now_ms - last_ping_ms) < 25000)
-            was_online_before = term.get("status") == "Online"
+            # Grace period: consider online if heartbeat was received within last 60 seconds (or cache flag is valid)
+            is_online = is_cache_online or ((last_ping_ms > 0) and ((now_ms - last_ping_ms) < 60000))
             term["status"] = "Online" if is_online else "Offline"
             
-            # Detect terminal going offline
-            if was_online_before and not is_online:
+            # Detect actual state transitions using debounced logged state
+            logged_status = frappe.cache().get_value(f"terminal_logged_status:{term_id}")
+            if not is_online and logged_status == "Online":
+                frappe.cache().set_value(f"terminal_logged_status:{term_id}", "Offline", expires_in_sec=86400)
                 try:
                     log_terminal_activity(
                         terminal_id=term_id,
@@ -357,6 +361,8 @@ def get_active_terminals():
                     )
                 except Exception:
                     pass
+            elif is_online and logged_status != "Online":
+                frappe.cache().set_value(f"terminal_logged_status:{term_id}", "Online", expires_in_sec=86400)
             
             term["latest_version"] = latest_ver
             
@@ -391,6 +397,9 @@ def get_active_terminals():
             term["derived_cipher"] = str(term.get("derived_cipher") or term.get("pos_cipher") or term.get("cipher") or "").strip()
 
             active_list.append(term)
+            
+        # Persist updated status in cache
+        frappe.cache().set_value("active_terminals", terminals, expires_in_sec=86400)
             
         for p in all_profiles:
             if p.get("is_registered") and p.get("name") not in processed_profile_names:
