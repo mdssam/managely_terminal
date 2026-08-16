@@ -368,8 +368,9 @@ def get_active_terminals():
                 term["is_registered"] = profile_doc.get("is_registered", False)
                 term["branch_name"] = str(profile_doc.get("custom_branch_name") or profile_doc.get("name") or term.get("branch_name") or "").strip()
                 term["custom_pos_cipher"] = str(profile_doc.get("custom_pos_cipher") or "").strip()
-                if not term.get("last_known_cipher"):
-                    term["last_known_cipher"] = str(profile_doc.get("custom_pos_cipher") or "").strip()
+                # Always override last_known_cipher from MariaDB (never from stale Redis cache)
+                # This guarantees Force Unlock dialog always shows the real POS Profile cipher
+                term["last_known_cipher"] = str(profile_doc.get("custom_pos_cipher") or "").strip()
             else:
                 term["is_registered"] = bool(term_id in registered_ciphers)
                 
