@@ -60,6 +60,9 @@ def heartbeat():
             "pending_invoices": params.get('pending_invoices') or telemetry.get('pending_invoices', 0),
             "pending_cash_transactions": params.get('pending_cash_transactions') or telemetry.get('pending_cash_transactions', 0),
             "pending_sync_queue": params.get('pending_sync_queue') or telemetry.get('pending_sync_queue', 0),
+            "blackbox_total": params.get('blackbox_total') or telemetry.get('blackbox_total', 0),
+            "blackbox_committed": params.get('blackbox_committed') or telemetry.get('blackbox_committed', 0),
+            "blackbox_failed": params.get('blackbox_failed') or telemetry.get('blackbox_failed', 0),
             "db_size_mb": params.get('db_size_mb') or telemetry.get('db_size_mb', 0.0),
             "ram_usage_mb": params.get('ram_usage_mb') or telemetry.get('ram_usage_mb', 0.0),
             "is_locked": is_locked,
@@ -1187,6 +1190,39 @@ def trigger_terminal_sync(terminal_id):
         return {'success': True, 'message': f'Sync trigger dispatched to {terminal_id}'}
     except Exception as e:
         return {'success': False, 'error': str(e)}
+
+
+@frappe.whitelist()
+def trigger_replay_blackbox(terminal_id):
+    """
+    Broadcasts an instant trigger to replay failed blackbox events on the terminal client.
+    """
+    if frappe.session.user != 'Administrator':
+        frappe.throw('Not authorized.', frappe.PermissionError)
+    if not terminal_id:
+        frappe.throw('terminal_id is required.')
+
+    try:
+        frappe.publish_realtime(
+            event='server:replay_blackbox',
+            message={'admin_token': frappe.session.user, 'terminal_id': terminal_id},
+            room='task_progress:terminal:{}'.format(terminal_id)
+        )
+        
+        term_info = (frappe.cache().get_value('active_terminals') or {}).get(terminal_id, {})
+        log_terminal_activity(
+            terminal_id=terminal_id,
+            branch_name=term_info.get('branch_name', ''),
+            event_type='Replay Blackbox',
+            direction='OUT',
+            description='Remote Blackbox replay command dispatched to terminal.',
+            details={'action': 'trigger_replay_blackbox'},
+            user=frappe.session.user
+        )
+        return {'success': True, 'message': f'Blackbox replay trigger dispatched to {terminal_id}'}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
 
 
 
