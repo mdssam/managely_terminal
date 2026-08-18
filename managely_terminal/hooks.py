@@ -270,9 +270,9 @@ scheduler_events = {
 # Overriding Methods
 # ------------------------------
 #
-# override_whitelisted_methods = {
-# 	"frappe.desk.doctype.event.event.get_events": "managely_terminal.event.get_events"
-# }
+override_whitelisted_methods = {
+	"wipe_pos_master": "managely_terminal.managely_terminal.api.electron.maintenance.wipe_pos_master"
+}
 #
 # each overriding function accepts a `data` argument;
 # generated from the base implementation of the doctype dashboard,
