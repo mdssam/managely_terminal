@@ -76,18 +76,19 @@ def heartbeat():
         if not is_locked and hardware_id:
             terminals[terminal_id]["last_known_cipher"] = hardware_id
         
-        # Self-healing fallback: If an unlock was pending and terminal came online healthy with matching cipher, finalize update
+        # Self-healing fallback: If an unlock was pending or profile has no cipher and terminal came online healthy with matching cipher, finalize update
         derived_c = params.get('pos_cipher') or params.get('cipher') or ''
         if not is_locked and derived_c and len(derived_c) == 32:
             pending_key = frappe.cache().get_value(f"pending_unlock:{terminal_id}")
-            if pending_key == derived_c:
-                resolved_prof = pos_profile if pos_profile and frappe.db.exists('POS Profile', pos_profile) else terminal_id
-                if frappe.db.exists('POS Profile', resolved_prof):
-                    current_db_cipher = frappe.db.get_value('POS Profile', resolved_prof, 'custom_pos_cipher')
+            resolved_prof = pos_profile if pos_profile and frappe.db.exists('POS Profile', pos_profile) else terminal_id
+            if frappe.db.exists('POS Profile', resolved_prof):
+                current_db_cipher = frappe.db.get_value('POS Profile', resolved_prof, 'custom_pos_cipher')
+                if (pending_key == derived_c) or (not current_db_cipher):
                     if current_db_cipher != derived_c:
                         frappe.db.set_value('POS Profile', resolved_prof, 'custom_pos_cipher', derived_c)
                         frappe.db.commit()
-                        frappe.cache().delete_value(f"pending_unlock:{terminal_id}")
+                        if pending_key == derived_c:
+                            frappe.cache().delete_value(f"pending_unlock:{terminal_id}")
                         frappe.cache().delete_value('active_terminals')
 
         # Save cache state (long lived container)
