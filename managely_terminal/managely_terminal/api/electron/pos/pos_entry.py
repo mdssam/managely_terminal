@@ -1158,7 +1158,10 @@ def autoname_pos_opening_entry(doc, method=None):
 	formatted_profile = profile.upper().replace(" ", "_").replace("-", "_")
 	formatted_profile = "".join(c for c in formatted_profile if c.isalnum() or c == "_")
 	prefix = f"OP-{formatted_profile}-.#####"
-	doc.name = make_autoname(prefix)
+	name = make_autoname(prefix)
+	while frappe.db.exists("POS Opening Entry", name):
+		name = make_autoname(prefix)
+	doc.name = name
 
 def autoname_pos_closing_entry(doc, method=None):
 	from frappe.model.naming import make_autoname
@@ -1170,7 +1173,10 @@ def autoname_pos_closing_entry(doc, method=None):
 	formatted_profile = profile.upper().replace(" ", "_").replace("-", "_")
 	formatted_profile = "".join(c for c in formatted_profile if c.isalnum() or c == "_")
 	prefix = f"CL-{formatted_profile}-.#####"
-	doc.name = make_autoname(prefix)
+	name = make_autoname(prefix)
+	while frappe.db.exists("POS Closing Entry", name):
+		name = make_autoname(prefix)
+	doc.name = name
 
 def autoname_pos_invoice(doc, method=None):
 	from frappe.model.naming import make_autoname
@@ -1184,7 +1190,10 @@ def autoname_pos_invoice(doc, method=None):
 	formatted_profile = profile.upper().replace(" ", "_").replace("-", "_")
 	formatted_profile = "".join(c for c in formatted_profile if c.isalnum() or c == "_")
 	prefix = f"PSINV-{formatted_profile}-.#####"
-	doc.name = make_autoname(prefix)
+	name = make_autoname(prefix)
+	while frappe.db.exists("POS Invoice", name):
+		name = make_autoname(prefix)
+	doc.name = name
 
 def autoname_pos_suspended_transaction(doc, method=None):
 	from frappe.model.naming import make_autoname
@@ -1196,7 +1205,10 @@ def autoname_pos_suspended_transaction(doc, method=None):
 	formatted_profile = profile.upper().replace(" ", "_").replace("-", "_")
 	formatted_profile = "".join(c for c in formatted_profile if c.isalnum() or c == "_")
 	prefix = f"CSH-{formatted_profile}-.#####"
-	doc.name = make_autoname(prefix)
+	name = make_autoname(prefix)
+	while frappe.db.exists("POS Suspended Transaction", name):
+		name = make_autoname(prefix)
+	doc.name = name
 
 def autoname_work_order(doc, method=None):
 	from frappe.model.naming import make_autoname

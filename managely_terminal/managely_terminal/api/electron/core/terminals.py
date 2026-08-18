@@ -372,6 +372,11 @@ def get_active_terminals():
             cur_ver = str(term.get("app_version", "")).strip().lstrip("vV")
             latest_clean = str(latest_ver).strip().lstrip("vV")
             term["is_outdated"] = bool(latest_clean and cur_ver and cur_ver != latest_clean)
+            uname = term.get("username")
+            if uname and str(uname).startswith("HR-EMP-"):
+                real_name = frappe.db.get_value("Employee", uname, "employee_name")
+                if real_name:
+                    term["username"] = f"{real_name.strip()} ({uname})"
             
             if profile_doc:
                 term["is_registered"] = profile_doc.get("is_registered", False)

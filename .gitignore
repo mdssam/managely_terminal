@@ -8,3 +8,6 @@ __pycache__
 # Graphify Cache
 graphify-out/
 .graphify*
+
+# Offline / Local maintenance utilities
+managely_terminal/managely_terminal/api/electron/maintenance.py
