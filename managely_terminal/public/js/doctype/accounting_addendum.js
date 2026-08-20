@@ -1,5 +1,23 @@
 (function () {
-	const DEFAULT_LBP_PER_USD = 89500;
+	let latestExchangeRate = null;
+
+	function fetchLatestExchangeRate(callback) {
+		if (latestExchangeRate) {
+			if (callback) callback(latestExchangeRate);
+			return;
+		}
+		frappe.call({
+			method: "managely_terminal.managely_terminal.accounting.customizations.get_lbp_usd_rate",
+			callback: function (r) {
+				if (r.message) {
+					latestExchangeRate = flt(r.message);
+				}
+				if (callback) callback(latestExchangeRate);
+			},
+		});
+	}
+
+	fetchLatestExchangeRate();
 
 	const transactionTables = {
 		"Sales Invoice": ["items"],
@@ -9,7 +27,7 @@
 	};
 
 	function getRate(frm) {
-		return flt(frm.doc.custom_exchange_rate_override) || DEFAULT_LBP_PER_USD;
+		return flt(frm && frm.doc && frm.doc.custom_exchange_rate_override) || latestExchangeRate || 1.0;
 	}
 
 	function recalculateStampTaxes(frm) {
@@ -151,6 +169,28 @@
 				}
 				totalLbp = totalUsd * rate;
 			}
+		} else if (frm.doctype === "Payment Entry") {
+			const finalAmount = flt(frm.doc.paid_amount) || flt(frm.doc.received_amount) || totalUsd;
+			const currency = frm.doc.payment_type === "Pay" ? (frm.doc.paid_from_account_currency || getCurrency(frm)) : (frm.doc.paid_to_account_currency || getCurrency(frm));
+			const rate = getRate(frm);
+			const companyCurrency = frm.doc.company_currency || (frappe.boot && frappe.boot.sysdefaults && frappe.boot.sysdefaults.currency) || "USD";
+
+			if (currency === "LBP") {
+				totalUsd = finalAmount / rate;
+				totalLbp = finalAmount;
+			} else if (currency === "USD") {
+				totalUsd = finalAmount;
+				totalLbp = finalAmount * rate;
+			} else {
+				const rowExchangeRate = flt(frm.doc.source_exchange_rate) || flt(frm.doc.target_exchange_rate) || 1.0;
+				if (companyCurrency === "USD") {
+					totalUsd = finalAmount * rowExchangeRate;
+				} else {
+					const baseAmount = finalAmount * rowExchangeRate;
+					totalUsd = baseAmount / rate;
+				}
+				totalLbp = totalUsd * rate;
+			}
 		}
 
 		const roundedLbp = Math.round(totalLbp);
@@ -168,9 +208,12 @@
 		const total = (frm.doc.references || []).reduce((sum, row) => sum + flt(row.allocated_amount), 0);
 		if (total <= 0) return;
 
-		frm.set_value("paid_amount", total);
-		frm.set_value("received_amount", total);
-		frm.set_value("total_allocated_amount", total);
+		if (!flt(frm.doc.paid_amount)) {
+			frm.set_value("paid_amount", total);
+		}
+		if (!flt(frm.doc.received_amount)) {
+			frm.set_value("received_amount", total);
+		}
 	}
 
 	function attachEnterToAddRows(frm) {
@@ -204,14 +247,11 @@
 				// Only set the default on new unsaved documents — the server hook sets it on save,
 				// and calling frm.set_value on an already-saved doc marks it dirty immediately.
 				if (frm.is_new() && !frm.doc.custom_exchange_rate_override) {
-					frappe.call({
-						method: "managely_terminal.managely_terminal.accounting.customizations.get_lbp_usd_rate",
-						callback: function(r) {
-							if (r.message && !frm.doc.custom_exchange_rate_override) {
-								frm.set_value("custom_exchange_rate_override", r.message);
-							} else if (!frm.doc.custom_exchange_rate_override) {
-								frm.set_value("custom_exchange_rate_override", DEFAULT_LBP_PER_USD);
-							}
+					fetchLatestExchangeRate(function (rate) {
+						if (!frm.doc.custom_exchange_rate_override && rate) {
+							frm.set_value("custom_exchange_rate_override", rate);
+							refreshDualCurrency(frm);
+							recalculateStampTaxes(frm);
 						}
 					});
 				}
@@ -271,7 +311,6 @@
 			validate(frm) {
 				refreshDualCurrency(frm);
 				recalculateStampTaxes(frm);
-				syncPaymentEntryAmounts(frm);
 			},
 		});
 	}

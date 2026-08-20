@@ -146,7 +146,7 @@ def _apply_stamp_taxes(doc):
 	"""Force stamp-marked tax rows to Actual type with the correct LBP-derived amount."""
 	if not doc.get("taxes"):
 		return
-	exchange_rate = flt(getattr(doc, "custom_exchange_rate_override", None)) or DEFAULT_LBP_PER_USD
+	exchange_rate = flt(getattr(doc, "custom_exchange_rate_override", None)) or get_lbp_usd_rate()
 	currency = getattr(doc, "currency", None) or ""
 
 	for tax in doc.taxes:
@@ -330,7 +330,17 @@ def get_lbp_usd_rate():
 				return 1.0 / rate
 			return rate
 
-	return float(DEFAULT_LBP_PER_USD)
+	# 3. Fallback to any latest exchange rate for LBP
+	rate = frappe.db.get_value(
+		"Currency Exchange",
+		{"to_currency": "LBP"},
+		"exchange_rate",
+		order_by="date desc",
+	)
+	if rate:
+		return flt(rate)
+
+	return 1.0
 
 
 def ensure_exchange_rate(doc):
@@ -351,7 +361,7 @@ def ensure_exchange_rate(doc):
 
 
 def set_dual_currency_amounts(doc):
-	rate = flt(getattr(doc, "custom_exchange_rate_override", None)) or DEFAULT_LBP_PER_USD
+	rate = flt(getattr(doc, "custom_exchange_rate_override", None)) or get_lbp_usd_rate()
 	company_currency = frappe.get_cached_value("Company", doc.company, "default_currency") if doc.get("company") else None
 	total_usd = 0.0
 	total_lbp = 0.0
@@ -387,6 +397,11 @@ def set_dual_currency_amounts(doc):
 		final_amount = flt(getattr(doc, "rounded_total", 0)) or flt(getattr(doc, "grand_total", 0))
 		currency = doc.currency or company_currency or frappe.db.get_default("currency") or frappe.db.get_single_value("System Settings", "default_currency") or frappe.db.get_value("Company", {}, "default_currency")
 		total_usd, total_lbp = _to_usd_lbp(final_amount, currency, rate, company_currency)
+	elif doc.doctype == "Payment Entry":
+		final_amount = flt(doc.paid_amount) or flt(doc.received_amount)
+		currency = (doc.paid_from_account_currency if doc.payment_type == "Pay" else doc.paid_to_account_currency) or _get_transaction_currency(doc)
+		if final_amount:
+			total_usd, total_lbp = _to_usd_lbp(final_amount, currency, rate, company_currency)
 
 	# Update parent total fields if present on the doctype
 	if frappe.get_meta(doc.doctype).has_field("custom_total_usd"):
@@ -411,10 +426,9 @@ def autofill_payment_entry_amounts(doc):
 	if total <= 0:
 		return
 
-	precision = doc.precision("paid_amount") or 2
-	if not flt(doc.paid_amount) or abs(flt(doc.paid_amount) - total) > 10 ** -precision:
+	if not flt(doc.paid_amount):
 		doc.paid_amount = total
-	if not flt(doc.received_amount) or abs(flt(doc.received_amount) - total) > 10 ** -precision:
+	if not flt(doc.received_amount):
 		doc.received_amount = total
 
 
@@ -538,7 +552,7 @@ def _get_transaction_currency(doc):
 
 def _to_usd_lbp(amount, currency, rate, company_currency=None, row_exchange_rate=1.0):
 	amount = flt(amount)
-	rate = flt(rate) or DEFAULT_LBP_PER_USD
+	rate = flt(rate) or get_lbp_usd_rate()
 
 	if currency == "LBP":
 		return flt(amount / rate), flt(amount, 0)

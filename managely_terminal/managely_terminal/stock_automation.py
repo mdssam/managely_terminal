@@ -210,3 +210,130 @@ def _linked_submitted_doc_exists(child_doctype, link_field, voucher_name):
         limit=1,
     )
     return bool(rows)
+
+
+@frappe.whitelist()
+def get_items_for_stock_reconciliation(
+    warehouse, posting_date, posting_time, company, item_code=None, item_group=None, ignore_empty_stock=False
+):
+    from erpnext.stock.doctype.stock_reconciliation.stock_reconciliation import (
+        get_item_and_warehouses,
+        get_itemwise_batch,
+        get_item_data,
+    )
+    from erpnext.stock.utils import get_stock_balance
+    from frappe.utils import cint
+
+    ignore_empty_stock = cint(ignore_empty_stock)
+    items = []
+    if item_code and warehouse:
+        items = get_item_and_warehouses(item_code, warehouse)
+
+    if not item_code:
+        items = get_reconciliation_items(warehouse, company, item_group=item_group)
+
+    res = []
+    itemwise_batch_data = get_itemwise_batch(warehouse, posting_date, company, item_code)
+
+    for d in items:
+        if (d.item_code, d.warehouse) in itemwise_batch_data:
+            valuation_rate = get_stock_balance(
+                d.item_code, d.warehouse, posting_date, posting_time, with_valuation_rate=True
+            )[1]
+
+            for row in itemwise_batch_data.get((d.item_code, d.warehouse)):
+                if ignore_empty_stock and not row.qty:
+                    continue
+
+                args = get_item_data(row, row.qty, valuation_rate)
+                res.append(args)
+        else:
+            stock_bal = get_stock_balance(
+                d.item_code,
+                d.warehouse,
+                posting_date,
+                posting_time,
+                with_valuation_rate=True,
+                with_serial_no=cint(d.has_serial_no),
+            )
+            qty, valuation_rate, serial_no = (
+                stock_bal[0],
+                stock_bal[1],
+                stock_bal[2] if cint(d.has_serial_no) else "",
+            )
+
+            if ignore_empty_stock and not stock_bal[0]:
+				continue
+
+            args = get_item_data(d, qty, valuation_rate, serial_no)
+            res.append(args)
+
+    return res
+
+
+def get_reconciliation_items(warehouse, company, item_group=None):
+    lft, rgt = frappe.db.get_value("Warehouse", warehouse, ["lft", "rgt"]) or (0, 0)
+
+    item_group_condition = ""
+    if item_group:
+        ig_lft, ig_rgt = frappe.db.get_value("Item Group", item_group, ["lft", "rgt"]) or (None, None)
+        if ig_lft and ig_rgt:
+            item_group_condition = f"""
+                and i.item_group in (
+                    select name from `tabItem Group` where lft >= {ig_lft} and rgt <= {ig_rgt}
+                )
+            """
+        else:
+            item_group_condition = f"and i.item_group = {frappe.db.escape(item_group)}"
+
+    items = frappe.db.sql(
+        f"""
+        select
+            i.name as item_code, i.item_name, bin.warehouse as warehouse, i.has_serial_no, i.has_batch_no
+        from
+            `tabBin` bin, `tabItem` i
+        where
+            i.name = bin.item_code
+            and IFNULL(i.disabled, 0) = 0
+            and i.is_stock_item = 1
+            and i.has_variants = 0
+            {item_group_condition}
+            and exists(
+                select name from `tabWarehouse` where lft >= {lft} and rgt <= {rgt} and name = bin.warehouse and is_group = 0
+            )
+    """,
+        as_dict=1,
+    )
+
+    items += frappe.db.sql(
+        f"""
+        select
+            i.name as item_code, i.item_name, id.default_warehouse as warehouse, i.has_serial_no, i.has_batch_no
+        from
+            `tabItem` i, `tabItem Default` id
+        where
+            i.name = id.parent
+            and exists(
+                select name from `tabWarehouse` where lft >= %s and rgt <= %s and name=id.default_warehouse and is_group = 0
+            )
+            and i.is_stock_item = 1
+            and i.has_variants = 0
+            and IFNULL(i.disabled, 0) = 0
+            {item_group_condition}
+            and id.company = %s
+        group by i.name
+    """,
+        (lft, rgt, company),
+        as_dict=1,
+    )
+
+    iw_keys = set()
+    deduped_items = []
+    for item in items:
+        key = (item.item_code, item.warehouse)
+        if key not in iw_keys:
+            iw_keys.add(key)
+            deduped_items.append(item)
+
+    return deduped_items
+

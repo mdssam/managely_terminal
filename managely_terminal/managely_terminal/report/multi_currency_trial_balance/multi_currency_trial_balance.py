@@ -74,8 +74,21 @@ def get_data(filters):
 
 
 def get_gl_amounts(filters):
+	cost_center_condition = ""
+	if filters.get("cost_center"):
+		lft, rgt = frappe.db.get_value("Cost Center", filters.cost_center, ["lft", "rgt"]) or (None, None)
+		if lft and rgt:
+			filters.cost_center_lft = lft
+			filters.cost_center_rgt = rgt
+			cost_center_condition = """and cost_center in (
+				select name from `tabCost Center`
+				where lft >= %(cost_center_lft)s and rgt <= %(cost_center_rgt)s
+			)"""
+		else:
+			cost_center_condition = "and cost_center = %(cost_center)s"
+
 	rows = frappe.db.sql(
-		"""
+		f"""
 		select
 			account,
 			sum(case when posting_date < %(from_date)s then debit else 0 end) as opening_debit,
@@ -86,6 +99,7 @@ def get_gl_amounts(filters):
 		where company = %(company)s
 			and is_cancelled = 0
 			and posting_date <= %(to_date)s
+			{cost_center_condition}
 		group by account
 		""",
 		filters,

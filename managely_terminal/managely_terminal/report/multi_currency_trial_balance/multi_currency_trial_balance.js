@@ -23,6 +23,21 @@ frappe.query_reports["Multi Currency Trial Balance"] = {
 			default: frappe.datetime.get_today(),
 		},
 		{
+			fieldname: "cost_center",
+			label: __("Cost Center"),
+			fieldtype: "Link",
+			options: "Cost Center",
+			get_query: function () {
+				var company = frappe.query_report.get_filter_value("company");
+				return {
+					doctype: "Cost Center",
+					filters: {
+						company: company,
+					},
+				};
+			},
+		},
+		{
 			fieldname: "exchange_rate",
 			label: __("LBP/USD Rate"),
 			fieldtype: "Float",
