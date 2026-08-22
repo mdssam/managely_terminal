@@ -2,6 +2,21 @@ import frappe
 from frappe import _
 from frappe.utils import flt
 
+value_fields = (
+	"opening_debit_usd",
+	"opening_credit_usd",
+	"opening_debit_lbp",
+	"opening_credit_lbp",
+	"period_debit_usd",
+	"period_credit_usd",
+	"period_debit_lbp",
+	"period_credit_lbp",
+	"closing_debit_usd",
+	"closing_credit_usd",
+	"closing_debit_lbp",
+	"closing_credit_lbp",
+)
+
 
 def execute(filters=None):
 	filters = frappe._dict(filters or {})
@@ -19,60 +34,264 @@ def validate_filters(filters):
 	if filters.from_date > filters.to_date:
 		frappe.throw(_("From Date cannot be after To Date"))
 	if not filters.exchange_rate:
-		filters.exchange_rate = 89500
+		filters.exchange_rate = 89500.0
+	else:
+		filters.exchange_rate = flt(filters.exchange_rate)
 
 
 def get_columns():
 	return [
-		{"label": _("Account Number"), "fieldname": "account_number", "fieldtype": "Data", "width": 120},
-		{"label": _("Account Name"), "fieldname": "account_name", "fieldtype": "Data", "width": 260},
-		{"label": _("Opening Debit USD"), "fieldname": "opening_debit_usd", "fieldtype": "Currency", "options": "USD", "width": 140},
-		{"label": _("Opening Credit USD"), "fieldname": "opening_credit_usd", "fieldtype": "Currency", "options": "USD", "width": 140},
-		{"label": _("Opening Debit LBP"), "fieldname": "opening_debit_lbp", "fieldtype": "Currency", "options": "LBP", "width": 140},
-		{"label": _("Opening Credit LBP"), "fieldname": "opening_credit_lbp", "fieldtype": "Currency", "options": "LBP", "width": 140},
-		{"label": _("Period Debit USD"), "fieldname": "period_debit_usd", "fieldtype": "Currency", "options": "USD", "width": 140},
-		{"label": _("Period Credit USD"), "fieldname": "period_credit_usd", "fieldtype": "Currency", "options": "USD", "width": 140},
-		{"label": _("Period Debit LBP"), "fieldname": "period_debit_lbp", "fieldtype": "Currency", "options": "LBP", "width": 140},
-		{"label": _("Period Credit LBP"), "fieldname": "period_credit_lbp", "fieldtype": "Currency", "options": "LBP", "width": 140},
-		{"label": _("Closing Debit USD"), "fieldname": "closing_debit_usd", "fieldtype": "Currency", "options": "USD", "width": 140},
-		{"label": _("Closing Credit USD"), "fieldname": "closing_credit_usd", "fieldtype": "Currency", "options": "USD", "width": 140},
-		{"label": _("Closing Debit LBP"), "fieldname": "closing_debit_lbp", "fieldtype": "Currency", "options": "LBP", "width": 140},
-		{"label": _("Closing Credit LBP"), "fieldname": "closing_credit_lbp", "fieldtype": "Currency", "options": "LBP", "width": 140},
-		{"label": _("Cost Center"), "fieldname": "cost_center", "fieldtype": "Link", "options": "Cost Center", "width": 160},
+		{
+			"label": _("Account"),
+			"fieldname": "account",
+			"fieldtype": "Link",
+			"options": "Account",
+			"width": 300,
+		},
+		{
+			"label": _("Account Number"),
+			"fieldname": "account_number",
+			"fieldtype": "Data",
+			"width": 120,
+		},
+		{
+			"label": _("Opening Debit USD"),
+			"fieldname": "opening_debit_usd",
+			"fieldtype": "Currency",
+			"options": "USD",
+			"width": 140,
+		},
+		{
+			"label": _("Opening Credit USD"),
+			"fieldname": "opening_credit_usd",
+			"fieldtype": "Currency",
+			"options": "USD",
+			"width": 140,
+		},
+		{
+			"label": _("Opening Debit LBP"),
+			"fieldname": "opening_debit_lbp",
+			"fieldtype": "Currency",
+			"options": "LBP",
+			"width": 140,
+		},
+		{
+			"label": _("Opening Credit LBP"),
+			"fieldname": "opening_credit_lbp",
+			"fieldtype": "Currency",
+			"options": "LBP",
+			"width": 140,
+		},
+		{
+			"label": _("Period Debit USD"),
+			"fieldname": "period_debit_usd",
+			"fieldtype": "Currency",
+			"options": "USD",
+			"width": 140,
+		},
+		{
+			"label": _("Period Credit USD"),
+			"fieldname": "period_credit_usd",
+			"fieldtype": "Currency",
+			"options": "USD",
+			"width": 140,
+		},
+		{
+			"label": _("Period Debit LBP"),
+			"fieldname": "period_debit_lbp",
+			"fieldtype": "Currency",
+			"options": "LBP",
+			"width": 140,
+		},
+		{
+			"label": _("Period Credit LBP"),
+			"fieldname": "period_credit_lbp",
+			"fieldtype": "Currency",
+			"options": "LBP",
+			"width": 140,
+		},
+		{
+			"label": _("Closing Debit USD"),
+			"fieldname": "closing_debit_usd",
+			"fieldtype": "Currency",
+			"options": "USD",
+			"width": 140,
+		},
+		{
+			"label": _("Closing Credit USD"),
+			"fieldname": "closing_credit_usd",
+			"fieldtype": "Currency",
+			"options": "USD",
+			"width": 140,
+		},
+		{
+			"label": _("Closing Debit LBP"),
+			"fieldname": "closing_debit_lbp",
+			"fieldtype": "Currency",
+			"options": "LBP",
+			"width": 140,
+		},
+		{
+			"label": _("Closing Credit LBP"),
+			"fieldname": "closing_credit_lbp",
+			"fieldtype": "Currency",
+			"options": "LBP",
+			"width": 140,
+		},
+		{
+			"label": _("Cost Center"),
+			"fieldname": "cost_center",
+			"fieldtype": "Link",
+			"options": "Cost Center",
+			"width": 160,
+		},
 	]
 
 
 def get_data(filters):
-	accounts = frappe.get_all(
-		"Account",
-		filters={"company": filters.company},
-		fields=["name", "account_name", "account_number", "lft", "is_group"],
-		order_by="lft",
+	raw_accounts = frappe.db.sql(
+		"""
+		select name, account_name, account_number, parent_account, lft, rgt, root_type, report_type, is_group
+		from `tabAccount`
+		where company = %(company)s
+		order by lft
+		""",
+		filters,
+		as_dict=True,
 	)
-	amounts = get_gl_amounts(filters)
-	rows = []
 
-	for account in accounts:
-		values = amounts.get(account.name, frappe._dict())
-		opening = flt(values.get("opening_debit")) - flt(values.get("opening_credit"))
-		period = flt(values.get("period_debit")) - flt(values.get("period_credit"))
-		closing = opening + period
+	if not raw_accounts:
+		return []
 
-		row = frappe._dict(
-			account=account.name,
-			account_number=account.account_number,
-			account_name=account.account_name,
-			cost_center=filters.get("cost_center") or values.get("cost_center") or "",
-			indent=get_indent(account.account_number),
-		)
-		row.update(split_balance("opening", opening, filters.exchange_rate))
-		row.update(split_debit_credit("period", values, filters.exchange_rate))
-		row.update(split_balance("closing", closing, filters.exchange_rate))
+	# Build hierarchy map
+	parent_children_map = {}
+	accounts_by_name = {}
+	for acc in raw_accounts:
+		accounts_by_name[acc.name] = acc
+		parent_children_map.setdefault(acc.parent_account or None, []).append(acc)
 
-		if account.is_group or any(flt(row.get(field)) for field in row if field.endswith(("usd", "lbp"))):
-			rows.append(row)
+	# Build ordered list with indentation
+	ordered_accounts = []
 
-	return rows
+	def add_to_list(parent, level):
+		children = parent_children_map.get(parent) or []
+		for child in children:
+			child.indent = level
+			ordered_accounts.append(child)
+			add_to_list(child.name, level + 1)
+
+	add_to_list(None, 0)
+
+	# Fetch GL amounts for leaves
+	gl_amounts = get_gl_amounts(filters)
+	rate = flt(filters.exchange_rate) or 89500.0
+
+	# Calculate base values for each account
+	for acc in ordered_accounts:
+		for field in value_fields:
+			acc[field] = 0.0
+
+		values = gl_amounts.get(acc.name)
+		if values:
+			op_dr = flt(values.get("opening_debit"))
+			op_cr = flt(values.get("opening_credit"))
+			p_dr = flt(values.get("period_debit"))
+			p_cr = flt(values.get("period_credit"))
+
+			# Net opening balance
+			net_op = op_dr - op_cr
+			if net_op >= 0:
+				acc["opening_debit_usd"] = net_op
+				acc["opening_credit_usd"] = 0.0
+			else:
+				acc["opening_debit_usd"] = 0.0
+				acc["opening_credit_usd"] = abs(net_op)
+
+			acc["period_debit_usd"] = p_dr
+			acc["period_credit_usd"] = p_cr
+
+			# Net closing balance
+			net_cl = net_op + (p_dr - p_cr)
+			if net_cl >= 0:
+				acc["closing_debit_usd"] = net_cl
+				acc["closing_credit_usd"] = 0.0
+			else:
+				acc["closing_debit_usd"] = 0.0
+				acc["closing_credit_usd"] = abs(net_cl)
+
+			acc["cost_center"] = filters.get("cost_center") or values.get("cost_center") or ""
+
+	# Accumulate leaf values into parents (bottom-up traversal)
+	accumulate_into_parents(ordered_accounts, accounts_by_name)
+
+	# Compute LBP values from accumulated USD values
+	for acc in ordered_accounts:
+		acc["opening_debit_lbp"] = flt(acc["opening_debit_usd"] * rate, 0)
+		acc["opening_credit_lbp"] = flt(acc["opening_credit_usd"] * rate, 0)
+		acc["period_debit_lbp"] = flt(acc["period_debit_usd"] * rate, 0)
+		acc["period_credit_lbp"] = flt(acc["period_credit_usd"] * rate, 0)
+		acc["closing_debit_lbp"] = flt(acc["closing_debit_usd"] * rate, 0)
+		acc["closing_credit_lbp"] = flt(acc["closing_credit_usd"] * rate, 0)
+
+	# Format output rows and track rows with value
+	data = []
+	for acc in ordered_accounts:
+		has_value = any(abs(flt(acc.get(f))) > 0.001 for f in value_fields)
+		acc["has_value"] = has_value
+
+		row = {
+			"account": acc.name,
+			"account_name": acc.account_name,
+			"account_number": acc.account_number,
+			"parent_account": acc.parent_account,
+			"is_group": acc.is_group,
+			"indent": acc.indent,
+			"cost_center": acc.get("cost_center") or filters.get("cost_center") or "",
+			"has_value": has_value,
+		}
+		for f in value_fields:
+			row[f] = flt(acc.get(f, 0.0), 2)
+
+		data.append(row)
+
+	# Filter zero-value rows unless show_zero_values is requested
+	if not flt(filters.get("show_zero_values")):
+		data = filter_zero_rows(data, parent_children_map)
+
+	return data
+
+
+def accumulate_into_parents(accounts, accounts_by_name):
+	# Traverse bottom-up (reverse of top-down tree order)
+	for acc in reversed(accounts):
+		if acc.parent_account and acc.parent_account in accounts_by_name:
+			parent = accounts_by_name[acc.parent_account]
+			parent["opening_debit_usd"] += acc["opening_debit_usd"]
+			parent["opening_credit_usd"] += acc["opening_credit_usd"]
+			parent["period_debit_usd"] += acc["period_debit_usd"]
+			parent["period_credit_usd"] += acc["period_credit_usd"]
+			parent["closing_debit_usd"] += acc["closing_debit_usd"]
+			parent["closing_credit_usd"] += acc["closing_credit_usd"]
+			if not parent.get("cost_center") and acc.get("cost_center"):
+				parent["cost_center"] = acc.get("cost_center")
+
+
+def filter_zero_rows(data, parent_children_map):
+	accounts_to_show = set()
+
+	def get_all_parents(account_name):
+		for parent, children in parent_children_map.items():
+			for child in children:
+				if child.name == account_name and parent:
+					accounts_to_show.add(parent)
+					get_all_parents(parent)
+
+	for row in data:
+		if row.get("has_value"):
+			accounts_to_show.add(row.get("account"))
+			get_all_parents(row.get("account"))
+
+	return [row for row in data if row.get("account") in accounts_to_show]
 
 
 def get_gl_amounts(filters):
@@ -109,38 +328,3 @@ def get_gl_amounts(filters):
 		as_dict=True,
 	)
 	return {row.account: row for row in rows}
-
-
-def split_balance(prefix, amount, exchange_rate):
-	usd = flt(abs(amount))
-	lbp = flt(usd * flt(exchange_rate), 0)
-	if amount >= 0:
-		return {
-			f"{prefix}_debit_usd": usd,
-			f"{prefix}_credit_usd": 0,
-			f"{prefix}_debit_lbp": lbp,
-			f"{prefix}_credit_lbp": 0,
-		}
-	return {
-		f"{prefix}_debit_usd": 0,
-		f"{prefix}_credit_usd": usd,
-		f"{prefix}_debit_lbp": 0,
-		f"{prefix}_credit_lbp": lbp,
-	}
-
-
-def split_debit_credit(prefix, values, exchange_rate):
-	debit_usd = flt(values.get(f"{prefix}_debit"))
-	credit_usd = flt(values.get(f"{prefix}_credit"))
-	return {
-		f"{prefix}_debit_usd": debit_usd,
-		f"{prefix}_credit_usd": credit_usd,
-		f"{prefix}_debit_lbp": flt(debit_usd * flt(exchange_rate), 0),
-		f"{prefix}_credit_lbp": flt(credit_usd * flt(exchange_rate), 0),
-	}
-
-
-def get_indent(account_number):
-	if not account_number:
-		return 0
-	return max(len(str(account_number)) - 4, 0) // 2

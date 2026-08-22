@@ -1,3 +1,6 @@
+// Copyright (c) 2026, Managely Terminal and Contributors
+// License: MIT. See license.txt
+
 frappe.query_reports["Multi Currency Trial Balance"] = {
 	filters: [
 		{
@@ -44,5 +47,15 @@ frappe.query_reports["Multi Currency Trial Balance"] = {
 			default: 89500,
 			reqd: 1,
 		},
+		{
+			fieldname: "show_zero_values",
+			label: __("Show zero values"),
+			fieldtype: "Check",
+			default: 0,
+		},
 	],
+	tree: true,
+	name_field: "account",
+	parent_field: "parent_account",
+	initial_depth: 3,
 };
