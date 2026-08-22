@@ -6,7 +6,12 @@
  "engine": "InnoDB",
  "field_order": [
   "stamps",
-  "default_loyalty_program"
+  "default_loyalty_program",
+  "security_section",
+  "manager_password",
+  "require_pin_for_item_discount",
+  "require_pin_for_invoice_discount",
+  "require_pin_for_return"
  ],
  "fields": [
   {
@@ -20,12 +25,41 @@
    "fieldtype": "Link",
    "label": "Default Loyalty Program",
    "options": "Loyalty Program"
+  },
+  {
+   "fieldname": "security_section",
+   "fieldtype": "Section Break",
+   "label": "Security & POS Authorization"
+  },
+  {
+   "fieldname": "manager_password",
+   "fieldtype": "Data",
+   "label": "Manager / Supervisor PIN / Password",
+   "description": "Enter the PIN or password used for authorizing discounts and returns at POS terminals."
+  },
+  {
+   "default": "0",
+   "fieldname": "require_pin_for_item_discount",
+   "fieldtype": "Check",
+   "label": "Require PIN for Item Discount"
+  },
+  {
+   "default": "0",
+   "fieldname": "require_pin_for_invoice_discount",
+   "fieldtype": "Check",
+   "label": "Require PIN for Invoice Discount"
+  },
+  {
+   "default": "0",
+   "fieldname": "require_pin_for_return",
+   "fieldtype": "Check",
+   "label": "Require PIN for Return"
   }
  ],
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-07-15 14:00:00.000000",
+ "modified": "2026-08-23 00:35:00.000000",
  "modified_by": "Administrator",
  "module": "Managely Terminal",
  "name": "Terminal Settings",

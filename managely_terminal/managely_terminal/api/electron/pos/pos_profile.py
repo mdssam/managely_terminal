@@ -249,6 +249,17 @@ def get_pos_details():
 		"custom_prices_include_vat": int(getattr(pos, "custom_prices_include_vat", 0) or 0),
 		"custom_allow_loyalty_points": int(getattr(pos, "custom_allow_loyalty_points", 1) or 0),
 		"custom_default_loyalty_program": frappe.db.get_single_value("Terminal Settings", "default_loyalty_program") or "",
+		"custom_manager_password": (
+			(lambda: (
+				(frappe.utils.password.get_decrypted_password("Terminal Settings", "Terminal Settings", "manager_password")
+				 if hasattr(frappe, "utils") and hasattr(frappe.utils, "password") else None)
+				or frappe.db.get_single_value("Terminal Settings", "manager_password")
+				or ""
+			))()
+		),
+		"custom_require_pin_for_item_discount": int(frappe.db.get_single_value("Terminal Settings", "require_pin_for_item_discount") or 0),
+		"custom_require_pin_for_invoice_discount": int(frappe.db.get_single_value("Terminal Settings", "require_pin_for_invoice_discount") or 0),
+		"custom_require_pin_for_return": int(frappe.db.get_single_value("Terminal Settings", "require_pin_for_return") or 0),
 		"allow_rate_change": int(getattr(pos, "allow_rate_change", 1) if pos else 1),
 		"custom_allow_edit_exchange_rate": int(getattr(pos, "custom_allow_edit_exchange_rate", 1) if pos else 1),
 		"country_code": country_code or "LB",
