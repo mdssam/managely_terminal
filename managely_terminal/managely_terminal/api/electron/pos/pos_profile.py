@@ -260,6 +260,8 @@ def get_pos_details():
 		"custom_require_pin_for_item_discount": int(frappe.db.get_single_value("Terminal Settings", "require_pin_for_item_discount") or 0),
 		"custom_require_pin_for_invoice_discount": int(frappe.db.get_single_value("Terminal Settings", "require_pin_for_invoice_discount") or 0),
 		"custom_require_pin_for_return": int(frappe.db.get_single_value("Terminal Settings", "require_pin_for_return") or 0),
+		"custom_enable_batch_selection": int(frappe.db.get_single_value("Terminal Settings", "enable_batch_selection") or 0),
+		"custom_enable_serial_selection": int(frappe.db.get_single_value("Terminal Settings", "enable_serial_selection") or 0),
 		"allow_rate_change": int(getattr(pos, "allow_rate_change", 1) if pos else 1),
 		"custom_allow_edit_exchange_rate": int(getattr(pos, "custom_allow_edit_exchange_rate", 1) if pos else 1),
 		"country_code": country_code or "LB",

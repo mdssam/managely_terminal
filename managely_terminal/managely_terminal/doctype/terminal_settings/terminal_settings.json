@@ -7,6 +7,9 @@
  "field_order": [
   "stamps",
   "default_loyalty_program",
+  "batch_serial_section",
+  "enable_batch_selection",
+  "enable_serial_selection",
   "security_section",
   "manager_password",
   "require_pin_for_item_discount",
@@ -25,6 +28,23 @@
    "fieldtype": "Link",
    "label": "Default Loyalty Program",
    "options": "Loyalty Program"
+  },
+  {
+   "fieldname": "batch_serial_section",
+   "fieldtype": "Section Break",
+   "label": "Cart Batch & Serial Selection"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_batch_selection",
+   "fieldtype": "Check",
+   "label": "Enable Batch Selection in Cart"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_serial_selection",
+   "fieldtype": "Check",
+   "label": "Enable Serial Selection in Cart"
   },
   {
    "fieldname": "security_section",
@@ -59,7 +79,7 @@
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-08-23 00:35:00.000000",
+ "modified": "2026-08-23 00:48:00.000000",
  "modified_by": "Administrator",
  "module": "Managely Terminal",
  "name": "Terminal Settings",
