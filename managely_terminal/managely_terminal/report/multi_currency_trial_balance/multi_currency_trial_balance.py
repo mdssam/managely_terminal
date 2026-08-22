@@ -38,6 +38,7 @@ def get_columns():
 		{"label": _("Closing Credit USD"), "fieldname": "closing_credit_usd", "fieldtype": "Currency", "options": "USD", "width": 140},
 		{"label": _("Closing Debit LBP"), "fieldname": "closing_debit_lbp", "fieldtype": "Currency", "options": "LBP", "width": 140},
 		{"label": _("Closing Credit LBP"), "fieldname": "closing_credit_lbp", "fieldtype": "Currency", "options": "LBP", "width": 140},
+		{"label": _("Cost Center"), "fieldname": "cost_center", "fieldtype": "Link", "options": "Cost Center", "width": 160},
 	]
 
 
@@ -61,6 +62,7 @@ def get_data(filters):
 			account=account.name,
 			account_number=account.account_number,
 			account_name=account.account_name,
+			cost_center=filters.get("cost_center") or values.get("cost_center") or "",
 			indent=get_indent(account.account_number),
 		)
 		row.update(split_balance("opening", opening, filters.exchange_rate))
@@ -91,6 +93,7 @@ def get_gl_amounts(filters):
 		f"""
 		select
 			account,
+			max(cost_center) as cost_center,
 			sum(case when posting_date < %(from_date)s then debit else 0 end) as opening_debit,
 			sum(case when posting_date < %(from_date)s then credit else 0 end) as opening_credit,
 			sum(case when posting_date between %(from_date)s and %(to_date)s then debit else 0 end) as period_debit,
