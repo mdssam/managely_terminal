@@ -263,7 +263,7 @@ def get_items_for_stock_reconciliation(
             )
 
             if ignore_empty_stock and not stock_bal[0]:
-				continue
+                continue
 
             args = get_item_data(d, qty, valuation_rate, serial_no)
             res.append(args)
