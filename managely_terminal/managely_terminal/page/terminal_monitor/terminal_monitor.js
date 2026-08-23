@@ -1472,6 +1472,9 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 
 	/* Clear Cache & Reload App Resources */
 	page.add_inner_button('Migrate & Clear Cache', function() {
+		$('#migrate-modal-title').text('Site Migration Status');
+		$('#migrate-log-spinner h5').text('Running Migration & Rebuilding Assets...');
+		$('#migrate-log-spinner p').text('This may take a few minutes. Please wait.');
 		$('#migrate-log-modal').modal('show');
 		$('#migrate-log-spinner').show();
 		$('#migrate-log-result').hide();
@@ -1496,6 +1499,42 @@ frappe.pages['terminal_monitor'].on_page_load = function(wrapper) {
 				} else {
 					$('#migrate-status-badge').removeClass('badge-success').addClass('badge-danger').text('Failed');
 					$('#migrate-log-output').removeClass('text-success').addClass('text-danger').text(msg.log || msg.error || 'Failed to run migration');
+				}
+			}
+		});
+	});
+
+	/* Build Managely POS App Assets */
+	page.add_inner_button('Build Assets', function() {
+		$('#migrate-modal-title').text('Build Managely POS Assets');
+		$('#migrate-log-spinner h5').text('Building assets for managely_terminal...');
+		$('#migrate-log-spinner p').text('This may take a few moments. Please wait.');
+		$('#migrate-log-modal').modal('show');
+		$('#migrate-log-spinner').show();
+		$('#migrate-log-result').hide();
+		$('#btn-close-migrate-modal').hide();
+		
+		if (frappe.realtime) {
+			frappe.realtime.off('version-update');
+		}
+		
+		frappe.call({
+			method: 'managely_terminal.managely_terminal.api.electron.core.terminals.build_app_assets',
+			args: {
+				app: 'managely_terminal'
+			},
+			callback: function(r) {
+				$('#migrate-log-spinner').hide();
+				$('#migrate-log-result').show();
+				$('#btn-close-migrate-modal').show();
+				
+				var msg = r.message || {};
+				if (msg.success) {
+					$('#migrate-status-badge').removeClass('badge-danger').addClass('badge-success').text('Success');
+					$('#migrate-log-output').removeClass('text-danger').addClass('text-success').text(msg.log || 'Managely POS assets built successfully.');
+				} else {
+					$('#migrate-status-badge').removeClass('badge-success').addClass('badge-danger').text('Failed');
+					$('#migrate-log-output').removeClass('text-success').addClass('text-danger').text(msg.log || msg.error || 'Failed to build assets');
 				}
 			}
 		});

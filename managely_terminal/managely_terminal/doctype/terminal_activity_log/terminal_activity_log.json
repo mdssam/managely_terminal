@@ -43,7 +43,7 @@
    "in_list_view": 1,
    "in_standard_filter": 1,
    "label": "Event Type",
-   "options": "Online\nOffline\nRelaunch\nForce Unlock\nUpdate Deployed\nDB Download\nDB Restore\nLogs Pulled\nSQL Executed\nHardware Changed\nMigrate & Clear Cache\nForce Unlock Request\nForce Unlock Success\nForce Unlock Failed\nForce Unlock Result",
+   "options": "Online\nOffline\nRelaunch\nForce Unlock\nUpdate Deployed\nDB Download\nDB Restore\nLogs Pulled\nSQL Executed\nHardware Changed\nMigrate & Clear Cache\nBuild App Assets\nForce Unlock Request\nForce Unlock Success\nForce Unlock Failed\nForce Unlock Result",
    "reqd": 1,
    "search_index": 1,
    "read_only": 1

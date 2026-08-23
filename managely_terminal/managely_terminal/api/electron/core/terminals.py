@@ -177,6 +177,8 @@ def log_terminal_activity(terminal_id, event_type, direction, description, detai
         })
         doc.insert(ignore_permissions=True)
     except Exception:
+        if hasattr(frappe, "clear_messages"):
+            frappe.clear_messages()
         frappe.log_error(message=frappe.get_traceback(), title="Terminal Activity Log Error")
 
 
@@ -331,6 +333,75 @@ def get_active_terminals():
             if has_cipher:
                 registered_ciphers[p.get("custom_pos_cipher").strip()] = p
                 
+        # Build persistent last activity map from Terminal Activity Log
+        last_activity_map = {}
+        try:
+            tal_rows = frappe.db.sql(
+                """
+                SELECT terminal_id, branch_name, MAX(creation) as last_activity
+                FROM `tabTerminal Activity Log`
+                WHERE event_type NOT IN ('Migrate & Clear Cache', 'Build App Assets')
+                GROUP BY terminal_id, branch_name
+                """,
+                as_dict=True
+            )
+            for row in tal_rows:
+                act_dt = get_datetime(row.get("last_activity")) if row.get("last_activity") else None
+                if not act_dt:
+                    continue
+                tid = str(row.get("terminal_id") or "").strip()
+                bname = str(row.get("branch_name") or "").strip()
+                if tid and (tid not in last_activity_map or act_dt > last_activity_map[tid]):
+                    last_activity_map[tid] = act_dt
+                if bname and (bname not in last_activity_map or act_dt > last_activity_map[bname]):
+                    last_activity_map[bname] = act_dt
+        except Exception:
+            last_activity_map = {}
+
+        def get_terminal_last_dt(term_dict, profile_doc_dict=None):
+            # 1. Active live ping from Redis cache if available
+            last_ping_val = flt(term_dict.get("last_ping") or 0)
+            if last_ping_val > 0:
+                try:
+                    import datetime
+                    return datetime.datetime.fromtimestamp(last_ping_val / 1000.0)
+                except Exception:
+                    pass
+            
+            # 2. Look up in persistent Terminal Activity Log
+            keys_to_check = [
+                term_dict.get("terminal_id"),
+                term_dict.get("pos_profile"),
+                term_dict.get("branch_name"),
+                term_dict.get("custom_pos_cipher"),
+                term_dict.get("last_known_cipher"),
+            ]
+            if profile_doc_dict:
+                keys_to_check.extend([
+                    profile_doc_dict.get("name"),
+                    profile_doc_dict.get("custom_branch_name"),
+                    profile_doc_dict.get("custom_pos_cipher")
+                ])
+            
+            best_dt = None
+            for k in keys_to_check:
+                k_str = str(k or "").strip()
+                if k_str and k_str in last_activity_map:
+                    cand_dt = last_activity_map[k_str]
+                    if not best_dt or cand_dt > best_dt:
+                        best_dt = cand_dt
+            
+            if best_dt:
+                return best_dt
+                
+            # 3. Fallback to modified date of POS Profile if no activity log exists
+            if profile_doc_dict and profile_doc_dict.get("modified"):
+                try:
+                    return get_datetime(profile_doc_dict.get("modified"))
+                except Exception:
+                    pass
+            return None
+
         processed_profile_names = set()
         for term_id, term in list(terminals.items()):
             if not isinstance(term, dict):
@@ -341,6 +412,13 @@ def get_active_terminals():
                 if p.get("name") == pos_profile_name or (p.get("custom_pos_cipher") and p.get("custom_pos_cipher").strip() == term_id):
                     profile_doc = p
                     break
+            
+            if pos_profile_name:
+                processed_profile_names.add(pos_profile_name)
+            if profile_doc and profile_doc.get("name"):
+                processed_profile_names.add(profile_doc.get("name"))
+            if term_id:
+                processed_profile_names.add(term_id)
                     
             now_ms = now * 1000
             last_ping_ms = flt(term.get("last_ping") or 0)
@@ -389,19 +467,15 @@ def get_active_terminals():
             else:
                 term["is_registered"] = bool(term_id in registered_ciphers)
                 
-            last_ping = flt(term.get("last_ping") or 0)
-            if last_ping > 0:
-                try:
-                    import datetime
-                    dt_obj = datetime.datetime.fromtimestamp(last_ping / 1000.0)
-                    term["last_online"] = dt_obj.strftime("%Y-%m-%d %H:%M:%S")
-                    term["last_online_user"] = dt_obj.strftime("%d-%m-%Y %H:%M:%S")
-                except Exception:
-                    term["last_online"] = _("Never Online")
-                    term["last_online_user"] = _("Never Online")
+            dt_obj = get_terminal_last_dt(term, profile_doc)
+            if dt_obj:
+                term["last_online"] = dt_obj.strftime("%Y-%m-%d %H:%M:%S")
+                term["last_online_user"] = dt_obj.strftime("%d-%m-%Y %H:%M:%S")
+                term["last_ping"] = dt_obj.timestamp() * 1000
             else:
                 term["last_online"] = _("Never Online")
                 term["last_online_user"] = _("Never Online")
+                term["last_ping"] = 0
 
             term["derived_cipher"] = str(term.get("derived_cipher") or term.get("pos_cipher") or term.get("cipher") or "").strip()
 
@@ -411,23 +485,19 @@ def get_active_terminals():
         frappe.cache().set_value("active_terminals", terminals, expires_in_sec=86400)
             
         for p in all_profiles:
-            if p.get("is_registered") and p.get("name") not in processed_profile_names:
-                mod_ts = get_timestamp(p.get("modified")) * 1000 if p.get("modified") else 0
-                try:
-                    mod_dt = get_datetime(p.get("modified")) if p.get("modified") else None
-                    if not mod_dt and mod_ts > 0:
-                        import datetime
-                        mod_dt = datetime.datetime.fromtimestamp(mod_ts / 1000.0)
-                    dt_str = mod_dt.strftime("%Y-%m-%d %H:%M:%S") if mod_dt else _("Never Online")
-                    dt_str_user = mod_dt.strftime("%d-%m-%Y %H:%M:%S") if mod_dt else _("Never Online")
-                except Exception:
-                    dt_str = _("Never Online")
-                    dt_str_user = _("Never Online")
+            p_name = p.get("name")
+            p_cipher = str(p.get("custom_pos_cipher") or "").strip()
+            if p.get("is_registered") and p_name not in processed_profile_names and (not p_cipher or p_cipher not in processed_profile_names):
+                dt_obj = get_terminal_last_dt({"terminal_id": p_cipher or p_name, "pos_profile": p_name, "branch_name": p.get("custom_branch_name")}, p)
+                
+                dt_str = dt_obj.strftime("%Y-%m-%d %H:%M:%S") if dt_obj else _("Never Online")
+                dt_str_user = dt_obj.strftime("%d-%m-%Y %H:%M:%S") if dt_obj else _("Never Online")
+                ping_ts = (dt_obj.timestamp() * 1000) if dt_obj else 0
                 
                 synth_term = {
-                    "terminal_id": p.get("custom_pos_cipher") or p.get("name"),
-                    "branch_name": str(p.get("custom_branch_name") or p.get("name")).strip(),
-                    "pos_profile": p.get("name"),
+                    "terminal_id": p_cipher or p_name,
+                    "branch_name": str(p.get("custom_branch_name") or p_name).strip(),
+                    "pos_profile": p_name,
                     "status": "Offline",
                     "username": p.get("owner") or "",
                     "app_version": "Unknown",
@@ -436,14 +506,14 @@ def get_active_terminals():
                     "pending_sync_queue": 0,
                     "db_size_mb": 0.0,
                     "ram_usage_mb": 0.0,
-                    "last_ping": mod_ts,
+                    "last_ping": ping_ts,
                     "last_online": dt_str,
                     "last_online_user": dt_str_user,
                     "latest_version": latest_ver,
                     "is_outdated": False,
                     "is_registered": True,
-                    "custom_pos_cipher": str(p.get("custom_pos_cipher") or "").strip(),
-                    "last_known_cipher": str(p.get("custom_pos_cipher") or "").strip()
+                    "custom_pos_cipher": p_cipher,
+                    "last_known_cipher": p_cipher
                 }
                 active_list.append(synth_term)
                 
@@ -626,6 +696,59 @@ def migrate_and_clear_cache():
                 user=frappe.session.user
             )
             return {"success": False, "error": "Migration command failed", "log": log_output}
+    except Exception as e:
+        return {"success": False, "error": str(e), "log": str(e)}
+
+
+@frappe.whitelist()
+def build_app_assets(app="managely_terminal"):
+    """
+    Executes bench build strictly for managely_terminal app via subprocess.
+    """
+    if frappe.session.user != "Administrator":
+        frappe.throw("Not authorized", frappe.PermissionError)
+    
+    import subprocess
+    from frappe.utils import get_bench_path
+    
+    try:
+        bench_path = get_bench_path()
+        target_app = "managely_terminal"
+        cmd = ["bench", "build", "--app", target_app]
+        
+        result = subprocess.run(
+            cmd,
+            cwd=bench_path,
+            capture_output=True,
+            text=True
+        )
+        
+        log_output = result.stdout or ""
+        if result.stderr:
+            log_output += ("\n" if log_output else "") + result.stderr
+            
+        if result.returncode == 0:
+            log_terminal_activity(
+                terminal_id="SYSTEM",
+                branch_name="",
+                event_type="Build App Assets",
+                direction="SYSTEM",
+                description=f"Bench build for {target_app} completed successfully.",
+                details={"log": log_output[:500]},
+                user=frappe.session.user
+            )
+            return {"success": True, "message": "Managely POS assets built successfully!", "log": log_output}
+        else:
+            log_terminal_activity(
+                terminal_id="SYSTEM",
+                branch_name="",
+                event_type="Build App Assets",
+                direction="SYSTEM",
+                description=f"Bench build for {target_app} FAILED.",
+                details={"log": log_output[:500]},
+                user=frappe.session.user
+            )
+            return {"success": False, "error": "Build command failed", "log": log_output}
     except Exception as e:
         return {"success": False, "error": str(e), "log": str(e)}
 
