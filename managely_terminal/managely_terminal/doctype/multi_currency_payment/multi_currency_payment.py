@@ -37,19 +37,25 @@ class MultiCurrencyPayment(Document):
 		self.set_totals()
 
 	def before_submit(self):
-		"""Block submission if Payment References are used but Difference is not zero."""
+		"""Validate that total allocated does not exceed total payments."""
 		if self.references:
-			diff = flt(self.difference)
-			if abs(diff) > 0.001:
+			total_allocated = flt(self.total_references)
+			total_payments = flt(self.total_payments)
+			if total_allocated > total_payments + 0.001:
 				frappe.throw(_(
-					"Cannot submit: Difference between Total Payments and Total References "
-					"is <b>{0}</b>. It must be <b>0</b> before submitting."
-				).format(frappe.format(diff, {"fieldtype": "Currency"})))
+					"Cannot submit: Total Allocated ({0}) exceeds Total Payments ({1}). "
+					"Please reduce the allocated amounts or increase payment lines."
+				).format(
+					frappe.format(total_allocated, {"fieldtype": "Currency"}),
+					frappe.format(total_payments, {"fieldtype": "Currency"})
+				))
 
 	def on_submit(self):
 		self.make_gl_entries()
+		self.update_vouchers_outstanding()
 
 	def on_cancel(self):
+		self.ignore_linked_doctypes = ["GL Entry", "Payment Ledger Entry"]
 		# Legacy records used Journal Entry — cancel it if still submitted
 		if self.journal_entry:
 			je = frappe.get_doc("Journal Entry", self.journal_entry)
@@ -58,6 +64,8 @@ class MultiCurrencyPayment(Document):
 				je.cancel()
 		else:
 			self.make_gl_entries(cancel=True)
+
+		self.update_vouchers_outstanding(on_cancel=True)
 
 	# ── Setup helpers ───────────────────────────────────────────────────────────
 
@@ -106,7 +114,7 @@ class MultiCurrencyPayment(Document):
 			row.amount_usd, row.amount_lbp = self._to_usd_lbp(row.amount, row.currency, row.exchange_rate)
 
 	def validate_references(self):
-		"""Validate Payment References: no duplicates, allocated > 0, allocated <= outstanding, belongs to party."""
+		"""Validate Payment References: no duplicates, allocated >= 0, allocated <= outstanding, belongs to party."""
 		if not self.references:
 			return
 
@@ -124,9 +132,9 @@ class MultiCurrencyPayment(Document):
 		for row in self.references:
 			if not row.reference_doctype or not row.reference_name:
 				frappe.throw(_("Reference Doctype and Name are required in Payment References row {0}.").format(row.idx))
-			if flt(row.allocated_amount) <= 0:
-				frappe.throw(_("Allocated Amount must be greater than zero in Payment References row {0}.").format(row.idx))
-			if flt(row.outstanding_amount) and flt(row.allocated_amount) > flt(row.outstanding_amount):
+			if flt(row.allocated_amount) < 0:
+				frappe.throw(_("Allocated Amount cannot be negative in Payment References row {0}.").format(row.idx))
+			if flt(row.outstanding_amount) and flt(row.allocated_amount) > flt(row.outstanding_amount) + 0.001:
 				frappe.throw(_(
 					"Allocated Amount {0} cannot exceed Outstanding Amount {1} in Payment References row {2}."
 				).format(row.allocated_amount, row.outstanding_amount, row.idx))
@@ -158,6 +166,7 @@ class MultiCurrencyPayment(Document):
 		self.total_payments = flt(self.total_company_amount)
 		self.total_references = sum(flt(r.allocated_amount) for r in (self.references or []))
 		self.difference = flt(self.total_payments) - flt(self.total_references)
+		self.unallocated_amount = max(0.0, flt(self.difference))
 
 	# ── Currency helpers ────────────────────────────────────────────────────────
 
@@ -182,19 +191,19 @@ class MultiCurrencyPayment(Document):
 			from managely_terminal.managely_terminal.accounting.customizations import get_lbp_usd_rate
 			self.exchange_rate = get_lbp_usd_rate()
 		parent_rate = flt(self.exchange_rate) or DEFAULT_LBP_PER_USD
-		
+
 		if currency == "LBP":
 			return flt(amount / parent_rate), flt(amount)
 		if currency == "USD":
 			return amount, flt(amount * parent_rate)
-			
+
 		# Generic currency: convert to USD (using row exchange rate if company is USD, else LBP conversion)
 		if self.company_currency == "USD":
 			usd_amount = convert_currency(amount, currency, "USD", exchange_rate)
 		else:
 			base_amount = convert_currency(amount, currency, self.company_currency, exchange_rate)
 			usd_amount = convert_currency(base_amount, self.company_currency, "USD", parent_rate)
-			
+
 		return flt(usd_amount), flt(usd_amount * parent_rate)
 
 	# ── Account resolution ──────────────────────────────────────────────────────
@@ -235,12 +244,35 @@ class MultiCurrencyPayment(Document):
 			return flt(row.amount)
 		if account_currency == self.company_currency:
 			return flt(row.amount_base_currency)
-		
+
 		# For any other currency, convert from base currency to account_currency using exchange rate
 		rate = self._fetch_exchange_rate(account_currency)
 		if rate:
 			return convert_currency(row.amount_base_currency, self.company_currency, account_currency, rate)
 		return flt(row.amount_base_currency)
+
+	# ── Outstanding & Status updates ──────────────────────────────────────────
+
+	def update_vouchers_outstanding(self, on_cancel=False):
+		"""Recalculate outstanding amount and update status (Paid, Partly Paid, Unpaid) on referenced vouchers."""
+		from erpnext.accounts.doctype.gl_entry.gl_entry import update_outstanding_amt
+		party_account = self.party_account or self._get_party_account()
+		for ref in (self.references or []):
+			if ref.reference_doctype and ref.reference_name:
+				try:
+					update_outstanding_amt(
+						party_account,
+						self.party_type,
+						self.party,
+						ref.reference_doctype,
+						ref.reference_name,
+						on_cancel=on_cancel
+					)
+				except Exception as e:
+					frappe.log_error(
+						f"Error updating outstanding for {ref.reference_doctype} {ref.reference_name}: {str(e)}",
+						"Multi Currency Payment update_vouchers_outstanding"
+					)
 
 	# ── GL Entries ──────────────────────────────────────────────────────────────
 
@@ -312,9 +344,15 @@ class MultiCurrencyPayment(Document):
 			if party_currency != self.company_currency and total_in_party_currency:
 				party_exchange_rate = flt(total_base / total_in_party_currency)
 
+			total_allocated_base = 0.0
+
 			if self.references:
 				for ref in self.references:
 					ref_base = flt(ref.allocated_amount)
+					if ref_base <= 0:
+						continue
+
+					total_allocated_base += ref_base
 					ref_in_party = ref_base
 					if party_currency != self.company_currency and party_exchange_rate:
 						ref_in_party = flt(ref_base / party_exchange_rate)
@@ -343,7 +381,40 @@ class MultiCurrencyPayment(Document):
 						"is_advance": "No",
 						"company": self.company,
 					}))
+
+				# Unallocated / Advance portion
+				unallocated_base = total_base - total_allocated_base
+				if unallocated_base > 0.001:
+					unallocated_in_party = unallocated_base
+					if party_currency != self.company_currency and party_exchange_rate:
+						unallocated_in_party = flt(unallocated_base / party_exchange_rate)
+
+					gl_map.append(frappe._dict({
+						"doctype": "GL Entry",
+						"posting_date": self.posting_date,
+						"account": party_account,
+						"party_type": self.party_type,
+						"party": self.party,
+						"against": against_party,
+						"debit": 0 if is_receive else unallocated_base,
+						"credit": unallocated_base if is_receive else 0,
+						"debit_in_account_currency": 0 if is_receive else unallocated_in_party,
+						"credit_in_account_currency": unallocated_in_party if is_receive else 0,
+						"account_currency": party_currency,
+						"exchange_rate": party_exchange_rate,
+						"voucher_type": "Multi Currency Payment",
+						"voucher_no": self.name,
+						"against_voucher_type": None,
+						"against_voucher": None,
+						"remarks": self.remarks or "",
+						"cost_center": cost_center,
+						"project": project,
+						"is_opening": "No",
+						"is_advance": "Yes",
+						"company": self.company,
+					}))
 			else:
+				# Pure advance / on-account payment
 				gl_map.append(frappe._dict({
 					"doctype": "GL Entry",
 					"posting_date": self.posting_date,
@@ -359,11 +430,13 @@ class MultiCurrencyPayment(Document):
 					"exchange_rate": party_exchange_rate,
 					"voucher_type": "Multi Currency Payment",
 					"voucher_no": self.name,
+					"against_voucher_type": None,
+					"against_voucher": None,
 					"remarks": self.remarks or "",
 					"cost_center": cost_center,
 					"project": project,
 					"is_opening": "No",
-					"is_advance": "No",
+					"is_advance": "Yes",
 					"company": self.company,
 				}))
 
@@ -464,13 +537,13 @@ def get_default_party_account(company, party_type, party):
 
 @frappe.whitelist()
 def get_outstanding_invoices(company, party_type, party):
-	"""Return a list of outstanding invoices (Sales or Purchase) for the given party."""
+	"""Return a list of outstanding invoices (Sales or Purchase) for the given party ordered by due date."""
 	if not company or not party_type or not party:
 		return []
 
 	invoices = []
 	if party_type == "Customer":
-		# Fetch Sales Invoices
+		# Fetch Sales Invoices ordered by due date (FIFO)
 		sales_invoices = frappe.db.get_all(
 			"Sales Invoice",
 			filters={
@@ -479,7 +552,8 @@ def get_outstanding_invoices(company, party_type, party):
 				"customer": party,
 				"outstanding_amount": [">", 0]
 			},
-			fields=["name", "outstanding_amount", "grand_total as total_amount", "due_date"]
+			fields=["name", "outstanding_amount", "grand_total as total_amount", "due_date", "posting_date"],
+			order_by="due_date asc, posting_date asc, name asc"
 		)
 		for si in sales_invoices:
 			invoices.append({
@@ -492,7 +566,7 @@ def get_outstanding_invoices(company, party_type, party):
 			})
 
 	elif party_type == "Supplier":
-		# Fetch Purchase Invoices
+		# Fetch Purchase Invoices ordered by due date (FIFO)
 		purchase_invoices = frappe.db.get_all(
 			"Purchase Invoice",
 			filters={
@@ -501,7 +575,8 @@ def get_outstanding_invoices(company, party_type, party):
 				"supplier": party,
 				"outstanding_amount": [">", 0]
 			},
-			fields=["name", "outstanding_amount", "grand_total as total_amount", "due_date", "bill_no"]
+			fields=["name", "outstanding_amount", "grand_total as total_amount", "due_date", "posting_date", "bill_no"],
+			order_by="due_date asc, posting_date asc, name asc"
 		)
 		for pi in purchase_invoices:
 			invoices.append({
@@ -514,5 +589,3 @@ def get_outstanding_invoices(company, party_type, party):
 			})
 
 	return invoices
-
-

@@ -7,3 +7,4 @@
 managely_terminal.patches.add_pos_profile_print_templates
 managely_terminal.patches.add_accounting_addendum_fields
 managely_terminal.patches.add_employee_pos_login_fields
+managely_terminal.patches.update_multi_currency_payment_unallocated

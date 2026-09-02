@@ -94,14 +94,29 @@ frappe.ui.form.on("Multi Currency Payment", {
 						row.outstanding_amount = d.outstanding_amount;
 						row.due_date = d.due_date;
 						row.bill_no = d.bill_no;
-						row.allocated_amount = d.outstanding_amount;
+						row.allocated_amount = 0;
 					});
+
+					// Perform FIFO auto-allocation
+					autoAllocatePayments(frm);
 				} else {
 					frappe.msgprint(__("No outstanding invoices found for this Party."));
 				}
 				frm.refresh_field("references");
 				_recalcDifference(frm);
 			}
+		});
+	},
+
+	auto_allocate(frm) {
+		if (!frm.doc.references || frm.doc.references.length === 0) {
+			frappe.msgprint(__("No payment references to allocate."));
+			return;
+		}
+		autoAllocatePayments(frm);
+		frappe.show_alert({
+			message: __("Payments allocated against invoices."),
+			indicator: "green"
 		});
 	},
 
@@ -115,11 +130,17 @@ frappe.ui.form.on("Multi Currency Payment", {
 	party_type(frm) {
 		frm.set_value("party", null);
 		frm.set_value("party_account", null);
+		frm.clear_table("references");
+		frm.refresh_field("references");
+		_recalcDifference(frm);
 	},
 
 	party(frm) {
 		if (!frm.doc.party || !frm.doc.party_type || !frm.doc.company) {
 			frm.set_value("party_account", null);
+			frm.clear_table("references");
+			frm.refresh_field("references");
+			_recalcDifference(frm);
 			return;
 		}
 		frappe.call({
@@ -243,9 +264,20 @@ frappe.ui.form.on("Multi Currency Payment Reference", {
 				frappe.model.set_value(cdt, cdn, "outstanding_amount", d.outstanding_amount || 0);
 				frappe.model.set_value(cdt, cdn, "due_date", d.due_date || null);
 				frappe.model.set_value(cdt, cdn, "bill_no", d.bill_no || null);
-				// Default allocated to the full outstanding if not already set
+
+				// If allocated is not set, set to remaining payment or full outstanding
 				if (!flt(row.allocated_amount)) {
-					frappe.model.set_value(cdt, cdn, "allocated_amount", d.outstanding_amount || 0);
+					const otherAllocated = (frm.doc.references || [])
+						.filter(ref => ref.name !== row.name)
+						.reduce((s, ref) => s + flt(ref.allocated_amount), 0);
+					const available = Math.max(0, flt(frm.doc.total_payments) - otherAllocated);
+					const outstanding = flt(d.outstanding_amount) || 0;
+
+					if (flt(frm.doc.total_payments) > 0) {
+						frappe.model.set_value(cdt, cdn, "allocated_amount", Math.min(outstanding, available));
+					} else {
+						frappe.model.set_value(cdt, cdn, "allocated_amount", outstanding);
+					}
 				}
 				frm.refresh_field("references");
 				_recalcDifference(frm);
@@ -264,7 +296,18 @@ frappe.ui.form.on("Multi Currency Payment Reference", {
 		_recalcDifference(frm);
 	},
 
-	allocated_amount(frm) {
+	allocated_amount(frm, cdt, cdn) {
+		const row = locals[cdt][cdn];
+		if (row && flt(row.outstanding_amount) && flt(row.allocated_amount) > flt(row.outstanding_amount)) {
+			frappe.msgprint(__(
+				"Allocated Amount ({0}) cannot exceed Outstanding Amount ({1}) in row {2}.",
+				[row.allocated_amount, row.outstanding_amount, row.idx]
+			));
+		}
+		_recalcDifference(frm);
+	},
+
+	references_remove(frm) {
 		_recalcDifference(frm);
 	},
 });
@@ -272,6 +315,28 @@ frappe.ui.form.on("Multi Currency Payment Reference", {
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const DEFAULT_LBP_PER_USD = 89500;
+
+function autoAllocatePayments(frm) {
+	let available = flt(frm.doc.total_payments) || (frm.doc.lines || []).reduce((s, r) => s + flt(r.amount_base_currency), 0);
+	const refs = frm.doc.references || [];
+	if (refs.length === 0) return;
+
+	refs.forEach(row => {
+		const outstanding = flt(row.outstanding_amount);
+		if (available <= 0) {
+			row.allocated_amount = 0;
+		} else if (available >= outstanding) {
+			row.allocated_amount = outstanding;
+			available -= outstanding;
+		} else {
+			row.allocated_amount = available;
+			available = 0;
+		}
+	});
+
+	frm.refresh_field("references");
+	_recalcDifference(frm);
+}
 
 function convertCurrency(amount, fromCurrency, toCurrency, rate) {
 	amount = flt(amount);
@@ -362,6 +427,10 @@ function _recalcDifference(frm) {
 	const totalRefs = (frm.doc.references || []).reduce(
 		(s, r) => s + flt(r.allocated_amount), 0
 	);
+	const diff = totalPayments - totalRefs;
+	const unallocated = Math.max(0, diff);
+
 	frm.set_value("total_references", totalRefs);
-	frm.set_value("difference", totalPayments - totalRefs);
+	frm.set_value("difference", diff);
+	frm.set_value("unallocated_amount", unallocated);
 }

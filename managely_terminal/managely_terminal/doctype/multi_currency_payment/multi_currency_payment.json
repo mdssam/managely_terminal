@@ -25,8 +25,10 @@
   "total_payments",
   "references_section",
   "get_outstanding_invoices",
+  "auto_allocate",
   "references",
   "total_references",
+  "unallocated_amount",
   "difference",
   "totals_section",
   "total_usd",
@@ -159,6 +161,12 @@
    "label": "Get Outstanding Invoices"
   },
   {
+   "depends_on": "eval:doc.docstatus==0",
+   "fieldname": "auto_allocate",
+   "fieldtype": "Button",
+   "label": "Auto Allocate"
+  },
+  {
    "fieldname": "references",
    "fieldtype": "Table",
    "label": "Payment References",
@@ -167,18 +175,26 @@
   {
    "fieldname": "total_references",
    "fieldtype": "Currency",
-   "label": "Total References",
+   "label": "Total Allocated Amount",
    "read_only": 1,
    "bold": 1,
-   "description": "Total allocated amount across all payment references"
+   "description": "Total amount allocated across all payment references"
+  },
+  {
+   "fieldname": "unallocated_amount",
+   "fieldtype": "Currency",
+   "label": "Unallocated / Advance Amount",
+   "read_only": 1,
+   "bold": 1,
+   "description": "Excess payment amount credited/debited to party account as an advance"
   },
   {
    "fieldname": "difference",
    "fieldtype": "Currency",
+   "hidden": 1,
    "label": "Difference",
    "read_only": 1,
-   "bold": 1,
-   "description": "Difference between Total Payments and Total References. Must be 0 to submit."
+   "description": "Difference between Total Payments and Total References"
   },
   {
    "fieldname": "totals_section",
@@ -216,7 +232,7 @@
  ],
  "is_submittable": 1,
  "links": [],
- "modified": "2026-06-24 00:00:01.000000",
+ "modified": "2026-09-02 13:00:00.000000",
  "modified_by": "Administrator",
  "module": "Managely Terminal",
  "name": "Multi Currency Payment",
