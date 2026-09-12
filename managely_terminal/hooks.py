@@ -46,6 +46,7 @@ doctype_js = {
 	"Employee": "public/js/doctype/employee_pos_login.js",
 	"POS Closing Entry": "public/js/pos_closing_entry_extension.js",
 	"POS Profile": "public/js/doctype/pos_profile.js",
+	"Stock Reconciliation": "public/js/doctype/stock_reconciliation.js",
 }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 doctype_tree_js = {"Account": "public/js/doctype/account_autonumber.js"}
@@ -93,6 +94,7 @@ doctype_tree_js = {"Account": "public/js/doctype/account_autonumber.js"}
 after_migrate = [
     "managely_terminal.managely_terminal.accounting.customizations.setup_custom_fields",
     "managely_terminal.managely_terminal.setup_fields.run",
+    "managely_terminal.managely_manufacturing.setup.setup_manufacturing_onboarding",
 ]
 
 # Uninstallation
@@ -222,6 +224,9 @@ doc_events = {
 	"Mode of Payment": {
 		"on_update": "managely_terminal.managely_terminal.api.erpnext_pos_profile.notify_master_data_updated",
 	},
+	"Terminal Settings": {
+		"on_update": "managely_terminal.managely_terminal.api.erpnext_pos_profile.notify_master_data_updated",
+	},
 	"POS Profile": {
 		"before_insert": "managely_terminal.managely_terminal.api.erpnext_pos_profile.set_pos_profile_defaults",
 		"before_save": [
@@ -270,9 +275,9 @@ scheduler_events = {
 # Overriding Methods
 # ------------------------------
 #
-# override_whitelisted_methods = {
-# 	"frappe.desk.doctype.event.event.get_events": "managely_terminal.event.get_events"
-# }
+override_whitelisted_methods = {
+	"wipe_pos_master": "managely_terminal.managely_terminal.api.electron.maintenance.wipe_pos_master"
+}
 #
 # each overriding function accepts a `data` argument;
 # generated from the base implementation of the doctype dashboard,
