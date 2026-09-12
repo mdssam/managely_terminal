@@ -5,7 +5,6 @@ from frappe import _
 from frappe.utils import flt
 
 
-DEFAULT_LBP_PER_USD = 89500
 TRANSACTION_DOCTYPES = ("Sales Invoice", "Purchase Invoice", "Payment Entry", "Journal Entry")
 
 
@@ -20,6 +19,15 @@ def setup_custom_fields():
 		si_parent
 		+ pi_parent
 		+ [
+			{
+				"dt": "Company",
+				"fieldname": "custom_secondary_currency",
+				"label": "Secondary Currency",
+				"fieldtype": "Link",
+				"options": "Currency",
+				"insert_after": "default_currency",
+				"description": "Secondary operating or reporting currency for dual-currency transactions.",
+			},
 			{
 				"dt": "Purchase Invoice",
 				"fieldname": "custom_supplier_invoice_number",
@@ -69,8 +77,10 @@ def setup_custom_fields():
 		else:
 			update_data = {k: v for k, v in f.items() if k in (
 				"insert_after", "reqd", "bold", "hidden", "description", "label",
-				"depends_on", "mandatory_depends_on",
+				"depends_on", "mandatory_depends_on", "precision", "options",
 			)}
+			if "precision" not in f:
+				update_data["precision"] = None
 			if update_data:
 				frappe.db.set_value("Custom Field", cf_name, update_data)
 
@@ -90,9 +100,37 @@ def setup_custom_fields():
 		_ensure_property_setter(dt, "set_warehouse", "bold", "1", "Check")
 
 
+	_sync_multi_currency_payment_docfields()
+
 	frappe.db.commit()
 	frappe.clear_cache()
 	return f"Created/updated {count} accounting custom fields."
+
+
+def _sync_multi_currency_payment_docfields():
+	mcp_fields = [
+		("Multi Currency Payment", "total_payments", "Total Payments", "Company:company:default_currency", 0),
+		("Multi Currency Payment", "total_references", "Total Allocated Amount", "Company:company:default_currency", 0),
+		("Multi Currency Payment", "unallocated_amount", "Unallocated / Advance Amount", "Company:company:default_currency", 0),
+		("Multi Currency Payment", "total_usd", "Total", "Company:company:default_currency", 0),
+		("Multi Currency Payment", "total_lbp", "Total", "Company:company:custom_secondary_currency", 0),
+		("Multi Currency Payment", "total_company_amount", "Total", "Company:company:default_currency", 1),
+		("Multi Currency Payment Line", "amount_base_currency", "Amount", "Company:company:default_currency", 0),
+		("Multi Currency Payment Line", "amount_usd", "Amount", "Company:company:default_currency", 1),
+		("Multi Currency Payment Line", "amount_lbp", "Amount", "Company:company:custom_secondary_currency", 1),
+		("Multi Currency Payment Reference", "total_amount", "Grand Total", "Company:company:default_currency", 0),
+		("Multi Currency Payment Reference", "outstanding_amount", "Outstanding", "Company:company:default_currency", 0),
+		("Multi Currency Payment Reference", "allocated_amount", "Allocated", "Company:company:default_currency", 0),
+	]
+	for parent, fname, label, options, hidden in mcp_fields:
+		frappe.db.sql(
+			"""
+			UPDATE `tabDocField`
+			SET `label` = %s, `options` = %s, `hidden` = %s
+			WHERE `parent` = %s AND `fieldname` = %s
+			""",
+			(label, options, hidden, parent, fname),
+		)
 
 
 def _ensure_property_setter(dt, field, prop, value, prop_type="Data"):
@@ -116,7 +154,7 @@ def _ensure_property_setter(dt, field, prop, value, prop_type="Data"):
 
 
 def _stamp_tax_fields():
-	"""Custom fields for Lebanese Stamp Tax on tax child tables."""
+	"""Custom fields for stamp tax on tax child tables."""
 	fields = []
 	for dt in ("Sales Taxes and Charges", "Purchase Taxes and Charges"):
 		fields += [
@@ -131,34 +169,43 @@ def _stamp_tax_fields():
 			{
 				"dt": dt,
 				"fieldname": "custom_stamp_amount_lbp",
-				"label": "Stamp Amount LBP",
+				"label": "Stamp Amount (Secondary Currency)",
 				"fieldtype": "Currency",
+				"options": "Company:company:custom_secondary_currency",
 				"insert_after": "custom_is_stamp",
 				"depends_on": "eval:doc.custom_is_stamp",
 				"mandatory_depends_on": "eval:doc.custom_is_stamp",
-				"precision": "0",
 			},
 		]
 	return fields
 
 
 def _apply_stamp_taxes(doc):
-	"""Force stamp-marked tax rows to Actual type with the correct LBP-derived amount."""
-	if not doc.get("taxes"):
+	"""Force stamp-marked tax rows to Actual type with the correct secondary-currency-derived amount."""
+	if not doc.get("taxes") or not doc.get("company"):
 		return
-	exchange_rate = flt(getattr(doc, "custom_exchange_rate_override", None)) or get_lbp_usd_rate()
+	secondary_currency = get_company_secondary_currency(doc.company)
+	if not secondary_currency:
+		return
+
+	exchange_rate = flt(getattr(doc, "custom_exchange_rate_override", None))
+	if not exchange_rate:
+		exchange_rate = get_company_dual_rate(doc.company, doc.get("posting_date") or doc.get("transaction_date"))
+	if not exchange_rate:
+		return
+
 	currency = getattr(doc, "currency", None) or ""
 
 	for tax in doc.taxes:
 		if not (tax.get("custom_is_stamp") and flt(tax.get("custom_stamp_amount_lbp"))):
 			continue
-		lbp_amount = flt(tax.custom_stamp_amount_lbp)
+		stamp_amount = flt(tax.custom_stamp_amount_lbp)
 		tax.charge_type = "Actual"
 		tax.rate = 0
-		if currency == "LBP":
-			tax.tax_amount = lbp_amount
+		if currency == secondary_currency:
+			tax.tax_amount = stamp_amount
 		else:
-			tax.tax_amount = flt(lbp_amount / exchange_rate)
+			tax.tax_amount = flt(stamp_amount / exchange_rate) if exchange_rate > 1.0 else flt(stamp_amount * exchange_rate)
 
 
 def _transaction_parent_fields(dt, insert_after, exchange_insert_after="currency"):
@@ -173,11 +220,9 @@ def _transaction_parent_fields(dt, insert_after, exchange_insert_after="currency
 		{
 			"dt": dt,
 			"fieldname": "custom_exchange_rate_override",
-			"label": "Exchange Rate Override (LBP/USD)",
+			"label": "Exchange Rate Override",
 			"fieldtype": "Float",
-			"default": DEFAULT_LBP_PER_USD,
 			"insert_after": exchange_insert_after,
-			"description": "Manual transaction exchange rate used for LBP/USD dual-currency display.",
 		},
 	]
 
@@ -187,8 +232,9 @@ def _dual_currency_child_fields(dt, insert_after):
 		{
 			"dt": dt,
 			"fieldname": "custom_usd_amount",
-			"label": "USD Amount",
+			"label": "Amount (Company Currency)",
 			"fieldtype": "Currency",
+			"options": "Company:company:default_currency",
 			"insert_after": insert_after,
 			"read_only": 1,
 			"in_list_view": 1,
@@ -196,12 +242,12 @@ def _dual_currency_child_fields(dt, insert_after):
 		{
 			"dt": dt,
 			"fieldname": "custom_lbp_amount",
-			"label": "LBP Amount",
+			"label": "Amount (Secondary Currency)",
 			"fieldtype": "Currency",
+			"options": "Company:company:custom_secondary_currency",
 			"insert_after": "custom_usd_amount",
 			"read_only": 1,
 			"in_list_view": 1,
-			"precision": "0",
 		},
 	]
 
@@ -211,19 +257,20 @@ def _dual_currency_parent_total_fields(dt, insert_after):
 		{
 			"dt": dt,
 			"fieldname": "custom_total_usd",
-			"label": "Total USD",
+			"label": "Total (Company Currency)",
 			"fieldtype": "Currency",
+			"options": "Company:company:default_currency",
 			"insert_after": insert_after,
 			"read_only": 1,
 		},
 		{
 			"dt": dt,
 			"fieldname": "custom_total_lbp",
-			"label": "Total LBP",
+			"label": "Total (Secondary Currency)",
 			"fieldtype": "Currency",
+			"options": "Company:company:custom_secondary_currency",
 			"insert_after": "custom_total_usd",
 			"read_only": 1,
-			"precision": "0",
 		},
 	]
 
@@ -231,6 +278,9 @@ def _dual_currency_parent_total_fields(dt, insert_after):
 def _auto_insert_stamp_taxes(doc):
 	"""Automatically append configured stamps to taxes for new Sales/Purchase Invoices."""
 	if doc.doctype not in ("Sales Invoice", "Purchase Invoice") or doc.docstatus != 0:
+		return
+
+	if not doc.get("company") or not get_company_secondary_currency(doc.company):
 		return
 
 	if getattr(doc, "is_return", False):
@@ -304,65 +354,135 @@ def before_save_purchase_invoice(doc, method=None):
 	validate_duplicate_supplier_invoice(doc)
 
 
+def get_company_secondary_currency(company):
+	"""Return the configured secondary currency for a Company, or None."""
+	if not company:
+		return None
+	try:
+		return frappe.get_cached_value("Company", company, "custom_secondary_currency")
+	except Exception:
+		return None
+
+
+@frappe.whitelist()
+def get_company_currency_config(company=None):
+	"""Return company currency configuration: default_currency, custom_secondary_currency, fraction_units, exchange_rate."""
+	if not company:
+		company = frappe.defaults.get_user_default("Company")
+	if not company:
+		return {}
+
+	default_currency = frappe.get_cached_value("Company", company, "default_currency")
+	secondary_currency = get_company_secondary_currency(company)
+
+	fraction_units = 2
+	if secondary_currency:
+		try:
+			frac = frappe.get_cached_value("Currency", secondary_currency, "fraction_units")
+			fraction_units = 0 if frac == 0 else 2
+		except Exception:
+			pass
+
+	dual_rate = get_company_dual_rate(company) if secondary_currency else None
+
+	return {
+		"company": company,
+		"default_currency": default_currency,
+		"custom_secondary_currency": secondary_currency,
+		"fraction_units": fraction_units,
+		"exchange_rate": dual_rate,
+	}
+
+
+@frappe.whitelist()
+def get_company_dual_rate(company=None, transaction_date=None):
+	"""Return exchange rate between company default currency and secondary currency."""
+	if not company:
+		company = frappe.defaults.get_user_default("Company")
+	if not company:
+		return None
+
+	default_currency = frappe.get_cached_value("Company", company, "default_currency")
+	secondary_currency = get_company_secondary_currency(company)
+	if not secondary_currency or not default_currency or default_currency == secondary_currency:
+		return None
+
+	# 1. ERPNext standard lookup
+	try:
+		from erpnext.setup.utils import get_exchange_rate as erpnext_get_exchange_rate
+		rate = erpnext_get_exchange_rate(default_currency, secondary_currency, transaction_date)
+		if rate and flt(rate) > 0:
+			return flt(rate)
+	except Exception:
+		pass
+
+	# 2. Direct lookup: default_currency -> secondary_currency
+	rate = frappe.db.get_value(
+		"Currency Exchange",
+		{"from_currency": default_currency, "to_currency": secondary_currency},
+		"exchange_rate",
+		order_by="date desc",
+	)
+	if rate and flt(rate) > 0:
+		return flt(rate)
+
+	# 3. Inverse lookup: secondary_currency -> default_currency
+	inv_rate = frappe.db.get_value(
+		"Currency Exchange",
+		{"from_currency": secondary_currency, "to_currency": default_currency},
+		"exchange_rate",
+		order_by="date desc",
+	)
+	if inv_rate and flt(inv_rate) > 0:
+		inv_rate = flt(inv_rate)
+		if inv_rate < 1.0:
+			return 1.0 / inv_rate
+		return inv_rate
+
+	return None
+
+
 @frappe.whitelist()
 def get_lbp_usd_rate():
-	# 1. Try USD to LBP
-	rate = frappe.db.get_value(
-		"Currency Exchange",
-		{"from_currency": "USD", "to_currency": "LBP"},
-		"exchange_rate",
-		order_by="date desc",
-	)
-	if rate:
-		return flt(rate)
-
-	# 2. Try LBP to USD
-	rate = frappe.db.get_value(
-		"Currency Exchange",
-		{"from_currency": "LBP", "to_currency": "USD"},
-		"exchange_rate",
-		order_by="date desc",
-	)
-	if rate:
-		rate = flt(rate)
-		if rate > 0:
-			if rate < 1.0:
-				return 1.0 / rate
-			return rate
-
-	# 3. Fallback to any latest exchange rate for LBP
-	rate = frappe.db.get_value(
-		"Currency Exchange",
-		{"to_currency": "LBP"},
-		"exchange_rate",
-		order_by="date desc",
-	)
-	if rate:
-		return flt(rate)
-
-	return 1.0
+	"""Deprecated legacy alias: dynamically delegates to get_company_dual_rate with zero fallbacks."""
+	rate = get_company_dual_rate(None)
+	return flt(rate) if rate else None
 
 
 def ensure_exchange_rate(doc):
+	if not doc.get("company"):
+		return
+	secondary_currency = get_company_secondary_currency(doc.company)
+	if not secondary_currency:
+		return
+
 	rate = flt(getattr(doc, "custom_exchange_rate_override", None))
 	if not rate:
-		rate = get_lbp_usd_rate()
-	doc.custom_exchange_rate_override = rate
+		rate = get_company_dual_rate(doc.company, doc.get("posting_date") or doc.get("transaction_date"))
+	if rate:
+		doc.custom_exchange_rate_override = rate
 
-	# Only override the accounting conversion_rate when the company books in LBP.
-	# For other company currencies (e.g. EGP, USD) the standard Frappe rate lookup
-	# must be left alone — overriding it with the LBP/USD rate causes wrong totals
-	# and makes the browser form perpetually "Not Saved" (ERPNext re-fetches the
-	# real rate client-side and detects a mismatch).
 	if doc.doctype in ("Sales Invoice", "Purchase Invoice"):
-		company_currency = frappe.get_cached_value("Company", doc.company, "default_currency") if doc.company else None
-		if company_currency == "LBP" and doc.currency and doc.currency != "LBP":
+		company_currency = frappe.get_cached_value("Company", doc.company, "default_currency")
+		if company_currency and company_currency == secondary_currency and doc.currency and doc.currency != company_currency:
 			doc.conversion_rate = rate
 
 
 def set_dual_currency_amounts(doc):
-	rate = flt(getattr(doc, "custom_exchange_rate_override", None)) or get_lbp_usd_rate()
-	company_currency = frappe.get_cached_value("Company", doc.company, "default_currency") if doc.get("company") else None
+	company = doc.get("company")
+	if not company:
+		return
+	secondary_currency = get_company_secondary_currency(company)
+	if not secondary_currency:
+		return
+
+	company_currency = frappe.get_cached_value("Company", company, "default_currency")
+	rate = flt(getattr(doc, "custom_exchange_rate_override", None))
+	if not rate:
+		rate = get_company_dual_rate(company, doc.get("posting_date") or doc.get("transaction_date"))
+	if not rate:
+		return
+
 	total_usd = 0.0
 	total_lbp = 0.0
 	total_usd_debit = 0.0
@@ -375,7 +495,9 @@ def set_dual_currency_amounts(doc):
 		line_amount = _get_line_amount(row)
 		currency = getattr(row, "account_currency", None) or _get_transaction_currency(doc)
 		row_exchange_rate = flt(getattr(row, "exchange_rate", 1.0)) or 1.0
-		usd_amount, lbp_amount = _to_usd_lbp(line_amount, currency, rate, company_currency, row_exchange_rate)
+		usd_amount, lbp_amount = _to_dual_currency(
+			line_amount, currency, rate, company_currency, row_exchange_rate, secondary_currency=secondary_currency
+		)
 		row.custom_usd_amount = usd_amount
 		row.custom_lbp_amount = lbp_amount
 		if is_je:
@@ -395,19 +517,20 @@ def set_dual_currency_amounts(doc):
 		total_lbp = total_lbp_debit if total_lbp_debit > 0 else total_lbp_credit
 	elif doc.doctype in ("Sales Invoice", "Purchase Invoice"):
 		final_amount = flt(getattr(doc, "rounded_total", 0)) or flt(getattr(doc, "grand_total", 0))
-		currency = doc.currency or company_currency or frappe.db.get_default("currency") or frappe.db.get_single_value("System Settings", "default_currency") or frappe.db.get_value("Company", {}, "default_currency")
-		total_usd, total_lbp = _to_usd_lbp(final_amount, currency, rate, company_currency)
+		currency = doc.currency or company_currency
+		total_usd, total_lbp = _to_dual_currency(final_amount, currency, rate, company_currency, secondary_currency=secondary_currency)
 	elif doc.doctype == "Payment Entry":
 		final_amount = flt(doc.paid_amount) or flt(doc.received_amount)
 		currency = (doc.paid_from_account_currency if doc.payment_type == "Pay" else doc.paid_to_account_currency) or _get_transaction_currency(doc)
 		if final_amount:
-			total_usd, total_lbp = _to_usd_lbp(final_amount, currency, rate, company_currency)
+			total_usd, total_lbp = _to_dual_currency(final_amount, currency, rate, company_currency, secondary_currency=secondary_currency)
 
 	# Update parent total fields if present on the doctype
 	if frappe.get_meta(doc.doctype).has_field("custom_total_usd"):
 		doc.custom_total_usd = total_usd
 	if frappe.get_meta(doc.doctype).has_field("custom_total_lbp"):
-		doc.custom_total_lbp = round(total_lbp)
+		frac_units = frappe.get_cached_value("Currency", secondary_currency, "fraction_units")
+		doc.custom_total_lbp = round(total_lbp) if frac_units == 0 else round(total_lbp, 2)
 
 
 
@@ -550,24 +673,51 @@ def _get_transaction_currency(doc):
 	return None
 
 
-def _to_usd_lbp(amount, currency, rate, company_currency=None, row_exchange_rate=1.0):
+def _to_dual_currency(amount, currency, rate, company_currency=None, row_exchange_rate=1.0, secondary_currency=None):
 	amount = flt(amount)
-	rate = flt(rate) or get_lbp_usd_rate()
+	if not secondary_currency or not company_currency:
+		return amount, 0.0
 
-	if currency == "LBP":
-		return flt(amount / rate), flt(amount, 0)
-	if currency == "USD":
-		return flt(amount), flt(amount * rate, 0)
+	rate = flt(rate)
+	if not rate or rate <= 0:
+		return amount, 0.0
 
-	# Generic currency: convert via exchange_rate to company currency then express in USD/LBP
-	if not company_currency:
-		return flt(amount), flt(amount * rate, 0)
+	sec_curr = secondary_currency
+	pri_curr = company_currency
 
-	if company_currency == "USD":
-		usd_amount = amount * flt(row_exchange_rate)
+	frac_units = frappe.get_cached_value("Currency", sec_curr, "fraction_units")
+	precision = 0 if frac_units == 0 else 2
+
+	if currency == sec_curr:
+		if rate > 1.0:
+			primary_amount = amount / rate
+		elif rate > 0:
+			primary_amount = amount * rate
+		else:
+			primary_amount = amount
+		return flt(primary_amount), flt(amount, precision)
+
+	if currency == pri_curr:
+		if rate > 1.0:
+			secondary_amount = amount * rate
+		elif rate > 0:
+			secondary_amount = amount / rate
+		else:
+			secondary_amount = amount
+		return flt(amount), flt(secondary_amount, precision)
+
+	# Foreign currency: convert via row_exchange_rate to company currency then calculate secondary
+	primary_amount = amount * flt(row_exchange_rate)
+	if rate > 1.0:
+		secondary_amount = primary_amount * rate
+	elif rate > 0:
+		secondary_amount = primary_amount / rate
 	else:
-		base_amount = amount * flt(row_exchange_rate)
-		usd_amount = base_amount / rate
+		secondary_amount = primary_amount
 
-	return flt(usd_amount), flt(usd_amount * rate, 0)
+	return flt(primary_amount), flt(secondary_amount, precision)
+
+
+_to_usd_lbp = _to_dual_currency
+
 

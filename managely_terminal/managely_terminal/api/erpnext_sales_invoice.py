@@ -1492,18 +1492,19 @@ def _add_payment_entries(doc, mode_of_payment):
 		pay_currency = payment.get("currency")
 		exchange_rate = flt(payment.get("exchange_rate", 0))
 
-		# Convert secondary-currency amount → invoice base currency
-		# exchange_rate convention: base units per 1 secondary unit (e.g. 250 EGP per 1 USD)
-		# so: secondary_amount × exchange_rate = base_amount
+		# Convert secondary-currency amount -> invoice base currency
 		original_amount = amount
 		original_currency = pay_currency or doc.currency
 		if pay_currency and pay_currency != doc.currency and exchange_rate > 0:
-			if pay_currency == "LBP" and doc.currency == "USD":
+			sec_curr = frappe.get_cached_value("Company", doc.company, "custom_secondary_currency") if doc.company else None
+			company_currency = frappe.get_cached_value("Company", doc.company, "default_currency") if doc.company else None
+
+			if sec_curr and company_currency and pay_currency == sec_curr and doc.currency == company_currency:
 				if exchange_rate > 1.0:
 					amount = amount / exchange_rate
 				else:
 					amount = amount * exchange_rate
-			elif pay_currency == "USD" and doc.currency == "LBP":
+			elif sec_curr and company_currency and pay_currency == company_currency and doc.currency == sec_curr:
 				if exchange_rate > 1.0:
 					amount = amount * exchange_rate
 				else:
@@ -1812,9 +1813,15 @@ def _is_stamp_account(doc, account):
 
 
 def _fix_stamp_gl_entries(doc, gl_entries):
-	"""Overwrite GL amounts for stamp tax accounts with the exact LBP value."""
-	if not doc.get("taxes"):
+	"""Overwrite GL amounts for stamp tax accounts with the exact secondary currency stamp value."""
+	if not doc.get("taxes") or not doc.get("company"):
 		return
+
+	secondary_currency = frappe.get_cached_value("Company", doc.company, "custom_secondary_currency")
+	if not secondary_currency:
+		return
+
+	company_currency = frappe.get_cached_value("Company", doc.company, "default_currency")
 
 	stamp_map = {
 		t.account_head: flt(t.custom_stamp_amount_lbp)
@@ -1824,43 +1831,37 @@ def _fix_stamp_gl_entries(doc, gl_entries):
 	if not stamp_map:
 		return
 
-	company_currency = frappe.db.get_value("Company", doc.company, "default_currency") or "LBP"
-	exchange_rate = flt(getattr(doc, "custom_exchange_rate_override", None)) or 89500
+	exchange_rate = flt(getattr(doc, "custom_exchange_rate_override", None)) or flt(doc.get("conversion_rate"))
+	if not exchange_rate or exchange_rate <= 1.0:
+		from managely_terminal.managely_terminal.accounting.customizations import get_company_dual_rate
+		exchange_rate = get_company_dual_rate(doc.company, doc.get("posting_date")) or 1.0
 
 	for gle in gl_entries:
-		lbp_amount = stamp_map.get(gle.get("account"))
-		if not lbp_amount:
+		stamp_amount = stamp_map.get(gle.get("account"))
+		if not stamp_amount:
 			continue
 
-		if company_currency == "LBP":
-			# Debit and credit are already in LBP; just force the exact integer
+		if company_currency == secondary_currency:
+			# Debit and credit are already in secondary currency; just force the exact amount
 			if gle.get("credit") or gle.get("credit_in_account_currency"):
-				gle["credit"] = lbp_amount
-				gle["credit_in_account_currency"] = lbp_amount
+				gle["credit"] = stamp_amount
+				gle["credit_in_account_currency"] = stamp_amount
 			else:
-				gle["debit"] = lbp_amount
-				gle["debit_in_account_currency"] = lbp_amount
+				gle["debit"] = stamp_amount
+				gle["debit_in_account_currency"] = stamp_amount
 		else:
-			# Non-LBP company (e.g. EGP, USD).
-			# ERPNext already computed gle["credit"] correctly in company currency
-			# (it uses base_tax_amount which equals tax_amount * conversion_rate).
-			# We must NOT overwrite that — doing so caused "Debit and Credit not equal"
-			# because it substituted the USD amount (4.85) for the EGP amount (728.21).
-			# We only need to fix credit_in_account_currency (which ERPNext wrongly sets
-			# to the invoice-currency amount) and set the LBP exchange rate so Frappe's
-			# GL validator passes: credit_in_account_currency * exchange_rate == credit.
 			existing_credit = flt(gle.get("credit") or 0)
 			existing_debit  = flt(gle.get("debit") or 0)
 			base_amount = existing_credit or existing_debit  # already in company currency
-			gle_rate = flt(base_amount / lbp_amount) if lbp_amount else 0
+			gle_rate = flt(base_amount / stamp_amount) if stamp_amount else 0
 
 			if existing_credit or gle.get("credit_in_account_currency"):
-				gle["credit_in_account_currency"] = lbp_amount
-				gle["account_currency"] = "LBP"
+				gle["credit_in_account_currency"] = stamp_amount
+				gle["account_currency"] = secondary_currency
 				gle["exchange_rate"] = gle_rate
 			else:
-				gle["debit_in_account_currency"] = lbp_amount
-				gle["account_currency"] = "LBP"
+				gle["debit_in_account_currency"] = stamp_amount
+				gle["account_currency"] = secondary_currency
 				gle["exchange_rate"] = gle_rate
 
 
@@ -1936,12 +1937,12 @@ class CustomSalesInvoice(SalesInvoice):
 		custom_make_loyalty_point_entry(self)
 
 	def validate_account_currency(self, account, account_currency=None):
-		# Skip stamp tax accounts - they use LBP regardless of invoice currency
+		# Skip stamp tax accounts - they use secondary currency regardless of invoice currency
 		if _is_stamp_account(self, account):
 			return
-		# Skip multi-currency payment accounts (e.g. LBP cash accounts on USD invoices).
-		# When a payment is made in LBP on a USD invoice, the account_currency will be
-		# LBP but the invoice currency is USD - ERPNext would normally reject this.
+		# Skip multi-currency payment accounts (e.g. secondary currency cash accounts on primary currency invoices).
+		# When a payment is made in secondary currency on a primary currency invoice, the account_currency will be
+		# secondary currency but the invoice currency is primary - ERPNext would normally reject this.
 		# Our multi-currency GL logic already handles the correct amounts, so we allow it.
 		if account_currency and account_currency != (self.currency or frappe.db.get_default("currency") or frappe.db.get_single_value("System Settings", "default_currency") or frappe.db.get_value("Company", {}, "default_currency")):
 			account_doc_currency = frappe.db.get_value("Account", account, "account_currency")

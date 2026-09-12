@@ -1,6 +1,30 @@
 // ── Parent form ───────────────────────────────────────────────────────────────
 frappe.ui.form.on("Multi Currency Payment", {
 
+	validate(frm) {
+		const companyCurrency = frm.doc.company_currency;
+		(frm.doc.lines || []).forEach(row => {
+			if (row.currency && row.currency !== companyCurrency) {
+				if (!flt(row.exchange_rate) || flt(row.exchange_rate) <= 0) {
+					frappe.validated = false;
+					frappe.throw(__("Row {0}: Valid exchange rate is required for currency {1}.", [row.idx, row.currency]));
+				}
+				const docRate = flt(frm.doc.exchange_rate);
+				if (docRate > 1.0 && flt(row.exchange_rate) <= 1.0) {
+					frappe.model.set_value(row.doctype, row.name, "exchange_rate", docRate);
+					_recalcBase(frm, row.doctype, row.name);
+				}
+			}
+		});
+	},
+
+	onload_post_render(frm) {
+		const priCurr = frm.doc.company_currency || (frm.doc.company ? erpnext.get_currency(frm.doc.company) : null);
+		if (priCurr) {
+			toggleSecondaryFields(frm, !!frm.doc._secondary_currency, priCurr, frm.doc._secondary_currency);
+		}
+	},
+
 	refresh(frm) {
 		frm.set_query("party_type", () => ({
 			filters: [["Party Type", "name", "in", ["Customer", "Supplier", "Employee", "Shareholder"]]]
@@ -59,15 +83,36 @@ frappe.ui.form.on("Multi Currency Payment", {
 				frappe.set_route("query-report", "General Ledger");
 			}, __("View"));
 		}
-		if (frm.is_new() && !frm.doc.exchange_rate) {
+
+		// Synchronous currency resolution for immediate UI display
+		const priCurr = frm.doc.company_currency || (frm.doc.company ? erpnext.get_currency(frm.doc.company) : null);
+		if (priCurr) {
+			toggleSecondaryFields(frm, !!frm.doc._secondary_currency, priCurr, frm.doc._secondary_currency);
+		}
+
+		if (frm.doc.company) {
 			frappe.call({
-				method: "managely_terminal.managely_terminal.accounting.customizations.get_lbp_usd_rate",
-				callback: function(r) {
-					if (r.message && !frm.doc.exchange_rate) {
-						frm.set_value("exchange_rate", r.message);
+				method: "managely_terminal.managely_terminal.accounting.customizations.get_company_currency_config",
+				args: { company: frm.doc.company },
+				callback: function (r) {
+					const cfg = r.message || {};
+					const primary = cfg.default_currency || priCurr;
+					if (cfg.custom_secondary_currency) {
+						frm.doc._secondary_currency = cfg.custom_secondary_currency;
+						frm.doc._secondary_currency_precision = cfg.fraction_units === 0 ? 0 : 2;
+						toggleSecondaryFields(frm, true, primary, cfg.custom_secondary_currency);
+					} else {
+						frm.doc._secondary_currency = null;
+						frm.doc._secondary_currency_precision = 2;
+						toggleSecondaryFields(frm, false, primary, null);
 					}
-				}
+					if (frm.is_new() && !frm.doc.exchange_rate && cfg.exchange_rate) {
+						frm.set_value("exchange_rate", cfg.exchange_rate);
+					}
+				},
 			});
+		} else {
+			toggleSecondaryFields(frm, false, null, null);
 		}
 	},
 
@@ -121,9 +166,32 @@ frappe.ui.form.on("Multi Currency Payment", {
 	},
 
 	company(frm) {
-		if (!frm.doc.company) return;
-		frappe.db.get_value("Company", frm.doc.company, "default_currency").then(r => {
-			frm.set_value("company_currency", r.message.default_currency);
+		if (!frm.doc.company) {
+			toggleSecondaryFields(frm, false);
+			return;
+		}
+		frappe.call({
+			method: "managely_terminal.managely_terminal.accounting.customizations.get_company_currency_config",
+			args: { company: frm.doc.company },
+			callback: function (r) {
+				const cfg = r.message || {};
+				if (cfg.default_currency) {
+					frm.set_value("company_currency", cfg.default_currency);
+				}
+				if (cfg.custom_secondary_currency) {
+					frm.doc._secondary_currency = cfg.custom_secondary_currency;
+					frm.doc._secondary_currency_precision = cfg.fraction_units === 0 ? 0 : 2;
+					toggleSecondaryFields(frm, true, cfg.default_currency, cfg.custom_secondary_currency);
+					if (cfg.exchange_rate) {
+						frm.set_value("exchange_rate", cfg.exchange_rate);
+					}
+				} else {
+					frm.doc._secondary_currency = null;
+					frm.doc._secondary_currency_precision = 2;
+					toggleSecondaryFields(frm, false);
+					frm.set_value("exchange_rate", 0);
+				}
+			},
 		});
 	},
 
@@ -191,8 +259,41 @@ frappe.ui.form.on("Multi Currency Payment Line", {
 			callback(r) {
 				const currency = r.message;
 				if (!currency) return;
-				// Setting currency triggers the currency handler which fetches exchange rate
 				frappe.model.set_value(cdt, cdn, "currency", currency);
+
+				// Directly resolve exchange rate on MOP selection
+				const companyCurrency = frm.doc.company_currency;
+				if (currency === companyCurrency) {
+					frappe.model.set_value(cdt, cdn, "exchange_rate", 1.0);
+					_recalcBase(frm, cdt, cdn);
+				} else {
+					frappe.call({
+						method: "managely_terminal.managely_terminal.doctype.multi_currency_payment.multi_currency_payment.get_exchange_rate",
+						args: {
+							from_currency: currency,
+							to_currency: companyCurrency,
+							transaction_date: frm.doc.posting_date
+						},
+						callback(res) {
+							let rate = res.message;
+							if (!rate || flt(rate) <= 0) {
+								const secCurr = frm.doc._secondary_currency;
+								if (secCurr && (currency === secCurr || companyCurrency === secCurr)) {
+									rate = flt(frm.doc.exchange_rate);
+								}
+							}
+							if (rate && flt(rate) > 0) {
+								frappe.model.set_value(cdt, cdn, "exchange_rate", flt(rate));
+							} else {
+								frappe.msgprint(__(
+									"No exchange rate configured for {0} to {1}. Please enter rate manually in row {2} or configure under Accounts → Currency Exchange.",
+									[currency, companyCurrency, row.idx]
+								));
+							}
+							_recalcBase(frm, cdt, cdn);
+						},
+					});
+				}
 			},
 		});
 	},
@@ -208,10 +309,27 @@ frappe.ui.form.on("Multi Currency Payment Line", {
 		} else {
 			frappe.call({
 				method: "managely_terminal.managely_terminal.doctype.multi_currency_payment.multi_currency_payment.get_exchange_rate",
-				args: { from_currency: row.currency, to_currency: companyCurrency },
-				callback(r) {
-					const rate = r.message || flt(frm.doc.exchange_rate) || 89500;
-					frappe.model.set_value(cdt, cdn, "exchange_rate", rate);
+				args: {
+					from_currency: row.currency,
+					to_currency: companyCurrency,
+					transaction_date: frm.doc.posting_date
+				},
+				callback(res) {
+					let rate = res.message;
+					if (!rate || flt(rate) <= 0) {
+						const secCurr = frm.doc._secondary_currency;
+						if (secCurr && (row.currency === secCurr || companyCurrency === secCurr)) {
+							rate = flt(frm.doc.exchange_rate);
+						}
+					}
+					if (rate && flt(rate) > 0) {
+						frappe.model.set_value(cdt, cdn, "exchange_rate", flt(rate));
+					} else {
+						frappe.msgprint(__(
+							"No exchange rate configured for {0} to {1}. Please enter rate manually in row {2} or configure under Accounts → Currency Exchange.",
+							[row.currency, companyCurrency, row.idx]
+						));
+					}
 					_recalcBase(frm, cdt, cdn);
 				},
 			});
@@ -314,7 +432,60 @@ frappe.ui.form.on("Multi Currency Payment Reference", {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const DEFAULT_LBP_PER_USD = 89500;
+function toggleSecondaryFields(frm, enabled, priCurr, secCurr) {
+	const isHidden = enabled ? 0 : 1;
+
+	// Always hide duplicate total_company_amount (total_usd displays company currency total)
+	if (frm.fields_dict.total_company_amount) {
+		frm.set_df_property("total_company_amount", "hidden", 1);
+	}
+
+	// Dual currency totals & exchange rate
+	if (frm.fields_dict.exchange_rate) {
+		frm.set_df_property("exchange_rate", "hidden", isHidden);
+	}
+	if (frm.fields_dict.total_usd) {
+		frm.set_df_property("total_usd", "hidden", isHidden);
+	}
+	if (frm.fields_dict.total_lbp) {
+		frm.set_df_property("total_lbp", "hidden", isHidden);
+	}
+
+	// In payment lines grid: show/hide dual currency amount columns
+	if (frm.fields_dict.lines && frm.fields_dict.lines.grid) {
+		frm.fields_dict.lines.grid.set_column_disp("amount_usd", enabled);
+		frm.fields_dict.lines.grid.set_column_disp("amount_lbp", enabled);
+	}
+
+	// Apply standard Frappe dynamic currency labels
+	if (priCurr) {
+		frm.set_currency_labels(["total_payments", "total_references", "unallocated_amount"], priCurr);
+		if (enabled) {
+			frm.set_currency_labels(["total_usd"], priCurr);
+		}
+		if (frm.fields_dict.lines && frm.fields_dict.lines.grid) {
+			frm.set_currency_labels(["amount_base_currency"], priCurr, "lines");
+			if (enabled) {
+				frm.set_currency_labels(["amount_usd"], priCurr, "lines");
+			}
+			frm.fields_dict.lines.grid.refresh();
+		}
+		if (frm.fields_dict.references && frm.fields_dict.references.grid) {
+			frm.set_currency_labels(["total_amount", "outstanding_amount", "allocated_amount"], priCurr, "references");
+			frm.fields_dict.references.grid.refresh();
+		}
+	}
+
+	if (enabled && secCurr) {
+		frm.set_currency_labels(["total_lbp"], secCurr);
+		if (frm.fields_dict.lines && frm.fields_dict.lines.grid) {
+			frm.set_currency_labels(["amount_lbp"], secCurr, "lines");
+			frm.fields_dict.lines.grid.refresh();
+		}
+	}
+
+	frm.refresh_fields();
+}
 
 function autoAllocatePayments(frm) {
 	let available = flt(frm.doc.total_payments) || (frm.doc.lines || []).reduce((s, r) => s + flt(r.amount_base_currency), 0);
@@ -338,60 +509,79 @@ function autoAllocatePayments(frm) {
 	_recalcDifference(frm);
 }
 
-function convertCurrency(amount, fromCurrency, toCurrency, rate) {
+function convertCurrency(amount, fromCurrency, toCurrency, rate, secCurrency) {
 	amount = flt(amount);
 	rate = flt(rate);
 	if (!rate) return amount;
 	if (fromCurrency === toCurrency) return amount;
 
-	if (fromCurrency === "LBP" && toCurrency === "USD") {
-		return rate > 1.0 ? amount / rate : amount * rate;
-	} else if (fromCurrency === "USD" && toCurrency === "LBP") {
-		return rate > 1.0 ? amount * rate : amount / rate;
+	if (secCurrency && fromCurrency === secCurrency) {
+		if (rate > 1.0) {
+			return amount / rate;
+		} else if (rate > 0) {
+			return amount * rate;
+		}
+		return amount;
+	} else if (secCurrency && toCurrency === secCurrency) {
+		if (rate > 1.0) {
+			return amount * rate;
+		} else if (rate > 0) {
+			return amount / rate;
+		}
+		return amount;
 	}
 	return amount * rate;
 }
 
-// Mirror of Python _to_usd_lbp() — returns { usd, lbp }
-function _toUsdLbp(amount, currency, rowRate, parentRate, companyCurrency) {
+// Mirror of Python _to_dual_currency() — returns { usd, lbp }
+function _toDualCurrency(amount, currency, rowRate, parentRate, companyCurrency, secCurrency) {
 	amount = flt(amount);
 	rowRate = flt(rowRate);
-	parentRate = flt(parentRate) || DEFAULT_LBP_PER_USD;
+	parentRate = flt(parentRate);
 
-	if (currency === "LBP") {
-		return { usd: parentRate ? amount / parentRate : 0, lbp: amount };
-	}
-	if (currency === "USD") {
-		return { usd: amount, lbp: amount * parentRate };
+	if (!secCurrency) {
+		return { usd: amount, lbp: 0 };
 	}
 
-	// Generic currency
-	let usdAmount;
-	if (companyCurrency === "USD") {
-		usdAmount = convertCurrency(amount, currency, "USD", rowRate);
-	} else {
-		const baseAmount = convertCurrency(amount, currency, companyCurrency, rowRate);
-		usdAmount = parentRate ? baseAmount / parentRate : 0;
+	if (currency === secCurrency) {
+		let pri = 0;
+		if (parentRate > 1.0) {
+			pri = amount / parentRate;
+		} else if (parentRate > 0) {
+			pri = amount * parentRate;
+		}
+		return { usd: pri, lbp: amount };
 	}
-	return { usd: usdAmount, lbp: usdAmount * parentRate };
+	if (currency === companyCurrency) {
+		return { usd: amount, lbp: parentRate > 0 ? (parentRate > 1.0 ? amount * parentRate : amount / parentRate) : 0 };
+	}
+
+	// Foreign currency
+	const priAmount = amount * (rowRate || 1.0);
+	const secAmount = parentRate > 0 ? (parentRate > 1.0 ? priAmount * parentRate : priAmount / parentRate) : 0;
+	return { usd: priAmount, lbp: secAmount };
 }
 
-// Recalculate one row: base currency, USD, LBP amounts
+const _toUsdLbp = _toDualCurrency;
+
+// Recalculate one row: base currency and dual currency amounts
 function _recalcBase(frm, cdt, cdn) {
 	const row = locals[cdt][cdn];
 	const amt = flt(row.amount);
 	const rowRate = flt(row.exchange_rate);
-	const parentRate = flt(frm.doc.exchange_rate) || DEFAULT_LBP_PER_USD;
+	const parentRate = flt(frm.doc.exchange_rate);
 	const companyCurrency = frm.doc.company_currency;
+	const secCurrency = frm.doc._secondary_currency;
 
 	// Base currency amount
-	const base = convertCurrency(amt, row.currency, companyCurrency, rowRate);
+	const base = convertCurrency(amt, row.currency, companyCurrency, rowRate, secCurrency);
 	row.amount_base_currency = base;
 
-	// USD and LBP amounts
-	const { usd, lbp } = _toUsdLbp(amt, row.currency, rowRate, parentRate, companyCurrency);
-	row.amount_usd = usd;
-	row.amount_lbp = lbp;
+	// Dual currency amounts
+	const { usd, lbp } = _toDualCurrency(amt, row.currency, rowRate, parentRate, companyCurrency, secCurrency);
+	const precision = frm.doc._secondary_currency_precision != null ? frm.doc._secondary_currency_precision : 2;
+	row.amount_usd = flt(usd, 2);
+	row.amount_lbp = precision === 0 ? Math.round(lbp) : flt(lbp, precision);
 
 	frm.refresh_field("lines");
 	_recalcTotalPayments(frm);
@@ -410,11 +600,12 @@ function _recalcTotalPayments(frm) {
 	const totalBase = lines.reduce((s, r) => s + flt(r.amount_base_currency), 0);
 	const totalUsd  = lines.reduce((s, r) => s + flt(r.amount_usd), 0);
 	const totalLbp  = lines.reduce((s, r) => s + flt(r.amount_lbp), 0);
+	const precision = frm.doc._secondary_currency_precision != null ? frm.doc._secondary_currency_precision : 2;
 
 	frm.set_value("total_payments", totalBase);
 	frm.set_value("total_company_amount", totalBase);
-	frm.set_value("total_usd", totalUsd);
-	frm.set_value("total_lbp", totalLbp);
+	frm.set_value("total_usd", flt(totalUsd, 2));
+	frm.set_value("total_lbp", precision === 0 ? Math.round(totalLbp) : flt(totalLbp, precision));
 
 	_recalcDifference(frm);
 }
@@ -432,5 +623,7 @@ function _recalcDifference(frm) {
 
 	frm.set_value("total_references", totalRefs);
 	frm.set_value("difference", diff);
-	frm.set_value("unallocated_amount", unallocated);
+	if (frm.fields_dict.unallocated_amount) {
+		frm.set_value("unallocated_amount", unallocated);
+	}
 }

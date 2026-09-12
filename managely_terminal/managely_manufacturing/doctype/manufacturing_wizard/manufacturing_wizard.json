@@ -1,0 +1,353 @@
+{
+ "actions": [],
+ "autoname": "naming_series:",
+ "creation": "2026-09-05 12:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "mode",
+  "naming_series",
+  "company",
+  "currency",
+  "column_break_hdr",
+  "selected_bom",
+  "selected_work_order",
+  "tour_btn_html",
+  "stepper_section",
+  "stepper_html",
+  "step_1_section",
+  "production_item",
+  "item_name",
+  "column_break_s1",
+  "qty",
+  "uom",
+  "routing",
+  "step_2_section",
+  "items",
+  "raw_material_cost",
+  "scrap_sub_section",
+  "scrap_items",
+  "scrap_deduction_cost",
+  "step_3_section",
+  "operations",
+  "operating_cost",
+  "step_4_section",
+  "with_quality_inspection",
+  "quality_inspection_template",
+  "column_break_s4",
+  "inspection_required_on_delivery",
+  "inspection_required_on_raw_materials",
+  "step_5_section",
+  "total_cost",
+  "unit_cost",
+  "column_break_s5",
+  "created_bom",
+  "created_work_order",
+  "tracker_section",
+  "work_order_status_html"
+ ],
+ "fields": [
+  {
+   "default": "Create New Cycle",
+   "fieldname": "mode",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Operational Mode",
+   "options": "Create New Cycle\nUpdate Existing BOM\nTrack & Execute Work Order",
+   "reqd": 1
+  },
+  {
+   "default": "MFG-WIZ-.YYYY.-.#####",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Series",
+   "options": "MFG-WIZ-.YYYY.-.#####"
+  },
+  {
+   "fieldname": "company",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Company",
+   "options": "Company",
+   "reqd": 1
+  },
+  {
+   "fieldname": "currency",
+   "fieldtype": "Link",
+   "label": "Currency",
+   "options": "Currency",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_hdr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "depends_on": "eval:doc.mode=='Update Existing BOM'",
+   "fieldname": "selected_bom",
+   "fieldtype": "Link",
+   "label": "Select Existing BOM to Update",
+   "options": "BOM"
+  },
+  {
+   "depends_on": "eval:doc.mode=='Track & Execute Work Order'",
+   "fieldname": "selected_work_order",
+   "fieldtype": "Link",
+   "label": "Select Work Order to Track",
+   "options": "Work Order"
+  },
+  {
+   "fieldname": "tour_btn_html",
+   "fieldtype": "HTML",
+   "label": "Tour Button"
+  },
+  {
+   "depends_on": "eval:doc.mode!='Track & Execute Work Order'",
+   "fieldname": "stepper_section",
+   "fieldtype": "Section Break",
+   "hide_border": 1
+  },
+  {
+   "fieldname": "stepper_html",
+   "fieldtype": "HTML",
+   "label": "Stepper Navigation"
+  },
+  {
+   "collapsible": 0,
+   "depends_on": "eval:doc.mode!='Track & Execute Work Order'",
+   "fieldname": "step_1_section",
+   "fieldtype": "Section Break",
+   "label": "Step 1: Finished Product Definition"
+  },
+  {
+   "fieldname": "production_item",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Finished Item",
+   "options": "Item"
+  },
+  {
+   "fetch_from": "production_item.item_name",
+   "fieldname": "item_name",
+   "fieldtype": "Data",
+   "label": "Item Name",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_s1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "1.0",
+   "fieldname": "qty",
+   "fieldtype": "Float",
+   "label": "Batch Quantity"
+  },
+  {
+   "fetch_from": "production_item.stock_uom",
+   "fieldname": "uom",
+   "fieldtype": "Link",
+   "label": "Stock UOM",
+   "options": "UOM"
+  },
+  {
+   "fieldname": "routing",
+   "fieldtype": "Link",
+   "label": "Routing (Optional Template)",
+   "options": "Routing"
+  },
+  {
+   "collapsible": 0,
+   "depends_on": "eval:doc.mode!='Track & Execute Work Order'",
+   "fieldname": "step_2_section",
+   "fieldtype": "Section Break",
+   "label": "Step 2: Raw Materials & By-Product Scrap"
+  },
+  {
+   "fieldname": "items",
+   "fieldtype": "Table",
+   "label": "Raw Materials",
+   "options": "Manufacturing Wizard Item"
+  },
+  {
+   "fieldname": "raw_material_cost",
+   "fieldtype": "Currency",
+   "label": "Total Raw Material Cost",
+   "read_only": 1
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "scrap_sub_section",
+   "fieldtype": "Section Break",
+   "label": "By-Products & Recovered Scrap (e.g., Egg Yolks)"
+  },
+  {
+   "fieldname": "scrap_items",
+   "fieldtype": "Table",
+   "label": "Scrap & By-Product Items",
+   "options": "Manufacturing Wizard Scrap"
+  },
+  {
+   "fieldname": "scrap_deduction_cost",
+   "fieldtype": "Currency",
+   "label": "Total Scrap Deducted Value",
+   "read_only": 1
+  },
+  {
+   "collapsible": 0,
+   "depends_on": "eval:doc.mode!='Track & Execute Work Order'",
+   "fieldname": "step_3_section",
+   "fieldtype": "Section Break",
+   "label": "Step 3: Workstations & Machines"
+  },
+  {
+   "fieldname": "operations",
+   "fieldtype": "Table",
+   "label": "Operations & Workstations",
+   "options": "Manufacturing Wizard Operation"
+  },
+  {
+   "fieldname": "operating_cost",
+   "fieldtype": "Currency",
+   "label": "Total Operating Cost",
+   "read_only": 1
+  },
+  {
+   "collapsible": 0,
+   "depends_on": "eval:doc.mode!='Track & Execute Work Order'",
+   "fieldname": "step_4_section",
+   "fieldtype": "Section Break",
+   "label": "Step 4: Quality Inspection Parameters"
+  },
+  {
+   "default": "0",
+   "fieldname": "with_quality_inspection",
+   "fieldtype": "Check",
+   "label": "Enable Quality Inspection"
+  },
+  {
+   "depends_on": "eval:doc.with_quality_inspection==1",
+   "fieldname": "quality_inspection_template",
+   "fieldtype": "Link",
+   "label": "Quality Inspection Template",
+   "options": "Quality Inspection Template"
+  },
+  {
+   "fieldname": "column_break_s4",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.with_quality_inspection==1",
+   "fieldname": "inspection_required_on_delivery",
+   "fieldtype": "Check",
+   "label": "Mandatory Inspection Before Finished Goods Receipt"
+  },
+  {
+   "default": "0",
+   "depends_on": "eval:doc.with_quality_inspection==1",
+   "fieldname": "inspection_required_on_raw_materials",
+   "fieldtype": "Check",
+   "label": "Mandatory Inspection on Raw Materials Transfer"
+  },
+  {
+   "collapsible": 0,
+   "depends_on": "eval:doc.mode!='Track & Execute Work Order'",
+   "fieldname": "step_5_section",
+   "fieldtype": "Section Break",
+   "label": "Step 5: Costing Summary & Launch"
+  },
+  {
+   "fieldname": "total_cost",
+   "fieldtype": "Currency",
+   "label": "Total Calculated Cost",
+   "read_only": 1
+  },
+  {
+   "fieldname": "unit_cost",
+   "fieldtype": "Currency",
+   "label": "Unit Cost",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_s5",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "created_bom",
+   "fieldtype": "Link",
+   "label": "Generated BOM",
+   "options": "BOM",
+   "read_only": 1
+  },
+  {
+   "fieldname": "created_work_order",
+   "fieldtype": "Link",
+   "label": "Generated Work Order",
+   "options": "Work Order",
+   "read_only": 1
+  },
+  {
+   "collapsible": 0,
+   "depends_on": "eval:doc.mode=='Track & Execute Work Order'",
+   "fieldname": "tracker_section",
+   "fieldtype": "Section Break",
+   "label": "Work Order Live Operations Center"
+  },
+  {
+   "fieldname": "work_order_status_html",
+   "fieldtype": "HTML",
+   "label": "Work Order Status"
+  }
+ ],
+ "links": [],
+ "modified": "2026-09-05 12:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Managely Manufacturing",
+ "name": "Manufacturing Wizard",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Manufacturing Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "delete": 0,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Manufacturing User",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

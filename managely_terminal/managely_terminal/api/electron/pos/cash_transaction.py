@@ -48,7 +48,7 @@ def get_cash_io_config(pos_profile=None):
         if opening_entry:
             company = frappe.db.get_value("POS Opening Entry", opening_entry, "company")
 
-    company_currency = frappe.get_cached_value("Company", company, "default_currency") if company else (frappe.db.get_default("currency") or frappe.db.get_single_value("System Settings", "default_currency") or frappe.db.get_value("Company", {}, "default_currency") or "USD")
+    company_currency = frappe.get_cached_value("Company", company, "default_currency") if company else (frappe.db.get_default("currency") or frappe.db.get_single_value("System Settings", "default_currency") or frappe.db.get_value("Company", {}, "default_currency"))
 
     allowed_modes = []
     for am in allowed_modes_raw:
@@ -67,7 +67,7 @@ def get_cash_io_config(pos_profile=None):
                     currency = acc_currency
 
         if not currency:
-            currency = company_currency or "USD"
+            currency = company_currency
 
         symbol = frappe.db.get_value("Currency", currency, "symbol") or currency
         allowed_modes.append({

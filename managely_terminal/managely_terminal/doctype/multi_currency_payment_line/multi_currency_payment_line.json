@@ -48,7 +48,8 @@
    "fieldname": "amount_base_currency",
    "fieldtype": "Currency",
    "in_list_view": 1,
-   "label": "Amount (Base)",
+   "label": "Amount",
+   "options": "Company:company:default_currency",
    "read_only": 1,
    "columns": 2
   },
@@ -88,15 +89,16 @@
    "fieldname": "amount_usd",
    "fieldtype": "Currency",
    "hidden": 1,
-   "label": "USD Amount",
+   "label": "Amount",
+   "options": "Company:company:default_currency",
    "read_only": 1
   },
   {
    "fieldname": "amount_lbp",
    "fieldtype": "Currency",
    "hidden": 1,
-   "label": "LBP Amount",
-   "precision": "0",
+   "label": "Amount",
+   "options": "Company:company:custom_secondary_currency",
    "read_only": 1
   }
  ],

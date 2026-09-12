@@ -845,10 +845,12 @@ _SALES_INVOICE_EN_HTML = """
             <div style="width: 180px; margin-bottom: 15px;">
                 {{ LOGO_SQUARE }}
             </div>
-            <div style="font-size: 11px; line-height: 1.6; color: #555;">
+            <div style="font-size: 11px; color: #555; margin-top: 8px; line-height: 1.5;">
                 <div class="bold" style="color: #111; font-size: 13px;">{{ doc.company }}</div>
-                <div>zouk branch</div>
-                <div>Lebanon</div>
+                {% set comp_addr = doc.company_address_display or "" %}
+                {% if comp_addr %}
+                <div>{{ comp_addr.replace("<br>", ", ") }}</div>
+                {% endif %}
                 {% if doc.tax_id %}<div>VAT No: <span class="bold">{{ doc.tax_id }}</span></div>{% endif %}
             </div>
         </div>
@@ -867,8 +869,15 @@ _SALES_INVOICE_EN_HTML = """
         <div style="font-size: 11px; line-height: 1.6; color: #555;">
             <div class="bold" style="color: #111; font-size: 13px;">{{ doc.customer_name or doc.customer }}</div>
             {% if doc.customer_tax_id %}<div>VAT No: <span class="bold">{{ doc.customer_tax_id }}</span></div>{% endif %}
-            {% if doc.billing_address_display %}
-            <div style="margin-top: 4px;">{{ doc.billing_address_display.replace("<br>", ", ") }}</div>
+            {% set cust_address = doc.address_display or doc.billing_address_display or "" %}
+            {% if not cust_address and doc.customer_address %}
+                {% set cust_address = frappe.db.get_value("Address", doc.customer_address, "address_line1") or "" %}
+            {% endif %}
+            {% if not cust_address and doc.custom_transaction_description %}
+                {% set cust_address = doc.custom_transaction_description %}
+            {% endif %}
+            {% if cust_address and cust_address.strip() %}
+            <div style="margin-top: 4px;">{{ cust_address.strip().replace("<br>", ", ").replace("\n", ", ") }}</div>
             {% endif %}
         </div>
     </div>
@@ -1075,9 +1084,11 @@ _SALES_INVOICE_AR_HTML = """
                 {{ LOGO_SQUARE }}
             </div>
             <div style="font-size: 11px; line-height: 1.6; color: #555;">
-                <div class="bold" style="color: #111; font-size: 13px;">سلطان جلوبال</div>
-                <div>فرع ذوق مصبح</div>
-                <div>لبنان</div>
+                <div class="bold" style="color: #111; font-size: 13px;">{{ doc.company }}</div>
+                {% set comp_addr = doc.company_address_display or "" %}
+                {% if comp_addr %}
+                <div>{{ comp_addr.replace("<br>", ", ") }}</div>
+                {% endif %}
                 {% if doc.tax_id %}<div>الرقم الضريبي: <span class="bold">{{ doc.tax_id }}</span></div>{% endif %}
             </div>
         </div>
@@ -1096,8 +1107,15 @@ _SALES_INVOICE_AR_HTML = """
         <div style="font-size: 11px; line-height: 1.6; color: #555;">
             <div class="bold" style="color: #111; font-size: 13px;">{{ doc.customer_name or doc.customer }}</div>
             {% if doc.customer_tax_id %}<div>الرقم الضريبي للعميل: <span class="bold">{{ doc.customer_tax_id }}</span></div>{% endif %}
-            {% if doc.billing_address_display %}
-            <div style="margin-top: 4px;">{{ doc.billing_address_display.replace("<br>", ", ") }}</div>
+            {% set cust_address = doc.address_display or doc.billing_address_display or "" %}
+            {% if not cust_address and doc.customer_address %}
+                {% set cust_address = frappe.db.get_value("Address", doc.customer_address, "address_line1") or "" %}
+            {% endif %}
+            {% if not cust_address and doc.custom_transaction_description %}
+                {% set cust_address = doc.custom_transaction_description %}
+            {% endif %}
+            {% if cust_address and cust_address.strip() %}
+            <div style="margin-top: 4px;">{{ cust_address.strip().replace("<br>", ", ").replace("\n", ", ") }}</div>
             {% endif %}
         </div>
     </div>

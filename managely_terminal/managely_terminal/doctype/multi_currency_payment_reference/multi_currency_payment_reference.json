@@ -56,6 +56,7 @@
    "fieldtype": "Currency",
    "in_list_view": 1,
    "label": "Grand Total",
+   "options": "Company:company:default_currency",
    "read_only": 1
   },
   {
@@ -64,6 +65,7 @@
    "fieldtype": "Currency",
    "in_list_view": 1,
    "label": "Outstanding",
+   "options": "Company:company:default_currency",
    "read_only": 1
   },
   {
@@ -72,6 +74,7 @@
    "fieldtype": "Currency",
    "in_list_view": 1,
    "label": "Allocated",
+   "options": "Company:company:default_currency",
    "reqd": 1
   }
  ],

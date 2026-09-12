@@ -22,10 +22,8 @@
    "fieldname": "exchange_rate",
    "fieldtype": "Float",
    "in_list_view": 1,
-   "label": "Exchange Rate (base per 1 unit)",
-   "reqd": 1,
-   "default": "1.0",
-   "description": "How many base currency units equal 1 unit of this currency. E.g. 150 means 150 EGP = 1 USD."
+   "label": "Exchange Rate",
+   "reqd": 1
   },
   {
    "fieldname": "symbol",

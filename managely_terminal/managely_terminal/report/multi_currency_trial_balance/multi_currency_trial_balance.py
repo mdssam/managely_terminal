@@ -21,7 +21,7 @@ value_fields = (
 def execute(filters=None):
 	filters = frappe._dict(filters or {})
 	validate_filters(filters)
-	columns = get_columns()
+	columns = get_columns(filters)
 	data = get_data(filters)
 	return columns, data
 
@@ -33,13 +33,39 @@ def validate_filters(filters):
 		frappe.throw(_("From Date and To Date are required"))
 	if filters.from_date > filters.to_date:
 		frappe.throw(_("From Date cannot be after To Date"))
+
+	from managely_terminal.managely_terminal.accounting.customizations import (
+		get_company_secondary_currency,
+		get_company_dual_rate,
+	)
+	sec_curr = get_company_secondary_currency(filters.company)
+	if not sec_curr:
+		frappe.throw(
+			_("Secondary Currency is not configured for Company {0}. Please set Secondary Currency in Company master to view this report.").format(filters.company)
+		)
+
 	if not filters.exchange_rate:
-		filters.exchange_rate = 89500.0
+		filters.exchange_rate = get_company_dual_rate(filters.company, filters.to_date)
+		if not filters.exchange_rate:
+			pri_curr = frappe.get_cached_value("Company", filters.company, "default_currency")
+			frappe.throw(
+				_("No exchange rate found between {0} and {1}. Please enter an Exchange Rate.").format(
+					pri_curr, sec_curr
+				)
+			)
 	else:
 		filters.exchange_rate = flt(filters.exchange_rate)
 
 
-def get_columns():
+def get_columns(filters=None):
+	company = filters.get("company") if filters else None
+	if not company:
+		company = frappe.defaults.get_user_default("Company")
+
+	pri_curr = frappe.get_cached_value("Company", company, "default_currency") if company else ""
+	from managely_terminal.managely_terminal.accounting.customizations import get_company_secondary_currency
+	sec_curr = get_company_secondary_currency(company) if company else ""
+
 	return [
 		{
 			"label": _("Account"),
@@ -55,87 +81,87 @@ def get_columns():
 			"width": 120,
 		},
 		{
-			"label": _("Opening Debit USD"),
+			"label": _("Opening Debit {0}").format(pri_curr),
 			"fieldname": "opening_debit_usd",
 			"fieldtype": "Currency",
-			"options": "USD",
+			"options": pri_curr,
 			"width": 140,
 		},
 		{
-			"label": _("Opening Credit USD"),
+			"label": _("Opening Credit {0}").format(pri_curr),
 			"fieldname": "opening_credit_usd",
 			"fieldtype": "Currency",
-			"options": "USD",
+			"options": pri_curr,
 			"width": 140,
 		},
 		{
-			"label": _("Opening Debit LBP"),
+			"label": _("Opening Debit {0}").format(sec_curr),
 			"fieldname": "opening_debit_lbp",
 			"fieldtype": "Currency",
-			"options": "LBP",
+			"options": sec_curr,
 			"width": 140,
 		},
 		{
-			"label": _("Opening Credit LBP"),
+			"label": _("Opening Credit {0}").format(sec_curr),
 			"fieldname": "opening_credit_lbp",
 			"fieldtype": "Currency",
-			"options": "LBP",
+			"options": sec_curr,
 			"width": 140,
 		},
 		{
-			"label": _("Period Debit USD"),
+			"label": _("Period Debit {0}").format(pri_curr),
 			"fieldname": "period_debit_usd",
 			"fieldtype": "Currency",
-			"options": "USD",
+			"options": pri_curr,
 			"width": 140,
 		},
 		{
-			"label": _("Period Credit USD"),
+			"label": _("Period Credit {0}").format(pri_curr),
 			"fieldname": "period_credit_usd",
 			"fieldtype": "Currency",
-			"options": "USD",
+			"options": pri_curr,
 			"width": 140,
 		},
 		{
-			"label": _("Period Debit LBP"),
+			"label": _("Period Debit {0}").format(sec_curr),
 			"fieldname": "period_debit_lbp",
 			"fieldtype": "Currency",
-			"options": "LBP",
+			"options": sec_curr,
 			"width": 140,
 		},
 		{
-			"label": _("Period Credit LBP"),
+			"label": _("Period Credit {0}").format(sec_curr),
 			"fieldname": "period_credit_lbp",
 			"fieldtype": "Currency",
-			"options": "LBP",
+			"options": sec_curr,
 			"width": 140,
 		},
 		{
-			"label": _("Closing Debit USD"),
+			"label": _("Closing Debit {0}").format(pri_curr),
 			"fieldname": "closing_debit_usd",
 			"fieldtype": "Currency",
-			"options": "USD",
+			"options": pri_curr,
 			"width": 140,
 		},
 		{
-			"label": _("Closing Credit USD"),
+			"label": _("Closing Credit {0}").format(pri_curr),
 			"fieldname": "closing_credit_usd",
 			"fieldtype": "Currency",
-			"options": "USD",
+			"options": pri_curr,
 			"width": 140,
 		},
 		{
-			"label": _("Closing Debit LBP"),
+			"label": _("Closing Debit {0}").format(sec_curr),
 			"fieldname": "closing_debit_lbp",
 			"fieldtype": "Currency",
-			"options": "LBP",
+			"options": sec_curr,
 			"width": 140,
 		},
 		{
-			"label": _("Closing Credit LBP"),
+			"label": _("Closing Credit {0}").format(sec_curr),
 			"fieldname": "closing_credit_lbp",
 			"fieldtype": "Currency",
-			"options": "LBP",
+			"options": sec_curr,
 			"width": 140,
 		},
 		{
@@ -184,7 +210,7 @@ def get_data(filters):
 
 	# Fetch GL amounts for leaves
 	gl_amounts = get_gl_amounts(filters)
-	rate = flt(filters.exchange_rate) or 89500.0
+	rate = flt(filters.exchange_rate) or 1.0
 
 	# Calculate base values for each account
 	for acc in ordered_accounts:
@@ -224,14 +250,21 @@ def get_data(filters):
 	# Accumulate leaf values into parents (bottom-up traversal)
 	accumulate_into_parents(ordered_accounts, accounts_by_name)
 
-	# Compute LBP values from accumulated USD values
+	# Compute secondary currency values from accumulated base values
+	sec_curr = frappe.get_cached_value("Company", filters.company, "custom_secondary_currency")
+	frac_units = frappe.get_cached_value("Currency", sec_curr, "fraction_units") if sec_curr else 2
+	precision = 0 if frac_units == 0 else 2
+
 	for acc in ordered_accounts:
-		acc["opening_debit_lbp"] = flt(acc["opening_debit_usd"] * rate, 0)
-		acc["opening_credit_lbp"] = flt(acc["opening_credit_usd"] * rate, 0)
-		acc["period_debit_lbp"] = flt(acc["period_debit_usd"] * rate, 0)
-		acc["period_credit_lbp"] = flt(acc["period_credit_usd"] * rate, 0)
-		acc["closing_debit_lbp"] = flt(acc["closing_debit_usd"] * rate, 0)
-		acc["closing_credit_lbp"] = flt(acc["closing_credit_usd"] * rate, 0)
+		for field in ("opening_debit", "opening_credit", "period_debit", "period_credit", "closing_debit", "closing_credit"):
+			pri_val = acc[f"{field}_usd"]
+			if rate > 1.0:
+				sec_val = pri_val * rate
+			elif rate > 0:
+				sec_val = pri_val / rate
+			else:
+				sec_val = pri_val
+			acc[f"{field}_lbp"] = flt(sec_val, precision)
 
 	# Format output rows and track rows with value
 	data = []
@@ -250,7 +283,10 @@ def get_data(filters):
 			"has_value": has_value,
 		}
 		for f in value_fields:
-			row[f] = flt(acc.get(f, 0.0), 2)
+			if f.endswith("_lbp"):
+				row[f] = flt(acc.get(f, 0.0), precision)
+			else:
+				row[f] = flt(acc.get(f, 0.0), 2)
 
 		data.append(row)
 

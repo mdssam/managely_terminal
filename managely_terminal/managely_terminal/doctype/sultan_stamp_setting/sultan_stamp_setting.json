@@ -23,8 +23,7 @@
    "fieldname": "amount_lbp",
    "fieldtype": "Currency",
    "in_list_view": 1,
-   "label": "Stamp Amount LBP",
-   "precision": "0",
+   "label": "Stamp Amount",
    "reqd": 1
   },
   {

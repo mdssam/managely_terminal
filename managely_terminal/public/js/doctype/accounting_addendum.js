@@ -1,23 +1,20 @@
 (function () {
 	let latestExchangeRate = null;
 
-	function fetchLatestExchangeRate(callback) {
-		if (latestExchangeRate) {
-			if (callback) callback(latestExchangeRate);
+	function fetchLatestExchangeRate(company, callback) {
+		if (!company) {
+			if (callback) callback(null);
 			return;
 		}
 		frappe.call({
-			method: "managely_terminal.managely_terminal.accounting.customizations.get_lbp_usd_rate",
+			method: "managely_terminal.managely_terminal.accounting.customizations.get_company_dual_rate",
+			args: { company: company },
 			callback: function (r) {
-				if (r.message) {
-					latestExchangeRate = flt(r.message);
-				}
+				latestExchangeRate = r.message ? flt(r.message) : null;
 				if (callback) callback(latestExchangeRate);
 			},
 		});
 	}
-
-	fetchLatestExchangeRate();
 
 	const transactionTables = {
 		"Sales Invoice": ["items"],
@@ -27,23 +24,120 @@
 	};
 
 	function getRate(frm) {
-		return flt(frm && frm.doc && frm.doc.custom_exchange_rate_override) || latestExchangeRate || 1.0;
+		return flt(frm && frm.doc && frm.doc.custom_exchange_rate_override) || latestExchangeRate || 0.0;
+	}
+
+	function toggleDualCurrencyFields(frm, enabled, priCurr, secCurr) {
+		const isHidden = enabled ? 0 : 1;
+
+		if (frm.fields_dict.custom_exchange_rate_override) {
+			frm.set_df_property("custom_exchange_rate_override", "hidden", isHidden);
+			if (enabled) {
+				frm.set_df_property("custom_exchange_rate_override", "label", __("Exchange Rate"));
+			}
+		}
+		if (frm.fields_dict.custom_total_usd) {
+			frm.set_df_property("custom_total_usd", "hidden", isHidden);
+		}
+		if (frm.fields_dict.custom_total_lbp) {
+			frm.set_df_property("custom_total_lbp", "hidden", isHidden);
+		}
+
+		(transactionTables[frm.doctype] || []).forEach((tableField) => {
+			const grid = frm.fields_dict[tableField] && frm.fields_dict[tableField].grid;
+			if (!grid) return;
+			grid.set_column_disp("custom_usd_amount", enabled);
+			grid.set_column_disp("custom_lbp_amount", enabled);
+		});
+
+		if (frm.fields_dict.taxes && frm.fields_dict.taxes.grid) {
+			frm.fields_dict.taxes.grid.set_column_disp("custom_is_stamp", enabled);
+			frm.fields_dict.taxes.grid.set_column_disp("custom_stamp_amount_lbp", enabled);
+		}
+
+		// Dynamic currency labels using standard Frappe set_currency_labels
+		if (enabled && priCurr) {
+			frm.set_currency_labels(["custom_total_usd"], priCurr);
+			(transactionTables[frm.doctype] || []).forEach((tableField) => {
+				const grid = frm.fields_dict[tableField] && frm.fields_dict[tableField].grid;
+				if (grid) {
+					frm.set_currency_labels(["custom_usd_amount"], priCurr, tableField);
+					grid.refresh();
+				}
+			});
+		}
+
+		if (enabled && secCurr) {
+			frm.set_currency_labels(["custom_total_lbp"], secCurr);
+			(transactionTables[frm.doctype] || []).forEach((tableField) => {
+				const grid = frm.fields_dict[tableField] && frm.fields_dict[tableField].grid;
+				if (grid) {
+					frm.set_currency_labels(["custom_lbp_amount"], secCurr, tableField);
+					grid.refresh();
+				}
+			});
+			if (frm.fields_dict.taxes && frm.fields_dict.taxes.grid) {
+				frm.set_currency_labels(["custom_stamp_amount_lbp"], secCurr, "taxes");
+				frm.fields_dict.taxes.grid.refresh();
+			}
+		}
+
+		frm.refresh_fields();
+	}
+
+	function syncCompanyCurrencies(frm, callback) {
+		if (!frm.doc.company) {
+			frm.doc._primary_currency = null;
+			frm.doc._secondary_currency = null;
+			frm.doc._secondary_currency_precision = 2;
+			toggleDualCurrencyFields(frm, false);
+			if (callback) callback(null);
+			return;
+		}
+
+		frappe.call({
+			method: "managely_terminal.managely_terminal.accounting.customizations.get_company_currency_config",
+			args: { company: frm.doc.company },
+			callback: function (r) {
+				const cfg = r.message || {};
+				if (cfg.custom_secondary_currency) {
+					frm.doc._primary_currency = cfg.default_currency;
+					frm.doc._secondary_currency = cfg.custom_secondary_currency;
+					frm.doc._secondary_currency_precision = cfg.fraction_units === 0 ? 0 : 2;
+					toggleDualCurrencyFields(frm, true, cfg.default_currency, cfg.custom_secondary_currency);
+					if (callback) callback(cfg);
+				} else {
+					frm.doc._primary_currency = cfg.default_currency || null;
+					frm.doc._secondary_currency = null;
+					frm.doc._secondary_currency_precision = 2;
+					toggleDualCurrencyFields(frm, false, cfg.default_currency, null);
+					if (callback) callback(cfg);
+				}
+			},
+		});
 	}
 
 	function recalculateStampTaxes(frm) {
 		if (frm.doctype !== "Sales Invoice" && frm.doctype !== "Purchase Invoice") return;
+		if (!frm.doc._secondary_currency) return;
+
 		const taxes = frm.doc.taxes || [];
-		const currency = frm.doc.currency || "USD";
+		const currency = frm.doc.currency || frm.doc._primary_currency;
 		const rate = getRate(frm);
+		if (!rate) return;
 		let changed = false;
 
-		taxes.forEach(tax => {
+		taxes.forEach((tax) => {
 			if (!tax.custom_is_stamp || !flt(tax.custom_stamp_amount_lbp)) return;
-			const lbpAmount = flt(tax.custom_stamp_amount_lbp);
-			const taxAmount = currency === "LBP" ? lbpAmount : flt(lbpAmount / rate);
+			const stampAmount = flt(tax.custom_stamp_amount_lbp);
+			const secCurr = frm.doc._secondary_currency;
+			const taxAmount = (currency === secCurr) ? stampAmount : (rate > 1.0 ? flt(stampAmount / rate) : flt(stampAmount * rate));
 
-			if (tax.charge_type !== "Actual" || flt(tax.rate) !== 0 ||
-				Math.abs(flt(tax.tax_amount) - taxAmount) > 0.001) {
+			if (
+				tax.charge_type !== "Actual" ||
+				flt(tax.rate) !== 0 ||
+				Math.abs(flt(tax.tax_amount) - taxAmount) > 0.001
+			) {
 				frappe.model.set_value(tax.doctype, tax.name, "charge_type", "Actual");
 				frappe.model.set_value(tax.doctype, tax.name, "rate", 0);
 				frappe.model.set_value(tax.doctype, tax.name, "tax_amount", taxAmount);
@@ -55,7 +149,7 @@
 	}
 
 	function getCurrency(frm) {
-		return frm.doc.currency || frm.doc.paid_from_account_currency || "USD";
+		return frm.doc.currency || frm.doc.paid_from_account_currency || frm.doc._primary_currency;
 	}
 
 	function getLineAmount(row) {
@@ -75,53 +169,51 @@
 	}
 
 	function setDualCurrencyValues(frm, row) {
-		if (!row) return;
+		if (!row || !frm.doc._secondary_currency) return;
 		const amount = getLineAmount(row);
 		const rate = getRate(frm);
+		if (!rate) return;
+
 		const currency = row.account_currency || getCurrency(frm);
-		const companyCurrency = frm.doc.company_currency || (frappe.boot && frappe.boot.sysdefaults && frappe.boot.sysdefaults.currency) || "USD";
+		const companyCurrency = frm.doc._primary_currency || frm.doc.company_currency;
+		if (!companyCurrency) return;
 
-		let usdAmount = amount;
-		let lbpAmount = amount;
+		const secCurrency = frm.doc._secondary_currency;
+		let priAmount = amount;
+		let secAmount = amount;
 
-		if (currency === "LBP") {
-			usdAmount = amount / rate;
-			lbpAmount = amount;
-		} else if (currency === "USD") {
-			usdAmount = amount;
-			lbpAmount = amount * rate;
+		if (currency === secCurrency) {
+			priAmount = (rate > 1.0) ? (amount / rate) : (amount * rate);
+			secAmount = amount;
+		} else if (currency === companyCurrency) {
+			priAmount = amount;
+			secAmount = (rate > 1.0) ? (amount * rate) : (amount / rate);
 		} else {
-			// Generic currency: convert to USD
 			const rowExchangeRate = flt(row.exchange_rate) || flt(frm.doc.conversion_rate) || 1.0;
-			if (companyCurrency === "USD") {
-				usdAmount = amount * rowExchangeRate;
-			} else {
-				const baseAmount = amount * rowExchangeRate;
-				usdAmount = baseAmount / rate;
-			}
-			lbpAmount = usdAmount * rate;
+			priAmount = amount * rowExchangeRate;
+			secAmount = (rate > 1.0) ? (priAmount * rate) : (priAmount / rate);
 		}
 
-		const roundedLbp = Math.round(lbpAmount);
+		const precision = frm.doc._secondary_currency_precision != null ? frm.doc._secondary_currency_precision : 2;
+		const roundedSec = precision === 0 ? Math.round(secAmount) : flt(secAmount, precision);
 
-		// Only call set_value when the value actually changed — calling set_value
-		// unconditionally (even with the same value) can mark the parent form dirty
-		// which causes the "Not Saved" banner to reappear immediately after every save.
-		if (Math.abs(flt(row.custom_usd_amount) - usdAmount) > 0.001) {
-			frappe.model.set_value(row.doctype, row.name, "custom_usd_amount", usdAmount);
+		if (Math.abs(flt(row.custom_usd_amount) - priAmount) > 0.001) {
+			frappe.model.set_value(row.doctype, row.name, "custom_usd_amount", priAmount);
 		}
-		if (flt(row.custom_lbp_amount) !== roundedLbp) {
-			frappe.model.set_value(row.doctype, row.name, "custom_lbp_amount", roundedLbp);
+		if (flt(row.custom_lbp_amount) !== roundedSec) {
+			frappe.model.set_value(row.doctype, row.name, "custom_lbp_amount", roundedSec);
 		}
 	}
 
 	function refreshDualCurrency(frm) {
-		let totalUsd = 0;
-		let totalLbp = 0;
-		let totalUsdDebit = 0;
-		let totalLbpDebit = 0;
-		let totalUsdCredit = 0;
-		let totalLbpCredit = 0;
+		if (!frm.doc._secondary_currency) return;
+
+		let totalPri = 0;
+		let totalSec = 0;
+		let totalPriDebit = 0;
+		let totalSecDebit = 0;
+		let totalPriCredit = 0;
+		let totalSecCredit = 0;
 		const isJe = frm.doctype === "Journal Entry";
 
 		(transactionTables[frm.doctype] || []).forEach((tableField) => {
@@ -130,75 +222,70 @@
 				if (isJe) {
 					const isDebit = flt(row.debit) > 0 || flt(row.debit_in_account_currency) > 0;
 					if (isDebit) {
-						totalUsdDebit += flt(row.custom_usd_amount);
-						totalLbpDebit += flt(row.custom_lbp_amount);
+						totalPriDebit += flt(row.custom_usd_amount);
+						totalSecDebit += flt(row.custom_lbp_amount);
 					} else {
-						totalUsdCredit += flt(row.custom_usd_amount);
-						totalLbpCredit += flt(row.custom_lbp_amount);
+						totalPriCredit += flt(row.custom_usd_amount);
+						totalSecCredit += flt(row.custom_lbp_amount);
 					}
 				} else {
-					totalUsd += flt(row.custom_usd_amount);
-					totalLbp += flt(row.custom_lbp_amount);
+					totalPri += flt(row.custom_usd_amount);
+					totalSec += flt(row.custom_lbp_amount);
 				}
 			});
 			frm.refresh_field(tableField);
 		});
 
 		if (isJe) {
-			totalUsd = totalUsdDebit > 0 ? totalUsdDebit : totalUsdCredit;
-			totalLbp = totalLbpDebit > 0 ? totalLbpDebit : totalLbpCredit;
+			totalPri = totalPriDebit > 0 ? totalPriDebit : totalPriCredit;
+			totalSec = totalSecDebit > 0 ? totalSecDebit : totalSecCredit;
 		} else if (frm.doctype === "Sales Invoice" || frm.doctype === "Purchase Invoice") {
 			const finalAmount = flt(frm.doc.rounded_total) || flt(frm.doc.grand_total);
 			const currency = getCurrency(frm);
 			const rate = getRate(frm);
-			const companyCurrency = frm.doc.company_currency || (frappe.boot && frappe.boot.sysdefaults && frappe.boot.sysdefaults.currency) || "USD";
-			
-			if (currency === "LBP") {
-				totalUsd = finalAmount / rate;
-				totalLbp = finalAmount;
-			} else if (currency === "USD") {
-				totalUsd = finalAmount;
-				totalLbp = finalAmount * rate;
+			const companyCurrency = frm.doc._primary_currency || frm.doc.company_currency;
+			const secCurrency = frm.doc._secondary_currency;
+
+			if (currency === secCurrency) {
+				totalPri = rate > 1.0 ? finalAmount / rate : finalAmount * rate;
+				totalSec = finalAmount;
+			} else if (currency === companyCurrency) {
+				totalPri = finalAmount;
+				totalSec = rate > 1.0 ? finalAmount * rate : finalAmount / rate;
 			} else {
 				const rowExchangeRate = flt(frm.doc.conversion_rate) || 1.0;
-				if (companyCurrency === "USD") {
-					totalUsd = finalAmount * rowExchangeRate;
-				} else {
-					const baseAmount = finalAmount * rowExchangeRate;
-					totalUsd = baseAmount / rate;
-				}
-				totalLbp = totalUsd * rate;
+				totalPri = finalAmount * rowExchangeRate;
+				totalSec = rate > 1.0 ? totalPri * rate : totalPri / rate;
 			}
 		} else if (frm.doctype === "Payment Entry") {
-			const finalAmount = flt(frm.doc.paid_amount) || flt(frm.doc.received_amount) || totalUsd;
-			const currency = frm.doc.payment_type === "Pay" ? (frm.doc.paid_from_account_currency || getCurrency(frm)) : (frm.doc.paid_to_account_currency || getCurrency(frm));
+			const finalAmount = flt(frm.doc.paid_amount) || flt(frm.doc.received_amount) || totalPri;
+			const currency = frm.doc.payment_type === "Pay"
+				? (frm.doc.paid_from_account_currency || getCurrency(frm))
+				: (frm.doc.paid_to_account_currency || getCurrency(frm));
 			const rate = getRate(frm);
-			const companyCurrency = frm.doc.company_currency || (frappe.boot && frappe.boot.sysdefaults && frappe.boot.sysdefaults.currency) || "USD";
+			const companyCurrency = frm.doc._primary_currency || frm.doc.company_currency;
+			const secCurrency = frm.doc._secondary_currency;
 
-			if (currency === "LBP") {
-				totalUsd = finalAmount / rate;
-				totalLbp = finalAmount;
-			} else if (currency === "USD") {
-				totalUsd = finalAmount;
-				totalLbp = finalAmount * rate;
+			if (currency === secCurrency) {
+				totalPri = rate > 1.0 ? finalAmount / rate : finalAmount * rate;
+				totalSec = finalAmount;
+			} else if (currency === companyCurrency) {
+				totalPri = finalAmount;
+				totalSec = rate > 1.0 ? finalAmount * rate : finalAmount / rate;
 			} else {
 				const rowExchangeRate = flt(frm.doc.source_exchange_rate) || flt(frm.doc.target_exchange_rate) || 1.0;
-				if (companyCurrency === "USD") {
-					totalUsd = finalAmount * rowExchangeRate;
-				} else {
-					const baseAmount = finalAmount * rowExchangeRate;
-					totalUsd = baseAmount / rate;
-				}
-				totalLbp = totalUsd * rate;
+				totalPri = finalAmount * rowExchangeRate;
+				totalSec = rate > 1.0 ? totalPri * rate : totalPri / rate;
 			}
 		}
 
-		const roundedLbp = Math.round(totalLbp);
-		if (frappe.meta.has_field(frm.doctype, "custom_total_usd") && Math.abs(flt(frm.doc.custom_total_usd) - totalUsd) > 0.001) {
-			frm.set_value("custom_total_usd", totalUsd);
+		const precision = frm.doc._secondary_currency_precision != null ? frm.doc._secondary_currency_precision : 2;
+		const roundedSec = precision === 0 ? Math.round(totalSec) : flt(totalSec, precision);
+		if (frappe.meta.has_field(frm.doctype, "custom_total_usd") && Math.abs(flt(frm.doc.custom_total_usd) - totalPri) > 0.001) {
+			frm.set_value("custom_total_usd", totalPri);
 		}
-		if (frappe.meta.has_field(frm.doctype, "custom_total_lbp") && flt(frm.doc.custom_total_lbp) !== roundedLbp) {
-			frm.set_value("custom_total_lbp", roundedLbp);
+		if (frappe.meta.has_field(frm.doctype, "custom_total_lbp") && flt(frm.doc.custom_total_lbp) !== roundedSec) {
+			frm.set_value("custom_total_lbp", roundedSec);
 		}
 	}
 
@@ -236,6 +323,7 @@
 			});
 		});
 	}
+
 	function setupTransactionForm(doctype) {
 		frappe.ui.form.on(doctype, {
 			onload(frm) {
@@ -244,60 +332,84 @@
 				}
 			},
 			refresh(frm) {
-				// Only set the default on new unsaved documents — the server hook sets it on save,
-				// and calling frm.set_value on an already-saved doc marks it dirty immediately.
-				if (frm.is_new() && !frm.doc.custom_exchange_rate_override) {
-					fetchLatestExchangeRate(function (rate) {
-						if (!frm.doc.custom_exchange_rate_override && rate) {
-							frm.set_value("custom_exchange_rate_override", rate);
+				syncCompanyCurrencies(frm, () => {
+					if (frm.doc._secondary_currency) {
+						if (frm.is_new() && !frm.doc.custom_exchange_rate_override && frm.doc.company) {
+							fetchLatestExchangeRate(frm.doc.company, (rate) => {
+								if (!frm.doc.custom_exchange_rate_override && rate) {
+									frm.set_value("custom_exchange_rate_override", rate);
+									refreshDualCurrency(frm);
+									recalculateStampTaxes(frm);
+								}
+							});
+						}
+						refreshDualCurrency(frm);
+					}
+				});
+
+				attachEnterToAddRows(frm);
+
+				// Add custom "Add Stamp" button to taxes grid if secondary currency exists
+				if (frm.doctype === "Sales Invoice" || frm.doctype === "Purchase Invoice") {
+					if (frm.fields_dict.taxes && frm.fields_dict.taxes.grid) {
+						frm.fields_dict.taxes.grid.add_custom_button(__("Add Stamp"), function () {
+							if (!frm.doc._secondary_currency) {
+								frappe.msgprint(__("Secondary currency is not configured for this company."));
+								return;
+							}
+							frappe.call({
+								method: "frappe.client.get",
+								args: { doctype: "Terminal Settings" },
+								callback: function (r) {
+									if (r.message && r.message.stamps) {
+										const child_doctype = frm.doctype === "Sales Invoice" ? "Sales Taxes and Charges" : "Purchase Taxes and Charges";
+										let added = false;
+										r.message.stamps.forEach((setting) => {
+											const exists = (frm.doc.taxes || []).some(
+												(t) => t.account_head === setting.account && t.custom_is_stamp
+											);
+											if (!exists) {
+												const row = frappe.model.add_child(frm.doc, child_doctype, "taxes");
+												row.charge_type = "Actual";
+												row.account_head = setting.account;
+												row.description = setting.stamp_name;
+												row.custom_is_stamp = 1;
+												row.custom_stamp_amount_lbp = setting.amount_lbp;
+												row.rate = 0;
+												row.tax_amount = 0;
+												row.category = "Total";
+												if (frm.doctype === "Purchase Invoice") {
+													row.add_deduct_tax = "Add";
+												}
+												added = true;
+											}
+										});
+										if (added) {
+											frm.refresh_field("taxes");
+											recalculateStampTaxes(frm);
+											frappe.show_alert({ message: __("Stamps added successfully"), indicator: "green" });
+										} else {
+											frappe.show_alert({ message: __("Stamps are already in the table"), indicator: "orange" });
+										}
+									}
+								},
+							});
+						});
+					}
+				}
+			},
+			company(frm) {
+				syncCompanyCurrencies(frm, () => {
+					if (frm.doc._secondary_currency) {
+						fetchLatestExchangeRate(frm.doc.company, (rate) => {
+							if (rate) frm.set_value("custom_exchange_rate_override", rate);
 							refreshDualCurrency(frm);
 							recalculateStampTaxes(frm);
-						}
-					});
-				}
-				attachEnterToAddRows(frm);
-				refreshDualCurrency(frm);
-
-				// Add custom "Add Stamp" button to taxes grid
-				if (frm.doctype === "Sales Invoice" || frm.doctype === "Purchase Invoice") {
-					frm.fields_dict.taxes.grid.add_custom_button(__('Add Stamp'), function() {
-						frappe.call({
-							method: "frappe.client.get",
-							args: { doctype: "Terminal Settings" },
-							callback: function(r) {
-								if (r.message && r.message.stamps) {
-									let child_doctype = frm.doctype === "Sales Invoice" ? "Sales Taxes and Charges" : "Purchase Taxes and Charges";
-									let added = false;
-									r.message.stamps.forEach(setting => {
-										const exists = (frm.doc.taxes || []).some(t => t.account_head === setting.account && t.custom_is_stamp);
-										if (!exists) {
-											let row = frappe.model.add_child(frm.doc, child_doctype, "taxes");
-											row.charge_type = "Actual";
-											row.account_head = setting.account;
-											row.description = setting.stamp_name;
-											row.custom_is_stamp = 1;
-											row.custom_stamp_amount_lbp = setting.amount_lbp;
-											row.rate = 0;
-											row.tax_amount = 0;
-											row.category = "Total";
-											if (frm.doctype === "Purchase Invoice") {
-												row.add_deduct_tax = "Add";
-											}
-											added = true;
-										}
-									});
-									if (added) {
-										frm.refresh_field("taxes");
-										recalculateStampTaxes(frm);
-										frappe.show_alert({message: __("Stamps added successfully"), indicator: "green"});
-									} else {
-										frappe.show_alert({message: __("Stamps are already in the table"), indicator: "orange"});
-									}
-								}
-							}
 						});
-					});
-				}
+					} else {
+						frm.set_value("custom_exchange_rate_override", 0);
+					}
+				});
 			},
 			custom_exchange_rate_override(frm) {
 				refreshDualCurrency(frm);
@@ -359,12 +471,15 @@
 	function setRowDualCurrency(frm, cdt, cdn) {
 		setDualCurrencyValues(frm, locals[cdt][cdn]);
 	}
-	// Stamp tax — child table events
-	["Sales Taxes and Charges", "Purchase Taxes and Charges"].forEach(childDt => {
+
+	["Sales Taxes and Charges", "Purchase Taxes and Charges"].forEach((childDt) => {
 		frappe.ui.form.on(childDt, {
-			custom_is_stamp(frm) { recalculateStampTaxes(frm); },
-			custom_stamp_amount_lbp(frm) { recalculateStampTaxes(frm); },
+			custom_is_stamp(frm) {
+				recalculateStampTaxes(frm);
+			},
+			custom_stamp_amount_lbp(frm) {
+				recalculateStampTaxes(frm);
+			},
 		});
 	});
-
 })();

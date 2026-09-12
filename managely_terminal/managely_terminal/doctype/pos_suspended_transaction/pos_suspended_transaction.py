@@ -95,10 +95,10 @@ class POSSuspendedTransaction(Document):
             self.credit = total_sum
             self.debit = 0.0
 
-        # Calculate transaction currency amounts (original currency like LBP)
+        # Calculate transaction currency amounts
         rate_cash = flt(self.exchange_rate) or 1.0
-        # If rate_cash is stored as e.g. 90000, we multiply total_sum (USD) by 90000 to get LBP amount.
-        # If rate_cash is stored as e.g. 0.00001111 (less than 1.0), we divide total_sum by 0.00001111.
+        # If rate_cash is greater than 1.0, multiply total_sum by rate_cash to get transaction currency amount.
+        # If rate_cash is less than 1.0, divide total_sum by rate_cash.
         if rate_cash > 1.0:
             total_sum_in_trans = total_sum * rate_cash
         else:

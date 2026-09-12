@@ -42,9 +42,8 @@ frappe.query_reports["Multi Currency Trial Balance"] = {
 		},
 		{
 			fieldname: "exchange_rate",
-			label: __("LBP/USD Rate"),
+			label: __("Exchange Rate"),
 			fieldtype: "Float",
-			default: 89500,
 			reqd: 1,
 		},
 		{
@@ -54,6 +53,18 @@ frappe.query_reports["Multi Currency Trial Balance"] = {
 			default: 0,
 		},
 	],
+	onload: function(report) {
+		const company = report.get_filter_value("company");
+		frappe.call({
+			method: "managely_terminal.managely_terminal.accounting.customizations.get_company_dual_rate",
+			args: { company: company },
+			callback: function(r) {
+				if (r.message && !report.get_filter_value("exchange_rate")) {
+					report.set_filter_value("exchange_rate", r.message);
+				}
+			}
+		});
+	},
 	tree: true,
 	name_field: "account",
 	parent_field: "parent_account",

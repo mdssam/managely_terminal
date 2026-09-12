@@ -3,10 +3,7 @@ from frappe import _
 from frappe.model.document import Document
 from frappe.utils import flt, nowdate
 
-DEFAULT_LBP_PER_USD = 89500
-
-
-def convert_currency(amount, from_currency, to_currency, rate):
+def convert_currency(amount, from_currency, to_currency, rate, company=None):
 	amount = flt(amount)
 	rate = flt(rate)
 	if not rate:
@@ -14,18 +11,34 @@ def convert_currency(amount, from_currency, to_currency, rate):
 	if from_currency == to_currency:
 		return amount
 
-	if from_currency == "LBP" and to_currency == "USD":
-		if rate > 1.0:
-			return amount / rate
-		else:
-			return amount * rate
-	elif from_currency == "USD" and to_currency == "LBP":
-		if rate > 1.0:
-			return amount * rate
-		else:
-			return amount / rate
+	sec_curr = None
+	if company:
+		from managely_terminal.managely_terminal.accounting.customizations import get_company_secondary_currency
+		sec_curr = get_company_secondary_currency(company)
 
-	# Default fallback for other currencies: multiply
+	is_secondary_from = bool(sec_curr and from_currency == sec_curr)
+	is_secondary_to = bool(sec_curr and to_currency == sec_curr)
+
+	if is_secondary_from:
+		if rate <= 1.0:
+			from managely_terminal.managely_terminal.accounting.customizations import get_company_dual_rate
+			rate = get_company_dual_rate(company)
+		if rate and rate > 1.0:
+			return amount / rate
+		elif rate and rate > 0:
+			return amount * rate
+		return amount
+	elif is_secondary_to:
+		if rate <= 1.0:
+			from managely_terminal.managely_terminal.accounting.customizations import get_company_dual_rate
+			rate = get_company_dual_rate(company)
+		if rate and rate > 1.0:
+			return amount * rate
+		elif rate and rate > 0:
+			return amount / rate
+		return amount
+
+	# Default standard currency conversion: multiply amount by rate
 	return amount * rate
 
 
@@ -37,7 +50,20 @@ class MultiCurrencyPayment(Document):
 		self.set_totals()
 
 	def before_submit(self):
-		"""Validate that total allocated does not exceed total payments."""
+		"""Validate that total allocated does not exceed total payments and exchange rates are sane."""
+		for row in self.lines:
+			if row.currency != self.company_currency:
+				if not flt(row.exchange_rate) or flt(row.exchange_rate) <= 0:
+					frappe.throw(_(
+						"Cannot submit: Invalid exchange rate ({0}) for currency <b>{1}</b> in row {2}."
+					).format(row.exchange_rate, row.currency, row.idx))
+				sec_curr = frappe.get_cached_value("Company", self.company, "custom_secondary_currency") if self.company else None
+				if sec_curr and row.currency == sec_curr:
+					if flt(row.exchange_rate) <= 1.0 and flt(self.exchange_rate) > 1.0:
+						frappe.throw(_(
+							"Cannot submit: Exchange rate for {0} in row {1} cannot be 1.0 when exchange rate is configured as {2}."
+						).format(row.currency, row.idx, self.exchange_rate))
+
 		if self.references:
 			total_allocated = flt(self.total_references)
 			total_payments = flt(self.total_payments)
@@ -74,9 +100,13 @@ class MultiCurrencyPayment(Document):
 			self.posting_date = nowdate()
 		if self.company and not self.company_currency:
 			self.company_currency = frappe.get_cached_value("Company", self.company, "default_currency")
-		if not self.exchange_rate:
-			from managely_terminal.managely_terminal.accounting.customizations import get_lbp_usd_rate
-			self.exchange_rate = get_lbp_usd_rate()
+		if self.company and not self.exchange_rate:
+			from managely_terminal.managely_terminal.accounting.customizations import (
+				get_company_secondary_currency,
+				get_company_dual_rate,
+			)
+			if get_company_secondary_currency(self.company):
+				self.exchange_rate = get_company_dual_rate(self.company, self.posting_date)
 
 	def validate_lines(self):
 		if not self.lines:
@@ -101,17 +131,30 @@ class MultiCurrencyPayment(Document):
 			if flt(row.amount) <= 0:
 				frappe.throw(_("Amount must be greater than zero in row {0}.").format(row.idx))
 
-			# Resolve exchange rate: row → ERPNext exchange table → parent default
-			if not flt(row.exchange_rate):
-				row.exchange_rate = self._fetch_exchange_rate(row.currency)
+			# Dynamic exchange rate resolution for any currency
+			if row.currency == self.company_currency:
+				row.exchange_rate = 1.0
+			else:
+				# If rate is missing or defaulted to 1.0 for a different currency, fetch actual rate
+				if not flt(row.exchange_rate) or (flt(row.exchange_rate) == 1.0 and row.currency != self.company_currency):
+					fetched_rate = self._fetch_exchange_rate(row.currency)
+					if fetched_rate and fetched_rate > 0:
+						row.exchange_rate = fetched_rate
+
+				# Validate that a positive exchange rate exists
+				if not flt(row.exchange_rate) or flt(row.exchange_rate) <= 0:
+					frappe.throw(_(
+						"Exchange Rate is required for currency <b>{0}</b> in row {1}. "
+						"Please set an exchange rate or configure it under Accounts → Currency Exchange."
+					).format(row.currency, row.idx))
 
 			# Amount in Base Currency = Amount × Exchange Rate
 			if row.currency == self.company_currency:
 				row.amount_base_currency = flt(row.amount)
 			else:
-				row.amount_base_currency = convert_currency(row.amount, row.currency, self.company_currency, row.exchange_rate)
+				row.amount_base_currency = convert_currency(row.amount, row.currency, self.company_currency, row.exchange_rate, company=self.company)
 
-			row.amount_usd, row.amount_lbp = self._to_usd_lbp(row.amount, row.currency, row.exchange_rate)
+			row.amount_usd, row.amount_lbp = self._to_dual_currency(row.amount, row.currency, row.exchange_rate)
 
 	def validate_references(self):
 		"""Validate Payment References: no duplicates, allocated >= 0, allocated <= outstanding, belongs to party."""
@@ -158,8 +201,12 @@ class MultiCurrencyPayment(Document):
 					frappe.throw(_("Purchase Invoice {0} must be submitted.").format(row.reference_name))
 
 	def set_totals(self):
+		sec_curr = frappe.get_cached_value("Company", self.company, "custom_secondary_currency") if self.company else None
+		frac_units = frappe.get_cached_value("Currency", sec_curr, "fraction_units") if sec_curr else 2
+		precision = 0 if frac_units == 0 else 2
+
 		self.total_usd = sum(flt(r.amount_usd) for r in self.lines)
-		self.total_lbp = sum(flt(r.amount_lbp) for r in self.lines)
+		self.total_lbp = flt(sum(flt(r.amount_lbp) for r in self.lines), precision)
 		self.total_company_amount = sum(flt(r.amount_base_currency) for r in self.lines)
 
 		# Summary totals shown on the form
@@ -173,38 +220,94 @@ class MultiCurrencyPayment(Document):
 	def _fetch_exchange_rate(self, currency):
 		if not currency or currency == self.company_currency:
 			return 1.0
+
+		# 1. Try ERPNext standard lookup (checks date, buying/selling, and inverse rates)
+		try:
+			from erpnext.setup.utils import get_exchange_rate as erpnext_get_exchange_rate
+			rate = erpnext_get_exchange_rate(currency, self.company_currency, self.posting_date)
+			if rate and flt(rate) > 0:
+				return flt(rate)
+		except Exception:
+			pass
+
+		# 2. Direct lookup: currency -> company_currency
 		rate = frappe.db.get_value(
 			"Currency Exchange",
 			{"from_currency": currency, "to_currency": self.company_currency},
 			"exchange_rate",
 			order_by="date desc",
 		)
-		if not rate:
-			from managely_terminal.managely_terminal.accounting.customizations import get_lbp_usd_rate
-			fallback = flt(self.exchange_rate) or get_lbp_usd_rate()
-			return fallback
-		return flt(rate)
+		if rate and flt(rate) > 0:
+			return flt(rate)
 
-	def _to_usd_lbp(self, amount, currency, exchange_rate):
+		# 3. Inverse lookup: company_currency -> currency
+		inverse_rate = frappe.db.get_value(
+			"Currency Exchange",
+			{"from_currency": self.company_currency, "to_currency": currency},
+			"exchange_rate",
+			order_by="date desc",
+		)
+		sec_curr = frappe.get_cached_value("Company", self.company, "custom_secondary_currency") if self.company else None
+		if inverse_rate and flt(inverse_rate) > 0:
+			if sec_curr and (currency == sec_curr or self.company_currency == sec_curr) and flt(inverse_rate) > 1.0:
+				return flt(inverse_rate)
+			return flt(1.0 / flt(inverse_rate))
+
+		# 4. Dynamic lookup for secondary currency
+		if sec_curr and (currency == sec_curr or self.company_currency == sec_curr):
+			from managely_terminal.managely_terminal.accounting.customizations import get_company_dual_rate
+			dual_rate = get_company_dual_rate(self.company, self.posting_date)
+			return flt(self.exchange_rate) or flt(dual_rate) or 0.0
+
+		return 0.0
+
+	def _to_dual_currency(self, amount, currency, exchange_rate):
 		amount = flt(amount)
+		from managely_terminal.managely_terminal.accounting.customizations import (
+			get_company_secondary_currency,
+			get_company_dual_rate,
+		)
+		sec_curr = get_company_secondary_currency(self.company) if self.company else None
+		if not sec_curr:
+			return amount, 0.0
+
 		if not self.exchange_rate:
-			from managely_terminal.managely_terminal.accounting.customizations import get_lbp_usd_rate
-			self.exchange_rate = get_lbp_usd_rate()
-		parent_rate = flt(self.exchange_rate) or DEFAULT_LBP_PER_USD
+			self.exchange_rate = get_company_dual_rate(self.company, self.posting_date) or 0.0
+		parent_rate = flt(self.exchange_rate)
 
-		if currency == "LBP":
-			return flt(amount / parent_rate), flt(amount)
-		if currency == "USD":
-			return amount, flt(amount * parent_rate)
+		frac_units = frappe.get_cached_value("Currency", sec_curr, "fraction_units") if sec_curr else 2
+		precision = 0 if frac_units == 0 else 2
 
-		# Generic currency: convert to USD (using row exchange rate if company is USD, else LBP conversion)
-		if self.company_currency == "USD":
-			usd_amount = convert_currency(amount, currency, "USD", exchange_rate)
+		if currency == sec_curr:
+			if parent_rate > 1.0:
+				pri = flt(amount / parent_rate)
+			elif parent_rate > 0:
+				pri = flt(amount * parent_rate)
+			else:
+				pri = 0.0
+			return pri, flt(amount, precision)
+
+		if currency == self.company_currency:
+			if parent_rate > 1.0:
+				sec = flt(amount * parent_rate)
+			elif parent_rate > 0:
+				sec = flt(amount / parent_rate)
+			else:
+				sec = 0.0
+			return amount, flt(sec, precision)
+
+		# Foreign currency: convert to company currency first, then secondary
+		row_rate = flt(exchange_rate) or 1.0
+		pri_amount = flt(amount * row_rate)
+		if parent_rate > 1.0:
+			sec_amount = flt(pri_amount * parent_rate)
+		elif parent_rate > 0:
+			sec_amount = flt(pri_amount / parent_rate)
 		else:
-			base_amount = convert_currency(amount, currency, self.company_currency, exchange_rate)
-			usd_amount = convert_currency(base_amount, self.company_currency, "USD", parent_rate)
+			sec_amount = 0.0
+		return pri_amount, flt(sec_amount, precision)
 
-		return flt(usd_amount), flt(usd_amount * parent_rate)
+	_to_usd_lbp = _to_dual_currency
 
 	# ── Account resolution ──────────────────────────────────────────────────────
 
@@ -330,11 +433,10 @@ class MultiCurrencyPayment(Document):
 			party_currency = frappe.get_cached_value("Account", party_account, "account_currency")
 
 			total_in_party_currency = total_base
+			sec_curr = frappe.get_cached_value("Company", self.company, "custom_secondary_currency") if self.company else None
 			if party_currency == self.company_currency:
 				total_in_party_currency = total_base
-			elif party_currency == "USD":
-				total_in_party_currency = flt(self.total_usd)
-			elif party_currency == "LBP":
+			elif sec_curr and party_currency == sec_curr:
 				total_in_party_currency = flt(self.total_lbp)
 			else:
 				rate = self._fetch_exchange_rate(party_currency)
@@ -461,17 +563,50 @@ def get_mop_account_currency(company, mode_of_payment):
 
 
 @frappe.whitelist()
-def get_exchange_rate(from_currency, to_currency):
-	"""Fetch the latest exchange rate from Currency Exchange table."""
+def get_exchange_rate(from_currency, to_currency, transaction_date=None, company=None):
+	"""Fetch latest exchange rate bidirectionally using ERPNext standard lookup."""
 	if not from_currency or not to_currency or from_currency == to_currency:
 		return 1.0
+
+	# 1. ERPNext standard lookup
+	try:
+		from erpnext.setup.utils import get_exchange_rate as erpnext_get_exchange_rate
+		rate = erpnext_get_exchange_rate(from_currency, to_currency, transaction_date)
+		if rate and flt(rate) > 0:
+			return flt(rate)
+	except Exception:
+		pass
+
+	# 2. Direct lookup: from_currency -> to_currency
 	rate = frappe.db.get_value(
 		"Currency Exchange",
 		{"from_currency": from_currency, "to_currency": to_currency},
 		"exchange_rate",
 		order_by="date desc",
 	)
-	return flt(rate) or None
+	if rate and flt(rate) > 0:
+		return flt(rate)
+
+	# 3. Inverse lookup: to_currency -> from_currency
+	inv_rate = frappe.db.get_value(
+		"Currency Exchange",
+		{"from_currency": to_currency, "to_currency": from_currency},
+		"exchange_rate",
+		order_by="date desc",
+	)
+	if inv_rate and flt(inv_rate) > 0:
+		inv_rate = flt(inv_rate)
+		if inv_rate < 1.0:
+			return 1.0 / inv_rate
+		return inv_rate
+
+	# 4. Dynamic rate lookup for secondary currency
+	from managely_terminal.managely_terminal.accounting.customizations import get_company_dual_rate
+	rate = get_company_dual_rate(company, transaction_date)
+	if rate and flt(rate) > 0:
+		return flt(rate)
+
+	return None
 
 
 @frappe.whitelist()
