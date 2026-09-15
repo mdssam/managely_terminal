@@ -214,7 +214,7 @@ def _linked_submitted_doc_exists(child_doctype, link_field, voucher_name):
 
 @frappe.whitelist()
 def get_items_for_stock_reconciliation(
-    warehouse, posting_date, posting_time, company, item_code=None, item_group=None, ignore_empty_stock=False
+    warehouse, posting_date, posting_time, company, item_code=None, item_group=None, brand=None, ignore_empty_stock=False
 ):
     from erpnext.stock.doctype.stock_reconciliation.stock_reconciliation import (
         get_item_and_warehouses,
@@ -230,7 +230,7 @@ def get_items_for_stock_reconciliation(
         items = get_item_and_warehouses(item_code, warehouse)
 
     if not item_code:
-        items = get_reconciliation_items(warehouse, company, item_group=item_group)
+        items = get_reconciliation_items(warehouse, company, item_group=item_group, brand=brand)
 
     res = []
     itemwise_batch_data = get_itemwise_batch(warehouse, posting_date, company, item_code)
@@ -271,20 +271,29 @@ def get_items_for_stock_reconciliation(
     return res
 
 
-def get_reconciliation_items(warehouse, company, item_group=None):
+def get_reconciliation_items(warehouse, company, item_group=None, brand=None):
     lft, rgt = frappe.db.get_value("Warehouse", warehouse, ["lft", "rgt"]) or (0, 0)
 
-    item_group_condition = ""
+    conditions = []
+    params = {"lft": lft, "rgt": rgt, "company": company}
+
     if item_group:
         ig_lft, ig_rgt = frappe.db.get_value("Item Group", item_group, ["lft", "rgt"]) or (None, None)
         if ig_lft and ig_rgt:
-            item_group_condition = f"""
-                and i.item_group in (
-                    select name from `tabItem Group` where lft >= {ig_lft} and rgt <= {ig_rgt}
-                )
-            """
+            conditions.append(
+                "and i.item_group in (select name from `tabItem Group` where lft >= %(ig_lft)s and rgt <= %(ig_rgt)s)"
+            )
+            params["ig_lft"] = ig_lft
+            params["ig_rgt"] = ig_rgt
         else:
-            item_group_condition = f"and i.item_group = {frappe.db.escape(item_group)}"
+            conditions.append("and i.item_group = %(item_group)s")
+            params["item_group"] = item_group
+
+    if brand:
+        conditions.append("and i.brand = %(brand)s")
+        params["brand"] = brand
+
+    extra_conditions = (" " + " ".join(conditions)) if conditions else ""
 
     items = frappe.db.sql(
         f"""
@@ -297,11 +306,12 @@ def get_reconciliation_items(warehouse, company, item_group=None):
             and IFNULL(i.disabled, 0) = 0
             and i.is_stock_item = 1
             and i.has_variants = 0
-            {item_group_condition}
+            {extra_conditions}
             and exists(
-                select name from `tabWarehouse` where lft >= {lft} and rgt <= {rgt} and name = bin.warehouse and is_group = 0
+                select name from `tabWarehouse` where lft >= %(lft)s and rgt <= %(rgt)s and name = bin.warehouse and is_group = 0
             )
     """,
+        params,
         as_dict=1,
     )
 
@@ -314,16 +324,16 @@ def get_reconciliation_items(warehouse, company, item_group=None):
         where
             i.name = id.parent
             and exists(
-                select name from `tabWarehouse` where lft >= %s and rgt <= %s and name=id.default_warehouse and is_group = 0
+                select name from `tabWarehouse` where lft >= %(lft)s and rgt <= %(rgt)s and name=id.default_warehouse and is_group = 0
             )
             and i.is_stock_item = 1
             and i.has_variants = 0
             and IFNULL(i.disabled, 0) = 0
-            {item_group_condition}
-            and id.company = %s
+            {extra_conditions}
+            and id.company = %(company)s
         group by i.name
     """,
-        (lft, rgt, company),
+        params,
         as_dict=1,
     )
 
@@ -336,4 +346,5 @@ def get_reconciliation_items(warehouse, company, item_group=None):
             deduped_items.append(item)
 
     return deduped_items
+
 

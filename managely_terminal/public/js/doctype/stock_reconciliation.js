@@ -38,6 +38,12 @@ function prompt_managely_fetch_items(frm) {
 			options: "Item Group",
 		},
 		{
+			label: __("Brand"),
+			fieldname: "brand",
+			fieldtype: "Link",
+			options: "Brand",
+		},
+		{
 			label: __("Item Code"),
 			fieldname: "item_code",
 			fieldtype: "Link",
@@ -45,6 +51,7 @@ function prompt_managely_fetch_items(frm) {
 			get_query: function () {
 				let dialog = cur_dialog;
 				let item_group = dialog ? dialog.get_value("item_group") : null;
+				let brand = dialog ? dialog.get_value("brand") : null;
 				let filters = {
 					is_stock_item: 1,
 					has_variants: 0,
@@ -52,6 +59,9 @@ function prompt_managely_fetch_items(frm) {
 				};
 				if (item_group) {
 					filters["item_group"] = item_group;
+				}
+				if (brand) {
+					filters["brand"] = brand;
 				}
 				return {
 					filters: filters,
@@ -77,6 +87,7 @@ function prompt_managely_fetch_items(frm) {
 					company: frm.doc.company,
 					item_code: data.item_code,
 					item_group: data.item_group,
+					brand: data.brand,
 					ignore_empty_stock: data.ignore_empty_stock ? 1 : 0,
 				},
 				freeze: true,
