@@ -131,18 +131,16 @@ class MultiCurrencyPayment(Document):
 			if flt(row.amount) <= 0:
 				frappe.throw(_("Amount must be greater than zero in row {0}.").format(row.idx))
 
-			# Dynamic exchange rate resolution for any currency
+			# Dynamic exchange rate resolution & reconciliation
 			if row.currency == self.company_currency:
 				row.exchange_rate = 1.0
 			else:
-				# If rate is missing or defaulted to 1.0 for a different currency, fetch actual rate
-				if not flt(row.exchange_rate) or (flt(row.exchange_rate) == 1.0 and row.currency != self.company_currency):
-					fetched_rate = self._fetch_exchange_rate(row.currency)
-					if fetched_rate and fetched_rate > 0:
-						row.exchange_rate = fetched_rate
-
-				# Validate that a positive exchange rate exists
-				if not flt(row.exchange_rate) or flt(row.exchange_rate) <= 0:
+				# Server-side matching & override: fetch latest rate from Currency Exchange
+				fetched_rate = self._fetch_exchange_rate(row.currency)
+				if fetched_rate and flt(fetched_rate) > 0:
+					# Override if mismatched, defaulted to 1.0, or outdated
+					row.exchange_rate = flt(fetched_rate)
+				elif not flt(row.exchange_rate) or flt(row.exchange_rate) <= 0 or flt(row.exchange_rate) == 1.0:
 					frappe.throw(_(
 						"Exchange Rate is required for currency <b>{0}</b> in row {1}. "
 						"Please set an exchange rate or configure it under Accounts → Currency Exchange."
@@ -220,46 +218,8 @@ class MultiCurrencyPayment(Document):
 	def _fetch_exchange_rate(self, currency):
 		if not currency or currency == self.company_currency:
 			return 1.0
-
-		# 1. Try ERPNext standard lookup (checks date, buying/selling, and inverse rates)
-		try:
-			from erpnext.setup.utils import get_exchange_rate as erpnext_get_exchange_rate
-			rate = erpnext_get_exchange_rate(currency, self.company_currency, self.posting_date)
-			if rate and flt(rate) > 0:
-				return flt(rate)
-		except Exception:
-			pass
-
-		# 2. Direct lookup: currency -> company_currency
-		rate = frappe.db.get_value(
-			"Currency Exchange",
-			{"from_currency": currency, "to_currency": self.company_currency},
-			"exchange_rate",
-			order_by="date desc",
-		)
-		if rate and flt(rate) > 0:
-			return flt(rate)
-
-		# 3. Inverse lookup: company_currency -> currency
-		inverse_rate = frappe.db.get_value(
-			"Currency Exchange",
-			{"from_currency": self.company_currency, "to_currency": currency},
-			"exchange_rate",
-			order_by="date desc",
-		)
-		sec_curr = frappe.get_cached_value("Company", self.company, "custom_secondary_currency") if self.company else None
-		if inverse_rate and flt(inverse_rate) > 0:
-			if sec_curr and (currency == sec_curr or self.company_currency == sec_curr) and flt(inverse_rate) > 1.0:
-				return flt(inverse_rate)
-			return flt(1.0 / flt(inverse_rate))
-
-		# 4. Dynamic lookup for secondary currency
-		if sec_curr and (currency == sec_curr or self.company_currency == sec_curr):
-			from managely_terminal.managely_terminal.accounting.customizations import get_company_dual_rate
-			dual_rate = get_company_dual_rate(self.company, self.posting_date)
-			return flt(self.exchange_rate) or flt(dual_rate) or 0.0
-
-		return 0.0
+		rate = get_exchange_rate(currency, self.company_currency, self.posting_date, self.company)
+		return flt(rate) if rate else 0.0
 
 	def _to_dual_currency(self, amount, currency, exchange_rate):
 		amount = flt(amount)
@@ -559,25 +519,44 @@ def get_mop_account_currency(company, mode_of_payment):
 	)
 	if not account:
 		return None
-	return frappe.get_cached_value("Account", account, "account_currency")
+	account_currency = frappe.get_cached_value("Account", account, "account_currency")
+	if not account_currency and company:
+		account_currency = frappe.get_cached_value("Company", company, "default_currency")
+	return account_currency
 
 
 @frappe.whitelist()
-def get_exchange_rate(from_currency, to_currency, transaction_date=None, company=None):
-	"""Fetch latest exchange rate bidirectionally using ERPNext standard lookup."""
+def get_exchange_rate(from_currency, to_currency=None, transaction_date=None, company=None):
+	"""Fetch latest exchange rate bidirectionally from Currency Exchange doctype."""
+	if not company:
+		company = frappe.defaults.get_user_default("Company")
+
+	if not to_currency and company:
+		to_currency = frappe.get_cached_value("Company", company, "default_currency")
+
 	if not from_currency or not to_currency or from_currency == to_currency:
 		return 1.0
 
-	# 1. ERPNext standard lookup
-	try:
-		from erpnext.setup.utils import get_exchange_rate as erpnext_get_exchange_rate
-		rate = erpnext_get_exchange_rate(from_currency, to_currency, transaction_date)
-		if rate and flt(rate) > 0:
-			return flt(rate)
-	except Exception:
-		pass
+	if not transaction_date:
+		transaction_date = nowdate()
 
-	# 2. Direct lookup: from_currency -> to_currency
+	sec_curr = frappe.get_cached_value("Company", company, "custom_secondary_currency") if company else None
+
+	# 1. Direct lookup with date filter: from_currency -> to_currency (date <= transaction_date)
+	rate = frappe.db.get_value(
+		"Currency Exchange",
+		{
+			"from_currency": from_currency,
+			"to_currency": to_currency,
+			"date": ["<=", transaction_date],
+		},
+		"exchange_rate",
+		order_by="date desc",
+	)
+	if rate and flt(rate) > 0:
+		return flt(rate)
+
+	# 2. Direct lookup without date filter (latest available entry in Currency Exchange)
 	rate = frappe.db.get_value(
 		"Currency Exchange",
 		{"from_currency": from_currency, "to_currency": to_currency},
@@ -587,24 +566,48 @@ def get_exchange_rate(from_currency, to_currency, transaction_date=None, company
 	if rate and flt(rate) > 0:
 		return flt(rate)
 
-	# 3. Inverse lookup: to_currency -> from_currency
+	# 3. Inverse lookup with date filter: to_currency -> from_currency (date <= transaction_date)
 	inv_rate = frappe.db.get_value(
 		"Currency Exchange",
-		{"from_currency": to_currency, "to_currency": from_currency},
+		{
+			"from_currency": to_currency,
+			"to_currency": from_currency,
+			"date": ["<=", transaction_date],
+		},
 		"exchange_rate",
 		order_by="date desc",
 	)
+	if not inv_rate or flt(inv_rate) <= 0:
+		# Inverse lookup without date filter (latest available entry in Currency Exchange)
+		inv_rate = frappe.db.get_value(
+			"Currency Exchange",
+			{"from_currency": to_currency, "to_currency": from_currency},
+			"exchange_rate",
+			order_by="date desc",
+		)
+
 	if inv_rate and flt(inv_rate) > 0:
 		inv_rate = flt(inv_rate)
-		if inv_rate < 1.0:
-			return 1.0 / inv_rate
-		return inv_rate
+		# For secondary currency (e.g. LBP), keep rate as large multiplier (> 1.0)
+		if sec_curr and (from_currency == sec_curr or to_currency == sec_curr) and inv_rate > 1.0:
+			return inv_rate
+		return flt(1.0 / inv_rate)
 
-	# 4. Dynamic rate lookup for secondary currency
-	from managely_terminal.managely_terminal.accounting.customizations import get_company_dual_rate
-	rate = get_company_dual_rate(company, transaction_date)
-	if rate and flt(rate) > 0:
-		return flt(rate)
+	# 4. Standard ERPNext utility lookup (for pegged currencies or external provider integration)
+	try:
+		from erpnext.setup.utils import get_exchange_rate as erpnext_get_exchange_rate
+		rate = erpnext_get_exchange_rate(from_currency, to_currency, transaction_date)
+		if rate and flt(rate) > 0:
+			return flt(rate)
+	except Exception:
+		pass
+
+	# 5. Dynamic rate lookup for secondary currency from company config
+	if sec_curr and (from_currency == sec_curr or to_currency == sec_curr):
+		from managely_terminal.managely_terminal.accounting.customizations import get_company_dual_rate
+		rate = get_company_dual_rate(company, transaction_date)
+		if rate and flt(rate) > 0:
+			return flt(rate)
 
 	return None
 

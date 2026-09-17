@@ -1,25 +1,75 @@
 // ── Parent form ───────────────────────────────────────────────────────────────
 frappe.ui.form.on("Multi Currency Payment", {
 
-	validate(frm) {
-		const companyCurrency = frm.doc.company_currency;
-		(frm.doc.lines || []).forEach(row => {
-			if (row.currency && row.currency !== companyCurrency) {
-				if (!flt(row.exchange_rate) || flt(row.exchange_rate) <= 0) {
-					frappe.validated = false;
-					frappe.throw(__("Row {0}: Valid exchange rate is required for currency {1}.", [row.idx, row.currency]));
-				}
-				const docRate = flt(frm.doc.exchange_rate);
-				if (docRate > 1.0 && flt(row.exchange_rate) <= 1.0) {
-					frappe.model.set_value(row.doctype, row.name, "exchange_rate", docRate);
+	async validate(frm) {
+		const companyCurrency = getCompanyCurrency(frm);
+
+		for (const row of (frm.doc.lines || [])) {
+			if (!row.mode_of_payment) {
+				frappe.validated = false;
+				frappe.throw(__("Row {0}: Mode of Payment is required.", [row.idx]));
+				return false;
+			}
+			if (!row.currency) {
+				frappe.validated = false;
+				frappe.throw(__("Row {0}: Currency is required.", [row.idx]));
+				return false;
+			}
+			if (!flt(row.amount) || flt(row.amount) <= 0) {
+				frappe.validated = false;
+				frappe.throw(__("Row {0}: Amount must be greater than zero.", [row.idx]));
+				return false;
+			}
+
+			if (row.currency === companyCurrency) {
+				if (flt(row.exchange_rate) !== 1.0) {
+					frappe.model.set_value(row.doctype, row.name, "exchange_rate", 1.0);
 					_recalcBase(frm, row.doctype, row.name);
 				}
+			} else {
+				// Fetch latest exchange rate from Currency Exchange to match and override
+				const res = await frappe.call({
+					method: "managely_terminal.managely_terminal.doctype.multi_currency_payment.multi_currency_payment.get_exchange_rate",
+					args: {
+						from_currency: row.currency,
+						to_currency: companyCurrency,
+						transaction_date: frm.doc.posting_date,
+						company: frm.doc.company
+					}
+				});
+
+				let latestRate = flt(res.message);
+				if (!latestRate || latestRate <= 0) {
+					const secCurr = frm.doc._secondary_currency;
+					if (secCurr && (row.currency === secCurr || companyCurrency === secCurr)) {
+						latestRate = flt(frm.doc.exchange_rate);
+					}
+				}
+
+				if (latestRate && latestRate > 0) {
+					// Check if row rate differs from latest exchange rate or is defaulted to 1.0
+					if (Math.abs(flt(row.exchange_rate) - latestRate) > 0.000001 || flt(row.exchange_rate) === 1.0) {
+						frappe.model.set_value(row.doctype, row.name, "exchange_rate", latestRate);
+						_recalcBase(frm, row.doctype, row.name);
+					}
+				} else {
+					if (!flt(row.exchange_rate) || flt(row.exchange_rate) <= 0 || flt(row.exchange_rate) === 1.0) {
+						frappe.validated = false;
+						frappe.throw(__(
+							"Row {0}: No valid exchange rate found for currency {1} to {2}. Please configure it under Accounts → Currency Exchange.",
+							[row.idx, row.currency, companyCurrency]
+						));
+						return false;
+					}
+				}
 			}
-		});
+		}
+
+		_recalcTotalPayments(frm);
 	},
 
 	onload_post_render(frm) {
-		const priCurr = frm.doc.company_currency || (frm.doc.company ? erpnext.get_currency(frm.doc.company) : null);
+		const priCurr = getCompanyCurrency(frm);
 		if (priCurr) {
 			toggleSecondaryFields(frm, !!frm.doc._secondary_currency, priCurr, frm.doc._secondary_currency);
 		}
@@ -97,6 +147,9 @@ frappe.ui.form.on("Multi Currency Payment", {
 				callback: function (r) {
 					const cfg = r.message || {};
 					const primary = cfg.default_currency || priCurr;
+					if (frm.doc.docstatus === 0 && !frm.doc.company_currency && primary) {
+						frm.set_value("company_currency", primary);
+					}
 					if (cfg.custom_secondary_currency) {
 						frm.doc._secondary_currency = cfg.custom_secondary_currency;
 						frm.doc._secondary_currency_precision = cfg.fraction_units === 0 ? 0 : 2;
@@ -237,6 +290,13 @@ frappe.ui.form.on("Multi Currency Payment", {
 // ── Payment Lines child table ─────────────────────────────────────────────────
 frappe.ui.form.on("Multi Currency Payment Line", {
 
+	lines_add(frm, cdt, cdn) {
+		const row = locals[cdt][cdn];
+		if (row && row.currency) {
+			fetchLineExchangeRate(frm, cdt, cdn);
+		}
+	},
+
 	mode_of_payment(frm, cdt, cdn) {
 		const row = locals[cdt][cdn];
 		if (!row.mode_of_payment || !frm.doc.company) return;
@@ -258,82 +318,18 @@ frappe.ui.form.on("Multi Currency Payment Line", {
 			args: { company: frm.doc.company, mode_of_payment: row.mode_of_payment },
 			callback(r) {
 				const currency = r.message;
-				if (!currency) return;
-				frappe.model.set_value(cdt, cdn, "currency", currency);
-
-				// Directly resolve exchange rate on MOP selection
-				const companyCurrency = frm.doc.company_currency;
-				if (currency === companyCurrency) {
-					frappe.model.set_value(cdt, cdn, "exchange_rate", 1.0);
-					_recalcBase(frm, cdt, cdn);
-				} else {
-					frappe.call({
-						method: "managely_terminal.managely_terminal.doctype.multi_currency_payment.multi_currency_payment.get_exchange_rate",
-						args: {
-							from_currency: currency,
-							to_currency: companyCurrency,
-							transaction_date: frm.doc.posting_date
-						},
-						callback(res) {
-							let rate = res.message;
-							if (!rate || flt(rate) <= 0) {
-								const secCurr = frm.doc._secondary_currency;
-								if (secCurr && (currency === secCurr || companyCurrency === secCurr)) {
-									rate = flt(frm.doc.exchange_rate);
-								}
-							}
-							if (rate && flt(rate) > 0) {
-								frappe.model.set_value(cdt, cdn, "exchange_rate", flt(rate));
-							} else {
-								frappe.msgprint(__(
-									"No exchange rate configured for {0} to {1}. Please enter rate manually in row {2} or configure under Accounts → Currency Exchange.",
-									[currency, companyCurrency, row.idx]
-								));
-							}
-							_recalcBase(frm, cdt, cdn);
-						},
-					});
+				if (!currency) {
+					frappe.msgprint(__("No account currency configured for Mode of Payment '{0}'.", [row.mode_of_payment]));
+					return;
 				}
+				frappe.model.set_value(cdt, cdn, "currency", currency);
+				fetchLineExchangeRate(frm, cdt, cdn);
 			},
 		});
 	},
 
 	currency(frm, cdt, cdn) {
-		const row = locals[cdt][cdn];
-		if (!row.currency) return;
-		const companyCurrency = frm.doc.company_currency;
-
-		if (row.currency === companyCurrency) {
-			frappe.model.set_value(cdt, cdn, "exchange_rate", 1.0);
-			_recalcBase(frm, cdt, cdn);
-		} else {
-			frappe.call({
-				method: "managely_terminal.managely_terminal.doctype.multi_currency_payment.multi_currency_payment.get_exchange_rate",
-				args: {
-					from_currency: row.currency,
-					to_currency: companyCurrency,
-					transaction_date: frm.doc.posting_date
-				},
-				callback(res) {
-					let rate = res.message;
-					if (!rate || flt(rate) <= 0) {
-						const secCurr = frm.doc._secondary_currency;
-						if (secCurr && (row.currency === secCurr || companyCurrency === secCurr)) {
-							rate = flt(frm.doc.exchange_rate);
-						}
-					}
-					if (rate && flt(rate) > 0) {
-						frappe.model.set_value(cdt, cdn, "exchange_rate", flt(rate));
-					} else {
-						frappe.msgprint(__(
-							"No exchange rate configured for {0} to {1}. Please enter rate manually in row {2} or configure under Accounts → Currency Exchange.",
-							[row.currency, companyCurrency, row.idx]
-						));
-					}
-					_recalcBase(frm, cdt, cdn);
-				},
-			});
-		}
+		fetchLineExchangeRate(frm, cdt, cdn);
 	},
 
 	amount(frm, cdt, cdn) {
@@ -431,6 +427,52 @@ frappe.ui.form.on("Multi Currency Payment Reference", {
 });
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+function getCompanyCurrency(frm) {
+	return frm.doc.company_currency || (frm.doc.company ? erpnext.get_currency(frm.doc.company) : null);
+}
+
+function fetchLineExchangeRate(frm, cdt, cdn) {
+	const row = locals[cdt][cdn];
+	if (!row || !row.currency) return;
+
+	const companyCurrency = getCompanyCurrency(frm);
+	if (!companyCurrency) return;
+
+	if (row.currency === companyCurrency) {
+		frappe.model.set_value(cdt, cdn, "exchange_rate", 1.0);
+		_recalcBase(frm, cdt, cdn);
+		return;
+	}
+
+	frappe.call({
+		method: "managely_terminal.managely_terminal.doctype.multi_currency_payment.multi_currency_payment.get_exchange_rate",
+		args: {
+			from_currency: row.currency,
+			to_currency: companyCurrency,
+			transaction_date: frm.doc.posting_date,
+			company: frm.doc.company
+		},
+		callback(res) {
+			let rate = flt(res.message);
+			if (!rate || rate <= 0) {
+				const secCurr = frm.doc._secondary_currency;
+				if (secCurr && (row.currency === secCurr || companyCurrency === secCurr)) {
+					rate = flt(frm.doc.exchange_rate);
+				}
+			}
+			if (rate && rate > 0) {
+				frappe.model.set_value(cdt, cdn, "exchange_rate", rate);
+			} else {
+				frappe.msgprint(__(
+					"No exchange rate configured for {0} to {1}. Please enter rate manually in row {2} or configure under Accounts → Currency Exchange.",
+					[row.currency, companyCurrency, row.idx]
+				));
+			}
+			_recalcBase(frm, cdt, cdn);
+		},
+	});
+}
 
 function toggleSecondaryFields(frm, enabled, priCurr, secCurr) {
 	const isHidden = enabled ? 0 : 1;
