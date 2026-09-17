@@ -167,8 +167,14 @@ doc_events = {
 	},
 	"Sales Invoice": {
 		"before_validate": "managely_terminal.managely_terminal.accounting.customizations.before_validate_transaction",
-		"validate": "managely_terminal.managely_terminal.api.fix_invoice_items_valuation",
-		"before_submit": "managely_terminal.managely_terminal.stock_automation.validate_target_warehouse",
+		"validate": [
+			"managely_terminal.managely_terminal.api.fix_invoice_items_valuation",
+			"managely_terminal.managely_terminal.accounting.exchange_rate_guard.validate_sales_invoice",
+		],
+		"before_submit": [
+			"managely_terminal.managely_terminal.stock_automation.validate_target_warehouse",
+			"managely_terminal.managely_terminal.accounting.exchange_rate_guard.validate_sales_invoice",
+		],
 		"on_submit": [
 			"managely_terminal.managely_terminal.api.generate_production_order",
 			"managely_terminal.managely_terminal.stock_automation.create_delivery_note_from_sales_invoice",
@@ -177,17 +183,23 @@ doc_events = {
 	"Purchase Invoice": {
 		"before_validate": "managely_terminal.managely_terminal.accounting.customizations.before_validate_transaction",
 		"before_save": "managely_terminal.managely_terminal.accounting.customizations.before_save_purchase_invoice",
+		"validate": "managely_terminal.managely_terminal.accounting.exchange_rate_guard.validate_purchase_invoice",
 		"before_submit": [
 			"managely_terminal.managely_terminal.accounting.customizations.before_save_purchase_invoice",
 			"managely_terminal.managely_terminal.stock_automation.validate_target_warehouse",
+			"managely_terminal.managely_terminal.accounting.exchange_rate_guard.validate_purchase_invoice",
 		],
 		"on_submit": "managely_terminal.managely_terminal.stock_automation.create_purchase_receipt_from_purchase_invoice",
 	},
 	"Payment Entry": {
 		"before_validate": "managely_terminal.managely_terminal.accounting.customizations.before_validate_transaction",
+		"validate": "managely_terminal.managely_terminal.accounting.exchange_rate_guard.validate_payment_entry",
+		"before_submit": "managely_terminal.managely_terminal.accounting.exchange_rate_guard.validate_payment_entry",
 	},
 	"Journal Entry": {
 		"before_validate": "managely_terminal.managely_terminal.accounting.customizations.before_validate_transaction",
+		"validate": "managely_terminal.managely_terminal.accounting.exchange_rate_guard.validate_journal_entry",
+		"before_submit": "managely_terminal.managely_terminal.accounting.exchange_rate_guard.validate_journal_entry",
 	},
 	"Account": {
 		"before_insert": "managely_terminal.managely_terminal.accounting.customizations.autonumber_child_account",

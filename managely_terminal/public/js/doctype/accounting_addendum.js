@@ -420,11 +420,160 @@
 				recalculateStampTaxes(frm);
 			},
 			paid_from_account_currency: refreshDualCurrency,
-			validate(frm) {
+			async validate(frm) {
+				await reconcileTransactionExchangeRates(frm);
 				refreshDualCurrency(frm);
 				recalculateStampTaxes(frm);
 			},
 		});
+	}
+
+	async function reconcileTransactionExchangeRates(frm) {
+		if (frm.doc.docstatus === 1 || !frm.doc.company) return;
+
+		const companyCurrency = frm.doc._primary_currency || frm.doc.company_currency || (frm.doc.company ? erpnext.get_currency(frm.doc.company) : null);
+		if (!companyCurrency) return;
+
+		const postingDate = frm.doc.posting_date || frappe.datetime.nowdate();
+
+		async function fetchRate(fromCurr) {
+			if (!fromCurr || fromCurr === companyCurrency) return 1.0;
+			const res = await frappe.call({
+				method: "managely_terminal.managely_terminal.accounting.exchange_rate_utils.get_standard_erpnext_rate",
+				args: {
+					from_currency: fromCurr,
+					to_currency: companyCurrency,
+					transaction_date: postingDate,
+					company: frm.doc.company
+				}
+			});
+			return res.message ? flt(res.message) : null;
+		}
+
+		if (frm.doctype === "Payment Entry") {
+			let changed = false;
+			// Source side (paid_from)
+			if (frm.doc.paid_from_account_currency) {
+				const fromCurr = frm.doc.paid_from_account_currency;
+				if (fromCurr === companyCurrency) {
+					if (flt(frm.doc.source_exchange_rate) !== 1.0) {
+						frm.doc.source_exchange_rate = 1.0;
+						changed = true;
+					}
+				} else {
+					const latest = await fetchRate(fromCurr);
+					if (!latest || latest <= 0) {
+						frappe.validated = false;
+						frappe.throw(__("Exchange rate not found for {0} to {1}. Please configure under Accounts → Currency Exchange.", [fromCurr, companyCurrency]));
+						return false;
+					}
+					if (!flt(frm.doc.source_exchange_rate) || flt(frm.doc.source_exchange_rate) === 1.0 || Math.abs(flt(frm.doc.source_exchange_rate) - latest) > 0.000001) {
+						frm.doc.source_exchange_rate = latest;
+						if (flt(frm.doc.paid_amount)) {
+							frm.doc.base_paid_amount = flt(flt(frm.doc.paid_amount) * flt(latest), 2);
+						}
+						changed = true;
+					}
+				}
+			}
+
+			// Target side (paid_to)
+			if (frm.doc.paid_to_account_currency) {
+				const toCurr = frm.doc.paid_to_account_currency;
+				if (toCurr === companyCurrency) {
+					if (flt(frm.doc.target_exchange_rate) !== 1.0) {
+						frm.doc.target_exchange_rate = 1.0;
+						changed = true;
+					}
+				} else {
+					const latest = await fetchRate(toCurr);
+					if (!latest || latest <= 0) {
+						frappe.validated = false;
+						frappe.throw(__("Exchange rate not found for {0} to {1}. Please configure under Accounts → Currency Exchange.", [toCurr, companyCurrency]));
+						return false;
+					}
+					if (!flt(frm.doc.target_exchange_rate) || flt(frm.doc.target_exchange_rate) === 1.0 || Math.abs(flt(frm.doc.target_exchange_rate) - latest) > 0.000001) {
+						frm.doc.target_exchange_rate = latest;
+						if (flt(frm.doc.received_amount)) {
+							frm.doc.base_received_amount = flt(flt(frm.doc.received_amount) * flt(latest), 2);
+						}
+						changed = true;
+					}
+				}
+			}
+
+			if (changed) {
+				if (typeof frm.set_difference_amount === "function") {
+					frm.set_difference_amount();
+				}
+				frm.refresh_fields(["source_exchange_rate", "base_paid_amount", "target_exchange_rate", "base_received_amount", "difference_amount"]);
+			}
+		} else if (frm.doctype === "Journal Entry") {
+			let changed = false;
+			let hasForeign = false;
+
+			for (const row of (frm.doc.accounts || [])) {
+				const rowCurr = row.account_currency;
+				if (!rowCurr) continue;
+				if (rowCurr === companyCurrency) {
+					if (flt(row.exchange_rate) !== 1.0) {
+						row.exchange_rate = 1.0;
+						if (flt(row.debit_in_account_currency)) row.debit = flt(row.debit_in_account_currency);
+						if (flt(row.credit_in_account_currency)) row.credit = flt(row.credit_in_account_currency);
+						changed = true;
+					}
+				} else {
+					hasForeign = true;
+					const latest = await fetchRate(rowCurr);
+					if (!latest || latest <= 0) {
+						frappe.validated = false;
+						frappe.throw(__("Row #{0}: Exchange rate not found for currency {1} to {2}. Please configure under Accounts → Currency Exchange.", [row.idx, rowCurr, companyCurrency]));
+						return false;
+					}
+					if (!flt(row.exchange_rate) || flt(row.exchange_rate) === 1.0 || Math.abs(flt(row.exchange_rate) - latest) > 0.000001) {
+						row.exchange_rate = latest;
+						if (flt(row.debit_in_account_currency)) {
+							row.debit = flt(flt(row.debit_in_account_currency) * flt(latest), 2);
+						}
+						if (flt(row.credit_in_account_currency)) {
+							row.credit = flt(flt(row.credit_in_account_currency) * flt(latest), 2);
+						}
+						changed = true;
+					}
+				}
+			}
+
+			if (hasForeign && !frm.doc.multi_currency) {
+				frm.doc.multi_currency = 1;
+				frm.refresh_field("multi_currency");
+			}
+
+			if (changed) {
+				frm.doc.total_debit = flt((frm.doc.accounts || []).reduce((acc, r) => acc + flt(r.debit), 0), 2);
+				frm.doc.total_credit = flt((frm.doc.accounts || []).reduce((acc, r) => acc + flt(r.credit), 0), 2);
+				frm.doc.difference = flt(frm.doc.total_debit - frm.doc.total_credit, 2);
+				frm.refresh_fields(["accounts", "total_debit", "total_credit", "difference"]);
+			}
+		} else if (frm.doctype === "Sales Invoice" || frm.doctype === "Purchase Invoice") {
+			const invCurr = frm.doc.currency || companyCurrency;
+			if (invCurr === companyCurrency) {
+				if (flt(frm.doc.conversion_rate) !== 1.0) {
+					frm.doc.conversion_rate = 1.0;
+					frm.refresh_field("conversion_rate");
+				}
+			} else {
+				const latest = await fetchRate(invCurr);
+				if (!latest || latest <= 0) {
+					frappe.validated = false;
+					frappe.throw(__("Exchange rate not found for invoice currency {0} to {1}. Please configure under Accounts → Currency Exchange.", [invCurr, companyCurrency]));
+					return false;
+				}
+				if (!flt(frm.doc.conversion_rate) || flt(frm.doc.conversion_rate) === 1.0 || Math.abs(flt(frm.doc.conversion_rate) - latest) > 0.000001) {
+					frm.doc.conversion_rate = latest;
+					frm.refresh_field("conversion_rate");
+				}
+			}
+		}
 	}
 
 	["Sales Invoice", "Purchase Invoice", "Payment Entry", "Journal Entry"].forEach(setupTransactionForm);
