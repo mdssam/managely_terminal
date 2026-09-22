@@ -846,12 +846,10 @@ _SALES_INVOICE_EN_HTML = """
                 {{ LOGO_SQUARE }}
             </div>
             <div style="font-size: 11px; color: #555; margin-top: 8px; line-height: 1.5;">
-                <div class="bold" style="color: #111; font-size: 13px;">{{ doc.company }}</div>
-                {% set comp_addr = doc.company_address_display or "" %}
-                {% if comp_addr %}
-                <div>{{ comp_addr.replace("<br>", ", ") }}</div>
-                {% endif %}
-                {% if doc.tax_id %}<div>VAT No: <span class="bold">{{ doc.tax_id }}</span></div>{% endif %}
+                <div class="bold" style="color: #111; font-size: 13px;">Sultan Bakehouse SAL</div>
+                <div>Industrial Area, Hosrayel Jbeil, Lebanon</div>
+                <div>Tel: 09-217844</div>
+                <div>MOF: <span class="bold">4127138</span></div>
             </div>
         </div>
         <div class="invoice-details-section">
@@ -1084,12 +1082,10 @@ _SALES_INVOICE_AR_HTML = """
                 {{ LOGO_SQUARE }}
             </div>
             <div style="font-size: 11px; line-height: 1.6; color: #555;">
-                <div class="bold" style="color: #111; font-size: 13px;">{{ doc.company }}</div>
-                {% set comp_addr = doc.company_address_display or "" %}
-                {% if comp_addr %}
-                <div>{{ comp_addr.replace("<br>", ", ") }}</div>
-                {% endif %}
-                {% if doc.tax_id %}<div>الرقم الضريبي: <span class="bold">{{ doc.tax_id }}</span></div>{% endif %}
+                <div class="bold" style="color: #111; font-size: 13px;">Sultan Bakehouse SAL</div>
+                <div>المنطقة الصناعية، حصرايل جبيل، لبنان</div>
+                <div>هاتف: <span class="en">09-217844</span></div>
+                <div>الرقم المالي (MOF): <span class="bold en">4127138</span></div>
             </div>
         </div>
         <div class="invoice-details-section">
