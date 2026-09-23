@@ -350,7 +350,10 @@ _STANDARD_HTML = """__CSS__
 <table class="totals-table">
   <tr><td>Subtotal / المجموع</td><td class="r bold">{{ "{:,.2f}".format(doc.net_total or 0) }}</td></tr>
   {% for tax in doc.taxes %}
-  <tr><td>{{ tax.description or tax.account_head }} ({{ tax.rate }}%)</td><td class="r bold">{{ "{:,.2f}".format(tax.tax_amount or 0) }}</td></tr>
+  {% set tax_desc = (tax.description or tax.account_head or "VAT") | string %}
+  {% set t_label = "VAT / ضريبة" if ("vat" in tax_desc|lower or "value added tax" in tax_desc|lower) else tax_desc %}
+  {% set print_rate = (tax.rate | int) if (tax.rate == tax.rate|int) else tax.rate %}
+  <tr><td>{{ t_label }}{% if tax.rate and (print_rate|string) not in t_label %} ({{ print_rate }}%){% endif %}</td><td class="r bold">{{ "{:,.2f}".format(tax.tax_amount or 0) }}</td></tr>
   {% endfor %}
   {% if doc.discount_amount %}
   <tr><td>Discount / خصم</td><td class="r bold" style="color: red;">-{{ "{:,.2f}".format(doc.discount_amount) }}</td></tr>
@@ -453,7 +456,12 @@ _STANDARD_EN_HTML = """__CSS__
 <div class="solid"></div>
 <table class="totals-table">
   <tr><td>Subtotal</td><td class="r bold">{{ "{:,.2f}".format(doc.net_total or 0) }}</td></tr>
-  {% for tax in doc.taxes %}<tr><td>{{ tax.description or tax.account_head }} ({{ tax.rate }}%)</td><td class="r bold">{{ "{:,.2f}".format(tax.tax_amount or 0) }}</td></tr>{% endfor %}
+  {% for tax in doc.taxes %}
+  {% set tax_desc = (tax.description or tax.account_head or "VAT") | string %}
+  {% set t_label = "VAT" if ("vat" in tax_desc|lower or "value added tax" in tax_desc|lower) else tax_desc %}
+  {% set print_rate = (tax.rate | int) if (tax.rate == tax.rate|int) else tax.rate %}
+  <tr><td>{{ t_label }}{% if tax.rate and (print_rate|string) not in t_label %} ({{ print_rate }}%){% endif %}</td><td class="r bold">{{ "{:,.2f}".format(tax.tax_amount or 0) }}</td></tr>
+  {% endfor %}
   {% if doc.discount_amount %}<tr><td>Discount</td><td class="r bold" style="color: red;">-{{ "{:,.2f}".format(doc.discount_amount) }}</td></tr>{% endif %}
   <tr class="grand">
     <td style="border-top: 1.5px solid #111; padding-top: 6px;">TOTAL {{ doc.currency }}</td>
@@ -544,7 +552,12 @@ _STANDARD_AR_HTML = """__CSS__
 <div class="solid"></div>
 <table class="totals-table">
   <tr><td>المجموع الفرعي</td><td class="r en bold">{{ "{:,.2f}".format(doc.net_total or 0) }}</td></tr>
-  {% for tax in doc.taxes %}<tr><td>{{ tax.description or "ضريبة" }} ({{ tax.rate }}%)</td><td class="r en bold">{{ "{:,.2f}".format(tax.tax_amount or 0) }}</td></tr>{% endfor %}
+  {% for tax in doc.taxes %}
+  {% set tax_desc = (tax.description or "ضريبة") | string %}
+  {% set t_label = "ضريبة القيمة المضافة" if ("vat" in tax_desc|lower or "value added tax" in tax_desc|lower or "ضريبة" in tax_desc) else tax_desc %}
+  {% set print_rate = (tax.rate | int) if (tax.rate == tax.rate|int) else tax.rate %}
+  <tr><td>{{ t_label }}{% if tax.rate and (print_rate|string) not in t_label %} ({{ print_rate }}%){% endif %}</td><td class="r en bold">{{ "{:,.2f}".format(tax.tax_amount or 0) }}</td></tr>
+  {% endfor %}
   {% if doc.discount_amount %}<tr><td>خصم</td><td class="r en bold">-{{ "{:,.2f}".format(doc.discount_amount) }}</td></tr>{% endif %}
   <tr class="grand">
     <td style="border-top: 1.5px solid #111; padding-top: 6px;">الإجمالي {{ doc.currency }}</td>
@@ -688,7 +701,10 @@ _BILINGUAL_HTML = """__CSS__
 <table class="totals-table">
   <tr><td>Subtotal / المجموع الجزئي</td><td class="r bold">{{ "{:,.2f}".format(doc.net_total or 0) }}</td></tr>
   {% for tax in doc.taxes %}
-  <tr><td>{{ tax.description or "VAT" }} / ضريبة ({{ tax.rate }}%)</td><td class="r bold">{{ "{:,.2f}".format(tax.tax_amount or 0) }}</td></tr>
+  {% set tax_desc = (tax.description or "VAT") | string %}
+  {% set t_label = "VAT / ضريبة" if ("vat" in tax_desc|lower or "value added tax" in tax_desc|lower) else tax_desc %}
+  {% set print_rate = (tax.rate | int) if (tax.rate == tax.rate|int) else tax.rate %}
+  <tr><td>{{ t_label }}{% if tax.rate and (print_rate|string) not in t_label %} ({{ print_rate }}%){% endif %}</td><td class="r bold">{{ "{:,.2f}".format(tax.tax_amount or 0) }}</td></tr>
   {% endfor %}
   {% if doc.discount_amount %}
   <tr><td>Discount / خصم</td><td class="r bold" style="color: red;">-{{ "{:,.2f}".format(doc.discount_amount) }}</td></tr>
@@ -873,6 +889,11 @@ _SALES_INVOICE_EN_HTML = """
             {% endif %}
             {% if not cust_address and doc.custom_transaction_description %}
                 {% set cust_address = doc.custom_transaction_description %}
+            {% elif not cust_address and doc.description %}
+                {% set cust_address = doc.description %}
+            {% endif %}
+            {% if not cust_address %}
+                {% set cust_address = doc.custom_customer_details or (frappe.db.get_value("Customer", doc.customer, "customer_details") if doc.customer else "") or "" %}
             {% endif %}
             {% if cust_address and cust_address.strip() %}
             <div style="margin-top: 4px;">{{ cust_address.strip().replace("<br>", ", ").replace("\n", ", ") }}</div>
@@ -881,6 +902,23 @@ _SALES_INVOICE_EN_HTML = """
     </div>
 
     <!-- Items Table -->
+    {% set item_tax_map = {} %}
+    {% if doc.taxes %}
+      {% for t in doc.taxes %}
+        {% if t.item_wise_tax_detail %}
+          {% set detail = json.loads(t.item_wise_tax_detail) %}
+          {% for itm_key, val in detail.items() %}
+            {% if val is sequence %}
+              {% set _ = item_tax_map.update({itm_key: {"rate": val[0], "amount": val[1]}}) %}
+            {% elif val is mapping %}
+              {% set _ = item_tax_map.update({itm_key: {"rate": val.get("tax_rate", 0), "amount": val.get("tax_amount", 0)}}) %}
+            {% else %}
+              {% set _ = item_tax_map.update({itm_key: {"rate": val, "amount": 0}}) %}
+            {% endif %}
+          {% endfor %}
+        {% endif %}
+      {% endfor %}
+    {% endif %}
     <table class="items-table">
         <thead>
             <tr>
@@ -893,18 +931,31 @@ _SALES_INVOICE_EN_HTML = """
         </thead>
         <tbody>
             {% for item in doc.items %}
+            {% set itm_k1 = item.item_code or "" %}
+            {% set itm_k2 = item.item_name or "" %}
+            {% set itm_k3 = item.name or "" %}
             {% set tax_rate = 0 %}
-            {% if item.item_tax_rate and item.item_tax_rate != '{}' %}
-              {% set tax_rate_dict = json.loads(item.item_tax_rate) %}
-              {% for k, v in tax_rate_dict.items() %}
+            {% set tax_amount = 0 %}
+            {% if itm_k1 in item_tax_map %}
+              {% set tax_rate = item_tax_map[itm_k1].rate or 0 %}
+            {% elif itm_k2 in item_tax_map %}
+              {% set tax_rate = item_tax_map[itm_k2].rate or 0 %}
+            {% elif itm_k3 in item_tax_map %}
+              {% set tax_rate = item_tax_map[itm_k3].rate or 0 %}
+            {% elif item.item_tax_rate and item.item_tax_rate != '{}' %}
+              {% set item_tax_dict = json.loads(item.item_tax_rate) %}
+              {% for k, v in item_tax_dict.items() %}
                 {% set tax_rate = v %}
               {% endfor %}
+            {% elif doc.taxes and not item_tax_map %}
+              {% set tax_rate = doc.taxes[0].rate or 0 %}
             {% endif %}
-            {% if tax_rate == 0 and doc.taxes %}
-              {% set tax_rate = doc.taxes[0].rate %}
+            {% if tax_rate > 0 %}
+              {% set tax_amount = (item.net_amount or item.amount or 0) * (tax_rate / 100.0) %}
+            {% else %}
+              {% set tax_amount = 0 %}
             {% endif %}
-            {% set tax_amount = (item.net_amount or item.amount) * (tax_rate / 100.0) %}
-            {% set total_amount = (item.net_amount or item.amount) + tax_amount %}
+            {% set total_amount = (item.net_amount or item.amount or 0) + tax_amount %}
             <tr>
                 <td style="padding: 12px 10px;">
                     <div class="bold" style="font-size: 12px; color: #111;">{{ item.item_name or item.item_code }}</div>
@@ -953,8 +1004,13 @@ _SALES_INVOICE_EN_HTML = """
                   {% endif %}
                 <tr>
                     <td style="color:#555; padding: 8px 10px; border-bottom: 1px solid #eaeaea;">
-                        {{ tax.description }}
-                        {% if ns.tax_rate > 0 %}({{ ns.tax_rate }}%){% endif %}
+                        {% set tax_desc = (tax.description or "VAT") | string %}
+                        {% set print_rate = (ns.tax_rate | int) if (ns.tax_rate == ns.tax_rate|int) else ns.tax_rate %}
+                        {% if "vat" in tax_desc|lower or "value added tax" in tax_desc|lower %}
+                          VAT{% if ns.tax_rate > 0 %} ({{ print_rate }}%){% endif %}
+                        {% else %}
+                          {{ tax_desc }}{% if ns.tax_rate > 0 and (print_rate|string) not in tax_desc %} ({{ print_rate }}%){% endif %}
+                        {% endif %}
                     </td>
                     <td style="text-align: right; padding: 8px 10px; border-bottom: 1px solid #eaeaea;" class="en">{{ "{:,.2f}".format(tax.tax_amount or 0) }} {{ doc.currency }}</td>
                 </tr>
@@ -1109,6 +1165,11 @@ _SALES_INVOICE_AR_HTML = """
             {% endif %}
             {% if not cust_address and doc.custom_transaction_description %}
                 {% set cust_address = doc.custom_transaction_description %}
+            {% elif not cust_address and doc.description %}
+                {% set cust_address = doc.description %}
+            {% endif %}
+            {% if not cust_address %}
+                {% set cust_address = doc.custom_customer_details or (frappe.db.get_value("Customer", doc.customer, "customer_details") if doc.customer else "") or "" %}
             {% endif %}
             {% if cust_address and cust_address.strip() %}
             <div style="margin-top: 4px;">{{ cust_address.strip().replace("<br>", ", ").replace("\n", ", ") }}</div>
@@ -1117,6 +1178,23 @@ _SALES_INVOICE_AR_HTML = """
     </div>
 
     <!-- Items Table -->
+    {% set item_tax_map = {} %}
+    {% if doc.taxes %}
+      {% for t in doc.taxes %}
+        {% if t.item_wise_tax_detail %}
+          {% set detail = json.loads(t.item_wise_tax_detail) %}
+          {% for itm_key, val in detail.items() %}
+            {% if val is sequence %}
+              {% set _ = item_tax_map.update({itm_key: {"rate": val[0], "amount": val[1]}}) %}
+            {% elif val is mapping %}
+              {% set _ = item_tax_map.update({itm_key: {"rate": val.get("tax_rate", 0), "amount": val.get("tax_amount", 0)}}) %}
+            {% else %}
+              {% set _ = item_tax_map.update({itm_key: {"rate": val, "amount": 0}}) %}
+            {% endif %}
+          {% endfor %}
+        {% endif %}
+      {% endfor %}
+    {% endif %}
     <table class="items-table">
         <thead>
             <tr>
@@ -1129,18 +1207,31 @@ _SALES_INVOICE_AR_HTML = """
         </thead>
         <tbody>
             {% for item in doc.items %}
+            {% set itm_k1 = item.item_code or "" %}
+            {% set itm_k2 = item.item_name or "" %}
+            {% set itm_k3 = item.name or "" %}
             {% set tax_rate = 0 %}
-            {% if item.item_tax_rate and item.item_tax_rate != '{}' %}
-              {% set tax_rate_dict = json.loads(item.item_tax_rate) %}
-              {% for k, v in tax_rate_dict.items() %}
+            {% set tax_amount = 0 %}
+            {% if itm_k1 in item_tax_map %}
+              {% set tax_rate = item_tax_map[itm_k1].rate or 0 %}
+            {% elif itm_k2 in item_tax_map %}
+              {% set tax_rate = item_tax_map[itm_k2].rate or 0 %}
+            {% elif itm_k3 in item_tax_map %}
+              {% set tax_rate = item_tax_map[itm_k3].rate or 0 %}
+            {% elif item.item_tax_rate and item.item_tax_rate != '{}' %}
+              {% set item_tax_dict = json.loads(item.item_tax_rate) %}
+              {% for k, v in item_tax_dict.items() %}
                 {% set tax_rate = v %}
               {% endfor %}
+            {% elif doc.taxes and not item_tax_map %}
+              {% set tax_rate = doc.taxes[0].rate or 0 %}
             {% endif %}
-            {% if tax_rate == 0 and doc.taxes %}
-              {% set tax_rate = doc.taxes[0].rate %}
+            {% if tax_rate > 0 %}
+              {% set tax_amount = (item.net_amount or item.amount or 0) * (tax_rate / 100.0) %}
+            {% else %}
+              {% set tax_amount = 0 %}
             {% endif %}
-            {% set tax_amount = (item.net_amount or item.amount) * (tax_rate / 100.0) %}
-            {% set total_amount = (item.net_amount or item.amount) + tax_amount %}
+            {% set total_amount = (item.net_amount or item.amount or 0) + tax_amount %}
             <tr>
                 <td style="padding: 12px 10px;">
                     <div class="bold" style="font-size: 12px; color: #111;">{{ item.item_name or item.item_code }}</div>
@@ -1189,12 +1280,13 @@ _SALES_INVOICE_AR_HTML = """
                   {% endif %}
                 <tr>
                     <td style="color:#555; padding: 8px 10px; border-bottom: 1px solid #eaeaea;">
-                        {% if "Vat" in tax.description or "Value Added Tax" in tax.description or "ضريبة" in tax.description %}
-                          ضريبة القيمة المضافة
+                        {% set tax_desc = (tax.description or "ضريبة") | string %}
+                        {% set print_rate = (ns.tax_rate | int) if (ns.tax_rate == ns.tax_rate|int) else ns.tax_rate %}
+                        {% if "vat" in tax_desc|lower or "value added tax" in tax_desc|lower or "ضريبة" in tax_desc %}
+                          ضريبة القيمة المضافة{% if ns.tax_rate > 0 %} ({{ print_rate }}%){% endif %}
                         {% else %}
-                          {{ tax.description }}
+                          {{ tax_desc }}{% if ns.tax_rate > 0 and (print_rate|string) not in tax_desc %} ({{ print_rate }}%){% endif %}
                         {% endif %}
-                        {% if ns.tax_rate > 0 %}({{ ns.tax_rate }}%){% endif %}
                     </td>
                     <td style="text-align: left; padding: 8px 10px; border-bottom: 1px solid #eaeaea;" class="en">{{ "{:,.2f}".format(tax.tax_amount or 0) }} {{ doc.currency }}</td>
                 </tr>
