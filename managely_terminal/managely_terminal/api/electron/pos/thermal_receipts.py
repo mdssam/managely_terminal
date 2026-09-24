@@ -887,16 +887,16 @@ _SALES_INVOICE_EN_HTML = """
             {% if not cust_address and doc.customer_address %}
                 {% set cust_address = frappe.db.get_value("Address", doc.customer_address, "address_line1") or "" %}
             {% endif %}
-            {% if not cust_address and doc.custom_transaction_description %}
-                {% set cust_address = doc.custom_transaction_description %}
-            {% elif not cust_address and doc.description %}
-                {% set cust_address = doc.description %}
-            {% endif %}
-            {% if not cust_address %}
-                {% set cust_address = doc.custom_customer_details or (frappe.db.get_value("Customer", doc.customer, "customer_details") if doc.customer else "") or "" %}
-            {% endif %}
             {% if cust_address and cust_address.strip() %}
             <div style="margin-top: 4px;">{{ cust_address.strip().replace("<br>", ", ").replace("\n", ", ") }}</div>
+            {% endif %}
+            {% set cust_details = doc.custom_customer_details or (frappe.db.get_value("Customer", doc.customer, "customer_details") if doc.customer else "") or "" %}
+            {% if cust_details and cust_details.strip() and cust_details.strip() != cust_address.strip() %}
+            <div style="margin-top: 4px;">{{ cust_details.strip().replace("<br>", ", ").replace("\n", ", ") }}</div>
+            {% endif %}
+            {% set cust_desc = doc.custom_transaction_description or doc.description or "" %}
+            {% if cust_desc and cust_desc.strip() and cust_desc.strip() != cust_details.strip() and cust_desc.strip() != cust_address.strip() %}
+            <div style="margin-top: 4px;">{{ cust_desc.strip().replace("<br>", ", ").replace("\n", ", ") }}</div>
             {% endif %}
         </div>
     </div>
@@ -1163,16 +1163,16 @@ _SALES_INVOICE_AR_HTML = """
             {% if not cust_address and doc.customer_address %}
                 {% set cust_address = frappe.db.get_value("Address", doc.customer_address, "address_line1") or "" %}
             {% endif %}
-            {% if not cust_address and doc.custom_transaction_description %}
-                {% set cust_address = doc.custom_transaction_description %}
-            {% elif not cust_address and doc.description %}
-                {% set cust_address = doc.description %}
-            {% endif %}
-            {% if not cust_address %}
-                {% set cust_address = doc.custom_customer_details or (frappe.db.get_value("Customer", doc.customer, "customer_details") if doc.customer else "") or "" %}
-            {% endif %}
             {% if cust_address and cust_address.strip() %}
             <div style="margin-top: 4px;">{{ cust_address.strip().replace("<br>", ", ").replace("\n", ", ") }}</div>
+            {% endif %}
+            {% set cust_details = doc.custom_customer_details or (frappe.db.get_value("Customer", doc.customer, "customer_details") if doc.customer else "") or "" %}
+            {% if cust_details and cust_details.strip() and cust_details.strip() != cust_address.strip() %}
+            <div style="margin-top: 4px;">{{ cust_details.strip().replace("<br>", ", ").replace("\n", ", ") }}</div>
+            {% endif %}
+            {% set cust_desc = doc.custom_transaction_description or doc.description or "" %}
+            {% if cust_desc and cust_desc.strip() and cust_desc.strip() != cust_details.strip() and cust_desc.strip() != cust_address.strip() %}
+            <div style="margin-top: 4px;">{{ cust_desc.strip().replace("<br>", ", ").replace("\n", ", ") }}</div>
             {% endif %}
         </div>
     </div>
