@@ -1,0 +1,170 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "format:PAL-{YYYY}-{MM}-{DD}-{#####}",
+ "creation": "2026-09-19 04:30:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "price_list",
+  "source_price_list",
+  "operation_type",
+  "adjustment_method",
+  "adjustment_direction",
+  "adjustment_value",
+  "column_break_meta",
+  "item_group",
+  "items_count",
+  "restored",
+  "restored_by",
+  "restored_at",
+  "notes",
+  "section_snapshot",
+  "snapshot_data"
+ ],
+ "fields": [
+  {
+   "fieldname": "price_list",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Price List",
+   "options": "Price List",
+   "reqd": 1,
+   "search_index": 1
+  },
+  {
+   "fieldname": "source_price_list",
+   "fieldtype": "Link",
+   "label": "Source Price List",
+   "options": "Price List"
+  },
+  {
+   "default": "Duplicate to New List",
+   "fieldname": "operation_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Operation Type",
+   "options": "Duplicate to New List\nIn-place Update\nRestore",
+   "reqd": 1
+  },
+  {
+   "default": "Percentage",
+   "fieldname": "adjustment_method",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Adjustment Method",
+   "options": "Percentage\nFixed Amount\nExact Copy"
+  },
+  {
+   "default": "Increase",
+   "fieldname": "adjustment_direction",
+   "fieldtype": "Select",
+   "label": "Adjustment Direction",
+   "options": "Increase\nDecrease\nNone"
+  },
+  {
+   "default": "0",
+   "fieldname": "adjustment_value",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Adjustment Value",
+   "precision": "2"
+  },
+  {
+   "fieldname": "column_break_meta",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "item_group",
+   "fieldtype": "Link",
+   "label": "Item Group Filter",
+   "options": "Item Group"
+  },
+  {
+   "default": "0",
+   "fieldname": "items_count",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Items Count",
+   "read_only": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "restored",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Restored"
+  },
+  {
+   "fieldname": "restored_by",
+   "fieldtype": "Data",
+   "label": "Restored By",
+   "read_only": 1
+  },
+  {
+   "fieldname": "restored_at",
+   "fieldtype": "Datetime",
+   "label": "Restored At",
+   "read_only": 1
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "section_snapshot",
+   "fieldtype": "Section Break",
+   "label": "Snapshot Data"
+  },
+  {
+   "fieldname": "snapshot_data",
+   "fieldtype": "Code",
+   "label": "Snapshot Data (JSON)",
+   "options": "JSON",
+   "read_only": 1
+  }
+ ],
+ "index_web_pages_for_search": 0,
+ "issingle": 0,
+ "is_submittable": 0,
+ "links": [],
+ "modified": "2026-09-19 04:30:00.000000",
+ "modified_by": "Administrator",
+ "module": "Managely Terminal",
+ "name": "Price Adjustment Log",
+ "naming_rule": "Expression",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "Accounts Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "track_changes": 1
+}

@@ -47,8 +47,11 @@ doctype_js = {
 	"POS Closing Entry": "public/js/pos_closing_entry_extension.js",
 	"POS Profile": "public/js/doctype/pos_profile.js",
 	"Stock Reconciliation": "public/js/doctype/stock_reconciliation.js",
+	"Price List": "public/js/doctype/price_list.js",
 }
-# doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
+doctype_list_js = {
+	"Price List": "public/js/doctype/price_list_list.js",
+}
 doctype_tree_js = {"Account": "public/js/doctype/account_autonumber.js"}
 # doctype_calendar_js = {"doctype" : "public/js/doctype_calendar.js"}
 
@@ -288,7 +291,9 @@ scheduler_events = {
 # ------------------------------
 #
 override_whitelisted_methods = {
-	"wipe_pos_master": "managely_terminal.managely_terminal.api.electron.maintenance.wipe_pos_master"
+	"wipe_pos_master": "managely_terminal.managely_terminal.api.electron.maintenance.wipe_pos_master",
+	"erpnext.setup.utils.get_exchange_rate": "managely_terminal.managely_terminal.accounting.exchange_rate_utils.get_universal_exchange_rate",
+	"erpnext.accounts.doctype.journal_entry.journal_entry.get_exchange_rate": "managely_terminal.managely_terminal.accounting.exchange_rate_utils.journal_entry_get_exchange_rate",
 }
 #
 # each overriding function accepts a `data` argument;

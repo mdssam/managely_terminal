@@ -611,6 +611,18 @@
 	});
 
 	frappe.ui.form.on("Journal Entry Account", {
+		account(frm, cdt, cdn) {
+			const row = locals[cdt][cdn];
+			if (!row) return;
+			setTimeout(() => {
+				setDualCurrencyValues(frm, row);
+				refreshDualCurrency(frm);
+			}, 300);
+		},
+		exchange_rate(frm, cdt, cdn) {
+			setRowDualCurrency(frm, cdt, cdn);
+			refreshDualCurrency(frm);
+		},
 		debit_in_account_currency: setRowDualCurrency,
 		credit_in_account_currency: setRowDualCurrency,
 		debit: setRowDualCurrency,
