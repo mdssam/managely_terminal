@@ -766,23 +766,49 @@ _BILINGUAL_HTML = """__CSS__
 # ── Template 6: Sales Invoice EN Print (A4 Premium English Layout) ────────────
 _SALES_INVOICE_EN_HTML = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+
+@media print {
+    body, .invoice-body {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color: #000000 !important;
+        background: #ffffff !important;
+    }
+    .items-table th {
+        background-color: #f3f4f6 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+    .items-table tr {
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+    .totals-table tr {
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+}
 
 .invoice-body {
-    font-family: 'Outfit', sans-serif;
-    color: #222;
-    padding: 15mm 10mm;
-    background: #fff;
+    font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    color: #000000;
+    padding: 12mm 10mm;
+    background: #ffffff;
     max-width: 210mm;
     margin: 0 auto;
     position: relative;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    font-size: 13px;
+    line-height: 1.5;
 }
 
 .invoice-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: 35px;
+    margin-bottom: 25px;
 }
 
 .company-logo-section {
@@ -795,33 +821,36 @@ _SALES_INVOICE_EN_HTML = """
 }
 
 .invoice-title {
-    font-size: 24px;
+    font-size: 26px;
     font-weight: 900;
     letter-spacing: 1px;
-    color: #111;
+    color: #000000;
     text-transform: uppercase;
 }
 
 .items-table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 30px;
+    margin-top: 25px;
     margin-bottom: 20px;
+    table-layout: fixed;
 }
 
 .items-table th {
-    border-top: 1px solid #111;
-    border-bottom: 1px solid #111;
+    border-top: 1.5px solid #000000;
+    border-bottom: 1.5px solid #000000;
+    background-color: #f3f4f6;
     font-weight: 700;
-    font-size: 12px;
-    color: #111;
+    font-size: 13px;
+    color: #000000;
     text-transform: uppercase;
+    letter-spacing: 0.5px;
 }
 
 .items-table td {
-    border-bottom: 1px solid #eee;
-    font-size: 11.5px;
-    color: #333;
+    border-bottom: 1px solid #bbb;
+    font-size: 13px;
+    color: #000000;
 }
 
 .totals-table {
@@ -830,7 +859,16 @@ _SALES_INVOICE_EN_HTML = """
 }
 
 .totals-table td {
-    font-size: 12px;
+    font-size: 13px;
+    color: #000000;
+}
+
+.bold {
+    font-weight: 700;
+}
+
+.en {
+    font-family: 'Outfit', 'Inter', 'Segoe UI', Arial, sans-serif;
 }
 
 .watermark {
@@ -858,30 +896,30 @@ _SALES_INVOICE_EN_HTML = """
     <!-- Header -->
     <div class="invoice-header">
         <div class="company-logo-section">
-            <div style="width: 180px; margin-bottom: 15px;">
+            <div style="width: 180px; margin-bottom: 12px;">
                 {{ LOGO_SQUARE }}
             </div>
-            <div style="font-size: 11px; color: #555; margin-top: 8px; line-height: 1.5;">
-                <div class="bold" style="color: #111; font-size: 13px;">Sultan Bakehouse SAL</div>
+            <div style="font-size: 13px; color: #000000; margin-top: 8px; line-height: 1.5;">
+                <div class="bold" style="color: #000000; font-size: 15px;">Sultan Bakehouse SAL</div>
                 <div>Industrial Area, Hosrayel Jbeil, Lebanon</div>
-                <div>Tel: 09-217844</div>
+                <div>Tel: <span class="bold">09-217844</span></div>
                 <div>MOF: <span class="bold">4127138</span></div>
             </div>
         </div>
         <div class="invoice-details-section">
             <div class="invoice-title">INVOICE</div>
-            <div style="font-size: 12px; color: #555; margin-top: 8px; line-height: 1.6;">
-                <div>Invoice N°: <span class="bold" style="color: #111; font-size: 13px;">{{ doc.name }}</span></div>
-                <div style="margin-top: 3px;">Date: <span class="bold" style="color: #111;">{{ doc.posting_date }}</span></div>
+            <div style="font-size: 14px; color: #000000; margin-top: 10px; line-height: 1.6;">
+                <div>Invoice N°: <span class="bold" style="color: #000000; font-size: 15px;">{{ doc.name }}</span></div>
+                <div style="margin-top: 4px;">Date: <span class="bold" style="color: #000000;">{{ doc.posting_date }}</span></div>
             </div>
         </div>
     </div>
 
     <!-- Parties -->
-    <div style="margin-bottom: 35px; margin-top: 15px;">
-        <div class="bold" style="font-size: 12px; text-transform: uppercase; color: #111; margin-bottom: 8px; border-bottom: 1px solid #111; padding-bottom: 4px; width: 180px;">Customer Details</div>
-        <div style="font-size: 11px; line-height: 1.6; color: #555;">
-            <div class="bold" style="color: #111; font-size: 13px;">{{ doc.customer_name or doc.customer }}</div>
+    <div style="margin-bottom: 25px; margin-top: 15px;">
+        <div class="bold" style="font-size: 14px; text-transform: uppercase; color: #000000; margin-bottom: 8px; border-bottom: 1.5px solid #000000; padding-bottom: 4px; width: 190px;">Customer Details</div>
+        <div style="font-size: 13px; line-height: 1.6; color: #000000;">
+            <div class="bold" style="color: #000000; font-size: 15px;">{{ doc.customer_name or doc.customer }}</div>
             {% if doc.customer_tax_id %}<div>VAT No: <span class="bold">{{ doc.customer_tax_id }}</span></div>{% endif %}
             {% set cust_address = doc.address_display or doc.billing_address_display or "" %}
             {% if not cust_address and doc.customer_address %}
@@ -892,11 +930,11 @@ _SALES_INVOICE_EN_HTML = """
             {% endif %}
             {% set cust_details = doc.custom_customer_details or (frappe.db.get_value("Customer", doc.customer, "customer_details") if doc.customer else "") or "" %}
             {% if cust_details and cust_details.strip() and cust_details.strip() != cust_address.strip() %}
-            <div style="margin-top: 4px;">{{ cust_details.strip().replace("<br>", ", ").replace("\n", ", ") }}</div>
+            <div style="margin-top: 4px; font-weight: 500;">{{ cust_details.strip().replace("<br>", ", ").replace("\n", ", ") }}</div>
             {% endif %}
             {% set cust_desc = doc.custom_transaction_description or doc.description or "" %}
             {% if cust_desc and cust_desc.strip() and cust_desc.strip() != cust_details.strip() and cust_desc.strip() != cust_address.strip() %}
-            <div style="margin-top: 4px;">{{ cust_desc.strip().replace("<br>", ", ").replace("\n", ", ") }}</div>
+            <div style="margin-top: 4px; font-weight: 500;">{{ cust_desc.strip().replace("<br>", ", ").replace("\n", ", ") }}</div>
             {% endif %}
         </div>
     </div>
@@ -922,11 +960,11 @@ _SALES_INVOICE_EN_HTML = """
     <table class="items-table">
         <thead>
             <tr>
-                <th style="width: 45%; text-align: left; padding: 12px 10px;">Description / Product</th>
-                <th style="width: 10%; text-align: center; padding: 12px 10px;">Qty</th>
-                <th style="width: 15%; text-align: right; padding: 12px 10px;">TAX Base</th>
-                <th style="width: 15%; text-align: right; padding: 12px 10px;">TAX</th>
-                <th style="width: 15%; text-align: right; padding: 12px 10px;">Total</th>
+                <th style="width: 44%; text-align: left; padding: 10px 8px;">Description / Product</th>
+                <th style="width: 10%; text-align: center; padding: 10px 8px;">Qty</th>
+                <th style="width: 15%; text-align: right; padding: 10px 8px;">TAX Base</th>
+                <th style="width: 15%; text-align: right; padding: 10px 8px;">TAX</th>
+                <th style="width: 16%; text-align: right; padding: 10px 8px;">Total</th>
             </tr>
         </thead>
         <tbody>
@@ -957,37 +995,38 @@ _SALES_INVOICE_EN_HTML = """
             {% endif %}
             {% set total_amount = (item.net_amount or item.amount or 0) + tax_amount %}
             <tr>
-                <td style="padding: 12px 10px;">
-                    <div class="bold" style="font-size: 12px; color: #111;">{{ item.item_name or item.item_code }}</div>
+                <td style="padding: 10px 8px;">
+                    <div class="bold" style="font-size: 13.5px; color: #000000;">{{ item.item_name or item.item_code }}</div>
                     {% if item.description and item.description != item.item_name %}
-                    <div style="font-size: 10px; color: #666; margin-top: 3px;">{{ item.description }}</div>
+                    <div style="font-size: 12px; color: #222222; margin-top: 3px;">{{ item.description }}</div>
                     {% endif %}
                 </td>
-                <td style="text-align: center; padding: 12px 10px;" class="en">{{ item.qty | int }}</td>
-                <td style="text-align: right; padding: 12px 10px;" class="en">{{ "{:,.2f}".format(item.net_amount or item.amount or 0) }} {{ doc.currency }}</td>
-                <td style="text-align: right; padding: 12px 10px;" class="en">{{ "{:,.2f}".format(tax_amount) }} {{ doc.currency }}</td>
-                <td style="text-align: right; padding: 12px 10px; font-weight: bold;" class="en">{{ "{:,.2f}".format(total_amount) }} {{ doc.currency }}</td>
+                <td style="text-align: center; padding: 10px 8px; font-weight: 600;" class="en">{{ item.qty | int }}</td>
+                <td style="text-align: right; padding: 10px 8px; font-weight: 500;" class="en">{{ "{:,.2f}".format(item.net_amount or item.amount or 0) }} {{ doc.currency }}</td>
+                <td style="text-align: right; padding: 10px 8px; font-weight: 500;" class="en">{{ "{:,.2f}".format(tax_amount) }} {{ doc.currency }}</td>
+                <td style="text-align: right; padding: 10px 8px; font-weight: bold; color: #000000;" class="en">{{ "{:,.2f}".format(total_amount) }} {{ doc.currency }}</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
 
     <!-- Summary & Totals -->
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 30px;">
-        <div style="width: 50%; font-size: 11px; color: #666; line-height: 1.6;">
-            {{ doc.terms or "Payment will be made within three months from the issuance of this invoice, it will be made by bank transfer." }}
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 25px;">
+        <div style="width: 48%; font-size: 12.5px; color: #111111; line-height: 1.6;">
+            <div style="font-weight: 700; margin-bottom: 4px; color: #000000;">Terms & Conditions:</div>
+            <div>{{ doc.terms or "Payment will be made within three months from the issuance of this invoice, it will be made by bank transfer." }}</div>
             
             {% if doc.custom_qr_code %}
-            <div style="margin-top: 25px;">
-                <img src="{{ doc.custom_qr_code }}" style="width: 30mm; height: 30mm; border: 1px solid #eee;" />
+            <div style="margin-top: 20px;">
+                <img src="{{ doc.custom_qr_code }}" style="width: 32mm; height: 32mm; border: 1px solid #aaa;" />
             </div>
             {% endif %}
         </div>
-        <div style="width: 45%;">
+        <div style="width: 48%;">
             <table class="totals-table">
                 <tr>
-                    <td style="color:#555; padding: 8px 10px; border-bottom: 1px solid #eaeaea;">TAX Base</td>
-                    <td style="text-align: right; padding: 8px 10px; border-bottom: 1px solid #eaeaea;" class="en">{{ "{:,.2f}".format(doc.net_total or 0) }} {{ doc.currency }}</td>
+                    <td style="color: #000000; font-weight: 600; padding: 8px 10px; border-bottom: 1px solid #bbb;">TAX Base</td>
+                    <td style="text-align: right; padding: 8px 10px; border-bottom: 1px solid #bbb; font-weight: 600;" class="en">{{ "{:,.2f}".format(doc.net_total or 0) }} {{ doc.currency }}</td>
                 </tr>
                 {% for tax in doc.taxes %}
                 {% if tax.tax_amount %}
@@ -1003,7 +1042,7 @@ _SALES_INVOICE_EN_HTML = """
                     {% endfor %}
                   {% endif %}
                 <tr>
-                    <td style="color:#555; padding: 8px 10px; border-bottom: 1px solid #eaeaea;">
+                    <td style="color: #000000; font-weight: 600; padding: 8px 10px; border-bottom: 1px solid #bbb;">
                         {% set tax_desc = (tax.description or "VAT") | string %}
                         {% set print_rate = (ns.tax_rate | int) if (ns.tax_rate == ns.tax_rate|int) else ns.tax_rate %}
                         {% if "vat" in tax_desc|lower or "value added tax" in tax_desc|lower %}
@@ -1012,28 +1051,28 @@ _SALES_INVOICE_EN_HTML = """
                           {{ tax_desc }}{% if ns.tax_rate > 0 and (print_rate|string) not in tax_desc %} ({{ print_rate }}%){% endif %}
                         {% endif %}
                     </td>
-                    <td style="text-align: right; padding: 8px 10px; border-bottom: 1px solid #eaeaea;" class="en">{{ "{:,.2f}".format(tax.tax_amount or 0) }} {{ doc.currency }}</td>
+                    <td style="text-align: right; padding: 8px 10px; border-bottom: 1px solid #bbb; font-weight: 600;" class="en">{{ "{:,.2f}".format(tax.tax_amount or 0) }} {{ doc.currency }}</td>
                 </tr>
                 {% endif %}
                 {% endfor %}
                 {% if doc.discount_amount %}
                 <tr>
-                    <td style="color:#555; padding: 8px 10px; border-bottom: 1px solid #eaeaea;">Discount</td>
-                    <td style="text-align: right; padding: 8px 10px; border-bottom: 1px solid #eaeaea; color: red;" class="en">-{{ "{:,.2f}".format(doc.discount_amount) }} {{ doc.currency }}</td>
+                    <td style="color: #000000; font-weight: 600; padding: 8px 10px; border-bottom: 1px solid #bbb;">Discount</td>
+                    <td style="text-align: right; padding: 8px 10px; border-bottom: 1px solid #bbb; color: #b91c1c; font-weight: 700;" class="en">-{{ "{:,.2f}".format(doc.discount_amount) }} {{ doc.currency }}</td>
                 </tr>
                 {% endif %}
                 <tr class="grand-total">
-                    <td style="padding: 12px 10px; font-weight: bold; border-top: 2px solid #111; border-bottom: 2px solid #111; font-size: 14px;">Total</td>
-                    <td style="text-align: right; padding: 12px 10px; font-weight: bold; border-top: 2px solid #111; border-bottom: 2px solid #111; font-size: 14px;" class="en">{{ "{:,.2f}".format(doc.grand_total or 0) }} {{ doc.currency }}</td>
+                    <td style="padding: 12px 10px; font-weight: 900; border-top: 2.5px solid #000000; border-bottom: 2.5px solid #000000; font-size: 16px; color: #000000;">Total</td>
+                    <td style="text-align: right; padding: 12px 10px; font-weight: 900; border-top: 2.5px solid #000000; border-bottom: 2.5px solid #000000; font-size: 16px; color: #000000;" class="en">{{ "{:,.2f}".format(doc.grand_total or 0) }} {{ doc.currency }}</td>
                 </tr>
             </table>
         </div>
     </div>
 
     <!-- Stamp Section -->
-    <div style="display: flex; justify-content: flex-end; margin-top: 40px; margin-right: 20px;">
+    <div style="display: flex; justify-content: flex-end; margin-top: 35px; margin-right: 15px;">
         <div style="text-align: center; position: relative; width: 220px;">
-            <div style="font-size: 11px; font-weight: bold; color: #333; border-top: 1px solid #ddd; padding-top: 8px; margin-top: 80px;">Authorized Signature</div>
+            <div style="font-size: 13px; font-weight: 700; color: #000000; border-top: 1.5px solid #000000; padding-top: 8px; margin-top: 70px;">Authorized Signature</div>
         </div>
     </div>
 </div>
@@ -1042,25 +1081,51 @@ _SALES_INVOICE_EN_HTML = """
 # ── Template 7: Sales Invoice AR Print (A4 Premium Arabic Layout) ────────────
 _SALES_INVOICE_AR_HTML = """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&family=Cairo:wght@500;600;700;800&display=swap');
+
+@media print {
+    body, .invoice-body {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color: #000000 !important;
+        background: #ffffff !important;
+    }
+    .items-table th {
+        background-color: #f3f4f6 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+    .items-table tr {
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+    .totals-table tr {
+        page-break-inside: avoid;
+        break-inside: avoid;
+    }
+}
 
 .invoice-body {
-    font-family: 'Tajawal', sans-serif;
-    color: #222;
-    padding: 15mm 10mm;
-    background: #fff;
+    font-family: 'Tajawal', 'Cairo', 'Segoe UI', Tahoma, Arial, sans-serif;
+    color: #000000;
+    padding: 12mm 10mm;
+    background: #ffffff;
     max-width: 210mm;
     margin: 0 auto;
     position: relative;
     direction: rtl;
     text-align: right;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    font-size: 13.5px;
+    line-height: 1.5;
 }
 
 .invoice-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: 35px;
+    margin-bottom: 25px;
 }
 
 .company-logo-section {
@@ -1073,31 +1138,33 @@ _SALES_INVOICE_AR_HTML = """
 }
 
 .invoice-title {
-    font-size: 24px;
+    font-size: 26px;
     font-weight: 900;
     letter-spacing: 0.5px;
-    color: #111;
+    color: #000000;
 }
 
 .items-table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 30px;
+    margin-top: 25px;
     margin-bottom: 20px;
+    table-layout: fixed;
 }
 
 .items-table th {
-    border-top: 1px solid #111;
-    border-bottom: 1px solid #111;
+    border-top: 1.5px solid #000000;
+    border-bottom: 1.5px solid #000000;
+    background-color: #f3f4f6;
     font-weight: 700;
-    font-size: 12px;
-    color: #111;
+    font-size: 13.5px;
+    color: #000000;
 }
 
 .items-table td {
-    border-bottom: 1px solid #eee;
-    font-size: 11.5px;
-    color: #333;
+    border-bottom: 1px solid #bbb;
+    font-size: 13.5px;
+    color: #000000;
 }
 
 .totals-table {
@@ -1106,7 +1173,18 @@ _SALES_INVOICE_AR_HTML = """
 }
 
 .totals-table td {
-    font-size: 12px;
+    font-size: 13.5px;
+    color: #000000;
+}
+
+.bold {
+    font-weight: 700;
+}
+
+.en {
+    font-family: 'Outfit', 'Inter', 'Segoe UI', Arial, sans-serif;
+    direction: ltr;
+    display: inline-block;
 }
 
 .watermark {
@@ -1134,30 +1212,30 @@ _SALES_INVOICE_AR_HTML = """
     <!-- Header -->
     <div class="invoice-header">
         <div class="company-logo-section">
-            <div style="width: 180px; margin-bottom: 15px; margin-right: 0; margin-left: auto;">
+            <div style="width: 180px; margin-bottom: 12px; margin-right: 0; margin-left: auto;">
                 {{ LOGO_SQUARE }}
             </div>
-            <div style="font-size: 11px; line-height: 1.6; color: #555;">
-                <div class="bold" style="color: #111; font-size: 13px;">Sultan Bakehouse SAL</div>
+            <div style="font-size: 13.5px; line-height: 1.6; color: #000000;">
+                <div class="bold" style="color: #000000; font-size: 15px;">Sultan Bakehouse SAL</div>
                 <div>المنطقة الصناعية، حصرايل جبيل، لبنان</div>
-                <div>هاتف: <span class="en">09-217844</span></div>
+                <div>هاتف: <span class="bold en">09-217844</span></div>
                 <div>الرقم المالي (MOF): <span class="bold en">4127138</span></div>
             </div>
         </div>
         <div class="invoice-details-section">
             <div class="invoice-title">فاتورة مبيعات</div>
-            <div style="font-size: 12px; color: #555; margin-top: 8px; line-height: 1.6; text-align: left;">
-                <div>رقم الفاتورة: <span class="bold" style="color: #111; font-size: 13px;">{{ doc.name }}</span></div>
-                <div style="margin-top: 3px;">التاريخ: <span class="bold" style="color: #111;">{{ doc.posting_date }}</span></div>
+            <div style="font-size: 14px; color: #000000; margin-top: 10px; line-height: 1.6; text-align: left;">
+                <div>رقم الفاتورة: <span class="bold" style="color: #000000; font-size: 15px;">{{ doc.name }}</span></div>
+                <div style="margin-top: 4px;">التاريخ: <span class="bold" style="color: #000000;">{{ doc.posting_date }}</span></div>
             </div>
         </div>
     </div>
 
     <!-- Parties -->
-    <div style="margin-bottom: 35px; margin-top: 15px;">
-        <div class="bold" style="font-size: 12px; color: #111; margin-bottom: 8px; border-bottom: 1px solid #111; padding-bottom: 4px; width: 120px;">بيانات العميل</div>
-        <div style="font-size: 11px; line-height: 1.6; color: #555;">
-            <div class="bold" style="color: #111; font-size: 13px;">{{ doc.customer_name or doc.customer }}</div>
+    <div style="margin-bottom: 25px; margin-top: 15px;">
+        <div class="bold" style="font-size: 14px; color: #000000; margin-bottom: 8px; border-bottom: 1.5px solid #000000; padding-bottom: 4px; width: 140px;">بيانات العميل</div>
+        <div style="font-size: 13.5px; line-height: 1.6; color: #000000;">
+            <div class="bold" style="color: #000000; font-size: 15px;">{{ doc.customer_name or doc.customer }}</div>
             {% if doc.customer_tax_id %}<div>الرقم الضريبي للعميل: <span class="bold">{{ doc.customer_tax_id }}</span></div>{% endif %}
             {% set cust_address = doc.address_display or doc.billing_address_display or "" %}
             {% if not cust_address and doc.customer_address %}
@@ -1168,11 +1246,11 @@ _SALES_INVOICE_AR_HTML = """
             {% endif %}
             {% set cust_details = doc.custom_customer_details or (frappe.db.get_value("Customer", doc.customer, "customer_details") if doc.customer else "") or "" %}
             {% if cust_details and cust_details.strip() and cust_details.strip() != cust_address.strip() %}
-            <div style="margin-top: 4px;">{{ cust_details.strip().replace("<br>", ", ").replace("\n", ", ") }}</div>
+            <div style="margin-top: 4px; font-weight: 500;">{{ cust_details.strip().replace("<br>", ", ").replace("\n", ", ") }}</div>
             {% endif %}
             {% set cust_desc = doc.custom_transaction_description or doc.description or "" %}
             {% if cust_desc and cust_desc.strip() and cust_desc.strip() != cust_details.strip() and cust_desc.strip() != cust_address.strip() %}
-            <div style="margin-top: 4px;">{{ cust_desc.strip().replace("<br>", ", ").replace("\n", ", ") }}</div>
+            <div style="margin-top: 4px; font-weight: 500;">{{ cust_desc.strip().replace("<br>", ", ").replace("\n", ", ") }}</div>
             {% endif %}
         </div>
     </div>
@@ -1198,11 +1276,11 @@ _SALES_INVOICE_AR_HTML = """
     <table class="items-table">
         <thead>
             <tr>
-                <th style="width: 45%; text-align: right; padding: 12px 10px;">الوصف / المنتج</th>
-                <th style="width: 10%; text-align: center; padding: 12px 10px;">الكمية</th>
-                <th style="width: 15%; text-align: left; padding: 12px 10px;">الخاضع للضريبة</th>
-                <th style="width: 15%; text-align: left; padding: 12px 10px;">الضريبة</th>
-                <th style="width: 15%; text-align: left; padding: 12px 10px;">الإجمالي</th>
+                <th style="width: 44%; text-align: right; padding: 10px 8px;">الوصف / المنتج</th>
+                <th style="width: 10%; text-align: center; padding: 10px 8px;">الكمية</th>
+                <th style="width: 15%; text-align: left; padding: 10px 8px;">الخاضع للضريبة</th>
+                <th style="width: 15%; text-align: left; padding: 10px 8px;">الضريبة</th>
+                <th style="width: 16%; text-align: left; padding: 10px 8px;">الإجمالي</th>
             </tr>
         </thead>
         <tbody>
@@ -1233,37 +1311,38 @@ _SALES_INVOICE_AR_HTML = """
             {% endif %}
             {% set total_amount = (item.net_amount or item.amount or 0) + tax_amount %}
             <tr>
-                <td style="padding: 12px 10px;">
-                    <div class="bold" style="font-size: 12px; color: #111;">{{ item.item_name or item.item_code }}</div>
+                <td style="padding: 10px 8px;">
+                    <div class="bold" style="font-size: 13.5px; color: #000000;">{{ item.item_name or item.item_code }}</div>
                     {% if item.description and item.description != item.item_name %}
-                    <div style="font-size: 10px; color: #666; margin-top: 3px;">{{ item.description }}</div>
+                    <div style="font-size: 12px; color: #222222; margin-top: 3px;">{{ item.description }}</div>
                     {% endif %}
                 </td>
-                <td style="text-align: center; padding: 12px 10px;" class="en">{{ item.qty | int }}</td>
-                <td style="text-align: left; padding: 12px 10px;" class="en">{{ "{:,.2f}".format(item.net_amount or item.amount or 0) }} {{ doc.currency }}</td>
-                <td style="text-align: left; padding: 12px 10px;" class="en">{{ "{:,.2f}".format(tax_amount) }} {{ doc.currency }}</td>
-                <td style="text-align: left; padding: 12px 10px; font-weight: bold;" class="en">{{ "{:,.2f}".format(total_amount) }} {{ doc.currency }}</td>
+                <td style="text-align: center; padding: 10px 8px; font-weight: 600;" class="en">{{ item.qty | int }}</td>
+                <td style="text-align: left; padding: 10px 8px; font-weight: 500;" class="en">{{ "{:,.2f}".format(item.net_amount or item.amount or 0) }} {{ doc.currency }}</td>
+                <td style="text-align: left; padding: 10px 8px; font-weight: 500;" class="en">{{ "{:,.2f}".format(tax_amount) }} {{ doc.currency }}</td>
+                <td style="text-align: left; padding: 10px 8px; font-weight: bold; color: #000000;" class="en">{{ "{:,.2f}".format(total_amount) }} {{ doc.currency }}</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
 
     <!-- Summary & Totals -->
-    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 30px;">
-        <div style="width: 50%; font-size: 11px; color: #666; line-height: 1.6;">
-            {{ doc.terms or "يتم دفع مستحقات هذه الفاتورة خلال فترة ثلاثة أشهر من تاريخ إصدارها، ويتم السداد عن طريق تحويل بنكي." }}
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-top: 25px;">
+        <div style="width: 48%; font-size: 12.5px; color: #111111; line-height: 1.6;">
+            <div style="font-weight: 700; margin-bottom: 4px; color: #000000;">الشروط والأحكام:</div>
+            <div>{{ doc.terms or "يتم دفع مستحقات هذه الفاتورة خلال فترة ثلاثة أشهر من تاريخ إصدارها، ويتم السداد عن طريق تحويل بنكي." }}</div>
             
             {% if doc.custom_qr_code %}
-            <div style="margin-top: 25px; text-align: right;">
-                <img src="{{ doc.custom_qr_code }}" style="width: 30mm; height: 30mm; border: 1px solid #eee;" />
+            <div style="margin-top: 20px; text-align: right;">
+                <img src="{{ doc.custom_qr_code }}" style="width: 32mm; height: 32mm; border: 1px solid #aaa;" />
             </div>
             {% endif %}
         </div>
-        <div style="width: 45%;">
+        <div style="width: 48%;">
             <table class="totals-table">
                 <tr>
-                    <td style="color:#555; padding: 8px 10px; border-bottom: 1px solid #eaeaea;">الخاضع للضريبة</td>
-                    <td style="text-align: left; padding: 8px 10px; border-bottom: 1px solid #eaeaea;" class="en">{{ "{:,.2f}".format(doc.net_total or 0) }} {{ doc.currency }}</td>
+                    <td style="color: #000000; font-weight: 600; padding: 8px 10px; border-bottom: 1px solid #bbb;">الخاضع للضريبة</td>
+                    <td style="text-align: left; padding: 8px 10px; border-bottom: 1px solid #bbb; font-weight: 600;" class="en">{{ "{:,.2f}".format(doc.net_total or 0) }} {{ doc.currency }}</td>
                 </tr>
                 {% for tax in doc.taxes %}
                 {% if tax.tax_amount %}
@@ -1279,7 +1358,7 @@ _SALES_INVOICE_AR_HTML = """
                     {% endfor %}
                   {% endif %}
                 <tr>
-                    <td style="color:#555; padding: 8px 10px; border-bottom: 1px solid #eaeaea;">
+                    <td style="color: #000000; font-weight: 600; padding: 8px 10px; border-bottom: 1px solid #bbb;">
                         {% set tax_desc = (tax.description or "ضريبة") | string %}
                         {% set print_rate = (ns.tax_rate | int) if (ns.tax_rate == ns.tax_rate|int) else ns.tax_rate %}
                         {% if "vat" in tax_desc|lower or "value added tax" in tax_desc|lower or "ضريبة" in tax_desc %}
@@ -1288,28 +1367,28 @@ _SALES_INVOICE_AR_HTML = """
                           {{ tax_desc }}{% if ns.tax_rate > 0 and (print_rate|string) not in tax_desc %} ({{ print_rate }}%){% endif %}
                         {% endif %}
                     </td>
-                    <td style="text-align: left; padding: 8px 10px; border-bottom: 1px solid #eaeaea;" class="en">{{ "{:,.2f}".format(tax.tax_amount or 0) }} {{ doc.currency }}</td>
+                    <td style="text-align: left; padding: 8px 10px; border-bottom: 1px solid #bbb; font-weight: 600;" class="en">{{ "{:,.2f}".format(tax.tax_amount or 0) }} {{ doc.currency }}</td>
                 </tr>
                 {% endif %}
                 {% endfor %}
                 {% if doc.discount_amount %}
                 <tr>
-                    <td style="color:#555; padding: 8px 10px; border-bottom: 1px solid #eaeaea;">الخصم</td>
-                    <td style="text-align: left; padding: 8px 10px; border-bottom: 1px solid #eaeaea; color: red;" class="en">-{{ "{:,.2f}".format(doc.discount_amount) }} {{ doc.currency }}</td>
+                    <td style="color: #000000; font-weight: 600; padding: 8px 10px; border-bottom: 1px solid #bbb;">الخصم</td>
+                    <td style="text-align: left; padding: 8px 10px; border-bottom: 1px solid #bbb; color: #b91c1c; font-weight: 700;" class="en">-{{ "{:,.2f}".format(doc.discount_amount) }} {{ doc.currency }}</td>
                 </tr>
                 {% endif %}
                 <tr class="grand-total">
-                    <td style="padding: 12px 10px; font-weight: bold; border-top: 2px solid #111; border-bottom: 2px solid #111; font-size: 14px;">المجموع الكلي</td>
-                    <td style="text-align: left; padding: 12px 10px; font-weight: bold; border-top: 2px solid #111; border-bottom: 2px solid #111; font-size: 14px;" class="en">{{ "{:,.2f}".format(doc.grand_total or 0) }} {{ doc.currency }}</td>
+                    <td style="padding: 12px 10px; font-weight: 900; border-top: 2.5px solid #000000; border-bottom: 2.5px solid #000000; font-size: 16px; color: #000000;">المجموع الكلي</td>
+                    <td style="text-align: left; padding: 12px 10px; font-weight: 900; border-top: 2.5px solid #000000; border-bottom: 2.5px solid #000000; font-size: 16px; color: #000000;" class="en">{{ "{:,.2f}".format(doc.grand_total or 0) }} {{ doc.currency }}</td>
                 </tr>
             </table>
         </div>
     </div>
 
     <!-- Stamp Section -->
-    <div style="display: flex; justify-content: flex-end; margin-top: 40px; margin-left: 20px;">
+    <div style="display: flex; justify-content: flex-end; margin-top: 35px; margin-left: 15px;">
         <div style="text-align: center; position: relative; width: 220px;">
-            <div style="font-size: 11px; font-weight: bold; color: #333; border-top: 1px solid #ddd; padding-top: 8px; margin-top: 80px;">التوقيع المعتمد</div>
+            <div style="font-size: 13px; font-weight: 700; color: #000000; border-top: 1.5px solid #000000; padding-top: 8px; margin-top: 70px;">التوقيع المعتمد</div>
         </div>
     </div>
 </div>
