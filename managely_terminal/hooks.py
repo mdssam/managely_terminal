@@ -48,6 +48,7 @@ doctype_js = {
 	"POS Profile": "public/js/doctype/pos_profile.js",
 	"Stock Reconciliation": "public/js/doctype/stock_reconciliation.js",
 	"Price List": "public/js/doctype/price_list.js",
+	"BOM": "public/js/doctype/bom_recipe_updater.js",
 }
 doctype_list_js = {
 	"Price List": "public/js/doctype/price_list_list.js",

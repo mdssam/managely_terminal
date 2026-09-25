@@ -208,6 +208,14 @@ def load_existing_bom(bom_name):
 	}
 
 @frappe.whitelist()
+def get_bom_parent_count(bom_name):
+	"""Return the count of active parent BOMs that reference this BOM as a sub-assembly component."""
+	if not bom_name:
+		return 0
+	return frappe.db.count("BOM Item", filters={"bom_no": bom_name, "docstatus": 1})
+
+
+@frappe.whitelist()
 def execute_update(doc):
 	if isinstance(doc, str):
 		doc = json.loads(doc)
@@ -217,7 +225,7 @@ def execute_update(doc):
 		frappe.throw(_("Please select an existing BOM to update."))
 
 	old_bom = frappe.get_doc("BOM", selected_bom)
-	
+
 	new_bom = frappe.copy_doc(old_bom)
 	new_bom.is_active = 1
 	new_bom.is_default = 1
@@ -261,7 +269,17 @@ def execute_update(doc):
 	new_bom.insert()
 	new_bom.submit()
 
-	frappe.db.set_value("BOM", old_bom.name, "is_default", 0)
+	# Deactivate the old BOM as default and mark it inactive
+	frappe.db.set_value("BOM", old_bom.name, {"is_default": 0, "is_active": 0})
+
+	# Count parent BOMs that reference the old BOM before enqueuing replacement
+	parent_count = frappe.db.count(
+		"BOM Item", filters={"bom_no": old_bom.name, "docstatus": 1}
+	)
+
+	# Propagate the replacement across all parent BOMs using ERPNext's built-in BOM Update Tool
+	from erpnext.manufacturing.doctype.bom_update_tool.bom_update_tool import enqueue_replace_bom
+	enqueue_replace_bom(boms={"current_bom": old_bom.name, "new_bom": new_bom.name})
 
 	wizard_name = doc.get("name")
 	if wizard_name and frappe.db.exists("Manufacturing Wizard", wizard_name):
@@ -270,7 +288,13 @@ def execute_update(doc):
 	return {
 		"status": "success",
 		"bom": new_bom.name,
-		"message": _("New revision of BOM {0} created and submitted as default.").format(new_bom.name)
+		"old_bom": old_bom.name,
+		"parent_count": parent_count,
+		"message": _(
+			"BOM revision {0} created and submitted. "
+			"Replacement propagation queued across {1} parent recipe(s). "
+			"Old BOM {2} deactivated."
+		).format(new_bom.name, parent_count, old_bom.name)
 	}
 
 @frappe.whitelist()
