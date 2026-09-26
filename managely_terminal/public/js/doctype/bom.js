@@ -2,21 +2,13 @@
 // For license information, please see license.txt
 
 frappe.ui.form.on("BOM", {
-	refresh: function(frm) {
-		// Show for submitted (active/historic) BOMs
+	refresh: function (frm) {
 		if (!frm.is_new() && frm.doc.docstatus === 1) {
-			frm.add_custom_button(
-				__("Revise Recipe"),
-				function() {
-					managely_open_recipe_update_dialog(frm);
-				}
-			).addClass("btn-primary");
-
-			frm.page.add_menu_item(__("Revise Recipe"), function() {
+			frm.add_custom_button(__("Revise Recipe"), function () {
 				managely_open_recipe_update_dialog(frm);
 			});
 		}
-	}
+	},
 });
 
 function managely_open_recipe_update_dialog(frm) {
