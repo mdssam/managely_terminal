@@ -19,13 +19,13 @@ function managely_open_recipe_update_dialog(frm) {
 		},
 		freeze: true,
 		freeze_message: __("Loading recipe details..."),
-		callback: function(r) {
+		callback: function (r) {
 			if (!r.message) return;
 			var data = r.message;
 
 			var parent_list_html = "";
 			if (data.parent_count > 0) {
-				var parent_names = (data.parents || []).map(function(p) {
+				var parent_names = (data.parents || []).map(function (p) {
 					return "<b>" + (p.finished_item_name || p.finished_item || p.parent_bom) + "</b> (" + p.parent_bom + ")";
 				}).join(", ");
 
@@ -70,7 +70,7 @@ function managely_open_recipe_update_dialog(frm) {
 						in_place_edit: true,
 						reqd: 1,
 						data: data.items || [],
-						get_data: function() {
+						get_data: function () {
 							return data.items || [];
 						},
 						fields: [
@@ -80,11 +80,12 @@ function managely_open_recipe_update_dialog(frm) {
 								options: "Item",
 								label: __("Item Code"),
 								in_list_view: 1,
+								columns: 2,
 								reqd: 1,
-								change: function() {
+								change: function () {
 									var row = this.doc;
 									if (row.item_code) {
-										frappe.db.get_value("Item", row.item_code, ["item_name", "stock_uom", "valuation_rate"], function(val) {
+										frappe.db.get_value("Item", row.item_code, ["item_name", "stock_uom", "valuation_rate"], function (val) {
 											if (val) {
 												row.item_name = val.item_name;
 												row.uom = val.stock_uom;
@@ -102,6 +103,7 @@ function managely_open_recipe_update_dialog(frm) {
 								fieldtype: "Data",
 								label: __("Item Name"),
 								in_list_view: 1,
+								columns: 2,
 								read_only: 1
 							},
 							{
@@ -109,6 +111,7 @@ function managely_open_recipe_update_dialog(frm) {
 								fieldtype: "Float",
 								label: __("Quantity"),
 								in_list_view: 1,
+								columns: 1,
 								reqd: 1
 							},
 							{
@@ -116,19 +119,29 @@ function managely_open_recipe_update_dialog(frm) {
 								fieldtype: "Link",
 								options: "UOM",
 								label: __("UOM"),
-								in_list_view: 1
+								in_list_view: 1,
+								columns: 1
 							},
 							{
 								fieldname: "rate",
 								fieldtype: "Currency",
 								label: __("Rate"),
-								in_list_view: 1
+								in_list_view: 1,
+								columns: 2
+							},
+							{
+								fieldname: "custom_notes",
+								fieldtype: "Small Text",
+								label: __("Notes"),
+								in_list_view: 1,
+								columns: 2,
+								no_copy: 1
 							}
 						]
 					}
 				],
 				primary_action_label: __("Save & Propagate Revision"),
-				primary_action: function(values) {
+				primary_action: function (values) {
 					var raw_items = d.fields_dict.items.grid.get_data();
 					if (!raw_items || raw_items.length === 0) {
 						frappe.msgprint({
@@ -139,7 +152,7 @@ function managely_open_recipe_update_dialog(frm) {
 						return;
 					}
 
-					var valid_items = raw_items.filter(function(it) {
+					var valid_items = raw_items.filter(function (it) {
 						return it.item_code && flt(it.qty) > 0;
 					});
 
@@ -156,7 +169,7 @@ function managely_open_recipe_update_dialog(frm) {
 						? __("Are you sure you want to create a new revision and automatically update {0} linked parent dish(es)?", [data.parent_count])
 						: __("Are you sure you want to submit a new revision for this recipe?");
 
-					frappe.confirm(confirm_msg, function() {
+					frappe.confirm(confirm_msg, function () {
 						frappe.call({
 							method: "managely_terminal.managely_manufacturing.recipe_updater.update_recipe_and_propagate",
 							args: {
@@ -166,7 +179,7 @@ function managely_open_recipe_update_dialog(frm) {
 							},
 							freeze: true,
 							freeze_message: __("Updating recipe and propagating to parent dishes..."),
-							callback: function(res) {
+							callback: function (res) {
 								if (res.message && res.message.status === "success") {
 									d.hide();
 

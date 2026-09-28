@@ -25,6 +25,7 @@ def get_recipe_details(bom_name: str) -> dict:
 			"uom": it.uom,
 			"rate": flt(it.rate),
 			"amount": flt(it.amount),
+			"custom_notes": it.get("custom_notes") or "",
 		})
 
 	# Get parent BOMs using this BOM as a component
@@ -96,13 +97,16 @@ def update_recipe_and_propagate(current_bom: str, items: str | list, new_quantit
 
 		rate = flt(it.get("rate", 0))
 		uom = it.get("uom") or frappe.db.get_value("Item", item_code, "stock_uom")
-		new_bom.append("items", {
+		row = {
 			"item_code": item_code,
 			"qty": qty,
 			"uom": uom,
 			"rate": rate,
 			"stock_uom": uom,
-		})
+		}
+		if "custom_notes" in it:
+			row["custom_notes"] = it.get("custom_notes") or ""
+		new_bom.append("items", row)
 
 	if not new_bom.items:
 		frappe.throw(_("Recipe must have at least one ingredient with a quantity greater than zero."))
