@@ -60,7 +60,7 @@ def get_recipe_details(bom_name: str) -> dict:
 
 
 @frappe.whitelist()
-def update_recipe_and_propagate(current_bom: str, items: str | list, new_quantity: float | None = None) -> dict:
+def update_recipe_and_propagate(current_bom: str, items: str | list, new_quantity: float | None = None, new_uom: str | None = None) -> dict:
 	"""Creates a new BOM revision with updated items, deactivates the old BOM,
 
 	and triggers ERPNext's official BOM Update Tool to replace it in all parent recipes.
@@ -84,6 +84,8 @@ def update_recipe_and_propagate(current_bom: str, items: str | list, new_quantit
 	new_bom.is_default = 1
 	if new_quantity and flt(new_quantity) > 0:
 		new_bom.quantity = flt(new_quantity)
+	if new_uom:
+		new_bom.uom = new_uom
 
 	# 2. Reset and populate updated items
 	new_bom.items = []

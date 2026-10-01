@@ -59,6 +59,17 @@ function managely_open_recipe_update_dialog(frm) {
 						reqd: 1
 					},
 					{
+						fieldtype: "Column Break"
+					},
+					{
+						fieldname: "batch_uom",
+						fieldtype: "Link",
+						options: "UOM",
+						label: __("Batch Output UOM"),
+						default: data.uom || "",
+						reqd: 1
+					},
+					{
 						fieldname: "section_items",
 						fieldtype: "Section Break",
 						label: __("Recipe Ingredients")
@@ -175,7 +186,8 @@ function managely_open_recipe_update_dialog(frm) {
 							args: {
 								current_bom: frm.doc.name,
 								items: valid_items,
-								new_quantity: values.batch_qty
+								new_quantity: values.batch_qty,
+								new_uom: values.batch_uom
 							},
 							freeze: true,
 							freeze_message: __("Updating recipe and propagating to parent dishes..."),
