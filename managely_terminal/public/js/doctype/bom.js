@@ -52,9 +52,13 @@ function managely_open_recipe_update_dialog(frm) {
 						options: parent_list_html
 					},
 					{
+						fieldtype: "Section Break",
+						label: __("Batch Output")
+					},
+					{
 						fieldname: "batch_qty",
 						fieldtype: "Float",
-						label: __("Batch Output Quantity"),
+						label: __("Quantity"),
 						default: data.quantity || 1.0,
 						reqd: 1
 					},
@@ -65,7 +69,7 @@ function managely_open_recipe_update_dialog(frm) {
 						fieldname: "batch_uom",
 						fieldtype: "Link",
 						options: "UOM",
-						label: __("Batch Output UOM"),
+						label: __("UOM"),
 						default: data.uom || "",
 						reqd: 1
 					},
