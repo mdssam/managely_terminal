@@ -223,6 +223,89 @@ def get_standard_erpnext_rate(from_currency, to_currency=None, transaction_date=
 @frappe.whitelist()
 def get_reconciled_exchange_rate(from_currency, to_currency=None, transaction_date=None, company=None):
 	"""
-	Fetch latest exchange rate bidirectionally from Currency Exchange doctype.
+	Fetch latest exchange rate bidirectionally from Currency Exchange doctype
+	specifically for Multi Currency Payment and dual-currency UI displays.
+	For secondary currencies (e.g. LBP), returns the market quote (> 1.0, e.g. 89,500).
 	"""
+	if not company:
+		company = frappe.defaults.get_user_default("Company")
+
+	if not to_currency and company:
+		to_currency = frappe.get_cached_value("Company", company, "default_currency")
+
+	if not to_currency:
+		to_currency = frappe.db.get_single_value("System Settings", "default_currency") or "USD"
+
+	if not from_currency or from_currency == to_currency:
+		return 1.0
+
+	if not transaction_date:
+		transaction_date = nowdate()
+
+	date_str = get_datetime_str(transaction_date)
+	sec_curr = frappe.get_cached_value("Company", company, "custom_secondary_currency") if company else None
+
+	# If secondary currency is involved (e.g. LBP vs USD)
+	if sec_curr and (from_currency == sec_curr or to_currency == sec_curr):
+		primary_curr = to_currency if from_currency == sec_curr else from_currency
+
+		# 1. Look for USD -> LBP in Currency Exchange (the standard market quote where 1 USD = 89,500 LBP)
+		rate = frappe.db.get_value(
+			"Currency Exchange",
+			{
+				"from_currency": primary_curr,
+				"to_currency": sec_curr,
+				"date": ["<=", date_str],
+			},
+			"exchange_rate",
+			order_by="date desc",
+		)
+		if not rate:
+			rate = frappe.db.get_value(
+				"Currency Exchange",
+				{
+					"from_currency": primary_curr,
+					"to_currency": sec_curr,
+				},
+				"exchange_rate",
+				order_by="date desc",
+			)
+		if rate and flt(rate) > 0:
+			rate = flt(rate)
+			return rate if rate > 1.0 else flt(1.0 / rate)
+
+		# 2. Look for LBP -> USD in Currency Exchange
+		inv_rate = frappe.db.get_value(
+			"Currency Exchange",
+			{
+				"from_currency": sec_curr,
+				"to_currency": primary_curr,
+				"date": ["<=", date_str],
+			},
+			"exchange_rate",
+			order_by="date desc",
+		)
+		if not inv_rate:
+			inv_rate = frappe.db.get_value(
+				"Currency Exchange",
+				{
+					"from_currency": sec_curr,
+					"to_currency": primary_curr,
+				},
+				"exchange_rate",
+				order_by="date desc",
+			)
+		if inv_rate and flt(inv_rate) > 0:
+			inv_rate = flt(inv_rate)
+			return inv_rate if inv_rate > 1.0 else flt(1.0 / inv_rate)
+
+		# 3. Fallback to company dual rate
+		from managely_terminal.managely_terminal.accounting.customizations import get_company_dual_rate
+
+		dual_rate = get_company_dual_rate(company, transaction_date)
+		if dual_rate and flt(dual_rate) > 0:
+			dual_rate = flt(dual_rate)
+			return dual_rate if dual_rate > 1.0 else flt(1.0 / dual_rate)
+
+	# For any foreign currency other than secondary currency, use universal rate:
 	return get_universal_exchange_rate(from_currency, to_currency, transaction_date, company=company)

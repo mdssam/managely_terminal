@@ -143,7 +143,7 @@ class MultiCurrencyPayment(Document):
 				elif not flt(row.exchange_rate) or flt(row.exchange_rate) <= 0 or flt(row.exchange_rate) == 1.0:
 					frappe.throw(_(
 						"Exchange Rate is required for currency <b>{0}</b> in row {1}. "
-						"Please set an exchange rate or configure it under Accounts → Currency Exchange."
+						"Please configure it under Accounts → Currency Exchange."
 					).format(row.currency, row.idx))
 
 			# Amount in Base Currency = Amount × Exchange Rate

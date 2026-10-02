@@ -108,7 +108,8 @@
    "fieldname": "exchange_rate",
    "fieldtype": "Float",
    "label": "Exchange Rate",
-   "precision": "6"
+   "precision": "6",
+   "read_only": 1
   },
   {
    "fieldname": "cost_center",

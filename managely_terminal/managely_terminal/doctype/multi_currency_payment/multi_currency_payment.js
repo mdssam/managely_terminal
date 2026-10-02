@@ -76,6 +76,14 @@ frappe.ui.form.on("Multi Currency Payment", {
 	},
 
 	refresh(frm) {
+		if (frm.fields_dict.exchange_rate) {
+			frm.set_df_property("exchange_rate", "read_only", 1);
+		}
+		if (frm.fields_dict.lines && frm.fields_dict.lines.grid) {
+			frm.fields_dict.lines.grid.update_docfield_property("currency", "read_only", 1);
+			frm.fields_dict.lines.grid.update_docfield_property("exchange_rate", "read_only", 1);
+		}
+
 		frm.set_query("party_type", () => ({
 			filters: [["Party Type", "name", "in", ["Customer", "Supplier", "Employee", "Shareholder"]]]
 		}));
@@ -465,8 +473,8 @@ function fetchLineExchangeRate(frm, cdt, cdn) {
 				frappe.model.set_value(cdt, cdn, "exchange_rate", rate);
 			} else {
 				frappe.msgprint(__(
-					"No exchange rate configured for {0} to {1}. Please enter rate manually in row {2} or configure under Accounts → Currency Exchange.",
-					[row.currency, companyCurrency, row.idx]
+					"No exchange rate configured for {0} to {1}. Please configure under Accounts → Currency Exchange.",
+					[row.currency, companyCurrency]
 				));
 			}
 			_recalcBase(frm, cdt, cdn);
@@ -485,6 +493,7 @@ function toggleSecondaryFields(frm, enabled, priCurr, secCurr) {
 	// Dual currency totals & exchange rate
 	if (frm.fields_dict.exchange_rate) {
 		frm.set_df_property("exchange_rate", "hidden", isHidden);
+		frm.set_df_property("exchange_rate", "read_only", 1);
 	}
 	if (frm.fields_dict.total_usd) {
 		frm.set_df_property("total_usd", "hidden", isHidden);

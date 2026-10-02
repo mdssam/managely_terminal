@@ -42,6 +42,7 @@
    "in_list_view": 1,
    "label": "Exchange Rate",
    "precision": "6",
+   "read_only": 1,
    "columns": 2
   },
   {

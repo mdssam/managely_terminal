@@ -32,6 +32,7 @@
 
 		if (frm.fields_dict.custom_exchange_rate_override) {
 			frm.set_df_property("custom_exchange_rate_override", "hidden", isHidden);
+			frm.set_df_property("custom_exchange_rate_override", "read_only", 1);
 			if (enabled) {
 				frm.set_df_property("custom_exchange_rate_override", "label", __("Exchange Rate"));
 			}
@@ -332,6 +333,9 @@
 				}
 			},
 			refresh(frm) {
+				if (frm.fields_dict.custom_exchange_rate_override) {
+					frm.set_df_property("custom_exchange_rate_override", "read_only", 1);
+				}
 				syncCompanyCurrencies(frm, () => {
 					if (frm.doc._secondary_currency) {
 						if (frm.is_new() && !frm.doc.custom_exchange_rate_override && frm.doc.company) {

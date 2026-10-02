@@ -77,7 +77,7 @@ def setup_custom_fields():
 		else:
 			update_data = {k: v for k, v in f.items() if k in (
 				"insert_after", "reqd", "bold", "hidden", "description", "label",
-				"depends_on", "mandatory_depends_on", "precision", "options",
+				"depends_on", "mandatory_depends_on", "precision", "options", "read_only",
 			)}
 			if "precision" not in f:
 				update_data["precision"] = None
@@ -223,6 +223,7 @@ def _transaction_parent_fields(dt, insert_after, exchange_insert_after="currency
 			"label": "Exchange Rate Override",
 			"fieldtype": "Float",
 			"insert_after": exchange_insert_after,
+			"read_only": 1,
 		},
 	]
 
