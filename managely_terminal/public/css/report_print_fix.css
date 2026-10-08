@@ -68,12 +68,33 @@
 /* =========================================================
    LETTER HEAD EXCLUSIONS & SAFEGUARDS
    ========================================================= */
-.print-format-gutter .print-format .letter-head {
-    margin-bottom: 12px !important;
+.print-format-gutter .print-format .letter-head,
+.print-format .letter-head,
+.letter-head {
+    margin-bottom: 8px !important;
+}
+
+/* Universal Letterhead Image Safeguard - Strictly enforces logo height across all views */
+.letter-head img,
+.print-format .letter-head img,
+.print-format-gutter .print-format .letter-head img,
+#header-html img,
+div[id="header-html"] img,
+.sultan-lh-container img,
+.letter-head-preview img {
+    height: 48px !important;
+    max-height: 48px !important;
+    width: auto !important;
+    max-width: 220px !important;
+    display: block !important;
+    margin: 0 !important;
+    object-fit: contain !important;
 }
 
 .print-format-gutter .print-format table.sultan-lh-table,
-.print-format-gutter .print-format .letter-head table {
+.print-format-gutter .print-format .letter-head table,
+.print-format table.sultan-lh-table,
+.print-format .letter-head table {
     width: 100% !important;
     border-collapse: collapse !important;
     border: none !important;
@@ -84,7 +105,11 @@
 .print-format-gutter .print-format table.sultan-lh-table td,
 .print-format-gutter .print-format table.sultan-lh-table th,
 .print-format-gutter .print-format .letter-head table td,
-.print-format-gutter .print-format .letter-head table th {
+.print-format-gutter .print-format .letter-head table th,
+.print-format table.sultan-lh-table td,
+.print-format table.sultan-lh-table th,
+.print-format .letter-head table td,
+.print-format .letter-head table th {
     border: none !important;
     background: transparent !important;
     color: #322f14 !important;
@@ -100,7 +125,9 @@
     display: none !important;
 }
 
-.print-format-gutter .print-format .sultan-lh-divider {
+.print-format-gutter .print-format .sultan-lh-divider,
+.print-format .sultan-lh-divider,
+.sultan-lh-divider {
     border-top: 2px solid #322f14 !important;
     margin-top: 8px !important;
     margin-bottom: 12px !important;
@@ -203,9 +230,9 @@
 
 /* Opening and Total Rows */
 .report-total-row td,
-.print-format-gutter .print-format table tr:has(b) td,
-.print-format-gutter .print-format table tr:has(strong) td,
-.print-format-gutter .print-format table tr[style*="font-weight: bold"] td {
+.print-format-gutter .print-format table tr.report-total-row td,
+.print-format-gutter .print-format table tr[style*="font-weight: bold"] td,
+.print-format-gutter .print-format table tr[style*="font-weight:bold"] td {
     font-weight: 700 !important;
     border-top: 1.5px solid #322f14 !important;
     border-bottom: 2px solid #322f14 !important;

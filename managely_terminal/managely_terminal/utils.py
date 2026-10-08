@@ -208,6 +208,28 @@ def custom_report_to_pdf(html, orientation="Landscape"):
 				classes.remove("hidden-pdf")
 			h_tag["class"] = classes
 
+	# 3. Constrain all logo and letterhead images to exact branding dimensions
+	for img in soup.find_all("img"):
+		if (
+			img.find_parent(class_="letter-head")
+			or img.find_parent(id="header-html")
+			or "logo" in img.get("src", "").lower()
+			or "sultan" in img.get("alt", "").lower()
+			or "sultan" in img.get("src", "").lower()
+		):
+			img["style"] = "height: 48px !important; max-height: 48px !important; width: auto !important; max-width: 220px !important; display: block !important;"
+			if img.has_attr("width"):
+				del img["width"]
+			if img.has_attr("height"):
+				del img["height"]
+
+	lh_div = soup.find(class_="letter-head")
+	if lh_div and not lh_div.find(class_="sultan-lh-divider"):
+		divider_tag = soup.new_tag("div")
+		divider_tag["class"] = "sultan-lh-divider"
+		divider_tag["style"] = "width: 100%; border-top: 2px solid #322f14; margin-top: 8px; margin-bottom: 8px; clear: both;"
+		lh_div.append(divider_tag)
+
 	margin_top = "10mm"
 
 	# 2. Inspect data table and sanitize columns
@@ -369,17 +391,31 @@ def custom_report_to_pdf(html, orientation="Landscape"):
         border-radius: 0 !important;
     }}
 }}
-.letter-head {{ margin-bottom: 6px !important; }}
-.letter-head img {{ height: 48px !important; width: auto !important; max-width: 220px !important; display: block !important; }}
+.letter-head {{
+    margin-bottom: 8px !important;
+}}
+.letter-head img,
+#header-html img,
+div[id="header-html"] img,
+.sultan-lh-container img,
+.letter-head-preview img {{
+    height: 48px !important;
+    max-height: 48px !important;
+    width: auto !important;
+    max-width: 220px !important;
+    display: block !important;
+    margin: 0 !important;
+    object-fit: contain !important;
+}}
 .sultan-lh-divider {{ border-top: 2px solid #322f14 !important; margin-top: 6px !important; margin-bottom: 8px !important; clear: both !important; }}
 
 thead {{ display: table-header-group !important; }}
 tr {{ page-break-inside: avoid !important; }}
 
 .report-total-row td,
-.print-format-gutter .print-format table tr:has(b) td,
-.print-format-gutter .print-format table tr:has(strong) td,
-.print-format-gutter .print-format table tr[style*="font-weight: bold"] td {{
+.print-format-gutter .print-format table tr.report-total-row td,
+.print-format-gutter .print-format table tr[style*="font-weight: bold"] td,
+.print-format-gutter .print-format table tr[style*="font-weight:bold"] td {{
     font-weight: 700 !important;
     border-top: 1.5px solid #322f14 !important;
     border-bottom: 2px solid #322f14 !important;
