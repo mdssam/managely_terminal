@@ -1463,6 +1463,6 @@ def create_thermal_print_formats():
     frappe.db.sql("UPDATE `tabPOS Profile` SET custom_pos_print_format_en='Managely Thermal Standard EN', custom_pos_print_format_ar='Managely Thermal Standard AR', print_format='Managely Thermal Standard EN'")
     
     # Set default print format for Sales Invoice DocType
-    frappe.db.set_value("DocType", "Sales Invoice", "default_print_format", "Managely Sales Invoice EN")
+    frappe.db.set_value("DocType", "Sales Invoice", "default_print_format", "Sultan Invoice")
     
     frappe.db.commit()

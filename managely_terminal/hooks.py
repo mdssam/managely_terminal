@@ -100,6 +100,7 @@ after_migrate = [
     "managely_terminal.managely_terminal.accounting.customizations.setup_custom_fields",
     "managely_terminal.managely_terminal.setup_fields.run",
     "managely_terminal.managely_manufacturing.setup.setup_manufacturing_onboarding",
+    "managely_terminal.managely_terminal.setup_print_formats.setup_sultan_print_formats",
 ]
 
 # Uninstallation
@@ -296,6 +297,7 @@ override_whitelisted_methods = {
 	"wipe_pos_master": "managely_terminal.managely_terminal.api.electron.maintenance.wipe_pos_master",
 	"erpnext.setup.utils.get_exchange_rate": "managely_terminal.managely_terminal.accounting.exchange_rate_utils.get_universal_exchange_rate",
 	"erpnext.accounts.doctype.journal_entry.journal_entry.get_exchange_rate": "managely_terminal.managely_terminal.accounting.exchange_rate_utils.journal_entry_get_exchange_rate",
+	"frappe.utils.print_format.report_to_pdf": "managely_terminal.managely_terminal.utils.custom_report_to_pdf",
 }
 #
 # each overriding function accepts a `data` argument;

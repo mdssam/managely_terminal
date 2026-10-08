@@ -1,22 +1,33 @@
 /* =========================================================
    REPORT PRINTING & PREVIEW AUTO-FIT FIX (managely_terminal)
-   Prevents wide query/script reports (e.g. General Ledger)
-   from overflowing outside printable page boundaries.
+   Sultan Bakery Brand Identity & High-Contrast Print Styling
    ========================================================= */
+/* Top-level rule required by frappe.utils.pdf:get_print_format_styles cssutils parser */
+.print-format {
+    margin-top: 10mm !important;
+    margin-bottom: 10mm !important;
+    margin-left: 4mm !important;
+    margin-right: 4mm !important;
+}
+
+.print-format-gutter .print-format hr {
+    display: none !important;
+}
 
 @media screen {
     .print-format-gutter {
-        padding: 15px 10px !important;
-        background-color: #d1d8dd !important;
+        padding: 20px 15px !important;
+        background-color: #e2e8f0 !important;
         overflow-x: auto !important;
     }
     .print-format-gutter .print-format {
         max-width: 98% !important;
         width: fit-content !important;
         min-width: 8.3in !important;
-        padding: 0.25in !important;
+        padding: 0.3in !important;
         margin: 0 auto !important;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.12) !important;
+        background: #ffffff !important;
     }
     .print-format-gutter .print-format.landscape {
         min-width: 11.69in !important;
@@ -25,20 +36,25 @@
 
 @media print {
     @page {
-        size: A4 landscape !important;
-        margin: 5mm !important;
+        margin-top: 10mm !important;
+        margin-bottom: 10mm !important;
+        margin-left: 4mm !important;
+        margin-right: 4mm !important;
     }
     html, body {
         width: 100% !important;
         margin: 0 !important;
         padding: 0 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
     }
     .print-format-gutter {
         background: transparent !important;
         padding: 0 !important;
         margin: 0 !important;
     }
-    .print-format-gutter .print-format {
+    .print-format-gutter .print-format,
+    .print-format {
         width: 100% !important;
         max-width: 100% !important;
         min-width: 100% !important;
@@ -49,52 +65,163 @@
     }
 }
 
-/* Scoped exclusively to reports inside .print-format-gutter */
-.print-format-gutter .print-format table {
+/* =========================================================
+   LETTER HEAD EXCLUSIONS & SAFEGUARDS
+   ========================================================= */
+.print-format-gutter .print-format .letter-head {
+    margin-bottom: 12px !important;
+}
+
+.print-format-gutter .print-format table.sultan-lh-table,
+.print-format-gutter .print-format .letter-head table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    border: none !important;
+    margin: 0 !important;
+    background: transparent !important;
+}
+
+.print-format-gutter .print-format table.sultan-lh-table td,
+.print-format-gutter .print-format table.sultan-lh-table th,
+.print-format-gutter .print-format .letter-head table td,
+.print-format-gutter .print-format .letter-head table th {
+    border: none !important;
+    background: transparent !important;
+    color: #322f14 !important;
+    padding: 0 !important;
+    font-size: 8pt !important;
+    font-weight: normal !important;
+}
+
+.print-format-gutter .print-format table.sultan-lh-table td:nth-child(2),
+.print-format-gutter .print-format .letter-head table td:nth-child(2),
+.print-format table.sultan-lh-table td:nth-child(2),
+.print-format .letter-head table td:nth-child(2) {
+    display: none !important;
+}
+
+.print-format-gutter .print-format .sultan-lh-divider {
+    border-top: 2px solid #322f14 !important;
+    margin-top: 8px !important;
+    margin-bottom: 12px !important;
+    clear: both !important;
+}
+
+/* =========================================================
+   REPORT TITLES & HEADINGS
+   ========================================================= */
+.print-format-gutter .print-format h2 {
+    font-size: 14pt !important;
+    font-weight: 700 !important;
+    color: #322f14 !important;
+    margin: 6px 0 2px 0 !important;
+    text-align: center !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+}
+
+.print-format-gutter .print-format h4,
+.print-format-gutter .print-format h5 {
+    font-size: 8.5pt !important;
+    color: #475569 !important;
+    margin: 0 0 12px 0 !important;
+    text-align: center !important;
+    font-weight: 500 !important;
+}
+
+/* =========================================================
+   REPORT DATA TABLE STYLING (Scoped exclusively to reports)
+   ========================================================= */
+.print-format-gutter .print-format table:not(.sultan-lh-table),
+.print-format-gutter .print-format table.table,
+.print-format-gutter .print-format table.table-bordered {
     width: 100% !important;
     max-width: 100% !important;
     table-layout: auto !important;
     border-collapse: collapse !important;
-    margin-top: 10px !important;
-    margin-bottom: 10px !important;
+    border: 1.5px solid #322f14 !important;
+    margin-top: 6px !important;
+    margin-bottom: 12px !important;
 }
 
-/* Override inline min-width styles on <th> columns */
-.print-format-gutter .print-format table th {
+/* Professional Sultan Brand Header */
+.print-format-gutter .print-format table:not(.sultan-lh-table) th,
+.print-format table:not(.sultan-lh-table) th,
+.print-format-gutter .print-format table.table-bordered th {
     min-width: 0 !important;
-    width: auto !important;
     white-space: normal !important;
-    word-break: break-word !important;
-    overflow-wrap: anywhere !important;
-    font-size: 8pt !important;
-    padding: 3px 2px !important;
-    line-height: 1.2 !important;
-    vertical-align: middle !important;
-}
-
-/* Format data cells for maximum fit and readability */
-.print-format-gutter .print-format table td {
-    white-space: normal !important;
-    word-break: break-word !important;
-    overflow-wrap: anywhere !important;
+    word-break: normal !important;
+    word-wrap: normal !important;
+    overflow-wrap: normal !important;
     font-size: 7.5pt !important;
-    padding: 2px 2px !important;
-    line-height: 1.2 !important;
+    padding: 4px 4px !important;
+    line-height: 1.25 !important;
     vertical-align: middle !important;
+    border: 1px solid #4a4520 !important;
+    border-bottom: 2px solid #322f14 !important;
+    background-color: #322f14 !important;
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    text-align: center !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
 }
 
-/* Handle total and fixed-height rows gracefully */
-.print-format-gutter .print-format table tr[style*="height: 30px"],
-.print-format-gutter .print-format table tr {
+/* Crisp Clean Borders for Data Cells (Prints visibly on all printers) */
+.print-format-gutter .print-format table:not(.sultan-lh-table) td,
+.print-format-gutter .print-format table.table-bordered td {
+    font-size: 8.5pt !important;
+    padding: 5px 8px !important;
+    line-height: 1.25 !important;
+    vertical-align: middle !important;
+    border: 1px solid #94a3b8 !important;
+    color: #1e293b !important;
     height: auto !important;
 }
 
-/* Keep report header clean */
-.print-format-gutter .print-format h2 {
-    font-size: 14pt !important;
-    margin: 4px 0 !important;
+.print-format-gutter .print-format table:not(.sultan-lh-table) td.text-right,
+.print-format-gutter .print-format table:not(.sultan-lh-table) th.text-right {
+    text-align: right !important;
+    white-space: nowrap !important;
 }
 
-.print-format-gutter .print-format hr {
-    margin: 4px 0 8px 0 !important;
+.print-format-gutter .print-format table:not(.sultan-lh-table) td:not(.text-right) {
+    word-break: normal !important;
+    word-wrap: break-word !important;
+}
+
+.print-format-gutter .print-format table:not(.sultan-lh-table) td span {
+    display: inline-block !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+/* Alternating subtle row color */
+.print-format-gutter .print-format table:not(.sultan-lh-table) tbody tr:nth-child(even) td {
+    background-color: #f8fafc !important;
+}
+
+/* Opening and Total Rows */
+.report-total-row td,
+.print-format-gutter .print-format table tr:has(b) td,
+.print-format-gutter .print-format table tr:has(strong) td,
+.print-format-gutter .print-format table tr[style*="font-weight: bold"] td {
+    font-weight: 700 !important;
+    border-top: 1.5px solid #322f14 !important;
+    border-bottom: 2px solid #322f14 !important;
+    background-color: #f1f5f9 !important;
+}
+
+thead {
+    display: table-header-group !important;
+}
+
+tr {
+    page-break-inside: avoid !important;
+}
+
+/* Handle fixed-height rows gracefully */
+.print-format-gutter .print-format table tr[style*="height: 30px"],
+.print-format-gutter .print-format table tr {
+    height: auto !important;
 }
