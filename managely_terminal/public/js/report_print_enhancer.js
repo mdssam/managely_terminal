@@ -29,6 +29,9 @@ frappe.provide("managely_terminal");
                 if (pick_columns && pick_columns.length > 8 && (!data.orientation || data.orientation === "Portrait")) {
                     data.orientation = "Landscape";
                 }
+                if (data.with_letter_head && !data.letter_head) {
+                    data.letter_head = "Sultan Bakery";
+                }
                 if (callback) {
                     callback(data);
                 }
@@ -38,15 +41,19 @@ frappe.provide("managely_terminal");
                 frappe.ui,
                 pdf,
                 wrapped_callback,
-                letter_head,
+                letter_head || "Sultan Bakery",
                 pick_columns,
                 has_filters
             );
 
-            // Pre-select Landscape if report columns > 8
-            if (pick_columns && pick_columns.length > 8 && dialog && typeof dialog.set_value === "function") {
+            // Pre-select Landscape if report columns > 8, and pre-select Letter Head
+            if (dialog && typeof dialog.set_value === "function") {
                 try {
-                    dialog.set_value("orientation", "Landscape");
+                    if (pick_columns && pick_columns.length > 8) {
+                        dialog.set_value("orientation", "Landscape");
+                    }
+                    dialog.set_value("with_letter_head", 1);
+                    dialog.set_value("letter_head", "Sultan Bakery");
                 } catch (e) {
                     // Ignore if field is not initialized yet
                 }
