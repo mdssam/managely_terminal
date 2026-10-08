@@ -17,8 +17,9 @@ app_license = "mit"
 # ------------------
 
 # include js, css files in header of desk.html
-# app_include_css = "/assets/managely_terminal/css/managely_terminal.css"
-# app_include_js = "/assets/managely_terminal/js/managely_terminal_pos_modifier.js"
+app_include_css = "/assets/managely_terminal/css/report_print_fix.css"
+app_include_js = "/assets/managely_terminal/js/report_print_enhancer.js"
+
 
 # page_js = {"point-of-sale": "public/js/pos_extension.js"}
 
@@ -371,5 +372,12 @@ fixtures = [
 	"Property Setter",
 	"Custom DocPerm",
 	"Client Script",
-	{"dt": "Workspace", "filters": [["name", "in", ["Accounting"]]]}
+	{"dt": "Workspace", "filters": [["name", "in", ["Accounting"]]]},
+	{"dt": "Print Format", "filters": [["module", "=", "Managely Terminal"]]}
 ]
+
+extend_bootinfo = [
+	"managely_terminal.managely_terminal.utils.extend_bootinfo"
+]
+
+

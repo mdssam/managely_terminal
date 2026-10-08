@@ -1,0 +1,100 @@
+/* =========================================================
+   REPORT PRINTING & PREVIEW AUTO-FIT FIX (managely_terminal)
+   Prevents wide query/script reports (e.g. General Ledger)
+   from overflowing outside printable page boundaries.
+   ========================================================= */
+
+@media screen {
+    .print-format-gutter {
+        padding: 15px 10px !important;
+        background-color: #d1d8dd !important;
+        overflow-x: auto !important;
+    }
+    .print-format-gutter .print-format {
+        max-width: 98% !important;
+        width: fit-content !important;
+        min-width: 8.3in !important;
+        padding: 0.25in !important;
+        margin: 0 auto !important;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+    }
+    .print-format-gutter .print-format.landscape {
+        min-width: 11.69in !important;
+    }
+}
+
+@media print {
+    @page {
+        size: A4 landscape !important;
+        margin: 5mm !important;
+    }
+    html, body {
+        width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+    }
+    .print-format-gutter {
+        background: transparent !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+    .print-format-gutter .print-format {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 100% !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+    }
+}
+
+/* Scoped exclusively to reports inside .print-format-gutter */
+.print-format-gutter .print-format table {
+    width: 100% !important;
+    max-width: 100% !important;
+    table-layout: auto !important;
+    border-collapse: collapse !important;
+    margin-top: 10px !important;
+    margin-bottom: 10px !important;
+}
+
+/* Override inline min-width styles on <th> columns */
+.print-format-gutter .print-format table th {
+    min-width: 0 !important;
+    width: auto !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+    font-size: 8pt !important;
+    padding: 3px 2px !important;
+    line-height: 1.2 !important;
+    vertical-align: middle !important;
+}
+
+/* Format data cells for maximum fit and readability */
+.print-format-gutter .print-format table td {
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+    font-size: 7.5pt !important;
+    padding: 2px 2px !important;
+    line-height: 1.2 !important;
+    vertical-align: middle !important;
+}
+
+/* Handle total and fixed-height rows gracefully */
+.print-format-gutter .print-format table tr[style*="height: 30px"],
+.print-format-gutter .print-format table tr {
+    height: auto !important;
+}
+
+/* Keep report header clean */
+.print-format-gutter .print-format h2 {
+    font-size: 14pt !important;
+    margin: 4px 0 !important;
+}
+
+.print-format-gutter .print-format hr {
+    margin: 4px 0 8px 0 !important;
+}
